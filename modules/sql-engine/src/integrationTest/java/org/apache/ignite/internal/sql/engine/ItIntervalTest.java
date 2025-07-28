@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.dateTi
 import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.instant;
 import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.toSqlType;
 import static org.apache.ignite.sql.ColumnType.DATETIME;
 import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
@@ -50,6 +51,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -63,6 +65,7 @@ import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
@@ -546,8 +549,10 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("testDatetimePlusMinusIntervalWithFractionOfSecondArgs")
+    @MethodSource("testDatetimePlusMinusIntervalWithFractionOfSecondLiteralArgs")
     public void testDatetimePlusMinusIntervalWithFractionOfSecond(String expr, Temporal expected, ColumnType expType, int expPrecision) {
+        SqlTypeName sqlType = SqlTestUtils.columnType2SqlTypeName(expType);
+
         assertQuery("SELECT " + expr)
                 .withTimeZoneId(ZoneOffset.UTC)
                 .columnMetadata(new MetadataMatcher().type(expType).precision(expPrecision))
@@ -555,21 +560,13 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 .check();
 
         Consumer<Integer> updateValidator = columnPrecision -> {
-            String columnPrefix = null;
-
-            if (expType == TIME) {
-                columnPrefix = "time";
-            } else if (expType == DATETIME) {
-                columnPrefix = "timestamp";
-            } else if (expType == TIMESTAMP) {
-                columnPrefix = "timestamp_with_local_time_zone";
-            }
+            String columnPrefix = sqlType.getName();
 
             assertQuery(format("UPDATE datetime_cols SET {}{}_col={}", columnPrefix, columnPrecision, expr))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .check();
 
-            assertQuery(format("SELECT {}{}_col FROM datetime_cols", columnPrefix, columnPrecision))
+            assertQuery(format("SELECT {}{}_col FROM datetime_cols", sqlType.getName(), columnPrecision))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expType).precision(columnPrecision))
                     .returns(SqlTestUtils.adjustTemporalPrecision(expType, expected, Math.min(expPrecision, columnPrecision)))
@@ -583,222 +580,377 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         updateValidator.accept(3);
     }
 
-    private static Stream<Arguments> testDatetimePlusMinusIntervalWithFractionOfSecondArgs() {
+    private static Stream<Arguments> testDatetimePlusMinusIntervalWithFractionOfSecondLiteralArgs() {
         return Stream.concat(
-                // DATETIME + INTERVAL
-                Stream.of(
-                        // SQL 2016 10.1 syntax rule 6 "interval fractional seconds precision" should be 6 by default
-                        Arguments.of("TIME '00:00:00'", "INTERVAL '1' SECOND", time("00:00:01"), TIME, 6),
-                        Arguments.of("TIME '00:00:00'", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
-                        Arguments.of("TIME '00:00:00'", "INTERVAL '1:1' MINUTE TO SECOND", time("00:01:01"), TIME, 6),
+                testDatetimePlusIntervalWithFractionOfSecondArgs()
+                        .flatMap(arg -> {
+                            Object[] args = arg.get();
+                            String literal = format("{} '{}'{}", toSqlType((ColumnType) args[4]), args[0], args[1]);
 
-                        // INTERVAL precision greater than the TIME precision.
-                        Arguments.of("TIME '00:00:00'", "INTERVAL '0.001' SECOND", time("00:00:00.001"), TIME, 6),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.2"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.11"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.101"), TIME, 3),
+                            return Stream.of(
+                                    // datetime + interval
+                                    Arguments.of(literal + " + " + args[2], args[3], args[4], args[5]),
+                                    // interval + datetime
+                                    Arguments.of(args[2] + " + " + literal, args[3], args[4], args[5]));
+                        }),
+                testDatetimeMinusIntervalWithFrartionOfSecondArgs()
+                        .map(arg -> {
+                            Object[] args = arg.get();
+                            String expression = format("{} '{}'{} - {}", toSqlType((ColumnType) args[4]), args[0], args[1], args[2]);
 
-                        Arguments.of("TIME '00:00:00'", "INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("00:01:11.11"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '1:11.011' MINUTE TO SECOND(3)", time("00:01:11.111"), TIME, 3),
+                            // datetime - interval
+                            return Arguments.of(expression, args[3], args[4], args[5]);
+                        })
+        );
+    }
 
-                        // TIME precision greater than the INTERVAL precision.
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.1"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.01'", "INTERVAL '1' SECOND(1, 1)", time("00:00:01.01"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.001'", "INTERVAL '1' SECOND(1, 2)", time("00:00:01.001"), TIME, 3),
-                        Arguments.of("TIME '00:00:00.1'", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.01'", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.01"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.001'", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.001"), TIME, 3),
+    @ParameterizedTest
+    @MethodSource("testDatetimePlusMinusIntervalWithFractionOfSecondDynParamArgs")
+    public void testDatetimePlusMinusIntervalWithFractionOfSecondDynParam(String expr, Temporal param, Temporal expected,
+            ColumnType expType, int expPrecision) {
+        SqlTypeName sqlType = SqlTestUtils.columnType2SqlTypeName(expType);
 
-                        // TIMESTAMP
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00'", "INTERVAL '1' SECOND",
-                                dateTime("1970-01-01 00:00:01"), DATETIME, 6),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00'", "INTERVAL '1' SECOND(1, 0)",
-                                dateTime("1970-01-01 00:00:01"), DATETIME, 0),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00'", "INTERVAL '1:1' MINUTE TO SECOND",
-                                dateTime("1970-01-01 00:01:01"), DATETIME, 6),
+        assertQuery("SELECT " + expr)
+                .withParam(param)
+                .withTimeZoneId(ZoneOffset.UTC)
+                .columnMetadata(new MetadataMatcher().type(expType).precision(expPrecision))
+                .returns(expected)
+                .check();
 
-                        // INTERVAL precision greater than the TIMESTAMP precision.
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00'", "INTERVAL '0.001' SECOND",
-                                dateTime("1970-01-01 00:00:00.001"), DATETIME, 6),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '0.1' SECOND(1, 1)",
-                                dateTime("1970-01-01 00:00:00.2"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '0.01' SECOND(1, 2)",
-                                dateTime("1970-01-01 00:00:00.11"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '0.001' SECOND(1, 3)",
-                                dateTime("1970-01-01 00:00:00.101"), DATETIME, 3),
+        Consumer<Integer> updateValidator = columnPrecision -> {
+            String columnPrefix = sqlType.getName();
 
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00'", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
-                                dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
-                                dateTime("1970-01-01 00:01:11.11"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
-                                dateTime("1970-01-01 00:01:11.111"), DATETIME, 3),
+            assertQuery(format("UPDATE datetime_cols SET {}{}_col={}", columnPrefix, columnPrecision, expr))
+                    .withParam(param)
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .check();
 
-                        // TIMESTAMP precision greater than the INTERVAL precision.
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '1' SECOND(1, 0)",
-                                dateTime("1970-01-01 00:00:01.1"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.01'", "INTERVAL '1' SECOND(1, 1)",
-                                dateTime("1970-01-01 00:00:01.01"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.001'", "INTERVAL '1' SECOND(1, 2)",
-                                dateTime("1970-01-01 00:00:01.001"), DATETIME, 3),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.01'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1970-01-01 00:01:01.01"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.001'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1970-01-01 00:01:01.001"), DATETIME, 3),
+            assertQuery(format("SELECT {}{}_col FROM datetime_cols", sqlType.getName(), columnPrecision))
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .columnMetadata(new MetadataMatcher().type(expType).precision(columnPrecision))
+                    .returns(SqlTestUtils.adjustTemporalPrecision(expType, expected, Math.min(expPrecision, columnPrecision)))
+                    .check();
+        };
 
-                        // TIMESTAMP WITH LOCAL TIME ZONE
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'", "INTERVAL '1' SECOND",
-                                instant("1970-01-01 00:00:01"), TIMESTAMP, 6),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'", "INTERVAL '1' SECOND(1, 0)",
-                                instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'", "INTERVAL '1:1' MINUTE TO SECOND",
-                                instant("1970-01-01 00:01:01"), TIMESTAMP, 6),
+        // UPDATE column with precision 0-3.
+        updateValidator.accept(0);
+        updateValidator.accept(1);
+        updateValidator.accept(2);
+        updateValidator.accept(3);
+    }
 
-                        // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'", "INTERVAL '0.001' SECOND",
-                                instant("1970-01-01 00:00:00.001"), TIMESTAMP, 6),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '0.1' SECOND(1, 1)",
-                                instant("1970-01-01 00:00:00.2"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '0.01' SECOND(1, 2)",
-                                instant("1970-01-01 00:00:00.11"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '0.001' SECOND(1, 3)",
-                                instant("1970-01-01 00:00:00.101"), TIMESTAMP, 3),
+    private static Stream<Arguments> testDatetimePlusMinusIntervalWithFractionOfSecondDynParamArgs() {
+        BiFunction<String, ColumnType, Temporal> parser = (value, type) -> {
+            switch (type) {
+                case TIME:
+                    return time(value);
 
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
-                                instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
-                                instant("1970-01-01 00:01:11.11"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
-                                instant("1970-01-01 00:01:11.111"), TIMESTAMP, 3),
+                case DATETIME:
+                    return dateTime(value);
 
-                        // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '1' SECOND(1, 0)",
-                                instant("1970-01-01 00:00:01.1"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.01'", "INTERVAL '1' SECOND(1, 1)",
-                                instant("1970-01-01 00:00:01.01"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.001'", "INTERVAL '1' SECOND(1, 2)",
-                                instant("1970-01-01 00:00:01.001"), TIMESTAMP, 3),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.01'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1970-01-01 00:01:01.01"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.001'", "INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1970-01-01 00:01:01.001"), TIMESTAMP, 3)
-                ).flatMap(arg -> {
-                    Object[] args = arg.get();
+                case TIMESTAMP:
+                    return instant(value);
 
-                    return Stream.of(
-                            // datetime + interval
-                            Arguments.of(args[0] + " + " + args[1], args[2], args[3], args[4]),
-                            // interval + datetime
-                            Arguments.of(args[1] + " + " + args[0], args[2], args[3], args[4]));
-                }),
-                // DATETIME - INTERVAL
-                Stream.of(
-                        // TIME - INTERVAL
-                        Arguments.of("TIME '00:00:01' - INTERVAL '1' SECOND", time("00:00:00"), TIME, 6),
-                        Arguments.of("TIME '00:00:01' - INTERVAL '1' SECOND(1, 0)", time("00:00:00"), TIME, 0),
-                        Arguments.of("TIME '00:01:01' - INTERVAL '1:1' MINUTE TO SECOND", time("00:00:00"), TIME, 6),
+                default:
+                    throw new IllegalArgumentException("Unexpected type " + type);
+            }
+        };
 
-                        // INTERVAL precision greater than the TIME precision.
-                        Arguments.of("TIME '00:00:00' - INTERVAL '0.001' SECOND", time("23:59:59.999"), TIME, 6),
-                        Arguments.of("TIME '00:00:00.9' - INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.8"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.9' - INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.89"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.9' - INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.899"), TIME, 3),
+        return Stream.concat(
+                testDatetimePlusIntervalWithFractionOfSecondArgs()
+                        .flatMap(arg -> {
+                            Object[] args = arg.get();
+                            Temporal input = parser.apply((String) args[0], (ColumnType) args[4]);
+                            String paramExpr = format("?{}", args[1]);
 
-                        Arguments.of("TIME '00:00:00' - INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("23:58:58.9"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.1' - INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("23:58:49.090"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.1' - INTERVAL '1:11.001' MINUTE TO SECOND(3)", time("23:58:49.099"), TIME, 3),
+                            // The default precision of a dynamic parameter is different from a literal,
+                            // we need to override it if there was no explicit type cast.
+                            if (((String) args[1]).isEmpty()) {
+                                args[5] = IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+                            }
 
-                        // TIME precision greater than the INTERVAL precision.
-                        Arguments.of("TIME '00:00:00.1' - INTERVAL '1' SECOND(1, 0)", time("23:59:59.1"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.01' - INTERVAL '1' SECOND(1, 1)", time("23:59:59.01"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.001' - INTERVAL '1' SECOND(1, 2)", time("23:59:59.001"), TIME, 3),
-                        Arguments.of("TIME '00:00:00.1' - INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.1"), TIME, 1),
-                        Arguments.of("TIME '00:00:00.01' - INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.01"), TIME, 2),
-                        Arguments.of("TIME '00:00:00.001' - INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.001"), TIME, 3),
+                            return Stream.of(
+                                    // datetime + interval
+                                    Arguments.of(paramExpr + " + " + args[2], input, args[3], args[4], args[5]),
+                                    // interval + datetime
+                                    Arguments.of(args[2] + " + " + paramExpr, input, args[3], args[4], args[5]));
+                        }),
+                testDatetimeMinusIntervalWithFrartionOfSecondArgs()
+                        .map(arg -> {
+                            Object[] args = arg.get();
+                            Temporal input = parser.apply((String) args[0], (ColumnType) args[4]);
+                            String expression = format("?{} - {}", args[1], args[2]);
 
-                        // TIMESTAMP - INTERVAL
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:01' - INTERVAL '1' SECOND",
-                                dateTime("1970-01-01 00:00:00"), DATETIME, 6),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:01' - INTERVAL '1' SECOND(1, 0)",
-                                dateTime("1970-01-01 00:00:00"), DATETIME, 0),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:01:01' - INTERVAL '1:1' MINUTE TO SECOND",
-                                dateTime("1970-01-01 00:00:00"), DATETIME, 6),
+                            // The default precision of a dynamic parameter is different from a literal,
+                            // we need to override it if there was no explicit type cast.
+                            if (((String) args[1]).isEmpty()) {
+                                args[5] = IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+                            }
 
-                        // INTERVAL precision greater than the TIMESTAMP precision.
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00' - INTERVAL '0.001' SECOND",
-                                dateTime("1969-12-31 23:59:59.999"), DATETIME, 6),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.9' - INTERVAL '0.1' SECOND(1, 1)",
-                                dateTime("1970-01-01 00:00:00.8"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.9' - INTERVAL '0.01' SECOND(1, 2)",
-                                dateTime("1970-01-01 00:00:00.89"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.9' - INTERVAL '0.001' SECOND(1, 3)",
-                                dateTime("1970-01-01 00:00:00.899"), DATETIME, 3),
+                            // datetime - interval
+                            return Arguments.of(expression, input, args[3], args[4], args[5]);
+                        })
+        );
+    }
 
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00' - INTERVAL '1:1.1' MINUTE TO SECOND(1)",
-                                dateTime("1969-12-31 23:58:58.9"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1' - INTERVAL '1:11.01' MINUTE TO SECOND(2)",
-                                dateTime("1969-12-31 23:58:49.090"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1' - INTERVAL '1:11.001' MINUTE TO SECOND(3)",
-                                dateTime("1969-12-31 23:58:49.099"), DATETIME, 3),
+    private static Stream<Arguments> testDatetimePlusIntervalWithFractionOfSecondArgs() {
+        // DATETIME + INTERVAL
+        return Stream.of(
+                // SQL 2016 10.1 syntax rule 6 "interval fractional seconds precision" should be 6 by default
+                Arguments.of("00:00:00", "", "INTERVAL '1' SECOND", time("00:00:01"), TIME, 6),
+                Arguments.of("00:00:00", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND", time("00:01:01"), TIME, 6),
+                Arguments.of("00:00:00", "::TIME(9)", "INTERVAL '1:1' MINUTE TO SECOND", time("00:01:01"), TIME, 9),
 
-                        // TIMESTAMP precision greater than the INTERVAL precision.
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1' - INTERVAL '1' SECOND(1, 0)",
-                                dateTime("1969-12-31 23:59:59.1"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.01' - INTERVAL '1' SECOND(1, 1)",
-                                dateTime("1969-12-31 23:59:59.01"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.001' - INTERVAL '1' SECOND(1, 2)",
-                                dateTime("1969-12-31 23:59:59.001"), DATETIME, 3),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.1' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1969-12-31 23:58:59.1"), DATETIME, 1),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.01' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1969-12-31 23:58:59.01"), DATETIME, 2),
-                        Arguments.of("TIMESTAMP '1970-01-01 00:00:00.001' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                dateTime("1969-12-31 23:58:59.001"), DATETIME, 3),
+                // INTERVAL precision greater than the TIME precision.
+                Arguments.of("00:00:00", "", "INTERVAL '0.001' SECOND", time("00:00:00.001"), TIME, 6),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.2"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.11"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.101"), TIME, 3),
 
-                        // TIMESTAMP_LTZ - INTERVAL
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:01' - INTERVAL '1' SECOND",
-                                instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:01' - INTERVAL '1' SECOND(1, 0)",
-                                instant("1970-01-01 00:00:00"), TIMESTAMP, 0),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:01:01' - INTERVAL '1:1' MINUTE TO SECOND",
-                                instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
+                Arguments.of("00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("00:01:11.11"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)", time("00:01:11.111"), TIME, 3),
 
-                        // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00' - INTERVAL '0.001' SECOND",
-                                instant("1969-12-31 23:59:59.999"), TIMESTAMP, 6),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.9' - INTERVAL '0.1' SECOND(1, 1)",
-                                instant("1970-01-01 00:00:00.8"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.9' - INTERVAL '0.01' SECOND(1, 2)",
-                                instant("1970-01-01 00:00:00.89"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.9' - INTERVAL '0.001' SECOND(1, 3)",
-                                instant("1970-01-01 00:00:00.899"), TIMESTAMP, 3),
+                // TIME precision greater than the INTERVAL precision.
+                Arguments.of("00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)", time("00:00:01.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)", time("00:00:01.001"), TIME, 3),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.001"), TIME, 3),
 
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00' - INTERVAL '1:1.1' MINUTE TO SECOND(1)",
-                                instant("1969-12-31 23:58:58.9"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1' - INTERVAL '1:11.01' MINUTE TO SECOND(2)",
-                                instant("1969-12-31 23:58:49.090"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1' - INTERVAL '1:11.001' MINUTE TO SECOND(3)",
-                                instant("1969-12-31 23:58:49.099"), TIMESTAMP, 3),
+                // TIME literal and dyn param with explicit cast.
+                Arguments.of("00:00:00", "::TIME(0)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00", "::TIME(3)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 3),
+                Arguments.of("00:00:00", "::TIME(6)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 6),
+                Arguments.of("00:00:00", "::TIME(9)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 9),
+                Arguments.of("00:00:00.111", "::TIME(0)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00.111", "::TIME(1)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.1"), TIME, 1),
+                Arguments.of("00:00:00.111", "::TIME(2)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.11"), TIME, 2),
+                Arguments.of("00:00:00.111", "::TIME(3)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.111"), TIME, 3),
 
-                        // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1' - INTERVAL '1' SECOND(1, 0)",
-                                instant("1969-12-31 23:59:59.1"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.01' - INTERVAL '1' SECOND(1, 1)",
-                                instant("1969-12-31 23:59:59.01"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.001' - INTERVAL '1' SECOND(1, 2)",
-                                instant("1969-12-31 23:59:59.001"), TIMESTAMP, 3),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.1' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1969-12-31 23:58:59.1"), TIMESTAMP, 1),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.01' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1969-12-31 23:58:59.01"), TIMESTAMP, 2),
-                        Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.001' - INTERVAL '1:1' MINUTE TO SECOND(1)",
-                                instant("1969-12-31 23:58:59.001"), TIMESTAMP, 3)
-                )
+                // TIMESTAMP
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        dateTime("1970-01-01 00:01:01"), DATETIME, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        dateTime("1970-01-01 00:00:00.001"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:00.2"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:00.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        dateTime("1970-01-01 00:00:00.101"), DATETIME, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        dateTime("1970-01-01 00:01:11.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
+                        dateTime("1970-01-01 00:01:11.111"), DATETIME, 3),
+
+                // TIMESTAMP precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:01.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:01.001"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.001"), DATETIME, 3),
+
+                // TIMESTAMP literal and dyn param with explicit cast
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(0)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(3)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(6)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(9)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 9),
+
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(0)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(1)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(2)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(3)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.111"), DATETIME, 3),
+
+                // TIMESTAMP WITH LOCAL TIME ZONE
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        instant("1970-01-01 00:01:01"), TIMESTAMP, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        instant("1970-01-01 00:00:00.001"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:00.2"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:00.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        instant("1970-01-01 00:00:00.101"), TIMESTAMP, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        instant("1970-01-01 00:01:11.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
+                        instant("1970-01-01 00:01:11.111"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:01.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:01.001"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.001"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ literal and dyn param with explicit cast
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(0) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(3) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(6) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(9) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 9),
+
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(0) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(1) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(2) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(3) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.111"), TIMESTAMP, 3)
+        );
+    }
+
+    private static Stream<Arguments> testDatetimeMinusIntervalWithFrartionOfSecondArgs() {
+        // DATETIME - INTERVAL
+        return Stream.of(
+                // TIME
+                Arguments.of("00:00:01", "", "INTERVAL '1' SECOND", time("00:00:00"), TIME, 6),
+                Arguments.of("00:00:01", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:00"), TIME, 0),
+                Arguments.of("00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND", time("00:00:00"), TIME, 6),
+
+                // INTERVAL precision greater than the TIME precision.
+                Arguments.of("00:00:00", "", "INTERVAL '0.001' SECOND", time("23:59:59.999"), TIME, 6),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.8"), TIME, 1),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.89"), TIME, 2),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.899"), TIME, 3),
+
+                Arguments.of("00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("23:58:58.9"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("23:58:49.090"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)", time("23:58:49.099"), TIME, 3),
+
+                // TIME precision greater than the INTERVAL precision.
+                Arguments.of("00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)", time("23:59:59.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)", time("23:59:59.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)", time("23:59:59.001"), TIME, 3),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.001"), TIME, 3),
+
+                // TIMESTAMP", "", "INTERVAL
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        dateTime("1969-12-31 23:59:59.999"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:00.8"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:00.89"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        dateTime("1970-01-01 00:00:00.899"), DATETIME, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:58.9"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        dateTime("1969-12-31 23:58:49.090"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)",
+                        dateTime("1969-12-31 23:58:49.099"), DATETIME, 3),
+
+                // TIMESTAMP precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1969-12-31 23:59:59.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        dateTime("1969-12-31 23:59:59.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        dateTime("1969-12-31 23:59:59.001"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.001"), DATETIME, 3),
+
+                // TIMESTAMP_LTZ", "", "INTERVAL
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        instant("1969-12-31 23:59:59.999"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:00.8"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:00.89"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        instant("1970-01-01 00:00:00.899"), TIMESTAMP, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:58.9"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        instant("1969-12-31 23:58:49.090"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)",
+                        instant("1969-12-31 23:58:49.099"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1969-12-31 23:59:59.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        instant("1969-12-31 23:59:59.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        instant("1969-12-31 23:59:59.001"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.001"), TIMESTAMP, 3)
         );
     }
 

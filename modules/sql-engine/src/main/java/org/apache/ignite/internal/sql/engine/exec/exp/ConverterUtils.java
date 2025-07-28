@@ -249,7 +249,9 @@ public class ConverterUtils {
             return convertToTimestamp(operand, targetType);
         }
 
-        if (targetType.getSqlTypeName() == SqlTypeName.TIME) {
+        // This method 'convert' can be called in interval arithmetic expression to cast a long to an int.
+        // In this case, we do not need to adjust the value to the specified precision.
+        if (targetType.getSqlTypeName() == SqlTypeName.TIME && operand.getType() != long.class) {
             return convertToTime(operand, targetType);
         }
 
