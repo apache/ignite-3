@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
@@ -1217,16 +1218,54 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Destroys replication protocol storages for the given group ID.
      *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void destroyReplicationProtocolStoragesOnStartup(ReplicationGroupId replicaGrpId)
+            throws NodeStoppingException {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        // We use 'isVolatileStorage' of false because on startup it's not a problem if the value is wrong. If it actually
+        // was volatile, the log storage is already destroyed on an earlier phase of node startup, so we will just issue an excessive
+        // log storage destruction request, and it's not a problem as persistent log storage with same table/zone ID cannot exist
+        // if the storage was volatile.
+        RaftGroupOptions groupOptions = groupOptionsForPartition(false, null);
+
+        ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
+    }
+
+    /**
+     * Destroys replication protocol storages for the given group ID.
+     *
+     * <p>Destruction is durable: that is, if this method returns and after that the node crashes, after it starts up, the storage
+     * will not be there.
+     *
      * @param replicaGrpId Replication group ID.
      * @param isVolatileStorage is table storage volatile?
      * @throws NodeStoppingException If the node is being stopped.
      */
-    public void destroyReplicationProtocolStorages(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
+    public void destroyReplicationProtocolStoragesDurably(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
             throws NodeStoppingException {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
-        ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
+        ((Loza) raftManager).destroyRaftNodeStoragesDurably(raftNodeId, groupOptions);
+    }
+
+    /**
+     * Returns IDs of all partitions of tables for which any storage of replication protocol is present on disk.
+     */
+    public Set<TablePartitionId> replicationProtocolTablePartitionIdsOnDisk() throws NodeStoppingException {
+        return ((Loza) raftManager).raftNodeIdsOnDisk().stream()
+                .map(id -> {
+                    assert id.peer().idx() == 0 : id;
+
+                    return id.groupIdName();
+                })
+                .filter(PartitionGroupId::matchesString)
+                .map(TablePartitionId::fromString)
+                .collect(toUnmodifiableSet());
     }
 
     /**

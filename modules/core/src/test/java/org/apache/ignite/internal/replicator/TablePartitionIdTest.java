@@ -17,21 +17,15 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.regex.Pattern;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
- */
-public interface PartitionGroupId extends ReplicationGroupId {
-    Pattern STRING_REPRESENTATION_PATTERN = Pattern.compile("\\d+_part_\\d+");
+import org.junit.jupiter.api.Test;
 
-    /** Returns ID of the partitioned object. */
-    int objectId();
+class TablePartitionIdTest {
+    @Test
+    void toStringRepresentationMatchesExpectedPattern() {
+        var partitionId = new TablePartitionId(100, 5);
 
-    /** Returns partition ID. */
-    int partitionId();
-
-    static boolean matchesString(String str) {
-        return STRING_REPRESENTATION_PATTERN.matcher(str).matches();
+        assertTrue(PartitionGroupId.matchesString(partitionId.toString()));
     }
 }

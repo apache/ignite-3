@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
@@ -36,8 +37,10 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectFunction;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -45,6 +48,8 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -62,6 +67,8 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.vault.VaultService;
@@ -73,13 +80,13 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.rocksdb.FlushOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 
 @ExtendWith(SystemPropertiesExtension.class)
+@ExtendWith(FailureManagerExtension.class)
 class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -92,19 +99,57 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void aggressiveLowWatermarkIncrease(InitParametersBuilder builder) {
-        builder.clusterConfiguration("{\n"
+        builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+    }
+
+    private static String aggressiveLowWatermarkIncreaseClusterConfig() {
+        return "{\n"
                 + "  ignite.gc.lowWatermark {\n"
                 + "    dataAvailabilityTimeMillis: 1000,\n"
                 + "    updateIntervalMillis: 100\n"
                 + "  },\n"
                 // Disable tx state storage cleanup.
                 + "  ignite.system.properties." + TxManagerImpl.RESOURCE_TTL_PROP + " = " + Long.MAX_VALUE + "\n"
-                + "}");
+                + "}";
     }
 
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with disabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     * </ol>
+     *
+     * <p>then the table will be destroyed.
+     */
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void partitionIsDestroyedOnTableDestruction() throws Exception {
+    void partitionIsDestroyedOnTableDestructionWithoutColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestruction(false);
+    }
+
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with enabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     * </ol>
+     *
+     * <p>then the table MV storage will be destroyed.
+     */
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    void partitionIsDestroyedOnTableDestructionWithColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestruction(true);
+    }
+
+    private void testPartitionIsDestroyedOnTableDestruction(boolean colocationEnabled) throws InterruptedException {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
         createZoneAndTableWith1Partition(1);
@@ -115,11 +160,19 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
 
-        makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        if (colocationEnabled) {
+            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
+        } else {
+            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        }
 
         executeUpdate("DROP TABLE " + TABLE_NAME);
 
-        verifyPartitionGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
+        if (colocationEnabled) {
+            verifyPartitionMvDataGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
+        } else {
+            verifyPartitionGetsFullyRemovedFromDisk(ignite0, tableId, replicationGroupId);
+        }
     }
 
     @Test
@@ -141,12 +194,53 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         executeUpdate("DROP TABLE " + TABLE_NAME);
         executeUpdate("DROP ZONE " + ZONE_NAME);
 
-        verifyPartitionGetsRemovedFromDisk(ignite0, tableId, replicationGroupId);
+        verifyPartitionGetsFullyRemovedFromDisk(ignite0, tableId, replicationGroupId);
     }
 
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with disabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
+     *     <li>The node gets restarted (but the Catalog still mentions the table in its history)</li>
+     * </ol>
+     *
+     * <p>then the table will be destroyed on node start.
+     */
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    void partitionIsDestroyedOnTableDestructionOnNodeRecovery() throws Exception {
+    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithoutColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(false);
+    }
+
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with enabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
+     *     <li>The node gets restarted (but the Catalog still mentions the table in its history)</li>
+     * </ol>
+     *
+     * <p>then the table MV storages will be destroyed on node start.
+     */
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    // TODO: remove the mute after https://issues.apache.org/jira/browse/IGNITE-26051 is fixed.
+    @MuteFailureManagerLogging
+    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(true);
+    }
+
+    private void testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(boolean colocationEnabled)
+            throws InterruptedException {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         Path workDir0 = ((IgniteServerImpl) cluster.server(0)).workDir();
@@ -162,7 +256,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         int tableId = testTableId();
         TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
 
-        makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        if (colocationEnabled) {
+            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
+        } else {
+            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        }
 
         // We don't want the dropped table to be destroyed before restart.
         disallowLwmRaiseUntilRestart(ignite0);
@@ -173,12 +271,16 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         cluster.stopNode(0);
 
         // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
-        // able to destroy the dropped table yet, even though its drop moment is already under LWM.
+        // able to destroy the dropped table yet, even though its drop moment is already under the LWM.
         raisePersistedLwm(workDir0, tsAfterDrop.tick());
 
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
-        verifyPartitionGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        if (colocationEnabled) {
+            verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        } else {
+            verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        }
     }
 
     @Test
@@ -212,12 +314,112 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         cluster.stopNode(0);
 
         // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
-        // able to destroy the dropped zone yet, even though its drop moment is already under LWM.
+        // able to destroy the dropped zone yet, even though its drop moment is already under the LWM.
         raisePersistedLwm(workDir0, tsAfterDrop.tick());
 
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
-        verifyPartitionGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+    }
+
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with disabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
+     *     <li>Catalog got compacted so that its history does not contain any mentions of the table anymore</li>
+     *     <li>The node gets restarted</li>
+     * </ol>
+     *
+     * <p>then the table will be destroyed on node start.
+     */
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompactedWithoutColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(false);
+    }
+
+    /**
+     * This tests that, given that
+     *
+     * <ol>
+     *     <li>Cluster runs with enabled colocation</li>
+     *     <li>A table was created and written to</li>
+     *     <li>Then dropped</li>
+     *     <li>LWM raised highly enough to make the table eligible for destruction</li>
+     *     <li>But the LWM event not handled for some reason (so the table was not destroyed yet)</li>
+     *     <li>Catalog got compacted so that its history does not contain any mentions of the table anymore</li>
+     *     <li>The node gets restarted</li>
+     * </ol>
+     *
+     * <p>then the table MV storages will be destroyed on node start.
+     */
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    void partitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompactedWithColocation() throws Exception {
+        testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(true);
+    }
+
+    private void testPartitionIsDestroyedOnTableDestructionOnNodeRecoveryAfterCatalogCompacted(boolean colocationEnabled)
+            throws InterruptedException {
+        // Node 1 will host the Metastorage and will do Catalog compaction.
+        // On node 0, we will verify that storages are destroyed on startup when it seems that the table is not mentioned in the Catalog.
+        cluster.startAndInit(2, builder -> {
+            builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+            builder.cmgNodeNames(cluster.nodeName(1));
+            builder.metaStorageNodeNames(cluster.nodeName(1));
+        });
+
+        IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
+        Path workDir0 = ((IgniteServerImpl) cluster.server(0)).workDir();
+
+        createZoneAndTableWith1Partition(2);
+        makePutInExplicitTxToTestTable();
+
+        // We need to do this flush because after restart we want to check that it was destroyed on start; but if we don't flush now,
+        // it might not be flushed automatically relying on Raft log replay; but on node start the table will be already
+        // stale, so its Raft groups will not be started, so we could see tx state storage empty anyway, even it was not destroyed.
+        flushTxStateStorageToDisk(ignite0);
+
+        int tableId = testTableId();
+        TablePartitionId replicationGroupId = new TablePartitionId(tableId, PARTITION_ID);
+
+        if (colocationEnabled) {
+            makeSurePartitionMvDataExistsOnDisk(ignite0, tableId);
+        } else {
+            makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
+        }
+
+        // We don't want the dropped table to be destroyed before restart on node 0.
+        disallowLwmRaiseUntilRestart(ignite0);
+
+        executeUpdate("DROP TABLE " + TABLE_NAME);
+        HybridTimestamp tsAfterDrop = latestCatalogVersionTs(ignite0);
+
+        cluster.stopNode(0);
+
+        // This is created to trigger Catalog compaction as it doesn't happen if the version we want to retain is the only one that
+        // will remain.
+        createCatalogVersionNotRelatedToPartitions();
+
+        IgniteImpl ignite1 = unwrapIgniteImpl(cluster.node(1));
+        waitTillCatalogDoesNotContainTargetTable(ignite1, TABLE_NAME);
+
+        // Simulate a situation when an LWM was raised (and persisted) and the node was stopped immediately, so we were not
+        // able to destroy the dropped table yet, even though its drop moment is already under the LWM.
+        raisePersistedLwm(workDir0, tsAfterDrop.tick());
+
+        IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
+
+        if (colocationEnabled) {
+            verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        } else {
+            verifyPartitionGetsFullyRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+        }
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {
@@ -231,12 +433,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private static void flushTxStateStorageToDisk(IgniteImpl ignite) throws RocksDBException {
-        try (FlushOptions flushOptions = new FlushOptions()) {
-            flushOptions.setWaitForFlush(true);
-            //noinspection resource
-            ignite.sharedTxStateStorage().txStateColumnFamily().db().flush(flushOptions);
-        }
+    private static void flushTxStateStorageToDisk(IgniteImpl ignite) {
+        ignite.sharedTxStateStorage().flush();
     }
 
     private static void disallowLwmRaiseUntilRestart(IgniteImpl ignite0) {
@@ -286,8 +484,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void makeSurePartitionExistsOnDisk(IgniteImpl ignite, int tableId, PartitionGroupId replicationGroupId) {
-        File partitionFile = testTablePartition0File(ignite, tableId);
-        assertThat(partitionFile, is(anExistingFile()));
+        makeSurePartitionMvDataExistsOnDisk(ignite, tableId);
 
         assertTrue(hasSomethingInTxStateStorage(ignite, replicationGroupId));
 
@@ -296,6 +493,11 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
         assertThat(raftMetaFile, is(anExistingFile()));
+    }
+
+    private static void makeSurePartitionMvDataExistsOnDisk(IgniteImpl ignite, int tableId) {
+        File partitionFile = testTablePartition0File(ignite, tableId);
+        assertThat(partitionFile, is(anExistingFile()));
     }
 
     private static boolean hasSomethingInTxStateStorage(IgniteImpl ignite, PartitionGroupId replicationGroupId) {
@@ -360,29 +562,80 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         return ignite.partitionsWorkDir().dbPath().resolve("db/table-" + tableId + "/part-" + PARTITION_ID + ".bin").toFile();
     }
 
-    private static void verifyPartitionGetsRemovedFromDisk(IgniteImpl ignite, int tableId, PartitionGroupId replicationGroupId)
-            throws InterruptedException {
+    private static void verifyPartitionGetsFullyRemovedFromDisk(
+            IgniteImpl ignite,
+            int tableId,
+            PartitionGroupId replicationGroupId
+    ) throws InterruptedException {
+        verifyPartitionGetsRemovedFromDisk(ignite, tableId, replicationGroupId, true);
+    }
+
+    private static void verifyPartitionMvDataGetsRemovedFromDisk(
+            IgniteImpl ignite,
+            int tableId,
+            PartitionGroupId replicationGroupId
+    ) throws InterruptedException {
+        verifyPartitionGetsRemovedFromDisk(ignite, tableId, replicationGroupId, false);
+    }
+
+    private static void verifyPartitionGetsRemovedFromDisk(
+            IgniteImpl ignite,
+            int tableId,
+            PartitionGroupId replicationGroupId,
+            boolean concernNonMvData
+    ) throws InterruptedException {
         File partitionFile = testTablePartition0File(ignite, tableId);
         assertTrue(
                 waitForCondition(() -> !partitionFile.exists(), SECONDS.toMillis(10)),
                 "Partition file " + partitionFile.getAbsolutePath() + " was not removed in time"
         );
 
-        assertTrue(
-                waitForCondition(() -> !hasSomethingInTxStateStorage(ignite, replicationGroupId), SECONDS.toMillis(10)),
-                "Tx state storage was not destroyed in time"
-        );
+        if (concernNonMvData) {
+            assertTrue(
+                    waitForCondition(() -> !hasSomethingInTxStateStorage(ignite, replicationGroupId), SECONDS.toMillis(10)),
+                    "Tx state storage was not destroyed in time"
+            );
 
-        assertTrue(
-                waitForCondition(() -> partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L, SECONDS.toMillis(10)),
-                "Partition Raft log was not removed in time"
-        );
+            assertTrue(
+                    waitForCondition(() -> partitionLogStorage(ignite, replicationGroupId).getLastLogIndex() == 0L, SECONDS.toMillis(10)),
+                    "Partition Raft log was not removed in time"
+            );
 
-        File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
+            File raftMetaFile = partitionRaftMetaFile(ignite, replicationGroupId);
+            assertTrue(
+                    waitForCondition(() -> !raftMetaFile.exists(), SECONDS.toMillis(10)),
+                    "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time"
+            );
+        }
+    }
+
+    private static void waitTillCatalogDoesNotContainTargetTable(IgniteImpl ignite, String tableName) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> !raftMetaFile.exists(), SECONDS.toMillis(10)),
-                "Partition Raft meta file " + raftMetaFile.getAbsolutePath() + " was not removed in time"
+                waitForCondition(() -> !catalogHistoryContainsTargetTable(ignite, tableName), SECONDS.toMillis(10)),
+                "Did not observe catalog truncation in time"
         );
+    }
+
+    private static boolean catalogHistoryContainsTargetTable(IgniteImpl ignite, String tableName) {
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        Set<String> tableNames = IntStream.rangeClosed(catalogManager.earliestCatalogVersion(), catalogManager.latestCatalogVersion())
+                .mapToObj(catalogVersion -> {
+                    try {
+                        return catalogManager.catalog(catalogVersion);
+                    } catch (CatalogNotFoundException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .flatMap(catalog -> catalog.tables().stream().map(CatalogTableDescriptor::name))
+                .collect(toSet());
+
+        return tableNames.contains(tableName);
+    }
+
+    private void createCatalogVersionNotRelatedToPartitions() {
+        executeUpdate("CREATE SCHEMA UNRELATED_SCHEMA");
     }
 
     @Test
@@ -418,7 +671,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         executeUpdate("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 1)");
 
         IgniteImpl notHostingIgnite = nodeNotHostingPartition(replicationGroupId);
-        verifyPartitionGetsRemovedFromDisk(notHostingIgnite, tableId, replicationGroupId);
+        verifyPartitionGetsFullyRemovedFromDisk(notHostingIgnite, tableId, replicationGroupId);
     }
 
     private void waitTillAssignmentCountReaches(int targetAssignmentCount, ReplicationGroupId replicationGroupId)

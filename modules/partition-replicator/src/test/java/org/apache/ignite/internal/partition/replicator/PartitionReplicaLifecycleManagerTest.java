@@ -325,7 +325,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(raftManager, timeout(1_000)).stopRaftNodes(zonePartitionId);
         inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zonePartitionId);
-        inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStorages(zonePartitionId, false);
+        inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
     }
 
     @Test

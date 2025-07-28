@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.DBOptions;
@@ -346,5 +348,21 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
         }
 
         return unmodifiableSet(ids);
+    }
+
+    /**
+     * Flushes the whole storage to disk.
+     */
+    @TestOnly
+    public void flush() {
+        try {
+            awaitFlush(true).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new TxStateStorageException("Interrupted while waiting for a flush", e);
+        } catch (ExecutionException e) {
+            throw new TxStateStorageException("Flush failed", e);
+        }
     }
 }

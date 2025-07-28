@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Stored Raft node ID. It holds the subset of information contained in {@link RaftNodeId} that can be
@@ -53,5 +54,10 @@ public class StoredRaftNodeId {
     @Override
     public int hashCode() {
         return Objects.hash(groupIdName, peer);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
