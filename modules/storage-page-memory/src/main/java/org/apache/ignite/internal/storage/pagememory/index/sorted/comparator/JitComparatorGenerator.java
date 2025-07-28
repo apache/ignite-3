@@ -22,8 +22,10 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseAnd;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseOr;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleParser.shortValue;
@@ -106,9 +108,9 @@ public class JitComparatorGenerator {
     private static final Method DECIMAL_COMPARE;
 
     // "compareTo" methods of LocalDate, LocalTime, and LocalDateTime.
-    private static final Method DATE_COMPARE_TO;
-    private static final Method TIME_COMPARE_TO;
-    private static final Method DATETIME_COMPARE_TO;
+    private static final Method LOCAL_DATE_COMPARE_TO;
+    private static final Method LOCAL_TIME_COMPARE_TO;
+    private static final Method LOCAL_DATETIME_COMPARE_TO;
 
     static {
         try {
@@ -149,9 +151,9 @@ public class JitComparatorGenerator {
                     UnsafeByteBufferAccessor.class, int.class, int.class, UnsafeByteBufferAccessor.class, int.class, int.class
             );
 
-            DATE_COMPARE_TO = LocalDate.class.getDeclaredMethod("compareTo", ChronoLocalDate.class);
-            TIME_COMPARE_TO = LocalTime.class.getDeclaredMethod("compareTo", LocalTime.class);
-            DATETIME_COMPARE_TO = LocalDateTime.class.getDeclaredMethod("compareTo", ChronoLocalDateTime.class);
+            LOCAL_DATE_COMPARE_TO = LocalDate.class.getDeclaredMethod("compareTo", ChronoLocalDate.class);
+            LOCAL_TIME_COMPARE_TO = LocalTime.class.getDeclaredMethod("compareTo", LocalTime.class);
+            LOCAL_DATETIME_COMPARE_TO = LocalDateTime.class.getDeclaredMethod("compareTo", ChronoLocalDateTime.class);
         } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -161,7 +163,7 @@ public class JitComparatorGenerator {
     private static final AtomicInteger CLASS_NAME_COUNTER = new AtomicInteger();
 
     /**
-     * Creates an instance of {@link JitComparator} using bytecode generation.
+     * Creates an instance of {@link JitComparator} using bytecode generation. All 3 lists in parameters must have the same size.
      *
      * @param columnCollations List of column collations.
      * @param columnTypes List of column types.
@@ -174,7 +176,7 @@ public class JitComparatorGenerator {
     ) {
         int maxEntrySizeLog = maxEntrySizeLog(columnTypes);
 
-        // Name "org/apache/ignite/internal/storage/pagememory/index/sorted/comparator/JitComparatorGenerator&&<idx>" is used for generated
+        // Name "org/apache/ignite/internal/storage/pagememory/index/sorted/comparator/JitComparatorImpl$$<idx>" is used for generated
         // classes.
         ClassDefinition classDefinition = new ClassDefinition(
                 EnumSet.of(Access.PUBLIC, Access.FINAL),
@@ -210,9 +212,9 @@ public class JitComparatorGenerator {
         Variable innerEntrySize = scope.declareVariable(int.class, "innerEntrySize");
 
         if (maxEntrySizeLog != 0) {
-            // If entry size can be more than 1, then we read it from headers of tuples like this:
-            //  int outerFlag = outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK;
-            //  int outerEntrySize = 1 << outerFlag;
+            // If entry size can be more than 1 byte, then we read it from headers of tuples like this:
+            //  int outerEntrySize = 1 << (outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK);
+            // Here "Size" still means logarithmic scale.
             Variable outerFlag = scope.declareVariable(byte.class, "outerFlag");
             Variable innerFlag = scope.declareVariable(byte.class, "innerFlag");
 
@@ -250,7 +252,7 @@ public class JitComparatorGenerator {
             //              case 2:
             //                  return innerCompare14(outerAccessor, outerSize, innerAccessor, innerSize);
             //              default:
-            //                  return 0;
+            //                  throw new BinaryTupleFormatException(...);
             //          }
             //      case 1:
             //          switch (innerEntrySize) {
@@ -259,12 +261,18 @@ public class JitComparatorGenerator {
             // "case 2" can be missing if "maxEntrySizeLog" is equal to "1".
             SwitchBuilder outerSwitchBuilder = switchBuilder()
                     .expression(outerEntrySize)
-                    .defaultCase(constantInt(0).ret());
+                    .defaultCase(new BytecodeBlock().append(newInstance(
+                            BinaryTupleFormatException.class,
+                            constantString("Invalid header, header size 8 is not supported.")
+                    )).throwObject());
 
             for (int i = 0; i <= maxEntrySizeLog; i++) {
                 SwitchBuilder innerSwitchBuilder = switchBuilder()
                         .expression(innerEntrySize)
-                        .defaultCase(constantInt(0).ret());
+                        .defaultCase(new BytecodeBlock().append(newInstance(
+                                BinaryTupleFormatException.class,
+                                constantString("Invalid header, header size 8 is not supported.")
+                        )).throwObject());
 
                 for (int j = 0; j <= maxEntrySizeLog; j++) {
                     MethodDefinition innerCompare = innerCompareMethods[i][j];
@@ -278,10 +286,7 @@ public class JitComparatorGenerator {
             body.append(outerSwitchBuilder.build());
         }
 
-        // Final "return 0" statement.
-        body.append(constantInt(0).ret());
-
-        // Add default constructor.
+        // Add default constructor that calls "super();".
         MethodDefinition constructor = classDefinition.declareConstructor(EnumSet.of(Access.PUBLIC));
         constructor.getBody()
                 .append(new LoadVariableInstruction(constructor.getThis()))
@@ -306,10 +311,13 @@ public class JitComparatorGenerator {
      */
     private static int maxEntrySizeLog(List<NativeType> columnTypes) {
         if (columnTypes.stream().allMatch(NativeType::fixedLength)) {
-            int maxFixedSize = columnTypes.stream().mapToInt(NativeType::sizeInBytes).sum();
-            if (maxFixedSize < 0x100) {
+            // All fixLength values are var-length in practice, but they have max size in "sizeInBytes". When we sum all max sizes for
+            // individual columns, we get max size of tuple's payload.
+            int maxTupleColumnsDataSize = columnTypes.stream().mapToInt(NativeType::sizeInBytes).sum();
+
+            if (maxTupleColumnsDataSize < 0x100) {
                 return 0;
-            } else if (maxFixedSize < 0x10000) {
+            } else if (maxTupleColumnsDataSize < 0x10000) {
                 return 1;
             } else {
                 return 2;
@@ -327,12 +335,12 @@ public class JitComparatorGenerator {
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes,
             List<Boolean> nullableFlags,
-            int outerEntrySizeConstant,
-            int innerEntrySizeConstant
+            int outerEntrySize,
+            int innerEntrySize
     ) {
         MethodDefinition innerCompare = classDefinition.declareMethod(
                 EnumSet.of(Access.PRIVATE, Access.STATIC),
-                "innerCompare" + outerEntrySizeConstant + innerEntrySizeConstant,
+                "innerCompare" + outerEntrySize + innerEntrySize,
                 ParameterizedType.type(int.class),
                 Parameter.arg("outerAccessor", UnsafeByteBufferAccessor.class),
                 Parameter.arg("outerSize", int.class),
@@ -354,8 +362,8 @@ public class JitComparatorGenerator {
         // Here we do exactly the same thing that "BinaryTupleComparator.compare" does, but types and offsets are inlined, and the loop is
         // unrolled. Please use that method as a reference for understanding this code.
         int columnsSize = columnTypes.size();
-        body.append(outerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySizeConstant * columnsSize)));
-        body.append(innerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySizeConstant * columnsSize)));
+        body.append(outerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySize * columnsSize)));
+        body.append(innerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySize * columnsSize)));
 
         Variable cmp = scope.declareVariable(int.class, "cmp");
 
@@ -373,12 +381,12 @@ public class JitComparatorGenerator {
                 body.append(innerEntryBaseEnd.set(innerSize));
             } else {
                 body.append(outerEntryBaseEnd.set(add(
-                        constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySizeConstant * columnsSize),
-                        getOffset(outerAccessor, outerEntrySizeConstant, i)
+                        constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySize * columnsSize),
+                        getOffset(outerAccessor, outerEntrySize, i)
                 )));
                 body.append(innerEntryBaseEnd.set(add(
-                        constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySizeConstant * columnsSize),
-                        getOffset(innerAccessor, innerEntrySizeConstant, i)
+                        constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySize * columnsSize),
+                        getOffset(innerAccessor, innerEntrySize, i)
                 )));
             }
 
@@ -390,6 +398,7 @@ public class JitComparatorGenerator {
                 body.append(outerInNull.set(equal(outerEntryBaseStart, outerEntryBaseEnd)));
                 body.append(innerInNull.set(equal(innerEntryBaseStart, innerEntryBaseEnd)));
 
+                // Usage of "bitwiseAnd" and "bitwiseOr" make generated code easier to read when decompiled.
                 body.append(new IfStatement()
                         .condition(bitwiseAnd(outerInNull, innerInNull))
                         .ifTrue(lastIteration ? constantInt(0).ret() : jump(endOfBlockLabel))
@@ -505,11 +514,11 @@ public class JitComparatorGenerator {
             case DECIMAL:
                 return staticCompare(collation, vars, DECIMAL_COMPARE, true);
             case DATE:
-                return compositeVirtualCompare(collation, vars, PARSER_DATE_VALUE, DATE_COMPARE_TO);
+                return compositeVirtualCompare(collation, vars, PARSER_DATE_VALUE, LOCAL_DATE_COMPARE_TO);
             case TIME:
-                return compositeVirtualCompare(collation, vars, PARSER_TIME_VALUE, TIME_COMPARE_TO);
+                return compositeVirtualCompare(collation, vars, PARSER_TIME_VALUE, LOCAL_TIME_COMPARE_TO);
             case DATETIME:
-                return compositeVirtualCompare(collation, vars, PARSER_DATETIME_VALUE, DATETIME_COMPARE_TO);
+                return compositeVirtualCompare(collation, vars, PARSER_DATETIME_VALUE, LOCAL_DATETIME_COMPARE_TO);
             case TIMESTAMP:
                 return staticCompare(collation, vars, UTILS_TIMESTAMP_COMPARE, true);
             case UUID:
@@ -525,7 +534,7 @@ public class JitComparatorGenerator {
 
     /**
      * Generates an expression for comparison that looks like this: {@code comparator(extractor(value 1), extractor(value 2))}, where values
-     * will be chosen depending on column's collation.
+     * will be chosen depending on column's collation. "Composite" means the usage of methods composition in generated code.
      */
     private static BytecodeExpression compositeStaticCompare(
             CatalogColumnCollation collation,
@@ -545,7 +554,7 @@ public class JitComparatorGenerator {
 
     /**
      * Generates an expression for comparison that looks like this: {@code extractor(value 1).comparator(extractor(value 2))}, where values
-     * will be chosen depending on column's collation.
+     * will be chosen depending on column's collation. "Composite" means the usage of methods composition in generated code.
      */
     private static BytecodeExpression compositeVirtualCompare(
             CatalogColumnCollation collation,
@@ -651,6 +660,7 @@ public class JitComparatorGenerator {
         byte[] bytes;
         if (array != null) {
             bytes = array;
+            // "getAddress" already includes offset inside of an array. We should subtract it back.
             //noinspection NumericCastThatLosesPrecision
             begin += (int) (buf.getAddress() - GridUnsafe.BYTE_ARR_OFF);
         } else {

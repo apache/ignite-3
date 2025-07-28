@@ -32,7 +32,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.junit.jupiter.api.Disabled;
 
 /**
- * Tests for {@link JitComparator} that uses {@link JitComparatorGenerator} to generate a comparator.
+ * Tests for {@link JitComparator} that use {@link JitComparatorGenerator} to generate a comparator.
  */
 public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
     @Override
@@ -43,6 +43,8 @@ public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
             UnsafeByteBufferAccessor leftAccessor = new UnsafeByteBufferAccessor(left);
             UnsafeByteBufferAccessor rightAccessor = new UnsafeByteBufferAccessor(right);
 
+            // It is not allowed to pass prefix as a second tuple in JitComparator, for this reason we reverse the order of arguments and
+            // the result if the second tuple is a prefix.
             return isFlagSet(right, PREFIX_FLAG)
                     ? -comparator.compare(rightAccessor, right.capacity(), leftAccessor, left.capacity())
                     : comparator.compare(leftAccessor, left.capacity(), rightAccessor, right.capacity());

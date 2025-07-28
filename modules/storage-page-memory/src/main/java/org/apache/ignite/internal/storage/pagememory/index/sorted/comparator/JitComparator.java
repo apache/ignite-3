@@ -20,8 +20,13 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted.comparator;
 import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
 
 /**
- * Interface for comparing two binary tuples, represented as {@link UnsafeByteBufferAccessor}s. All implementation of this interface are
+ * Interface for comparing two binary tuples, represented as {@link UnsafeByteBufferAccessor}s. All implementations of this interface are
  * expected to be generated in runtime by {@link JitComparatorGenerator}.
+ *
+ * <p>Throughout the codebase I refer to its parameters as {@code outer} and {@code inner}. The meaning behind these terms is the following:
+ * outer entry might come outside of an index tree, and this it can be a prefix. But inner entry always comes from the index itself. It
+ * cannot be a prefix, but can in principle be a suffix of a full tuple. The
+ * {@link #compare(UnsafeByteBufferAccessor, int, UnsafeByteBufferAccessor, int)} is thus not symmetric (not anti-symmetric, to be precise).
  */
 @FunctionalInterface
 public interface JitComparator {
