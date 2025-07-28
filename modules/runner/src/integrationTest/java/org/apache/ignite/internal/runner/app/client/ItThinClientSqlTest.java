@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -662,6 +663,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     public void testCurrentUser() {
+        String expectedUsername = UserDetails.UNKNOWN.username();
         IgniteClient client = client();
 
         AsyncResultSet<SqlRow> resultSet = client.sql()
@@ -671,15 +673,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
-        assertEquals("unknown", row.stringValue(0));
+        assertEquals(expectedUsername, row.stringValue(0));
         assertEquals(1, row.columnCount());
 
         client.sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
-        client.sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'SYSTEM'), (2, 'unknown')").close();
+        client.sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)" ).close();
 
         try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
             assertTrue(rs.hasNext());
-            assertEquals("unknown", rs.next().stringValue(0));
+            assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
         }
     }

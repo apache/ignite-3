@@ -17,7 +17,9 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -25,9 +27,11 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -77,7 +81,7 @@ class ItJdbcAuthenticationTest {
                             + "            },\n"
                             + "            {\n"
                             + "              \"username\": \"admin\",\n"
-                            + "              \"password\": \"admin\"\n"
+                            + "              \"password\": \"adm\"\n"
                             + "            }\n"
                             + "          ]\n"
                             + "        }\n"
@@ -111,32 +115,43 @@ class ItJdbcAuthenticationTest {
          */
         @Test
         void jdbcCurrentUser() throws SQLException {
-            var url1 = "jdbc:ignite:thin://127.0.0.1:10800"
-                    + "?username=usr"
-                    + "&password=pwd";
+            CLUSTER.aliveNode().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
 
-            var url2 = "jdbc:ignite:thin://127.0.0.1:10800"
-                    + "?username=admin"
-                    + "&password=admin";
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25283 Remove next line.
+            CLUSTER.aliveNode().tables().table("t1").keyValueView().get(null, Tuple.create().set("id", 1));
+
+            String connString = "jdbc:ignite:thin://127.0.0.1:10800?username={}&password={}";
+            String user1 = "usr";
+            String user2 = "admin";
+
             try (
-                    Connection conn1 = DriverManager.getConnection(url1);
-                    Connection conn2 = DriverManager.getConnection(url2)
+                    Connection conn1 = DriverManager.getConnection(format(connString, user1, "pwd"));
+                    Connection conn2 = DriverManager.getConnection(format(connString, user2, "adm"))
             ) {
-                try (
-                        PreparedStatement stmt1 = conn1.prepareStatement("SELECT CURRENT_USER");
-                        PreparedStatement stmt2 = conn2.prepareStatement("SELECT CURRENT_USER");
-                ) {
-                    try (
-                            ResultSet rs1 = stmt1.executeQuery();
-                            ResultSet rs2 = stmt2.executeQuery();
-                    ) {
-                        assertTrue(rs1.next());
-                        assertTrue(rs2.next());
+                validateUsername(conn1, user1);
+                validateUsername(conn2, user2);
+            }
+        }
+    }
 
-                        assertEquals("usr", rs1.getString(1));
-                        assertEquals("admin", rs2.getString(1));
-                    }
-                }
+    private static void validateUsername(Connection conn, String expectedUser) throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(expectedUser, rs.getString(1));
+                assertFalse(rs.next());
+            }
+        }
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(format("INSERT INTO t1 (id, val) VALUES ({}, CURRENT_USER)", expectedUser.hashCode()));
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(expectedUser, rs.getString(1));
+                assertFalse(rs.next());
             }
         }
     }

@@ -411,7 +411,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
                 .check();
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)");
-        sql("INSERT INTO t1 (id, val) VALUES (1, 'SYSTEM'), (2, 'unknown')");
+        sql("INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)");
 
         assertQuery("SELECT val FROM t1 WHERE val = CURRENT_USER")
                 .returns(Commons.SYSTEM_USER_NAME)

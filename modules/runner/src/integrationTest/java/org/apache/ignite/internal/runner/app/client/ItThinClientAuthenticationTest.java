@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -206,7 +207,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     @Test
     public void testCurrentUser() {
         server().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
-        server().sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'admin'), (2, 'developer'), (3, 'SYSTEM'), (4, 'unknown')").close();
 
         IgniteClient client2WithAuth = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder()
@@ -220,7 +220,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         validateCurrentUser(client2WithAuth, USERNAME_2);
     }
 
-    private static void validateCurrentUser(IgniteClient client, String user) {
+    private static void validateCurrentUser(IgniteClient client, String expectedUsername) {
         AsyncResultSet<SqlRow> resultSet = client.sql()
                 .executeAsync(null, "SELECT CURRENT_USER")
                 .join();
@@ -229,11 +229,13 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         assertEquals(1, row.columnCount());
         assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
-        assertEquals(user, row.stringValue(0));
+        assertEquals(expectedUsername, row.stringValue(0));
+
+        client.sql().execute(null, format("INSERT INTO t1 (id, val) VALUES ({}, CURRENT_USER)", expectedUsername.hashCode())).close();
 
         try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
             assertTrue(rs.hasNext());
-            assertEquals(user, rs.next().stringValue(0));
+            assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
         }
     }
