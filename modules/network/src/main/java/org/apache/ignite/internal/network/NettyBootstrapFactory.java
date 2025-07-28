@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
+import org.apache.ignite.internal.network.netty.NioSocketChannelEx;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -86,7 +87,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         Bootstrap outboundBootstrap = new Bootstrap();
 
         outboundBootstrap.group(workerGroup)
-                .channel(NioSocketChannel.class)
+                .channel(NioSocketChannelEx.class)
                 // See createServerBootstrap for netty configuration details.
                 .option(ChannelOption.SO_KEEPALIVE, outboundConfiguration.soKeepAlive())
                 .option(ChannelOption.SO_LINGER, outboundConfiguration.soLinger())

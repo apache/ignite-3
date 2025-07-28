@@ -25,8 +25,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,18 +47,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Handler name. */
     public static final String NAME = "outbound-encoder";
 
-    private static final int IO_BUFFER_CAPACITY = 4 * 1024;
+    private static final int IO_BUFFER_CAPACITY = 16 * 1024;
 
     /** Max number of messages in a single chunk. */
     private static final int MAX_MESSAGES_IN_CHUNK = 128;
 
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
-
-    /** Message writer channel attribute key. */
-    private static final AttributeKey<MessageWriter> WRITER_KEY = AttributeKey.valueOf("WRITER");
-
-    /** Last added chunk channel attribute key. */
-    private static final AttributeKey<NetworkMessageChunkedInput> CHUNK_KEY = AttributeKey.valueOf("CHUNK");
 
     /** Serialization registry. */
     private final PerSessionSerializationService serializationService;
@@ -78,7 +70,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
         Channel channel = ctx.channel();
 
-        MessageWriter writer = getOrInitWriter(channel.attr(WRITER_KEY));
+        MessageWriter writer = getOrInitWriter(channel);
 
         appendMessage(msg, out, channel, writer);
     }
@@ -86,13 +78,14 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /**
      * Lazy message writer creator.
      */
-    private MessageWriter getOrInitWriter(Attribute<MessageWriter> writerAttr) {
-        MessageWriter writer = writerAttr.get();
+    private MessageWriter getOrInitWriter(Channel channel) {
+        NioSocketChannelEx channelEx = (NioSocketChannelEx) channel;
+        MessageWriter writer = channelEx.getMessageWriter();
 
         if (writer == null) {
             writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
-            writerAttr.set(writer);
+            channelEx.setMessageWriter(writer);
         }
 
         return writer;
@@ -102,14 +95,14 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
      * Adds new message to the latest chunk if that's possible. Appends it to output list if it's not possible.
      */
     private void appendMessage(OutNetworkObject msg, List<Object> out, Channel channel, MessageWriter writer) {
-        Attribute<NetworkMessageChunkedInput> chunkAttr = channel.attr(CHUNK_KEY);
-        NetworkMessageChunkedInput chunkedInput = chunkAttr.get();
+        NioSocketChannelEx channelEx = (NioSocketChannelEx) channel;
+        var chunkedInput = (NetworkMessageChunkedInput) channelEx.getChunkedInput();
 
         if (chunkedInput == null) {
-            appendNewChunkedInput(msg, out, writer, chunkAttr);
+            appendNewChunkedInput(msg, out, writer, channelEx);
         } else {
             if (chunkedInput.finished || chunkedInput.size >= MAX_MESSAGES_IN_CHUNK) {
-                appendNewChunkedInput(msg, out, writer, chunkAttr);
+                appendNewChunkedInput(msg, out, writer, channelEx);
             } else {
                 chunkedInput.append(msg);
             }
@@ -120,11 +113,11 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             OutNetworkObject msg,
             List<Object> out,
             MessageWriter writer,
-            Attribute<NetworkMessageChunkedInput> chunkAttr
+            NioSocketChannelEx channelEx
     ) {
         NetworkMessageChunkedInput chunkedInput = new NetworkMessageChunkedInput(msg, serializationService, writer);
 
-        chunkAttr.set(chunkedInput);
+        channelEx.setChunkedInput(chunkedInput);
         out.add(chunkedInput);
     }
 
