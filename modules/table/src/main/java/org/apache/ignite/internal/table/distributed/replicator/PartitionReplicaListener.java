@@ -57,9 +57,6 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -68,6 +65,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -911,17 +909,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         PartitionTimestampCursor cursor = resource.cursor();
 
-        int remainingCount = count - result.size();
+        int resultStartIndex = result.size();
 
-        var rows = new ArrayList<BinaryRow>(remainingCount);
+        var resolutionFutures = new ArrayList<CompletableFuture<TimedBinaryRow>>();
 
-        // Map for storing write intent resolution futures along with their index in the result array. This is needed to preserve the
-        // iteration order after resolving the write intents.
-        var resolutionFutures = new Int2ObjectLinkedOpenHashMap<CompletableFuture<TimedBinaryRow>>();
-
-        int i = 0;
-
-        while (i < remainingCount && cursor.hasNext()) {
+        while (result.size() < count && cursor.hasNext()) {
             ReadResult readResult = cursor.next();
 
             UUID retrievedResultTxId = readResult.transactionId();
@@ -930,9 +922,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 BinaryRow row = readResult.binaryRow();
 
                 if (row != null) {
-                    rows.add(row);
-
-                    i++;
+                    result.add(row);
                 }
             } else {
                 HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
@@ -946,17 +936,22 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
                 }
 
-                resolutionFutures.put(i, resolveWriteIntentAsync(readResult, readTimestamp, () -> candidate));
+                resolutionFutures.add(resolveWriteIntentAsync(readResult, readTimestamp, () -> candidate));
 
-                i++;
+                // Add a placeholder in the result array to later transfer the resolved write intent.
+                result.add(null);
             }
         }
 
-        return allOf(resolutionFutures.values().toArray(CompletableFuture[]::new))
+        if (resolutionFutures.isEmpty()) {
+            return nullCompletedFuture();
+        }
+
+        return allOf(resolutionFutures.toArray(CompletableFuture[]::new))
                 .thenComposeAsync(unused -> {
                     // After waiting for the futures to complete, we need to merge the resolved write intents with the retrieved rows
                     // preserving the original order.
-                    mergeRowsWithResolvedWriteIntents(rows, resolutionFutures, result);
+                    mergeRowsWithResolvedWriteIntents(result, resultStartIndex, resolutionFutures);
 
                     if (result.size() < count && cursor.hasNext()) {
                         return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count, result);
@@ -998,39 +993,37 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     private static void mergeRowsWithResolvedWriteIntents(
-            List<BinaryRow> rows,
-            Int2ObjectMap<CompletableFuture<TimedBinaryRow>> resolutionFutures,
-            List<BinaryRow> result
+            List<BinaryRow> result,
+            int resultStartIndex,
+            List<CompletableFuture<TimedBinaryRow>> resolutionFutures
     ) {
-        int curIndex = 0;
-        int rowsIndex = 0;
+        assert !resolutionFutures.isEmpty();
 
-        for (Entry<CompletableFuture<TimedBinaryRow>> entry : resolutionFutures.int2ObjectEntrySet()) {
-            int resolvedResultIndex = entry.getIntKey();
+        int futuresIndex = 0;
 
-            // Fill the gaps between write intents with regular rows.
-            int rowsToAdd = resolvedResultIndex - curIndex;
+        ListIterator<BinaryRow> it = result.listIterator(resultStartIndex);
 
-            if (rowsToAdd > 0) {
-                result.addAll(rows.subList(rowsIndex, rowsIndex + rowsToAdd));
+        while (it.hasNext()) {
+            BinaryRow row = it.next();
 
-                rowsIndex += rowsToAdd;
+            if (row == null) {
+                CompletableFuture<TimedBinaryRow> future = resolutionFutures.get(futuresIndex++);
+
+                assert future.isDone();
+
+                TimedBinaryRow resolvedReadResult = future.join();
+
+                BinaryRow resolvedBinaryRow = resolvedReadResult == null ? null : resolvedReadResult.binaryRow();
+
+                if (resolvedBinaryRow == null) {
+                    it.remove();
+                } else {
+                    it.set(resolvedBinaryRow);
+                }
             }
-
-            TimedBinaryRow resolvedReadResult = entry.getValue().join();
-
-            BinaryRow resolvedBinaryRow = resolvedReadResult == null ? null : resolvedReadResult.binaryRow();
-
-            if (resolvedBinaryRow != null) {
-                result.add(resolvedBinaryRow);
-            }
-
-            curIndex = resolvedResultIndex + 1;
         }
 
-        if (rowsIndex < rows.size()) {
-            result.addAll(rows.subList(rowsIndex, rows.size()));
-        }
+        assert futuresIndex == resolutionFutures.size();
     }
 
     private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
