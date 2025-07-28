@@ -70,10 +70,10 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     );
 
     private static final Map<String, String[]> SORTED_INDEXES = Map.of(
-            "DATE1", new String[]{"S_ASC_IDX_DATE1", "S_DESC_IDX_DATE1"},
-            "TIME1", new String[]{"S_ASC_IDX_TIME1", "S_DESC_IDX_TIME1"},
-            "TIMESTAMP1", new String[]{"S_ASC_IDX_TIMESTAMP1", "S_DESC_IDX_TIMESTAMP1"},
-            "TIMESTAMPTZ1", new String[]{"S_ASC_IDX_TZ1", "S_DESC_IDX_TZ1"}
+            "DATE1", new String[]{"S_ASC_IDX_DATE1", "S_DESC_IDX_DATE1", pkIndexName("DATE1")},
+            "TIME1", new String[]{"S_ASC_IDX_TIME1", "S_DESC_IDX_TIME1", pkIndexName("TIME1")},
+            "TIMESTAMP1", new String[]{"S_ASC_IDX_TIMESTAMP1", "S_DESC_IDX_TIMESTAMP1", pkIndexName("TIMESTAMP1")},
+            "TIMESTAMPTZ1", new String[]{"S_ASC_IDX_TZ1", "S_DESC_IDX_TZ1", pkIndexName("TIMESTAMPTZ1")}
     );
 
     @Override
@@ -249,12 +249,6 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("geLeSearchArguments")
     public void testSearchGtLtWithPkIdxUsage(String table, String predicate, Object result) {
-        assertQuery(format("SELECT /*+ FORCE_INDEX({}), DISABLE_RULE('TableScanToKeyValueGetRule') */ val FROM {} WHERE pk {} ORDER BY val",
-                pkIndexName(table), table, predicate))
-                .matches(containsIndexScan("PUBLIC", table, pkIndexName(table)))
-                .returns(result)
-                .check();
-
         for (String idx : SORTED_INDEXES.get(table)) {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
@@ -268,11 +262,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("geLeSearchDynParamArguments")
     public void testSearchGtLtWithPkIdxUsageDynamicParam(String table, String predicate, Object parameter, Object result) {
-        List<String> indexes = new ArrayList<>(List.of(SORTED_INDEXES.get(table)));
-
-        indexes.add(pkIndexName(table));
-
-        for (String idx : indexes) {
+        for (String idx : SORTED_INDEXES.get(table)) {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
                     .withParam(parameter)
@@ -286,19 +276,8 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("betweenSearchArguments")
     public void testBetweenPkIdxUsage(String table, String predicate, Object[] result) {
-        QueryChecker checker = assertQuery(
-                format("SELECT /*+ FORCE_INDEX({})*/ val FROM {} WHERE pk {}",
-                        pkIndexName(table), table, predicate))
-                .matches(containsIndexScan("PUBLIC", table, pkIndexName(table)));
-
-        for (Object res : result) {
-            checker.returns(res);
-        }
-
-        checker.check();
-
         for (String idx : SORTED_INDEXES.get(table)) {
-            checker = assertQuery(
+            QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
                     .matches(containsIndexScan("PUBLIC", table, idx));
 
@@ -314,11 +293,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}")
     @MethodSource("betweenSearchDynParamArguments")
     public void testBetweenPkIdxUsageDynamicParam(String table, Object[] params, Object[] result) {
-        List<String> indexes = new ArrayList<>(List.of(SORTED_INDEXES.get(table)));
-
-        indexes.add(pkIndexName(table));
-
-        for (String idx : indexes) {
+        for (String idx : SORTED_INDEXES.get(table)) {
             QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk BETWEEN ? AND ?", idx, table))
                     .withParams(params)

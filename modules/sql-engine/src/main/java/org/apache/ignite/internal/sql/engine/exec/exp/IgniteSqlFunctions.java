@@ -371,7 +371,7 @@ public class IgniteSqlFunctions {
 
         assert object instanceof Integer : object.getClass();
 
-        return toTimeExact((int) object, precision);
+        return IgniteSqlDateTimeUtils.adjustTimeMillis((Integer) object, precision);
     }
 
     /** Adjusts precision of {@link SqlTypeName#TIME} value. */
