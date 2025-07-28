@@ -387,13 +387,21 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public String getString(int colIdx) throws SQLException {
-        Object val = getJdbcValue(colIdx);
-        if (val == null) {
+        Object value = getValue(colIdx);
+
+        if (value == null) {
             return null;
-        } else if (val instanceof byte[]) {
-            return StringUtils.toHexString((byte[]) val);
+        } else if (value instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
+            return Timestamp.valueOf(localDateTime).toString();
+        } else if (value instanceof LocalTime) {
+            return value.toString();
+        } else if (value instanceof LocalDateTime) {
+            return Timestamp.valueOf((LocalDateTime) value).toString();
+        } else if (value instanceof byte[]) {
+            return StringUtils.toHexString((byte[]) value);
         } else {
-            return String.valueOf(val);
+            return String.valueOf(value);
         }
     }
 
@@ -2160,21 +2168,6 @@ public class JdbcResultSet implements ResultSet {
             return val;
         } catch (IndexOutOfBoundsException e) {
             throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION, e);
-        }
-    }
-
-    private Object getJdbcValue(int colIdx) throws SQLException {
-        Object value = getValue(colIdx);
-
-        if (value instanceof Instant) {
-            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
-            return Timestamp.valueOf(localDateTime);
-        } else if (value instanceof LocalTime) {
-            return Time.valueOf((LocalTime) value);
-        } else if (value instanceof LocalDateTime) {
-            return Timestamp.valueOf((LocalDateTime) value);
-        } else {
-            return value;
         }
     }
 

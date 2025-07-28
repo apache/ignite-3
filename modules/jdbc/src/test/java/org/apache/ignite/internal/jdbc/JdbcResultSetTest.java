@@ -339,7 +339,7 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
                     + " | " + resultSet.getString(3)
                     + " | " + resultSet.getString(4);
 
-            String expected = time.format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+            String expected = time.format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"))
                     + " | " + date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                     + " | " + dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
                     + " | " + localDateTime;
