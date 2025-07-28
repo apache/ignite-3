@@ -168,14 +168,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
         placementDriver = mock(PlacementDriver.class);
 
-        var meta = mock(ReplicaMeta.class);
-        when(meta.getStartTime()).thenReturn(clock.current());
-        when(meta.getExpirationTime()).thenReturn(clock.current());
-        when(meta.getLeaseholder()).thenReturn("test");
-        when(meta.getLeaseholderId()).thenReturn(randomUUID());
-
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(meta));
-
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
@@ -259,6 +251,19 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
         assertEquals(1L, actual.consistencyToken());
         assertEquals(Set.of(10), actual.tableIds());
+
+        // Avoid NPE on finish.
+        var meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(clock.current());
+        when(meta.getExpirationTime()).thenReturn(clock.current());
+        when(meta.getLeaseholder()).thenReturn("test");
+        when(meta.getLeaseholderId()).thenReturn(randomUUID());
+
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(meta));
+
+        HybridTimestamp commitTimestamp = clockService.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
     }
 
     // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
