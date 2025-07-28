@@ -662,15 +662,26 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     public void testCurrentUser() {
-        AsyncResultSet<SqlRow> resultSet = client().sql()
+        IgniteClient client = client();
+
+        AsyncResultSet<SqlRow> resultSet = client.sql()
                 .executeAsync(null, "SELECT CURRENT_USER")
                 .join();
 
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
-        assertEquals("unknown", row.stringValue(0).toString());
+        assertEquals("unknown", row.stringValue(0));
         assertEquals(1, row.columnCount());
+
+        client.sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        client.sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'SYSTEM'), (2, 'unknown')").close();
+
+        try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals("unknown", rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
     private static class Pojo {

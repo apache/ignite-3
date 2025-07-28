@@ -25,10 +25,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -38,8 +41,10 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,6 +107,15 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        String dropTablesScript = server().tables().tables().stream()
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            server().sql().executeScript(dropTablesScript);
+        }
+
         closeAll(clientWithAuth);
     }
 
@@ -191,6 +205,9 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
      */
     @Test
     public void testCurrentUser() {
+        server().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        server().sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, 'admin'), (2, 'developer'), (3, 'SYSTEM'), (4, 'unknown')").close();
+
         IgniteClient client2WithAuth = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder()
                         .username(USERNAME_2)
@@ -199,8 +216,8 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build();
 
-        validateCurrentUser(clientWithAuth, "admin");
-        validateCurrentUser(client2WithAuth, "developer");
+        validateCurrentUser(clientWithAuth, USERNAME_1);
+        validateCurrentUser(client2WithAuth, USERNAME_2);
     }
 
     private static void validateCurrentUser(IgniteClient client, String user) {
@@ -213,6 +230,12 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         assertEquals(1, row.columnCount());
         assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
         assertEquals(user, row.stringValue(0));
+
+        try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals(user, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
 

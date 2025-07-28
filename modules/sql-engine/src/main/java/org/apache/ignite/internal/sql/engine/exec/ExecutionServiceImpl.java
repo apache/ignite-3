@@ -370,13 +370,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static SqlOperationContext createOperationContext(
-            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime
+            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime, @Nullable String username
     ) {
         return SqlOperationContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .timeZoneId(timeZoneId)
                 .operationTime(operationTime)
+                .userName(username)
                 .build();
     }
 
@@ -698,7 +699,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(new ExecutionId(msg.queryId(), msg.executionToken()), key -> {
             SqlOperationContext operationContext = createOperationContext(
-                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime()
+                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime(), msg.username()
             );
 
             return new DistributedQueryManager(key, coordinatorNodeName, operationContext);
@@ -920,6 +921,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .timeZoneId(ctx.timeZoneId().getId())
                     .operationTime(ctx.operationTime())
                     .timestamp(clockService.now())
+                    .username(ctx.userName())
                     .build();
 
             return messageService.send(targetNodeName, request);

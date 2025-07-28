@@ -959,7 +959,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker, resolveCurrentUsername()
                 );
 
             case ClientOp.SQL_QUERY_META:
@@ -1000,9 +1000,7 @@ public class ClientInboundMessageHandler
     }
 
     /**
-     * Return authenticated user name or {@code null} if user is unknown.
-     *
-     * @see UserDetails#UNKNOWN
+     * Return authenticated user name.
      */
     private String resolveCurrentUsername() {
         return clientContext.userDetails().username();

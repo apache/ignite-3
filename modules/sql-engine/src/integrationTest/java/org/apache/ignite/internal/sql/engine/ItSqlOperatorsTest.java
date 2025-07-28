@@ -33,8 +33,11 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -398,6 +401,22 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("CURRENT_DATE").check();
         assertExpression("LOCALTIME").check();
         assertExpression("LOCALTIMESTAMP").check();
+    }
+
+    @Test
+    public void testCurrentUser() {
+        assertExpression("CURRENT_USER")
+                .returns(Commons.SYSTEM_USER_NAME)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.STRING))
+                .check();
+
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)");
+        sql("INSERT INTO t1 (id, val) VALUES (1, 'SYSTEM'), (2, 'unknown')");
+
+        assertQuery("SELECT val FROM t1 WHERE val = CURRENT_USER")
+                .returns(Commons.SYSTEM_USER_NAME)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.STRING))
+                .check();
     }
 
     private QueryChecker assertExpression(String qry) {
