@@ -451,26 +451,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (readOnly) {
             if (implicit) {
-                tx = new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
+                return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
-                txStateVolatileStorage.initialize(tx);
-                txMetrics.onTransactionStarted();
             }
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-            ReadWriteTransactionImpl tx0 = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
-
-            if (isStopping) {
-                tx0.fail(new TransactionException(Common.NODE_STOPPING_ERR,
-                        "Failed to finish the transaction because a node is stopping: [txId=" + tx0.id() + ']'));
-            }
-
-            tx = tx0;
-            txStateVolatileStorage.initialize(tx);
-            txMetrics.onTransactionStarted();
+            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
         }
+
+        txStateVolatileStorage.initialize(tx);
+        txMetrics.onTransactionStarted();
 
         return tx;
     }
@@ -495,7 +487,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 nodeProperties.colocationEnabled()
         );
 
-        transactionExpirationRegistry.register(transaction);
+        // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
+        // no need to register them.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
+        if (!implicit) {
+            transactionExpirationRegistry.register(transaction);
+
+            if (isStopping) {
+                transaction.fail(new TransactionException(Common.NODE_STOPPING_ERR,
+                        "Failed to finish the transaction because a node is stopping: [txId=" + txId + ']'));
+            }
+        }
 
         return transaction;
     }
@@ -1045,6 +1047,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     public void beforeNodeStop() {
         isStopping = true;
         orphanDetector.stop();
+        transactionExpirationRegistry.abortAllRegistered();
     }
 
     @Override
@@ -1079,8 +1082,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             if (expirationJobFuture != null) {
                 expirationJobFuture.cancel(false);
             }
-
-            transactionExpirationRegistry.abortAllRegistered();
 
             shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
 

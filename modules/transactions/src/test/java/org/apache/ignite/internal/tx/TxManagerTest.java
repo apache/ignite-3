@@ -168,6 +168,14 @@ public class TxManagerTest extends IgniteAbstractTest {
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
         placementDriver = mock(PlacementDriver.class);
 
+        var meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(clock.current());
+        when(meta.getExpirationTime()).thenReturn(clock.current());
+        when(meta.getLeaseholder()).thenReturn("test");
+        when(meta.getLeaseholderId()).thenReturn(randomUUID());
+
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(meta));
+
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
@@ -244,6 +252,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId partitionIdForEnlistment = targetReplicationGroupId(1, 0);
 
+        tx.assignCommitPartition(partitionIdForEnlistment);
         tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE.name(), 1L);
 
         PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
