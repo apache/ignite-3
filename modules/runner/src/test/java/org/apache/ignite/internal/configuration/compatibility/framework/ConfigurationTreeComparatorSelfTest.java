@@ -608,26 +608,35 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     @Test
-    public void polymorphicCanNotChangeDefaultId() {
+    public void polymorphicCanChangeDefaultId() {
         ConfigNode root1 = createRoot("root");
         {
             ConfigNode subclassA = createInstanceNode("config", "A");
-            subclassA.addChildNodes(createChild("f2"));
+            subclassA.addChildNodes(createChild("t"));
+            subclassA.addChildNodes(createChild("f1"));
 
-            root1.addPolymorphicNode("config", Map.of("A", subclassA), "A");
+            ConfigNode subclassB = createInstanceNode("config", "B");
+            subclassB.addChildNodes(createChild("t"));
+            subclassB.addChildNodes(createChild("f2"));
+
+            root1.addPolymorphicNode("config", Map.of("A", subclassA, "B", subclassB), "A");
         }
 
         ConfigNode root2 = createRoot("root");
         {
-            ConfigNode subclassA = createInstanceNode("config", "B");
-            subclassA.addChildNodes(createChild("f2"));
+            ConfigNode subclassA = createInstanceNode("config", "A");
+            subclassA.addChildNodes(createChild("t"));
+            subclassA.addChildNodes(createChild("f1"));
 
-            root2.addPolymorphicNode("config", Map.of("B", subclassA), "B");
+            ConfigNode subclassB = createInstanceNode("config", "B");
+            subclassB.addChildNodes(createChild("t"));
+            subclassB.addChildNodes(createChild("f2"));
+
+            root2.addPolymorphicNode("config", Map.of("A", subclassA, "B", subclassB), "B");
         }
 
-        // Changing instance type is always an incompatible change 
-        assertIncompatible(List.of(root1), List.of(root2));
-        assertIncompatible(List.of(root2), List.of(root1));
+        assertCompatible(List.of(root1), List.of(root2));
+        assertCompatible(List.of(root2), List.of(root1));
     }
 
     @ParameterizedTest

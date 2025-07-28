@@ -276,17 +276,6 @@ public class ConfigurationTreeComparator {
         }
 
         if (candidate.isPolymorphic() && current.isPolymorphic()) {
-            if (!Objects.equals(candidate.defaultPolymorphicInstanceId(), current.defaultPolymorphicInstanceId())) {
-                ConfigNode anyNode = candidate.nodes().values().iterator().next();
-                String message = format(
-                        "Default polymorphic instance id does not match. Expected: {} got {}", 
-                        candidate.defaultPolymorphicInstanceId(), 
-                        current.defaultPolymorphicInstanceId()
-                );
-                context.addError(anyNode, message);
-                return;
-            }
-
             Map<String, ConfigNode> polymorphicCurrent = new HashMap<>(current.nodes());
             Map<String, ConfigNode> polymorphicCandidate = candidate.nodes();
 
