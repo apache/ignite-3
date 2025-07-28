@@ -266,6 +266,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                         return;
                     }
 
+                    descriptors = null;
+
                     for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
                         serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
                     }
