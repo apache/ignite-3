@@ -455,7 +455,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txOptions);
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, txOptions);
+            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, txOptions);
         }
 
         txStateVolatileStorage.initialize(tx);
