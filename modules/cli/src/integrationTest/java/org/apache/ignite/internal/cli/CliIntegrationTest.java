@@ -292,6 +292,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEmpty();
     }
 
+    protected void assertOutputContainsSubsequence(Iterable<String> substrings) {
+        assertThat(sout.toString())
+                .as("Expected command output will contain the substrings in the given order")
+                .containsSubsequence(substrings);
+    }
+
     protected void assertErrOutputIsNotEmpty() {
         assertThat(serr.toString())
                 .as("Expected command error output not to be empty")
