@@ -128,7 +128,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final Map<UUID, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
-    private final AtomicReference<ScheduledUpdateLowWatermarkTask> lastScheduledUpdateLowWatermarkTask = new AtomicReference<>();
+    /** Guarded by {@link #scheduleUpdateLowWatermarkTaskLock}. */
+    private @Nullable ScheduledUpdateLowWatermarkTask lastScheduledUpdateLowWatermarkTask;
 
     private final Lock scheduleUpdateLowWatermarkTaskLock = new ReentrantLock();
 
@@ -225,7 +226,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         scheduleUpdateLowWatermarkTaskLock.lock();
 
         try {
-            ScheduledUpdateLowWatermarkTask lastTask = lastScheduledUpdateLowWatermarkTask.get();
+            ScheduledUpdateLowWatermarkTask lastTask = lastScheduledUpdateLowWatermarkTask;
             ScheduledUpdateLowWatermarkTask newTask = new ScheduledUpdateLowWatermarkTask(this, State.NEW);
 
             State lastTaskState = lastTask == null ? State.COMPLETED : lastTask.state();
@@ -233,22 +234,18 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             switch (lastTaskState) {
                 case NEW:
                     if (lastTask.tryCancel()) {
-                        boolean casResult = lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask);
-
-                        assert casResult : "It is forbidden to set a task in parallel";
+                        lastScheduledUpdateLowWatermarkTask = newTask;
 
                         scheduleUpdateLowWatermarkTaskBusy(newTask);
                     }
 
                     break;
                 case IN_PROGRESS:
-                case CANCELLED:
-                    // The new task will be rescheduled successfully.
+                    // In this case we don't need to schedule a new task because the current task that is in progress will schedule a new
+                    // task when it finishes.
                     break;
                 case COMPLETED:
-                    boolean casResult = lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask);
-
-                    assert casResult : "It is forbidden to set a task in parallel";
+                    lastScheduledUpdateLowWatermarkTask = newTask;
 
                     scheduleUpdateLowWatermarkTaskBusy(newTask);
 
