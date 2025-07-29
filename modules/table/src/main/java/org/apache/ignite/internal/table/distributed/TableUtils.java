@@ -84,6 +84,9 @@ public class TableUtils {
      * Collects all IDs of tables that were not dropped or were dropped, but should not have been destroyed yet due to a low watermark
      * (if the catalog version in which the table was removed were less than or equal to the active catalog version of the low watermark).
      *
+     * <p>This method scans the Catalog, so it should be used keeping in mind potential concurrent modification to the Catalog.
+     * For instance, it's safe to use it before the node has been started up (namely, before Metastorage watches deployment).
+     *
      * @param catalogService Catalog service.
      * @param lowWatermark Low watermark, {@code null} if it has never been updated.
      */
