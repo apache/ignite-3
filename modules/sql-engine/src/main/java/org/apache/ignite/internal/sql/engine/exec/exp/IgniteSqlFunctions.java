@@ -381,6 +381,13 @@ public class IgniteSqlFunctions {
         return IgniteSqlDateTimeUtils.adjustTimeMillis(val, precision);
     }
 
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(long val, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(Math.toIntExact(val), precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
     public static @Nullable Integer toDateExact(@Nullable Object object) {
         if (object == null) {
