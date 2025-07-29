@@ -219,7 +219,7 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public CompletableFuture<Void> rollbackAsync() {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
