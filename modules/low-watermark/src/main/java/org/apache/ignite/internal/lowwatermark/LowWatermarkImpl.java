@@ -264,6 +264,10 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     private void scheduleUpdateLowWatermarkTaskBusy(ScheduledUpdateLowWatermarkTask task) {
         ScheduledFuture<?> previousScheduledFuture = this.lastScheduledTaskFuture.get();
 
+        if (previousScheduledFuture != null && !previousScheduledFuture.isDone()) {
+            previousScheduledFuture.cancel(true);
+        }
+
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
                 task,
                 lowWatermarkConfig.updateIntervalMillis().value(),
