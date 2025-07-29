@@ -194,7 +194,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
 
     }

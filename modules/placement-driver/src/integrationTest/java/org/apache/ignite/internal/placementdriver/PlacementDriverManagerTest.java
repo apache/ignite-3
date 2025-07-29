@@ -264,7 +264,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 clockService,
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
 
         ComponentContext componentContext = new ComponentContext();
