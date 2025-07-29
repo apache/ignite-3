@@ -104,7 +104,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
 
     private CommandLine cmd;
 
-    public StringWriter sout;
+    private StringWriter sout;
 
     private StringWriter serr;
 

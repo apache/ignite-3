@@ -83,7 +83,8 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
 
         // Then
         List<String> sourceNames = Arrays.stream(ALL_METRIC_SOURCES)
-                .map(org.apache.ignite.rest.client.model.MetricSource::getName).sorted()
+                .map(org.apache.ignite.rest.client.model.MetricSource::getName)
+                .sorted()
                 .collect(toList());
 
         List<String> nodeNames = CLUSTER.nodes().stream()
