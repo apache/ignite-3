@@ -139,7 +139,8 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new TestClockService(new HybridClockImpl()),
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
 
         assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

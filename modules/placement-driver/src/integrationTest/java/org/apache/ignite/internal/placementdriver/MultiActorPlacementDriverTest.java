@@ -325,7 +325,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     clockService,
                     mock(FailureProcessor.class),
                     new SystemPropertiesNodeProperties(),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    Runnable::run
             );
 
             res.add(new Node(

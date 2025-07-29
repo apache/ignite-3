@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -171,7 +171,7 @@ public class NettyServer {
                 } else {
                     String address = addresses.length == 0 ? "" : addresses[0];
                     String errorMessage = "Cannot start server at address=" + address + ", port=" + port;
-                    bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
+                    bindFuture.completeExceptionally(new IgniteException(BIND_ERR, errorMessage, future.cause()));
                 }
             });
 
