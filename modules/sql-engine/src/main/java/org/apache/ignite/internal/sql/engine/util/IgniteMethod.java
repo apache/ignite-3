@@ -64,9 +64,6 @@ public enum IgniteMethod {
     /** See {@link IgniteSqlFunctions#toTimestampLtzExact(Object)}. **/
     TO_TIMESTAMP_LTZ_EXACT(IgniteSqlFunctions.class, "toTimestampLtzExact", Object.class),
 
-    /** See {@link IgniteSqlFunctions#toTimeExact(Object, int)}. **/
-    TO_TIME_EXACT(IgniteSqlFunctions.class, "toTimeExact", Object.class, int.class),
-
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
 
