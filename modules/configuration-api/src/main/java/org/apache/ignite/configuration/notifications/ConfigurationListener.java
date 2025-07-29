@@ -17,7 +17,11 @@
 
 package org.apache.ignite.configuration.notifications;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Configuration property change listener.
@@ -33,4 +37,17 @@ public interface ConfigurationListener<VIEWT> {
      * @return Future that signifies the end of the listener execution.
      */
     CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEWT> ctx);
+
+    /** Creates an adapter for a given callback. */
+    static <T> ConfigurationListener<T> fromConsumer(Consumer<ConfigurationNotificationEvent<T>> callback) {
+        return ctx -> {
+            try {
+                callback.accept(ctx);
+            } catch (Throwable e) {
+                return failedFuture(e);
+            }
+
+            return nullCompletedFuture();
+        };
+    }
 }

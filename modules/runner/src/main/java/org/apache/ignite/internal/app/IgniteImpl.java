@@ -1601,7 +1601,6 @@ public class IgniteImpl implements Ignite {
                 .thenCompose(ignored -> systemViewManager.completeRegistration())
                 .thenRunAsync(() -> {
                     try {
-                        // TODO: IGNITE-26043 вот тут надо будет подумать вниматьлно!
                         // Enable watermark events.
                         lowWatermark.scheduleUpdates();
 

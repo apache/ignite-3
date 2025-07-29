@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
+import static org.apache.ignite.configuration.notifications.ConfigurationListener.fromConsumer;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -36,7 +37,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -127,6 +130,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final AtomicReference<ScheduledUpdateLowWatermarkTask> lastScheduledUpdateLowWatermarkTask = new AtomicReference<>();
 
+    private final Lock scheduleUpdateLowWatermarkTaskLock = new ReentrantLock();
+
     /**
      * Constructor.
      *
@@ -161,6 +166,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
             setLowWatermarkOnRecovery(readLowWatermarkFromVault());
 
             messagingService.addMessageHandler(LowWatermarkMessageGroup.class, this::onReceiveNetworkMessage);
+
+            lowWatermarkConfig.updateIntervalMillis().listen(fromConsumer(ctx -> scheduleUpdates()));
 
             return nullCompletedFuture();
         });
@@ -215,7 +222,9 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
-        while (true) {
+        scheduleUpdateLowWatermarkTaskLock.lock();
+
+        try {
             ScheduledUpdateLowWatermarkTask lastTask = lastScheduledUpdateLowWatermarkTask.get();
             ScheduledUpdateLowWatermarkTask newTask = new ScheduledUpdateLowWatermarkTask(this, State.NEW);
 
@@ -223,28 +232,32 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
             switch (lastTaskState) {
                 case NEW:
-                    if (lastTask.tryCancel() && lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask)) {
-                        scheduleUpdateLowWatermarkTaskBusy(newTask);
+                    if (lastTask.tryCancel()) {
+                        boolean casResult = lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask);
 
-                        return;
+                        assert casResult : "It is forbidden to set a task in parallel";
+
+                        scheduleUpdateLowWatermarkTaskBusy(newTask);
                     }
 
                     break;
                 case IN_PROGRESS:
                 case CANCELLED:
                     // The new task will be rescheduled successfully.
-                    return;
+                    break;
                 case COMPLETED:
-                    if (lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask)) {
-                        scheduleUpdateLowWatermarkTaskBusy(newTask);
+                    boolean casResult = lastScheduledUpdateLowWatermarkTask.compareAndSet(lastTask, newTask);
 
-                        return;
-                    }
+                    assert casResult : "It is forbidden to set a task in parallel";
+
+                    scheduleUpdateLowWatermarkTaskBusy(newTask);
 
                     break;
                 default:
                     throw new AssertionError("Unknown state: " + lastTaskState);
             }
+        } finally {
+            scheduleUpdateLowWatermarkTaskLock.unlock();
         }
     }
 

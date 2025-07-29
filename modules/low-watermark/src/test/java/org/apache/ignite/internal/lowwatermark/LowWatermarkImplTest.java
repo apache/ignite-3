@@ -41,6 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -341,12 +343,33 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testParallelScheduleUpdates() {
-        // TODO: IGNITE-26043 продолжить
+    void testParallelScheduleUpdates() throws Exception {
+        assertThat(lowWatermarkConfig.updateIntervalMillis().update(300L), willCompleteSuccessfully());
+
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
         runRace(
+                () -> lowWatermark.scheduleUpdates(),
+                () -> lowWatermark.scheduleUpdates(),
                 () -> lowWatermark.scheduleUpdates(),
                 () -> lowWatermark.scheduleUpdates()
         );
+
+        Thread.sleep(1_000);
+
+        verify(lwmChangedListener, atLeast(2)).notify(any());
+        verify(lwmChangedListener, atMost(4)).notify(any());
+    }
+
+    @Test
+    void testScheduleUpdatesAfterUpdateIntervalInConfig() {
+        assertThat(lowWatermarkConfig.updateIntervalMillis().update(50_000L), willCompleteSuccessfully());
+
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        assertThat(lowWatermarkConfig.updateIntervalMillis().update(100L), willCompleteSuccessfully());
+
+        verify(lwmChangedListener, timeout(1_000).atLeast(1)).notify(any());
     }
 
     private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {
