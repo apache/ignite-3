@@ -42,6 +42,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.GregorianCalendar;
 import java.util.UUID;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -130,6 +131,19 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertEquals(Period.ofMonths(1), eval("INTERVAL 5 MONTHS - INTERVAL 4 MONTHS"));
         assertEquals(Duration.ofSeconds(1), eval("INTERVAL 5 SECONDS - INTERVAL 4 SECONDS"));
         assertEquals(Duration.ofSeconds(10), eval("INTERVAL 5 SECONDS * 2"));
+    }
+
+    @Test
+    public void testX() throws SQLException {
+        Statement stmt0 = conn.createStatement();
+
+        {
+            ResultSet rs = stmt0.executeQuery("SELECT TIME '00:00:01'");
+
+            rs.next();
+
+            System.out.println(rs.getString(1));
+        }
     }
 
     private Object eval(String exp) throws SQLException {

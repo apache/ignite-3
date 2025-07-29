@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.ExpressionType;
@@ -25,6 +26,7 @@ import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.jetbrains.annotations.Nullable;
 
 /** Calcite liq4j expressions customized for Ignite. */
@@ -108,26 +110,26 @@ public class IgniteExpressions {
 
     /** Generate expression to verify bounds of temporal types. */
     public static Expression addBoundsCheckIfNeeded(SqlTypeName type, Expression expr) {
-        String methodName;
+        Method method = null;
 
         switch (type) {
             case DATE:
-                methodName = "toDateExact";
+                method = IgniteMethod.VERIFY_BOUNDS_DATE.method();
                 break;
 
             case TIMESTAMP:
-                methodName = "toTimestampExact";
+                method = IgniteMethod.VERIFY_BOUNDS_TIMESTAMP.method();
                 break;
 
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                methodName = "toTimestampLtzExact";
+                method = IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method();
                 break;
 
             default:
                 return expr;
         }
 
-        return Expressions.call(IgniteSqlFunctions.class, methodName, expr);
+        return Expressions.call(method, expr);
     }
 
     static Expression convertChecked(Expression exp, Primitive fromPrimitive, Primitive toPrimitive) {

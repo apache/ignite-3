@@ -374,69 +374,18 @@ public class IgniteSqlFunctions {
         return IgniteSqlDateTimeUtils.adjustTimeMillis(((Number) object).intValue(), precision);
     }
 
-    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static @Nullable Integer toDateExact(@Nullable Object object) {
-        if (object == null) {
-            return null;
-        }
-
-        assert object instanceof Integer : object.getClass();
-
-        return toDateExact((int) object);
-    }
-
-    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static Integer toDateExact(long longDate) {
-        return toDateExact(Math.toIntExact(longDate));
-    }
-
-    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static Integer toDateExact(int intDate) {
-        if (intDate < DATE_MIN_INTERNAL || intDate > DATE_MAX_INTERNAL) {
-            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
-        }
-
-        return intDate;
-    }
-
     /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
     public static @Nullable Long toTimestampExact(@Nullable Object object, int precision) {
         if (object == null) {
             return null;
         }
 
+        assert precision >= 0 : "Invalid precision: " + precision;
         assert object instanceof Long : object.getClass();
 
-        return toTimestampExact((long) object, precision);
-    }
-
-    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static long toTimestampExact(long ts, int precision) {
-        assert precision >= 0 : "Invalid precision: " + precision;
-
-        long verified = toTimestampExact(ts);
+        long verified = verifyBoundsTimestamp((long) object);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
-    }
-
-    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static @Nullable Long toTimestampExact(@Nullable Object object) {
-        if (object == null) {
-            return null;
-        }
-
-        assert object instanceof Long : object.getClass();
-
-        return toTimestampExact((long) object);
-    }
-
-    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static long toTimestampExact(long ts) {
-        if (ts < TIMESTAMP_MIN_INTERNAL || ts > TIMESTAMP_MAX_INTERNAL) {
-            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP + " out of range");
-        }
-
-        return ts;
     }
 
     /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
@@ -445,33 +394,58 @@ public class IgniteSqlFunctions {
             return null;
         }
 
+        assert precision >= 0 : "Invalid precision: " + precision;
         assert object instanceof Long : object.getClass();
 
-        return toTimestampLtzExact((long) object, precision);
-    }
-
-    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static long toTimestampLtzExact(long ts, int precision) {
-        assert precision >= 0 : "Invalid precision: " + precision;
-
-        long verified = toTimestampLtzExact(ts);
+        long verified = verifyBoundsTimestampLtz((long) object);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
     }
 
-    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static @Nullable Long toTimestampLtzExact(@Nullable Object object) {
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static @Nullable Integer verifyBoundsDate(@Nullable Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer || object instanceof Long : object.getClass();
+
+        int intDate = ((Number) object).intValue();
+
+        if (intDate < DATE_MIN_INTERNAL || intDate > DATE_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
+        }
+
+        return intDate;
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long verifyBoundsTimestamp(@Nullable Object object) {
         if (object == null) {
             return null;
         }
 
         assert object instanceof Long : object.getClass();
 
-        return toTimestampLtzExact((long) object);
+        long ts = (Long) object;
+
+        if (ts < TIMESTAMP_MIN_INTERNAL || ts > TIMESTAMP_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP + " out of range");
+        }
+
+        return ts;
     }
 
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static long toTimestampLtzExact(long ts) {
+    public static @Nullable Long verifyBoundsTimestampLtz(@Nullable Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        long ts = (Long) object;
+
         if (ts < TIMESTAMP_LTZ_MIN_INTERNAL || ts > TIMESTAMP_LTZ_MAX_INTERNAL) {
             throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE + " out of range");
         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -204,26 +205,24 @@ public class ConverterUtils {
     private static Expression convertToDate(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.DATE;
         return Expressions.call(
-                IgniteSqlFunctions.class,
-                "toDateExact",
+                IgniteMethod.VERIFY_BOUNDS_DATE.method(),
                 operand
         );
     }
 
     private static Expression convertToTimestamp(Expression operand, RelDataType targetType) {
-        String methodName;
+        Method method;
 
         if (targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP) {
-            methodName = "toTimestampExact";
+            method = IgniteMethod.TO_TIMESTAMP_EXACT.method();
         } else {
             assert targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE : targetType;
 
-            methodName = "toTimestampLtzExact";
+            method = IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method();
         }
 
         return Expressions.call(
-                IgniteSqlFunctions.class,
-                methodName,
+                method,
                 operand,
                 Expressions.constant(targetType.getPrecision())
         );

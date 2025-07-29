@@ -902,7 +902,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
       Expression result = Expressions.isConstantNull(format)
-          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
+          ? Expressions.call(IgniteMethod.VERIFY_BOUNDS_TIMESTAMP.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
           : Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP.method(), operand, format);
 
       return adjustTimestampMillis(sourceType, targetType, result);
@@ -967,12 +967,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
       if (Expressions.isConstantNull(format)) {
         result = Expressions.call(
-                IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method(),
                 Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method, operand, getTimeZone)
         );
       } else {
         result = Expressions.call(
-                IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method(),
                 Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), operand, format, getTimeZone)
         );
       }
@@ -982,7 +982,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case DATE:
       return
               Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                      IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method(),
                       Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                               RexImpTable.optimize2(operand,
                                       Expressions.call(
@@ -1024,7 +1024,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case TIMESTAMP:
       return
               Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                      IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method(),
                       Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                           RexImpTable.optimize2(operand,
                               Expressions.call(
