@@ -263,7 +263,7 @@ public class JitComparatorGenerator {
                     .expression(outerEntrySize)
                     .defaultCase(new BytecodeBlock().append(newInstance(
                             BinaryTupleFormatException.class,
-                            constantString("Invalid header, header size 8 is not supported.")
+                            constantString("Invalid header, offset size 8 is not supported.")
                     )).throwObject());
 
             for (int i = 0; i <= maxEntrySizeLog; i++) {
@@ -271,7 +271,7 @@ public class JitComparatorGenerator {
                         .expression(innerEntrySize)
                         .defaultCase(new BytecodeBlock().append(newInstance(
                                 BinaryTupleFormatException.class,
-                                constantString("Invalid header, header size 8 is not supported.")
+                                constantString("Invalid header, offset size 8 is not supported.")
                         )).throwObject());
 
                 for (int j = 0; j <= maxEntrySizeLog; j++) {
