@@ -216,7 +216,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
     }
 
@@ -526,7 +527,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
             when(clusterService.messagingService()).thenAnswer(inv -> messagingService);
 
-            var leaseNegotiator = new LeaseNegotiator(clusterService);
+            var leaseNegotiator = new LeaseNegotiator(clusterService, Runnable::run);
 
             var startTs = new HybridTimestamp(0, 1);
             var expirationTs = new HybridTimestamp(1000, 1);
