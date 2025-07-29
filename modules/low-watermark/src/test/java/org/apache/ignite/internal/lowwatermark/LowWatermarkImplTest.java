@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lowwatermark.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -34,7 +35,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -210,11 +210,15 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         var onLwmChangedFinishFuture = new CompletableFuture<>();
 
+        var firstOnLwmChangedFuture = new CompletableFuture<>();
+
         try {
             assertThat(lowWatermarkConfig.updateIntervalMillis().update(100L), willSucceedFast());
 
             when(lwmChangedListener.notify(any())).then(invocation -> {
                 onLwmChangedLatch.countDown();
+
+                firstOnLwmChangedFuture.complete(null);
 
                 return onLwmChangedFinishFuture;
             });
@@ -223,7 +227,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
             lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
-            assertFalse(onLwmChangedLatch.await(1, TimeUnit.SECONDS));
+            assertThat(firstOnLwmChangedFuture, willCompleteSuccessfully());
 
             // Let's check that it was called only once.
             assertEquals(2, onLwmChangedLatch.getCount());
@@ -334,6 +338,15 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
 
         verify(failureManager, never()).process(any());
+    }
+
+    @Test
+    void testParallelScheduleUpdates() {
+        // TODO: IGNITE-26043 продолжить
+        runRace(
+                () -> lowWatermark.scheduleUpdates(),
+                () -> lowWatermark.scheduleUpdates()
+        );
     }
 
     private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {
