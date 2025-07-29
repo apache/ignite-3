@@ -104,7 +104,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
 
     private CommandLine cmd;
 
-    private StringWriter sout;
+    public StringWriter sout;
 
     private StringWriter serr;
 
@@ -290,6 +290,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(sout.toString())
                 .as("Expected command output to be empty")
                 .isEmpty();
+    }
+
+    protected void assertOutputContainsSubsequence(Iterable<String> substrings) {
+        assertThat(sout.toString())
+                .as("Expected command output will contain the substrings in the given order")
+                .containsSubsequence(substrings);
     }
 
     protected void assertErrOutputIsNotEmpty() {
