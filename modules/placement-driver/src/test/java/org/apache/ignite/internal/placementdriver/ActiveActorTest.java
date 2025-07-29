@@ -141,6 +141,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
                 replicationConfiguration,
+                Runnable::run,
                 mock(MetricManager.class)
         );
 

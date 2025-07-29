@@ -43,6 +43,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -134,6 +135,8 @@ public class LeaseUpdater {
     /** Node name. */
     private final String nodeName;
 
+    private final Executor throttledLogExecutor;
+
     /**
      * Constructor.
      *
@@ -144,6 +147,7 @@ public class LeaseUpdater {
      * @param clockService Clock service.
      * @param assignmentsTracker Assignments tracker.
      * @param replicationConfiguration Replication configuration.
+     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
     LeaseUpdater(
             String nodeName,
@@ -154,7 +158,8 @@ public class LeaseUpdater {
             LeaseTracker leaseTracker,
             ClockService clockService,
             AssignmentsTracker assignmentsTracker,
-            ReplicationConfiguration replicationConfiguration
+            ReplicationConfiguration replicationConfiguration,
+            Executor throttledLogExecutor
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
@@ -167,6 +172,7 @@ public class LeaseUpdater {
         this.assignmentsTracker = assignmentsTracker;
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
+        this.throttledLogExecutor = throttledLogExecutor;
 
         this.placementDriverMetrics = new PlacementDriverMetricSource(
                 updater::activeLeaseCount,
@@ -203,7 +209,7 @@ public class LeaseUpdater {
 
             LOG.info("Placement driver active actor is starting.");
 
-            leaseNegotiator = new LeaseNegotiator(clusterService);
+            leaseNegotiator = new LeaseNegotiator(clusterService, throttledLogExecutor);
 
             updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
 

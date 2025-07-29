@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.readVarIntSet;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntSet;
 
 import java.io.IOException;
 import java.util.Set;
@@ -37,6 +35,11 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
     static final ManualGroupRestartRequestSerializer INSTANCE = new ManualGroupRestartRequestSerializer();
 
     @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
+
+    @Override
     protected void writeExternalData(ManualGroupRestartRequest request, IgniteDataOutput out) throws IOException {
         out.writeUuid(request.operationId());
         out.writeVarInt(request.zoneId());
@@ -44,6 +47,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         writeVarIntSet(request.partitionIds(), out);
         writeStringSet(request.nodeNames(), out);
         hybridTimestamp(request.assignmentsTimestamp()).writeTo(out);
+        out.writeBoolean(request.cleanUp()); // Write the new 'cleanUp' field introduced in protocol version 2.
     }
 
     @Override
@@ -55,6 +59,20 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         Set<String> nodeNames = readStringSet(in);
         HybridTimestamp assignmentsTimestamp = HybridTimestamp.readFrom(in);
 
-        return new ManualGroupRestartRequest(operationId, zoneId, tableId, partitionIds, nodeNames, assignmentsTimestamp.longValue());
+        boolean cleanUp = false;
+
+        if (protoVer >= 2) {
+            cleanUp = in.readBoolean(); // Read the new 'cleanUp' field if protocol version is 2 or greater.
+        }
+
+        return new ManualGroupRestartRequest(
+                operationId,
+                zoneId,
+                tableId,
+                partitionIds,
+                nodeNames,
+                assignmentsTimestamp.longValue(),
+                cleanUp
+        );
     }
 }

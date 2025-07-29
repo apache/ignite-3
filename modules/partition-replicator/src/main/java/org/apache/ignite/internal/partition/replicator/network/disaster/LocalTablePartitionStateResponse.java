@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
-import org.apache.ignite.lang.IgniteException;
+import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
 /**
- * Exception that gets thrown when a node bootstrap configuration file is malformed.
+ * Response for {@link LocalTablePartitionStateRequest}.
  */
-public class NodeConfigParseException extends IgniteException {
-
-    public NodeConfigParseException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_PARSE_ERR, msg, cause);
-    }
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
+public interface LocalTablePartitionStateResponse extends NetworkMessage {
+    Set<LocalTablePartitionStateMessage> states();
 }

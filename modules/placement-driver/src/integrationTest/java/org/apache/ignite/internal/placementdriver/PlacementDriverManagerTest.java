@@ -266,6 +266,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
                 replicationConfiguration,
+                Runnable::run,
                 mock(MetricManager.class)
         );
 

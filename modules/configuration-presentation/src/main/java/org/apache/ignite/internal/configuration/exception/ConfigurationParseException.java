@@ -15,39 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.configuration.exception;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.ErrorGroups.CommonConfiguration;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Table state.
+ * Throws when configuration parse failed.
  */
-public class TableState {
+public class ConfigurationParseException extends IgniteException {
+    private static final long serialVersionUID = -3249916096894846310L;
 
-    private final int tableId;
-    private final String schemaName;
-    private final String tableName;
-
-    TableState(int tableId, String tableName, String schemaName) {
-        this.tableId = tableId;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
+    public ConfigurationParseException(String message) {
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message);
     }
 
-    public int tableId() {
-        return tableId;
-    }
-
-    public String schemaName() {
-        return schemaName;
-    }
-
-    public String tableName() {
-        return tableName;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(TableState.class, this);
+    public ConfigurationParseException(String message, @Nullable Throwable cause) {
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message, cause);
     }
 }

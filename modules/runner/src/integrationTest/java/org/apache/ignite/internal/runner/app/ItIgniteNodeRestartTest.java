@@ -588,6 +588,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 failureProcessor,
                 nodeProperties,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
+                threadPoolsManager.commonScheduler(),
                 metricManager
         );
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
@@ -138,6 +139,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -859,6 +861,24 @@ public class DdlSqlToCommandConverter {
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();
 
+        if (zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_UP || zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_DOWN) {
+            if (literal.getTypeName() == SqlTypeName.SYMBOL) {
+                IgniteSqlZoneOptionMode zoneOptionMode = literal.symbolValue(IgniteSqlZoneOptionMode.class);
+
+                if (zoneOptionMode != IgniteSqlZoneOptionMode.SCALE_OFF) {
+                    throw new SqlException(STMT_VALIDATION_ERR, format(
+                            "Unexpected value of zone auto adjust scale [expected OFF, was {}; query=\"{}\"",
+                            zoneOptionMode, ctx.query()
+                    ));
+                }
+
+                // Directly set the option value and return
+                zoneOptionInfo.setter.accept(target, Commons.cast(INFINITE_TIMER_VALUE));
+
+                return;
+            }
+        }
+
         if (zoneOption == REPLICAS) {
             if (literal.getTypeName() == SqlTypeName.SYMBOL) {
                 IgniteSqlZoneOptionMode zoneOptionMode = literal.symbolValue(IgniteSqlZoneOptionMode.class);
@@ -1055,11 +1075,14 @@ public class DdlSqlToCommandConverter {
                     return fromInternal(val, ColumnType.TIME);
                 }
                 case DATETIME: {
-                    literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    String sourceValue = literal.getValueAs(String.class);
+                    literal = SqlParserUtil.parseTimestampLiteral(sourceValue, literal.getParserPosition());
                     var tsString = literal.getValueAs(TimestampString.class);
                     long ts = tsString.getMillisSinceEpoch();
 
-                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL
+                            || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL
+                            || IgniteSqlDateTimeUtils.isYearOutOfRange(sourceValue)) {
                         throw new SqlException(STMT_VALIDATION_ERR, "TIMESTAMP out of range.");
                     }
 

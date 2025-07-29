@@ -86,7 +86,7 @@ Sort
                   est: (rows=16650)
                 TableScan
                     table: PUBLIC.CUSTOMER_ADDRESS
-                    predicate: =(CAST(CA_GMT_OFFSET):DECIMAL(12, 2), -5.00)
+                    predicate: =(CA_GMT_OFFSET, -5.00)
                     fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
                     est: (rows=16650)
       ColocatedSortAggregate
@@ -167,7 +167,7 @@ Sort
                 est: (rows=16650)
               TableScan
                   table: PUBLIC.CUSTOMER_ADDRESS
-                  predicate: =(CAST(CA_GMT_OFFSET):DECIMAL(12, 2), -5.00)
+                  predicate: =(CA_GMT_OFFSET, -5.00)
                   fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
                   est: (rows=16650)
       ColocatedHashAggregate
@@ -247,6 +247,6 @@ Sort
                 est: (rows=16650)
               TableScan
                   table: PUBLIC.CUSTOMER_ADDRESS
-                  predicate: =(CAST(CA_GMT_OFFSET):DECIMAL(12, 2), -5.00)
+                  predicate: =(CA_GMT_OFFSET, -5.00)
                   fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
                   est: (rows=16650)

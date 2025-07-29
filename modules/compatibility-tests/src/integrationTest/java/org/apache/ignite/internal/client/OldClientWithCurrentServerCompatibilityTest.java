@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.CompatibilityTestBase.baseVersions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.lang.reflect.Constructor;
@@ -237,7 +238,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     }
 
     private static List<String> clientVersions() {
-        return CompatibilityTestBase.baseVersions(Integer.MAX_VALUE);
+        return baseVersions();
     }
 
     private static class Delegate implements ClientCompatibilityTests {

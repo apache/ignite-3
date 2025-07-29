@@ -327,6 +327,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     mock(FailureProcessor.class),
                     new SystemPropertiesNodeProperties(),
                     replicationConfiguration,
+                    Runnable::run,
                     mock(MetricManager.class)
             );
 

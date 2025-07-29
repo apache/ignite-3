@@ -247,6 +247,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
+
+        if (metastorageReplicationFactor != null) {
+            ensureNoMgMajorityIsOnline(clusterState, nodesInTopology);
+        }
+
         ResetClusterMessage message = buildResetClusterMessageForReset(
                 proposedCmgNodeNames,
                 clusterState,
@@ -299,7 +304,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private void ensureInitConfigApplied() {
         if (!storage.isInitConfigApplied()) {
-            throw new ClusterResetException("Initial configuration is not applied and cannot serve as a cluster reset conductor.");
+            throw new ClusterResetException("Initial configuration is not applied, so the node cannot serve as a cluster reset conductor.");
         }
     }
 
@@ -334,6 +339,24 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             throw new ClusterResetException("Node does not have cluster state.");
         }
         return clusterState;
+    }
+
+    private void ensureNoMgMajorityIsOnline(ClusterState clusterState, Collection<ClusterNode> nodesInTopology) {
+        Set<String> namesOfNodesInTopology = nodesInTopology.stream()
+                .map(ClusterNode::name)
+                .collect(toSet());
+
+        Set<String> nodes = new HashSet<>(clusterState.metaStorageNodes());
+        nodes.retainAll(namesOfNodesInTopology);
+
+        int majority = majoritySizeFor(clusterState.metaStorageNodes().size());
+        if (nodes.size() >= majority) {
+            throw new ClusterResetException(String.format(
+                    "Majority repair is rejected because majority of Metastorage nodes are online [metastorageNodes=%s, onlineNodes=%s].",
+                    clusterState.metaStorageNodes(),
+                    namesOfNodesInTopology
+            ));
+        }
     }
 
     private ResetClusterMessage buildResetClusterMessageForReset(
@@ -408,7 +431,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .filter(CompletableFutures::isCompletedSuccessfully)
                 .count();
 
-        return successes >= (futuresFromNewCmg.size() + 1) / 2;
+        return successes >= majoritySizeFor(futuresFromNewCmg.size());
+    }
+
+    private static int majoritySizeFor(int votingMembersCount) {
+        return votingMembersCount / 2 + 1;
     }
 
     private static String errorMessageForNotEnoughSuccesses(

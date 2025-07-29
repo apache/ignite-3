@@ -29,6 +29,9 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBuffer : IDisposable, IBufferWriter<byte>
     {
+        /** Maximum size of the array. */
+        private const int MaxByteArraySize = 0X7FFFFFC7;
+
         /** Prefix size. */
         private readonly int _prefixSize;
 
@@ -93,7 +96,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: Offset, length: _index);
+            return new(_buffer, start: Offset, length: _index - Offset);
         }
 
         /// <summary>
@@ -103,7 +106,7 @@ namespace Apache.Ignite.Internal.Buffers
         public void Advance(int count)
         {
             Debug.Assert(count >= 0, "count >= 0");
-            Debug.Assert(_index + count < _buffer.Length, "_index + count < _buffer.Length");
+            Debug.Assert(_index + count <= _buffer.Length, $"_index + count <= _buffer.Length [{_index} + {count} <= {_buffer.Length}]");
 
             _index += count;
         }
@@ -128,7 +131,27 @@ namespace Apache.Ignite.Internal.Buffers
         public Span<byte> GetSpan(int sizeHint)
         {
             CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsSpan(_index);
+
+            return _buffer.AsSpan(_index, sizeHint);
+        }
+
+        /// <summary>
+        /// Gets a span for writing at the specified position. Does not resize the buffer or advance the index.
+        /// To be used with <see cref="Advance"/> to write to a reserved space.
+        /// </summary>
+        /// <param name="position">Position.</param>
+        /// <param name="size">Size.</param>
+        /// <returns>Span.</returns>
+        public Span<byte> GetSpanAt(int position, int size)
+        {
+            var span = _buffer.AsSpan(_prefixSize + position, size);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(254);
+#endif
+
+            return span;
         }
 
         /// <summary>
@@ -142,6 +165,11 @@ namespace Apache.Ignite.Internal.Buffers
 
             var span = _buffer.AsSpan(_index, size);
             Advance(size);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(253);
+#endif
 
             return span;
         }
@@ -256,6 +284,29 @@ namespace Apache.Ignite.Internal.Buffers
         public int ReadInt(int pos) => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize));
 
         /// <summary>
+        /// Reserves space for a fixed-size MsgPack integer (5 bytes).
+        /// </summary>
+        /// <returns>Position in the buffer where the integer can be written.</returns>
+        public int ReserveMsgPackInt32()
+        {
+            var pos = Position;
+            Advance(5);
+            return pos;
+        }
+
+        /// <summary>
+        /// Writes a MsgPack integer (5 bytes) at the specified position reserved by <see cref="ReserveMsgPackInt32"/>.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteMsgPackInt32(int value, int pos)
+        {
+            var span = GetSpanAt(pos, 5);
+            span[0] = MsgPackCode.Int32;
+            BinaryPrimitives.WriteInt32BigEndian(span[1..], value);
+        }
+
+        /// <summary>
         /// Checks underlying buffer and resizes if necessary.
         /// </summary>
         /// <param name="sizeHint">Size hint.</param>
@@ -274,22 +325,25 @@ namespace Apache.Ignite.Internal.Buffers
             }
 
             int length = _buffer.Length;
-            int increase = Math.Max(sizeHint, length);
+            long requiredSize = (long)_index + sizeHint;
 
-            int newSize = length + increase;
-
-            if ((uint)newSize > int.MaxValue)
+            if (requiredSize > MaxByteArraySize)
             {
-                newSize = length + sizeHint;
-                if ((uint)newSize > int.MaxValue)
-                {
-                    throw new InternalBufferOverflowException($"Buffer can't be larger than {int.MaxValue} (int.MaxValue) bytes.");
-                }
+                throw new InternalBufferOverflowException($"Buffer can't be larger than {MaxByteArraySize} bytes.");
+            }
+
+            int increase = Math.Max(sizeHint, length);
+            long newSize = (long)length + increase;
+
+            if (newSize > MaxByteArraySize)
+            {
+                newSize = MaxByteArraySize;
             }
 
             // Arrays from ArrayPool are sized to powers of 2, so we don't need to implement the same logic here.
             // Even if requested size is 1 byte more than current, we'll get at lest 2x bigger array.
-            var newBuf = ByteArrayPool.Rent(newSize);
+            var newBuf = ByteArrayPool.Rent((int)newSize);
+            Debug.Assert(newBuf.Length >= newSize, "newBuf.Length >= newSize");
 
             Array.Copy(_buffer, newBuf, _index);
 

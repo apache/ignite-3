@@ -554,6 +554,7 @@ public class Node {
                 failureManager,
                 nodeProperties,
                 replicationConfiguration,
+                Runnable::run,
                 metricManager
         );
 

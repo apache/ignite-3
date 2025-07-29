@@ -862,6 +862,7 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 nodeProperties,
                 replicationConfig,
+                threadPoolsManager.commonScheduler(),
                 metricManager
         );
 

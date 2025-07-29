@@ -23,7 +23,7 @@ import static uk.co.datumedge.hamcrest.json.SameJSONAs.sameJSONAs;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,7 +34,7 @@ class JacksonBasedJsonSerializerTest {
     private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
-                        IgniteEvents.CLIENT_CONNECTION_CLOSED.builder()
+                        IgniteEventType.CLIENT_CONNECTION_CLOSED.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -47,7 +47,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.builder()
+                        IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -60,7 +60,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+                        IgniteEventType.USER_AUTHENTICATION_FAILURE.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -73,7 +73,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
+                        IgniteEventType.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -86,7 +86,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
+                        IgniteEventType.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -115,7 +115,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
+                        IgniteEventType.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -120,7 +121,8 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      * @param clockService Clock service.
-     * @param failureProcessor Failure processor.,
+     * @param failureProcessor Failure processor.
+     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      * @param metricManager Metric manager.
      */
     public PlacementDriverManager(
@@ -136,6 +138,7 @@ public class PlacementDriverManager implements IgniteComponent {
             FailureProcessor failureProcessor,
             NodeProperties nodeProperties,
             ReplicationConfiguration replicationConfiguration,
+            Executor throttledLogExecutor,
             MetricManager metricManager
     ) {
         this.replicationGroupId = replicationGroupId;
@@ -161,7 +164,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker,
                 clockService,
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                throttledLogExecutor
         );
 
         this.placementDriver = createPlacementDriver();

@@ -39,6 +39,7 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-configuration')
@@ -51,6 +52,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-schema'))
     testImplementation testFixtures(project(':ignite-page-memory'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation libs.jmh.core
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service

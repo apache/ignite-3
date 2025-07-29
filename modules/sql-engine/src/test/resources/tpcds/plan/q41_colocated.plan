@@ -23,7 +23,7 @@ Sort
               est: (rows=4500)
             TableScan
                 table: PUBLIC.ITEM
-                predicate: AND(>=(I_MANUFACT_ID, 970), <=(I_MANUFACT_ID, +(970, 40)))
+                predicate: SEARCH(I_MANUFACT_ID, Sarg[[970..1010]])
                 fieldNames: [I_MANUFACT, I_PRODUCT_NAME]
                 est: (rows=4500)
           Project

@@ -733,7 +733,7 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            if (isPartitionOperation(opCode)) {
+            if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
 
@@ -997,39 +997,6 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
-    }
-
-    private static boolean isPartitionOperation(int opCode) {
-        return opCode == ClientOp.TABLES_GET
-                || opCode == ClientOp.TUPLE_UPSERT
-                || opCode == ClientOp.TUPLE_GET
-                || opCode == ClientOp.TUPLE_GET_AND_UPSERT
-                || opCode == ClientOp.TUPLE_INSERT
-                || opCode == ClientOp.TUPLE_REPLACE
-                || opCode == ClientOp.TUPLE_REPLACE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_REPLACE
-                || opCode == ClientOp.TUPLE_DELETE
-                || opCode == ClientOp.TUPLE_DELETE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_DELETE
-                || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.STREAMER_BATCH_SEND
-                || opCode == ClientOp.TX_COMMIT
-                || opCode == ClientOp.TX_ROLLBACK;
-
-                // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
-                // (for instance, cancellation must not be processed until execution request is registered).
-                // || opCode == ClientOp.SQL_EXEC
-                // || opCode == ClientOp.SQL_EXEC_BATCH
-                // || opCode == ClientOp.SQL_EXEC_SCRIPT
-                // || opCode == ClientOp.SQL_QUERY_META;
-
-                // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
-                // || opCode == ClientOp.TUPLE_UPSERT_ALL
-                // || opCode == ClientOp.TUPLE_GET_ALL
-                // || opCode == ClientOp.TUPLE_INSERT_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
-                // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
     }
 
     private void processOperationInternal(
