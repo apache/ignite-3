@@ -82,7 +82,7 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
         List<Executable> assertions = new ArrayList<>();
         assertions.add(this::assertExitCodeIsZero);
         assertions.add(this::assertErrOutputIsEmpty);
-        assertions.add(() -> assertOutputContains("Node\tSource name\tDescription"));
+        assertions.add(() -> assertOutputContains("Node\tSource name\tAvailability"));
         for (org.apache.ignite.rest.client.model.MetricSource source : ALL_METRIC_SOURCES) {
             assertions.add(() -> assertOutputContains(source.getName() + "\tenabled" + NL));
         }
