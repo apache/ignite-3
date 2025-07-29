@@ -35,11 +35,23 @@ public class RecordAndTableSchemaMismatchExceptionHandler implements ExceptionHa
         if (!e.missingColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nRecord did not have the following fields required by the table: ")
                             .append(String.join(", ", e.missingColumnsInRecord()));
+
+            msgBuilder.append("\nConsider Consider the following solutions:")
+                    .append("\n * Manually edit the Ignite 3 table schema to make the missing columns nullable.");
         }
 
         if (!e.additionalColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nThe following fields were present on the record but not found in the table: ")
                     .append(String.join(", ", e.additionalColumnsInRecord()));
+
+            msgBuilder.append("\nConsider the following solutions:")
+                    .append("\n * Manual Editing: Edit the Ignite 3 table schema manually to add new columns for the additional fields."
+                            + " Ensure that the new column types are compatible with the record type.")
+                    .append("\n * Ignore Additional Fields: Use the IGNORE_COLUMN migration mode by applying the '--mode IGNORE_COLUMN'"
+                            + " option. This approach will skip the migration of those columns, resulting in the loss of their content.")
+                    .append("\n * Store as JSON: Use the '--mode PACK_EXTRA' option to store additional fields as JSON in an extra column."
+                            + " While Ignite 3 does not natively support unmarshalling the original record from this column, it can be"
+                            + " accessed by another application to retrieve the information contained in these additional fields.");
         }
 
         writer.write(
