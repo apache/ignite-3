@@ -80,19 +80,28 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
     return detached.resolve()  // Set<File> of *.jar
 }
 
-// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined, at
-// most 2 last versions are resolved
+// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined or is
+// not equals to `true`, at most 2 last versions are resolved
 def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityTestDependencies') {
     doLast {
         def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
         def versionsJson = new JsonSlurper().parseText(versionsFile.text)
-        def versions = System.getProperty("testAllVersions") != null ? versionsJson.versions : versionsJson.versions.takeRight(2)
+        def versions = shouldTestAllVersions() ? versionsJson.versions : versionsJson.versions.takeRight(2)
         versions.each { version ->
             versionsJson.artifacts.each { artifact ->
                 resolveAllDependencies("$artifact:$version.version")
             }
         }
     }
+}
+
+private shouldTestAllVersions() {
+    def value = System.getProperty("testAllVersions")
+    if (value != null) {
+        value = value.trim().toLowerCase()
+        return value.isEmpty() || "true".equals(value)
+    }
+    return false
 }
 
 integrationTest.dependsOn resolveCompatibilityTestDependencies
