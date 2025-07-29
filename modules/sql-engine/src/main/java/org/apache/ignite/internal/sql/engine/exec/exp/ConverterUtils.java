@@ -38,6 +38,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
  * Utility class to convert from/to internal and external representations of different data types and their internal representations.
@@ -194,8 +195,7 @@ public class ConverterUtils {
     private static Expression convertToTime(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.TIME;
         return Expressions.call(
-                IgniteSqlFunctions.class,
-                "toTimeExact",
+                IgniteMethod.TO_TIME_EXACT.method(),
                 operand,
                 Expressions.constant(targetType.getPrecision())
         );

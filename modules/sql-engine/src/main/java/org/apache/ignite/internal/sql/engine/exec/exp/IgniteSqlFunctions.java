@@ -369,16 +369,9 @@ public class IgniteSqlFunctions {
             return null;
         }
 
-        assert object instanceof Integer : object.getClass();
+        assert object instanceof Long || object instanceof Integer : object.getClass();
 
-        return IgniteSqlDateTimeUtils.adjustTimeMillis((Integer) object, precision);
-    }
-
-    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
-    public static int toTimeExact(long val, int precision) {
-        assert precision >= 0 : "Invalid precision: " + precision;
-
-        return IgniteSqlDateTimeUtils.adjustTimeMillis(Math.toIntExact(val), precision);
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(((Number) object).intValue(), precision);
     }
 
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
