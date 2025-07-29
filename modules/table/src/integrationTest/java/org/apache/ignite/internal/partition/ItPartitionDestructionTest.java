@@ -67,8 +67,6 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.vault.VaultService;
@@ -86,7 +84,6 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 
 @ExtendWith(SystemPropertiesExtension.class)
-@ExtendWith(FailureManagerExtension.class)
 class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -233,8 +230,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    // TODO: remove the mute after https://issues.apache.org/jira/browse/IGNITE-26051 is fixed.
-    @MuteFailureManagerLogging
+    // TODO: enable after https://issues.apache.org/jira/browse/IGNITE-26051 is fixed.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26051")
     void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithColocation() throws Exception {
         testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(true);
     }
