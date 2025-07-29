@@ -557,6 +557,21 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @Test
+    public void testMergeWithSubquery() {
+        sqlScript("CREATE TABLE t1 (id INT PRIMARY KEY, val1 INT, val2 INT);\n"
+                + "CREATE TABLE t2 (id INT PRIMARY KEY, val1 INT, val2 INT, val3 INT, val4 INT, val5 INT);\n"
+                + "\n"
+                + "MERGE INTO t1 dst\n"
+                + " USING (\n"
+                + "    SELECT t1.id, t2.val5\n"
+                + "      FROM t1 LEFT JOIN t2 ON t1.id = t2.id\n"
+                + " ) src\n"
+                + "   ON src.id = dst.id\n"
+                + " WHEN MATCHED THEN UPDATE SET val1 = src.val5\n"
+                + " WHEN NOT MATCHED THEN INSERT (id, val1) VALUES (src.id, src.val5)");
+    }
+
     /**
      * Test verifies that scan is executed within provided transaction.
      */
