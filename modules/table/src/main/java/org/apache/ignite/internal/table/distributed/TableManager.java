@@ -27,6 +27,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
@@ -49,10 +51,11 @@ import static org.apache.ignite.internal.partition.replicator.LocalPartitionRepl
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
-import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
+import static org.apache.ignite.internal.table.distributed.TableUtils.aliveTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -3077,7 +3080,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, boolean isVolatileStorage) {
         try {
-            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
+            replicaMgr.destroyReplicationProtocolStoragesDurably(tablePartitionId, isVolatileStorage);
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
@@ -3275,32 +3278,77 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void cleanUpResourcesForDroppedTablesOnRecoveryBusy() {
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
-        for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
-            int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
 
-            Catalog catalog = catalogService.catalog(catalogVersion);
+        Set<Integer> aliveTableIds = aliveTables(catalogService, lowWatermark.getLowWatermark());
 
-            CatalogTableDescriptor tableDescriptor = catalog.table(droppedTableInfo.tableId());
-            assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
+        destroyMvStoragesForTablesNotIn(aliveTableIds);
 
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
-            assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
-
-            destroyTableOnRecoveryBusy(tableDescriptor, zoneDescriptor.partitions());
+        if (!nodeProperties.colocationEnabled()) {
+            destroyTxStateStoragesForTablesNotIn(aliveTableIds);
+            destroyReplicationProtocolStoragesForTablesNotIn(aliveTableIds);
         }
     }
 
-    private void destroyTableOnRecoveryBusy(CatalogTableDescriptor tableDescriptor, int partitionCount) {
-        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
+    private void destroyMvStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
+        for (StorageEngine storageEngine : dataStorageMgr.allStorageEngines()) {
+            Set<Integer> tableIdsOnDisk = storageEngine.tableIdsOnDisk();
 
-        engine.destroyMvTable(tableDescriptor.id());
-
-        sharedTxStateStorage.destroyStorage(tableDescriptor.id());
-
-        for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
-            destroyReplicationProtocolStorages(new TablePartitionId(tableDescriptor.id(), partitionIndex), engine.isVolatile());
+            for (int tableId : difference(tableIdsOnDisk, aliveTableIds)) {
+                storageEngine.destroyMvTable(tableId);
+                LOG.info("Destroyed table MV storage for table {} in storage engine '{}'", tableId, storageEngine.name());
+            }
         }
+    }
+
+    private void destroyTxStateStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
+        Set<Integer> tableIdsOnDisk = sharedTxStateStorage.tableOrZoneIdsOnDisk();
+
+        for (int tableId : difference(tableIdsOnDisk, aliveTableIds)) {
+            sharedTxStateStorage.destroyStorage(tableId);
+            LOG.info("Destroyed table TX state storage for table {}", tableId);
+        }
+    }
+
+    private void destroyReplicationProtocolStoragesForTablesNotIn(Set<Integer> aliveTableIds) {
+        Set<TablePartitionId> partitionIdsOnDisk;
+        try {
+            partitionIdsOnDisk = replicaMgr.replicationProtocolTablePartitionIdsOnDisk();
+        } catch (NodeStoppingException e) {
+            // We'll proceed on next start.
+            return;
+        }
+
+        Map<Integer, List<TablePartitionId>> partitionIdsByTableId = partitionIdsOnDisk.stream()
+                .collect(groupingBy(TablePartitionId::tableId));
+
+        for (Map.Entry<Integer, List<TablePartitionId>> entry : partitionIdsByTableId.entrySet()) {
+            int tableId = entry.getKey();
+            List<TablePartitionId> partitionIds = entry.getValue();
+
+            if (!aliveTableIds.contains(tableId)) {
+                destroyReplicationProtocolStoragesOnRecovery(tableId, partitionIds);
+            }
+        }
+    }
+
+    private void destroyReplicationProtocolStoragesOnRecovery(int tableId, List<TablePartitionId> partitionIds) {
+        for (TablePartitionId partitionId : partitionIds) {
+            try {
+                replicaMgr.destroyReplicationProtocolStoragesOnStartup(partitionId);
+            } catch (NodeStoppingException e) {
+                // No problem, we'll proceed on next start.
+                break;
+            }
+        }
+
+        List<Integer> partitionIndexes = partitionIds.stream()
+                .map(TablePartitionId::partitionId)
+                .collect(toList());
+        LOG.info(
+                "Destroyed replication protocol storages for table {} and partitions {}",
+                tableId,
+                partitionIndexes
+        );
     }
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {

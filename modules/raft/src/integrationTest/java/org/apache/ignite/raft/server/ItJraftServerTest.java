@@ -62,8 +62,8 @@ class ItJraftServerTest extends JraftAbstractTest {
     }
 
     @Test
-    void testFinishStorageDestructionAfterRestart() throws Exception {
-        doTestFinishStorageDestructionAfterRestart(false);
+    void testDurableStorageDestructionFinishAfterRestart() throws Exception {
+        doTestDurableStorageDestructionFinishAfterRestart(false);
 
         // New log storage factory was created after restart.
         verify(logStorageFactories.get(SERVER_INDEX), times(1)).destroyLogStorage(anyString());
@@ -71,13 +71,13 @@ class ItJraftServerTest extends JraftAbstractTest {
 
     @Test
     void testVolatileLogStorageIsNotDestroyedOnRestart() throws Exception {
-        doTestFinishStorageDestructionAfterRestart(true);
+        doTestDurableStorageDestructionFinishAfterRestart(true);
 
         // New log storage factory was created after restart.
         verify(logStorageFactories.get(SERVER_INDEX), never()).destroyLogStorage(anyString());
     }
 
-    private void doTestFinishStorageDestructionAfterRestart(boolean isVolatile) throws Exception {
+    private void doTestDurableStorageDestructionFinishAfterRestart(boolean isVolatile) throws Exception {
         RaftNodeId nodeId = testGroupRaftNodeId();
 
         Path nodeDataPath = createServerDataPathForNode(serverDataPath, nodeId);
@@ -91,7 +91,7 @@ class ItJraftServerTest extends JraftAbstractTest {
 
         assertThrows(
                 IgniteInternalException.class,
-                () -> server.destroyRaftNodeStorages(nodeId, groupOptions),
+                () -> server.destroyRaftNodeStoragesDurably(nodeId, groupOptions),
                 "Failed to delete storage for node: "
         );
 
