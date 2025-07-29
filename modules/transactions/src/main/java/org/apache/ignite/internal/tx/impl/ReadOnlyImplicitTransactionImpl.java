@@ -18,54 +18,78 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * The read-only implementation of an internal transaction.
+ * The special lightweight implementation for read-only implicit transaction.
  */
-public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
-    /** The read timestamp. */
-    private final HybridTimestamp readTimestamp;
+public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
+    private static final UUID FAKE_ID = new UUID(0, 0);
 
-    /** Prevents double finish of the transaction. */
-    private final AtomicBoolean finishGuard = new AtomicBoolean();
+    private final HybridTimestampTracker observableTsTracker;
 
-    /** Transaction future. */
-    private final CompletableFuture<Void> txFuture;
+    private final HybridTimestamp createTs;
 
     /**
      * The constructor.
      *
-     * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
-     * @param id The id.
-     * @param txCoordinatorId Transaction coordinator inconsistent ID.
-     * @param timeout The timeout.
-     * @param readTimestamp The read timestamp.
+     * @param createTs Create timestamp.
      */
-    ReadOnlyTransactionImpl(
-            TxManagerImpl txManager,
-            HybridTimestampTracker observableTsTracker,
-            UUID id,
-            UUID txCoordinatorId,
-            long timeout,
-            HybridTimestamp readTimestamp,
-            CompletableFuture<Void> txFuture
-    ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
+    ReadOnlyImplicitTransactionImpl(HybridTimestampTracker observableTsTracker, HybridTimestamp createTs) {
+        this.observableTsTracker = observableTsTracker;
+        this.createTs = createTs;
+    }
 
-        this.readTimestamp = readTimestamp;
-        this.txFuture = txFuture;
+    @Override
+    public UUID id() {
+        return FAKE_ID;
+    }
+
+    @Override
+    public TxState state() {
+        return null;
+    }
+
+    @Override
+    public UUID coordinatorId() {
+        return null;
+    }
+
+    @Override
+    public boolean implicit() {
+        return true;
+    }
+
+    @Override
+    public boolean remote() {
+        return false;
+    }
+
+    @Override
+    public long getTimeout() {
+        return 0;
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return false;
+    }
+
+    @Override
+    public void processDelayedAck(Object val, @Nullable Throwable err) {
+        // No-op.
     }
 
     @Override
@@ -75,12 +99,12 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public HybridTimestamp readTimestamp() {
-        return readTimestamp;
+        return null;
     }
 
     @Override
     public HybridTimestamp schemaTimestamp() {
-        return readTimestamp;
+        return createTs;
     }
 
     @Override
@@ -110,26 +134,17 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, readTimestamp, false, false),
-                TX_COMMIT_ERR
-        );
+        return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, false),
-                TX_ROLLBACK_ERR
-        );
+        return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, true),
-                TX_ROLLBACK_ERR
-        );
+        return nullCompletedFuture();
     }
 
     @Override
@@ -139,34 +154,28 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean full,
             boolean timeoutExceeded
     ) {
-        assert !full : "Read-only transactions cannot be full.";
-        assert !(commitIntent && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
-
-        if (!finishGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
-
         observableTsTracker.update(executionTimestamp);
 
-        txFuture.complete(null);
-
-        ((TxManagerImpl) txManager).onCompleteReadOnlyTransaction(
-                commitIntent,
-                new TxIdAndTimestamp(readTimestamp, id()),
-                timeoutExceeded);
-
-        this.timeoutExceeded = timeoutExceeded;
-
-        return txFuture;
+        return nullCompletedFuture();
     }
 
     @Override
     public boolean isFinishingOrFinished() {
-        return finishGuard.get();
+        return false;
     }
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finish(false, readTimestamp, false, false);
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public void commit() throws TransactionException {
+        // No-op.
+    }
+
+    @Override
+    public void rollback() throws TransactionException {
+        // No-op.
     }
 }
