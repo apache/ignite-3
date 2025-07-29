@@ -50,7 +50,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
-     * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
      */
@@ -59,12 +58,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
-            boolean implicit,
             long timeout,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;

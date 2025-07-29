@@ -433,32 +433,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
+        if (readOnly) {
+            return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
+        }
+
+        HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
+
+        txStateVolatileStorage.initialize(tx);
+        txMetrics.onTransactionStarted();
+
+        return tx;
     }
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
-        return begin(timestampTracker, false, readOnly, txOptions);
-    }
-
-    private InternalTransaction begin(
-            HybridTimestampTracker timestampTracker,
-            boolean implicit,
-            boolean readOnly,
-            InternalTxOptions options
-    ) {
         InternalTransaction tx;
 
         if (readOnly) {
-            if (implicit) {
-                return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
-            } else {
-                HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
-                tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
-            }
+            HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
+            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txOptions);
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
+            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, txOptions);
         }
 
         txStateVolatileStorage.initialize(tx);
@@ -538,7 +535,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, false, timeout, readTimestamp, txFuture
+                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture
             );
 
             transactionExpirationRegistry.register(transaction);
