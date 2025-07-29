@@ -94,7 +94,7 @@ public class BinaryTupleComparatorUtils {
         }
     }
 
-    static boolean isFlagSet(ByteBuffer tuple, int flag) {
+    public static boolean isFlagSet(ByteBuffer tuple, int flag) {
         return (tuple.get(0) & flag) != 0;
     }
 
