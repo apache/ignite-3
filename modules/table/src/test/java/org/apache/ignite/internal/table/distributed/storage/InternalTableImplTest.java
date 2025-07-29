@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.table.distributed.storage.InternalTable
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -178,7 +179,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
             }
 
             if (request instanceof ScanRetrieveBatchReplicaRequest) {
-                return completedFuture(List.of());
+                return emptyListCompletedFuture();
             }
 
             return nullCompletedFuture();
