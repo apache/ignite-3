@@ -212,8 +212,8 @@ public class JitComparatorGenerator {
         Variable innerEntrySize = scope.declareVariable(int.class, "innerEntrySize");
 
         if (maxEntrySizeLog != 0) {
-            // If entry size can be more than 1 byte, then we read it from headers of tuples like this:
-            //  int outerEntrySize = 1 << (outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK);
+            // If entry size can be larger than 1 byte (and its logarithm larger than 0), then we read it from headers of tuples like this:
+            //  int outerEntrySize = outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK;
             // Here "Size" still means logarithmic scale.
             Variable outerFlag = scope.declareVariable(byte.class, "outerFlag");
             Variable innerFlag = scope.declareVariable(byte.class, "innerFlag");

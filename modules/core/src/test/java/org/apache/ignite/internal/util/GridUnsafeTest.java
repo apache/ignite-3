@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class GridUnsafeTest {
     @Test
     void getBytes() {
-        // We must use manual memory allocation, because an instance created by "allocateDirected" might be garbage-collected in the middle
+        // We must use manual memory allocation, because an instance created by "allocateDirect" might be garbage-collected in the middle
         // of the test.
         int length = 4;
         ByteBuffer buffer = GridUnsafe.allocateBuffer(length);

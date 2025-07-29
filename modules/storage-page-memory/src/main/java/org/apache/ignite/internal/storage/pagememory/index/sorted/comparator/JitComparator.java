@@ -24,8 +24,8 @@ import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
  * expected to be generated in runtime by {@link JitComparatorGenerator}.
  *
  * <p>Throughout the codebase I refer to its parameters as {@code outer} and {@code inner}. The meaning behind these terms is the following:
- * outer entry might come outside of an index tree, and this it can be a prefix. But inner entry always comes from the index itself. It
- * cannot be a prefix, but can in principle be a suffix of a full tuple. The
+ * outer entry might come outside of an index tree, and thus it can be a prefix. But inner entry always comes from the index itself. It
+ * cannot be a prefix, but can in principle be a partial tuple ({@link org.apache.ignite.internal.schema.PartialBinaryTupleMatcher}). The
  * {@link #compare(UnsafeByteBufferAccessor, int, UnsafeByteBufferAccessor, int)} is thus not symmetric (not anti-symmetric, to be precise).
  */
 @FunctionalInterface
