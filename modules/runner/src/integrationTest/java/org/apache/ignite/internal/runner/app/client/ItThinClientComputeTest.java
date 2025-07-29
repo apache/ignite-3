@@ -1159,7 +1159,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {

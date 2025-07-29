@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -117,7 +118,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.Level;
@@ -1202,7 +1202,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 }));
 
         when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         Set<Assignment> assignments = assignmentNodes.stream()
                 .map(node -> Assignment.forPeer(node.name()))
@@ -1241,7 +1241,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                             return null;
                         }));
 
-        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(nullCompletedFuture());
 
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 localNode.name(),

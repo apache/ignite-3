@@ -282,7 +282,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         @Override
         public CompletableFuture<Void> rollbackAsync() {
             this.rollbackCount.incrementAndGet();
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
