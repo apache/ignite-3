@@ -375,13 +375,6 @@ public class IgniteSqlFunctions {
     }
 
     /** Adjusts precision of {@link SqlTypeName#TIME} value. */
-    public static int toTimeExact(int val, int precision) {
-        assert precision >= 0 : "Invalid precision: " + precision;
-
-        return IgniteSqlDateTimeUtils.adjustTimeMillis(val, precision);
-    }
-
-    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
     public static int toTimeExact(long val, int precision) {
         assert precision >= 0 : "Invalid precision: " + precision;
 
