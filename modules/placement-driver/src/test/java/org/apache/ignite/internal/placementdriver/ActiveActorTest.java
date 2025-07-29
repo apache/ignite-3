@@ -45,6 +45,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -140,7 +141,8 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
                 replicationConfiguration,
-                Runnable::run
+                Runnable::run,
+                mock(MetricManager.class)
         );
 
         assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

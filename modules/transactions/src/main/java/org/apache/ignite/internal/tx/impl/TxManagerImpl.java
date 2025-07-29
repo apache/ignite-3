@@ -113,6 +113,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
@@ -1121,7 +1122,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> vacuum() {
+    public CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics) {
         if (persistentTxStateVacuumizer == null) {
             return nullCompletedFuture(); // Not started yet.
         }
@@ -1131,7 +1132,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txStateVolatileStorage.vacuum(
                 vacuumObservationTimestamp,
                 longProperty(systemCfg, RESOURCE_TTL_PROP, RESOURCE_TTL_PROP_DEFAULT_VALUE),
-                persistentTxStateVacuumizer::vacuumPersistentTxStates);
+                persistentTxStateVacuumizer::vacuumPersistentTxStates,
+                resourceVacuumMetrics
+        );
     }
 
     @Override
