@@ -559,6 +559,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testMergeWithSubquery() {
+        // Expect MERGE query just get parsed and planned with no errors.
         sqlScript("CREATE TABLE t1 (id INT PRIMARY KEY, val1 INT, val2 INT);\n"
                 + "CREATE TABLE t2 (id INT PRIMARY KEY, val1 INT, val2 INT, val3 INT, val4 INT, val5 INT);\n"
                 + "\n"
