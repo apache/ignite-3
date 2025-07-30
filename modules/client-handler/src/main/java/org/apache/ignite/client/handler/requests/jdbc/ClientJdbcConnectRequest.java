@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client jdbc request handler.
