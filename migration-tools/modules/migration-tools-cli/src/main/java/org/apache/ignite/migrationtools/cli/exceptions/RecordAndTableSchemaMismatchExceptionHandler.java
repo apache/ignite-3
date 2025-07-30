@@ -36,7 +36,7 @@ public class RecordAndTableSchemaMismatchExceptionHandler implements ExceptionHa
             msgBuilder.append("\nRecord did not have the following fields required by the table: ")
                             .append(String.join(", ", e.missingColumnsInRecord()));
 
-            msgBuilder.append("\nConsider Consider the following solutions:")
+            msgBuilder.append("\nConsider the following solutions:")
                     .append("\n * Manually edit the Ignite 3 table schema to make the missing columns nullable.");
         }
 
