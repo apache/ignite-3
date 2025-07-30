@@ -85,6 +85,20 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     }
 
     /**
+     * This test ensures that the current configuration metadata wasn't changed. If the test fails, it means that the current configuration
+     * metadata has changed, then current snapshot should be renamed to the latest release version, and a new snapshot should be created.
+     *
+     * @see GenerateConfigurationSnapshot#main(String[]) method for generating a new snapshot.
+     */
+    @Test
+    void testConfigurationChanged() throws IOException {
+        List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + DEFAULT_FILE_NAME);
+
+        ConfigurationTreeComparator.compare(snapshotMetadata, currentMetadata);
+    }
+
+    /**
      * This test ensures that the current configuration metadata is compatible with the snapshots. If the test fails, it means that the
      * current configuration is incompatible with the snapshot, and compatibility should be fixed.
      */
@@ -160,7 +174,8 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
                         .filter(Files::isRegularFile)
                         .map(Path::getFileName)
                         .map(Path::toString)
-                        .filter(p -> p.endsWith(".bin") && p.startsWith(SNAPSHOT_FILE_NAME_PREFIX))
+                        .filter(p -> p.endsWith(".bin"))
+                        .filter(p -> p.startsWith(SNAPSHOT_FILE_NAME_PREFIX) || DEFAULT_FILE_NAME.equals(p))
                         .map(Arguments::of)
                         .collect(Collectors.toList())
                         .stream();
