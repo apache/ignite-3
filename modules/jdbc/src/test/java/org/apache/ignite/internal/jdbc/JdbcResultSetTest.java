@@ -316,10 +316,13 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @CsvSource({
-            // input, precision, tz, datetime, date, time
             "1234567898765, Europe/Paris,        2009-02-14 00:31:38.765, 2009-02-14, 00:31:38.765",
             "1234567898765, America/Los_Angeles, 2009-02-13 15:31:38.765, 2009-02-13, 15:31:38.765",
             "1234567898765, Asia/Tokyo,          2009-02-14 08:31:38.765, 2009-02-14, 08:31:38.765",
+
+            "-1234567894, Europe/Paris,          1969-12-17 18:03:52.106, 1969-12-17, 18:03:52.106",
+            "-1234567894, America/Los_Angeles,   1969-12-17 09:03:52.106, 1969-12-17, 09:03:52.106",
+            "-1234567894, Asia/Tokyo,            1969-12-18 02:03:52.106, 1969-12-18, 02:03:52.106",
     })
     public void getStringDateTimeTypes(
             long input,  String zone, 
