@@ -272,8 +272,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
                     && (input.getInputs().isEmpty()
                     || !(input.getInput(0) instanceof LogicalProject)
                     || input.getInput(0).getInputs().isEmpty()
-                    || !(input.getInput(0).getInput(0) instanceof LogicalProject)
-            );
+                    || !(input.getInput(0).getInput(0) instanceof LogicalProject));
         }
 
         LogicalJoin join = (LogicalJoin) mergeSourceRel.getInput(0);
