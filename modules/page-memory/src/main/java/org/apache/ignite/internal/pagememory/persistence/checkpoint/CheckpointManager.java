@@ -39,7 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -132,7 +132,7 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                this::writePageToDeltaFilePageStore,
+                this::writePageToFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
                 pageSize
@@ -289,24 +289,31 @@ public class CheckpointManager {
     }
 
     /**
-     * Writes a page to delta file page store.
+     * Writes a page to file page store .
      *
      * <p>Must be used at breakpoint and page replacement.
      *
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
+     * @param newPage New pages will to the main partition file, otherwise to the delta file.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    public void writePageToDeltaFilePageStore(
+    public void writePageToFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
-            ByteBuffer pageBuf
+            ByteBuffer pageBuf,
+            boolean newPage
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
 
         // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
+
+        if (newPage) {
+            filePageStore.write(pageId.pageId(), pageBuf);
             return;
         }
 
@@ -322,7 +329,7 @@ public class CheckpointManager {
         CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
                 index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
                 () -> {
-                    CheckpointDirtyPagesView partitionView = pagesToWrite.getPartitionView(
+                    CheckpointPagesView partitionView = pagesToWrite.getPartitionView(
                             pageMemory,
                             pageId.groupId(),
                             pageId.partitionId()
@@ -343,14 +350,14 @@ public class CheckpointManager {
      *
      * @param partitionDirtyPages Dirty pages of the partition.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointPagesView partitionDirtyPages) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
-        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
+        int offset = partitionDirtyPages.dirtyPagesSize() != 0 && partitionDirtyPages.getDirtyPage(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
+        int[] pageIndexes = new int[partitionDirtyPages.dirtyPagesSize() + offset];
 
-        for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+        for (int i = 0; i < partitionDirtyPages.dirtyPagesSize(); i++) {
+            pageIndexes[i + offset] = partitionDirtyPages.getDirtyPage(i).pageIdx();
         }
 
         return pageIndexes;

@@ -33,5 +33,10 @@ public interface WriteDirtyPage {
      * @param buffer Byte buffer to write from.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buffer) throws IgniteInternalCheckedException;
+    void write(
+            PersistentPageMemory pageMemory,
+            FullPageId fullPageId,
+            ByteBuffer buffer,
+            boolean newPage
+    ) throws IgniteInternalCheckedException;
 }

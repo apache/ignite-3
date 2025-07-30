@@ -106,7 +106,8 @@ public class Checkpointer extends IgniteWorker {
             + "writeLockHoldTime={}us, "
             + "splitAndSortPagesDuration={}ms, "
             + "{}"
-            + "pages={}, "
+            + "dirtyPages={}, "
+            + "newPages={}, "
             + "reason='{}']";
 
     private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
@@ -117,7 +118,8 @@ public class Checkpointer extends IgniteWorker {
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
             + "checkpointId={}, "
-            + "pages={}, "
+            + "dirtyPages={}, "
+            + "newPages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
@@ -372,6 +374,7 @@ public class Checkpointer extends IgniteWorker {
                                 tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
                                 possibleJvmPauseDuration > 0 ? "possibleJvmPauseDuration=" + possibleJvmPauseDuration + "ms, " : "",
                                 chp.dirtyPagesSize,
+                                chp.newPagesSize,
                                 chp.progress.reason()
                         );
                     }
@@ -414,6 +417,7 @@ public class Checkpointer extends IgniteWorker {
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
                             chp.dirtyPagesSize,
+                            chp.newPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),

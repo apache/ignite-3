@@ -131,6 +131,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return stateFut;
     }
 
+    // TODO should be total or different fields??
     @Override
     public int currentCheckpointPagesCount() {
         return currCheckpointPagesCnt;

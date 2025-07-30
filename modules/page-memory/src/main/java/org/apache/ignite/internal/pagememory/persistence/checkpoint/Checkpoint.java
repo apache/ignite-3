@@ -30,6 +30,8 @@ class Checkpoint {
     /** Number of dirty pages. */
     final int dirtyPagesSize;
 
+    final int newPagesSize;
+
     /**
      * Constructor.
      *
@@ -44,12 +46,13 @@ class Checkpoint {
         this.progress = progress;
 
         dirtyPagesSize = dirtyPages.dirtyPagesCount();
+        newPagesSize = dirtyPages.newPagesCount();
     }
 
     /**
      * Returns {@code true} if this checkpoint contains at least one dirty page.
      */
     public boolean hasDelta() {
-        return dirtyPagesSize != 0;
+        return dirtyPagesSize != 0 || newPagesSize != 0;
     }
 }

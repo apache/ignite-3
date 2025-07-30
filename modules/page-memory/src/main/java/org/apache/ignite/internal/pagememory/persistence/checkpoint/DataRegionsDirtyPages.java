@@ -32,6 +32,9 @@ class DataRegionsDirtyPages {
     /** Total number of dirty pages for all data regions at the time of data collection. */
     final int dirtyPageCount;
 
+    /** Total number of new pages for all data regions at the time of data collection. */
+    final int newPageCount;
+
     /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
     final Collection<DataRegionDirtyPages<Collection<FullPageId>>> dirtyPages;
 
@@ -43,5 +46,16 @@ class DataRegionsDirtyPages {
     public DataRegionsDirtyPages(Collection<DataRegionDirtyPages<Collection<FullPageId>>> dirtyPages) {
         this.dirtyPages = dirtyPages;
         this.dirtyPageCount = dirtyPages.stream().mapToInt(dataRegionPages -> dataRegionPages.dirtyPages.size()).sum();
+        this.newPageCount = dirtyPages.stream().mapToInt(DataRegionsDirtyPages::getNewPagesCount).sum();
+    }
+
+    private static int getNewPagesCount(DataRegionDirtyPages<Collection<FullPageId>> collectionDataRegionDirtyPages) {
+        return collectionDataRegionDirtyPages.newPagesByPartitionId.values().stream()
+                .mapToInt(Collection::size)
+                .sum();
+    }
+
+    public int totalPageCount() {
+        return dirtyPageCount + newPageCount;
     }
 }
