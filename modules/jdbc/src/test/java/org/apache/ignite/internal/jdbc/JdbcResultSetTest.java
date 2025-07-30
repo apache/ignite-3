@@ -43,16 +43,18 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -310,15 +312,20 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @CsvSource({
-            "Europe/Paris,        2009-02-14 00:31:38.765",
-            "America/Los_Angeles, 2009-02-13 15:31:38.765",
-            "Asia/Tokyo,          2009-02-14 08:31:38.765"
+            // input, precision, tz, datetime, date, time
+            "1234567898765, Europe/Paris,        2009-02-14 00:31:38.765, 2009-02-14, 00:31:38.765",
+            "1234567898765, America/Los_Angeles, 2009-02-13 15:31:38.765, 2009-02-13, 15:31:38.765",
+            "1234567898765, Asia/Tokyo,          2009-02-14 08:31:38.765, 2009-02-14, 08:31:38.765",
     })
-    public void getStringDateTimeTypes(String zone, String localDateTime) throws SQLException {
+    public void getStringDateTimeTypes(
+            long input,  String zone, 
+            String localDateTimeStr, String dateStr, String timeStr
+    ) throws SQLException {
         ZoneId zoneId = ZoneId.of(zone);
+        int precision = 3;
 
-        Instant now = Instant.ofEpochMilli(1234567898765L);
-        Clock clock = Clock.fixed(now, ZoneId.of(zone));
+        Instant now = Instant.ofEpochMilli(input);
+        Clock clock = Clock.fixed(now, zoneId);
         Instant instant = clock.instant();
         LocalDate date = LocalDate.now(clock);
         LocalDateTime dateTime = LocalDateTime.now(clock);
@@ -326,7 +333,11 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
 
         List<ColumnType> columns = List.of(ColumnType.TIME, ColumnType.DATE, ColumnType.DATETIME, ColumnType.TIMESTAMP);
 
-        try (ResultSet resultSet = createResultSet(zoneId, columns, (row) -> {
+        Map<Integer, Integer> precisions = IntStream.range(0, columns.size())
+                .mapToObj(i -> Map.entry(i, precision))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue)); 
+
+        try (ResultSet resultSet = createResultSet(zoneId, columns, precisions, (row) -> {
             row.appendTime(time);
             row.appendDate(date);
             row.appendDateTime(dateTime);
@@ -339,10 +350,75 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
                     + " | " + resultSet.getString(3)
                     + " | " + resultSet.getString(4);
 
-            String expected = time.format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"))
-                    + " | " + date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                    + " | " + dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
-                    + " | " + localDateTime;
+            String expected = timeStr
+                    + " | " + dateStr
+                    + " | " + localDateTimeStr
+                    + " | " + localDateTimeStr;
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            // input, precision, tz, datetime, date, time
+            "1234567898123, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
+            "1234567898123, 1, 2009-02-14 00:31:38.1, 2009-02-14, 00:31:38.1",
+            "1234567898123, 2, 2009-02-14 00:31:38.12, 2009-02-14, 00:31:38.12",
+            "1234567898123, 3, 2009-02-14 00:31:38.123, 2009-02-14, 00:31:38.123",
+            "1234567898123, 6, 2009-02-14 00:31:38.123000, 2009-02-14, 00:31:38.123000",
+            "1234567898123, 9, 2009-02-14 00:31:38.123000000, 2009-02-14, 00:31:38.123000000",
+
+            "1234567898568, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
+            "1234567898568, 1, 2009-02-14 00:31:38.5, 2009-02-14, 00:31:38.5",
+            "1234567898568, 2, 2009-02-14 00:31:38.56, 2009-02-14, 00:31:38.56",
+            "1234567898568, 3, 2009-02-14 00:31:38.568, 2009-02-14, 00:31:38.568",
+            "1234567898568, 6, 2009-02-14 00:31:38.568000, 2009-02-14, 00:31:38.568000",
+            "1234567898568, 9, 2009-02-14 00:31:38.568000000, 2009-02-14, 00:31:38.568000000",
+
+            "1234567898000, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
+            "1234567898000, 1, 2009-02-14 00:31:38.0, 2009-02-14, 00:31:38.0",
+            "1234567898000, 2, 2009-02-14 00:31:38.00, 2009-02-14, 00:31:38.00",
+            "1234567898000, 3, 2009-02-14 00:31:38.000, 2009-02-14, 00:31:38.000",
+            "1234567898000, 6, 2009-02-14 00:31:38.000000, 2009-02-14, 00:31:38.000000",
+            "1234567898000, 9, 2009-02-14 00:31:38.000000000, 2009-02-14, 00:31:38.000000000",
+    })
+    public void getStringDateTimeTypesWithDifferentPrecision(
+            long input, int precision,
+            String localDateTimeStr, String dateStr, String timeStr
+    ) throws SQLException {
+        ZoneId zoneId = ZoneId.of("Europe/Paris");
+
+        Instant now = Instant.ofEpochMilli(input);
+        Clock clock = Clock.fixed(now, zoneId);
+        Instant instant = clock.instant();
+        LocalDate date = LocalDate.now(clock);
+        LocalDateTime dateTime = LocalDateTime.now(clock);
+        LocalTime time = LocalTime.now(clock);
+
+        List<ColumnType> columns = List.of(ColumnType.TIME, ColumnType.DATE, ColumnType.DATETIME, ColumnType.TIMESTAMP);
+
+        Map<Integer, Integer> precisions = IntStream.range(0, columns.size())
+                .mapToObj(i -> Map.entry(i, precision))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
+        try (ResultSet resultSet = createResultSet(zoneId, columns, precisions, (row) -> {
+            row.appendTime(time);
+            row.appendDate(date);
+            row.appendDateTime(dateTime);
+            row.appendTimestamp(instant);
+        })) {
+            resultSet.next();
+
+            String actual = resultSet.getString(1)
+                    + " | " + resultSet.getString(2)
+                    + " | " + resultSet.getString(3)
+                    + " | " + resultSet.getString(4);
+
+            String expected = timeStr
+                    + " | " + dateStr
+                    + " | " + localDateTimeStr
+                    + " | " + localDateTimeStr;
 
             assertEquals(expected, actual);
         }
@@ -535,6 +611,15 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
             List<ColumnType> columnTypes,
             Consumer<BinaryTupleBuilder> row
     ) throws SQLException {
+        return createResultSet(zoneId, columnTypes, Map.of(), row);
+    }
+
+    private static JdbcResultSet createResultSet(
+            @Nullable ZoneId zoneId,
+            List<ColumnType> columnTypes,
+            Map<Integer, Integer> precisions,
+            Consumer<BinaryTupleBuilder> row
+    ) throws SQLException {
         JdbcQueryCursorHandler handler = mock(JdbcQueryCursorHandler.class);
         JdbcStatement stmt = mock(JdbcStatement.class);
 
@@ -551,7 +636,20 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
 
         List<JdbcColumnMeta> columns = new ArrayList<>();
         for (ColumnType columnType : columnTypes) {
-            columns.add(new JdbcColumnMeta("C" + columns.size(), columnType));
+            String columnName = "C" + columns.size();
+            int precision = precisions.getOrDefault(columns.size(), -1);
+
+            JdbcColumnMeta columnMeta = new JdbcColumnMeta(
+                    columnName, 
+                    "Schema", 
+                    "Table",
+                    columnName,
+                    columnType,
+                    precision, 
+                    -1,
+                    true
+            );
+            columns.add(columnMeta);
         }
 
         BinaryTupleBuilder builder = new BinaryTupleBuilder(columnTypes.size());

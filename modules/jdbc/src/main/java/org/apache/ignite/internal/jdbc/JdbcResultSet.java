@@ -50,6 +50,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -393,11 +397,17 @@ public class JdbcResultSet implements ResultSet {
             return null;
         } else if (value instanceof Instant) {
             LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
-            return Timestamp.valueOf(localDateTime).toString();
+            assert jdbcMeta != null;
+
+            return Formatters.formatDateTime(localDateTime, colIdx, jdbcMeta);
         } else if (value instanceof LocalTime) {
-            return value.toString();
+            assert jdbcMeta != null;
+
+            return Formatters.formatTime((LocalTime) value, colIdx, jdbcMeta);
         } else if (value instanceof LocalDateTime) {
-            return Timestamp.valueOf((LocalDateTime) value).toString();
+            assert jdbcMeta != null;
+
+            return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
         } else if (value instanceof byte[]) {
             return StringUtils.toHexString((byte[]) value);
         } else {
@@ -2332,5 +2342,79 @@ public class JdbcResultSet implements ResultSet {
 
             return row;
         };
+    }
+
+    private static class Formatters {
+        static final DateTimeFormatter TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+        static final DateTimeFormatter DATE_TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .appendLiteral(' ')
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+
+        static String formatTime(LocalTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDateTime(LocalDateTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
+        }
+
+        private static String formatWithPrecision(
+                DateTimeFormatter formatter, 
+                TemporalAccessor value, 
+                int colIdx,
+                JdbcResultSetMetadata jdbcMeta
+        ) throws SQLException {
+
+            StringBuilder sb = new StringBuilder();
+
+            formatter.formatTo(value, sb);
+
+            int precision = jdbcMeta.getPrecision(colIdx);
+            if (precision <= 0) {
+                return sb.toString();
+            }
+
+            assert precision <= 9 : "Precision is out of range. Precision: " + precision + ". Column: " + colIdx;
+
+            // Append nano seconds according to the specified precision.
+            long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
+            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+
+            sb.append('.');
+            for (int i = 0; i < precision; i++) {
+                sb.append('0');
+            }
+
+            int pos = precision - 1;
+            int start = sb.length() - precision;
+
+            do {
+                int digit = (int) (scaled % 10);
+                char c = (char) ('0' + digit);
+                sb.setCharAt(start + pos, c);
+                scaled /= 10;
+                pos--;
+            } while (scaled != 0 && pos >= 0);
+
+            return sb.toString();
+        }
     }
 }
