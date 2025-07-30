@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute
 {
     using System;
-    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
@@ -242,8 +241,7 @@ namespace Apache.Ignite.Internal.Compute
         private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
             var count = 0;
-            var countPos = buf.Position;
-            buf.Advance(5);
+            var countPos = buf.ReserveMsgPackInt32();
 
             foreach (var item in items)
             {
@@ -251,9 +249,7 @@ namespace Apache.Ignite.Internal.Compute
                 writerFunc(item, buf);
             }
 
-            var countSpan = buf.GetSpanAt(countPos, 5);
-            countSpan[0] = MsgPackCode.Int32;
-            BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
+            buf.WriteMsgPackInt32(count, countPos);
         }
 
         private static void WriteNodeNames(PooledArrayBuffer buf, IEnumerable<IClusterNode> nodes) =>

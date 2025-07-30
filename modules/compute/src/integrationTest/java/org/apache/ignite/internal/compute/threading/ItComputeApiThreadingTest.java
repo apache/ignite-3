@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuati
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
@@ -194,7 +195,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 

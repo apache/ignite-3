@@ -15,37 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.benchmark;
+package org.apache.ignite.internal.replicator;
 
-import org.apache.ignite.client.IgniteClient;
-import org.openjdk.jmh.runner.RunnerException;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Benchmark for a single upsert operation using externally enabled cluster.
- */
-public class RemoteKvBenchmark extends ClientKvBenchmark {
-    @Override
-    protected boolean remote() {
-        return true;
-    }
+import org.junit.jupiter.api.Test;
 
-    @Override
-    protected String[] addresses() {
-        return new String[]{};
-    }
+class TablePartitionIdTest {
+    @Test
+    void toStringRepresentationMatchesExpectedPattern() {
+        var partitionId = new TablePartitionId(100, 5);
 
-    @Override
-    public void nodeSetUp() throws Exception {
-        client = IgniteClient.builder().addresses(addresses()).build();
-        publicIgnite = client;
-
-        super.nodeSetUp();
-    }
-
-    /**
-     * Benchmark's entry point.
-     */
-    public static void main(String[] args) throws RunnerException {
-        runBenchmark(RemoteKvBenchmark.class, args);
+        assertTrue(PartitionGroupId.matchesString(partitionId.toString()));
     }
 }

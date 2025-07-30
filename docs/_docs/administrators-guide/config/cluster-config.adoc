@@ -32,6 +32,8 @@ The CLI tool will print the full cluster configuration. If you only need a part 
 cluster config show ignite.transaction
 ----
 
+== Changing Cluster Configuration
+
 Cluster configuration is changed from the CLI tool. You can update it both in the interactive (REPL) and non-interactive mode by passing a configuration file with the `--file` parameter.
 
 NOTE: Values set directly via the CLI take precedence over values set in the configuration file.
@@ -71,12 +73,10 @@ You can also modify cluster configuration via link:ignite-cli-tool#non-interacti
 +
 [source, shell]
 ----
-bin/gridgain9 cluster config update --file ../gridgain-config.conf
+bin/ignite3 cluster config update --file ../ignite-config.conf
 ----
 
 The updated configuration will automatically be applied across the cluster.
-
-
 
 
 == Exporting Cluster Configuration

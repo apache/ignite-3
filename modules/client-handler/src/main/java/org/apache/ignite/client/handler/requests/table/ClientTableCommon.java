@@ -471,7 +471,7 @@ public class ClientTableCommon {
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(readTs, txManager, null, readOnly);
+            tx = startImplicitTx(readTs, txManager, readOnly);
         }
 
         return tx;
@@ -494,23 +494,20 @@ public class ClientTableCommon {
             boolean readOnly,
             InternalTxOptions options
     ) {
-        tsTracker.update(currentTs);
+        if (readOnly) {
+            tsTracker.update(currentTs);
 
-        return txManager.beginExplicit(
-                tsTracker,
-                readOnly,
-                options
-        );
+            return txManager.beginExplicitRo(tsTracker, options);
+        } else {
+            return txManager.beginExplicitRw(tsTracker, options);
+        }
     }
 
     private static InternalTransaction startImplicitTx(
             HybridTimestampTracker tsTracker,
             TxManager txManager,
-            @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
-        tsTracker.update(currentTs);
-
         return txManager.beginImplicit(tsTracker, readOnly);
     }
 

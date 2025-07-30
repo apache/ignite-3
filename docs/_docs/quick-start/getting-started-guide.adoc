@@ -129,7 +129,6 @@ Connected to http://127.0.0.1:10300
 
 Ignite database functions as a cluster. Even if we are currently only running a single node, theoretically you could start another node and have it join the already running cluster. When the nodes are started, they find each other and wait for the user to start the cluster. The process of starting a cluster is called _initialization_.
 
-
 To initialize the cluster with the node you have started (see <<Start Ignite Node>>), run the following command:
 
 [tabs]

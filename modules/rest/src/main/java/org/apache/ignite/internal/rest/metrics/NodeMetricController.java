@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.rest.metrics;
 
+import static java.util.stream.Collectors.toList;
+
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -61,7 +63,8 @@ public class NodeMetricController implements NodeMetricApi, ResourceHolder {
     public Collection<MetricSource> listMetricSources() {
         return metricManager.metricSources().stream()
                 .map(source -> new MetricSource(source.name(), source.enabled()))
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing(MetricSource::name))
+                .collect(toList());
     }
 
     @Override
@@ -70,10 +73,13 @@ public class NodeMetricController implements NodeMetricApi, ResourceHolder {
                 .map(metricSet -> {
                     List<Metric> metricDtos = StreamSupport.stream(metricSet.spliterator(), false)
                             .map(metric -> new Metric(metric.name(), metric.description()))
-                            .collect(Collectors.toList());
+                            .sorted(Comparator.comparing(Metric::name))
+                            .collect(toList());
+
                     return new MetricSet(metricSet.name(), metricDtos);
                 })
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing(MetricSet::name))
+                .collect(toList());
     }
 
     @Override

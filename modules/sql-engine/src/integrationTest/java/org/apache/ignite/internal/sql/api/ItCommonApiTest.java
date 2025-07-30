@@ -39,6 +39,21 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         return 1;
     }
 
+    @Test
+    void rootProjectionWithDuplicateNames() {
+        String sql = "CREATE TABLE CITY(ID INT PRIMARY KEY, NAME VARCHAR(255));\n"
+                + "CREATE TABLE STREET(ID INT PRIMARY KEY, CITY_ID INT, NAME VARCHAR(255));\n"
+                + "INSERT INTO CITY(ID, NAME) VALUES(1, 'New York');\n"
+                + "INSERT INTO STREET(ID, CITY_ID, NAME) VALUES(1, 1, 'Broadway');\n"
+                + "INSERT INTO STREET(ID, CITY_ID, NAME) VALUES(2, 1, 'Wall Street');\n";
+
+        sqlScript(sql);
+
+        sql("SELECT CITY_ID, NAME, NAME FROM STREET ORDER BY ID");
+        sql("SELECT * FROM STREET JOIN CITY ON STREET.CITY_ID = CITY.ID ORDER BY STREET.ID");
+        sql("SELECT CITY.NAME, STREET.NAME FROM STREET JOIN CITY ON STREET.CITY_ID = CITY.ID ORDER BY STREET.ID");
+    }
+
     /** Check timestamp type operations correctness using sql and kv api. */
     @Test
     public void checkTimestampOperations() {

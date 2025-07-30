@@ -284,6 +284,29 @@ namespace Apache.Ignite.Internal.Buffers
         public int ReadInt(int pos) => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize));
 
         /// <summary>
+        /// Reserves space for a fixed-size MsgPack integer (5 bytes).
+        /// </summary>
+        /// <returns>Position in the buffer where the integer can be written.</returns>
+        public int ReserveMsgPackInt32()
+        {
+            var pos = Position;
+            Advance(5);
+            return pos;
+        }
+
+        /// <summary>
+        /// Writes a MsgPack integer (5 bytes) at the specified position reserved by <see cref="ReserveMsgPackInt32"/>.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteMsgPackInt32(int value, int pos)
+        {
+            var span = GetSpanAt(pos, 5);
+            span[0] = MsgPackCode.Int32;
+            BinaryPrimitives.WriteInt32BigEndian(span[1..], value);
+        }
+
+        /// <summary>
         /// Checks underlying buffer and resizes if necessary.
         /// </summary>
         /// <param name="sizeHint">Size hint.</param>
