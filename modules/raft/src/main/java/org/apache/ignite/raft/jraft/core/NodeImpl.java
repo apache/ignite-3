@@ -1891,14 +1891,13 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void getLeaderFromLeader(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
-        GetLeaderResponseBuilder respBuilder = raftOptions.getRaftMessagesFactory().getLeaderResponse();
+        GetLeaderResponseBuilder respBuilder = raftOptions.getRaftMessagesFactory().getLeaderResponse()
+            .leaderId(this.leaderId.toString())
+            .currentTerm(this.getCurrentTerm());
 
         final int quorum = getQuorum();
         if (quorum <= 1) {
             // Only one peer, fast path.
-            respBuilder
-                .leaderId(this.leaderId.toString())
-                .currentTerm(this.getCurrentTerm());
             closure.setResponse(respBuilder.build());
             closure.run(Status.OK());
             return;
