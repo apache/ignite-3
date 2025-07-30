@@ -43,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -55,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -70,7 +72,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -334,7 +338,7 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         List<ColumnType> columns = List.of(ColumnType.TIME, ColumnType.DATE, ColumnType.DATETIME, ColumnType.TIMESTAMP);
 
         Map<Integer, Integer> precisions = IntStream.range(0, columns.size())
-                .mapToObj(i -> Map.entry(i, precision))
+                .mapToObj(i -> Map.entry(i + 1, precision))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue)); 
 
         try (ResultSet resultSet = createResultSet(zoneId, columns, precisions, (row) -> {
@@ -359,67 +363,161 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         }
     }
 
+    private static Stream<Arguments> getStringDateValues() {
+        return Stream.of(
+                Arguments.of(LocalDate.of(2100, 1, 4), "2100-01-04"),
+                Arguments.of(LocalDate.of(2000, 1, 4), "2000-01-04"),
+                Arguments.of(LocalDate.of(1000, 1, 4), "1000-01-04"),
+                Arguments.of(LocalDate.of(200, 1, 4), "0200-01-04")
+        );
+    }
+
     @ParameterizedTest
-    @CsvSource({
-            // input, precision, tz, datetime, date, time
-            "1234567898123, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
-            "1234567898123, 1, 2009-02-14 00:31:38.1, 2009-02-14, 00:31:38.1",
-            "1234567898123, 2, 2009-02-14 00:31:38.12, 2009-02-14, 00:31:38.12",
-            "1234567898123, 3, 2009-02-14 00:31:38.123, 2009-02-14, 00:31:38.123",
-            "1234567898123, 6, 2009-02-14 00:31:38.123000, 2009-02-14, 00:31:38.123000",
-            "1234567898123, 9, 2009-02-14 00:31:38.123000000, 2009-02-14, 00:31:38.123000000",
+    @MethodSource("getStringDateValues")
+    public void getStringDate(LocalDate date, String expected) throws SQLException {
+        List<ColumnType> columns = List.of(ColumnType.DATE);
 
-            "1234567898568, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
-            "1234567898568, 1, 2009-02-14 00:31:38.5, 2009-02-14, 00:31:38.5",
-            "1234567898568, 2, 2009-02-14 00:31:38.56, 2009-02-14, 00:31:38.56",
-            "1234567898568, 3, 2009-02-14 00:31:38.568, 2009-02-14, 00:31:38.568",
-            "1234567898568, 6, 2009-02-14 00:31:38.568000, 2009-02-14, 00:31:38.568000",
-            "1234567898568, 9, 2009-02-14 00:31:38.568000000, 2009-02-14, 00:31:38.568000000",
-
-            "1234567898000, 0, 2009-02-14 00:31:38, 2009-02-14, 00:31:38",
-            "1234567898000, 1, 2009-02-14 00:31:38.0, 2009-02-14, 00:31:38.0",
-            "1234567898000, 2, 2009-02-14 00:31:38.00, 2009-02-14, 00:31:38.00",
-            "1234567898000, 3, 2009-02-14 00:31:38.000, 2009-02-14, 00:31:38.000",
-            "1234567898000, 6, 2009-02-14 00:31:38.000000, 2009-02-14, 00:31:38.000000",
-            "1234567898000, 9, 2009-02-14 00:31:38.000000000, 2009-02-14, 00:31:38.000000000",
-    })
-    public void getStringDateTimeTypesWithDifferentPrecision(
-            long input, int precision,
-            String localDateTimeStr, String dateStr, String timeStr
-    ) throws SQLException {
-        ZoneId zoneId = ZoneId.of("Europe/Paris");
-
-        Instant now = Instant.ofEpochMilli(input);
-        Clock clock = Clock.fixed(now, zoneId);
-        Instant instant = clock.instant();
-        LocalDate date = LocalDate.now(clock);
-        LocalDateTime dateTime = LocalDateTime.now(clock);
-        LocalTime time = LocalTime.now(clock);
-
-        List<ColumnType> columns = List.of(ColumnType.TIME, ColumnType.DATE, ColumnType.DATETIME, ColumnType.TIMESTAMP);
-
-        Map<Integer, Integer> precisions = IntStream.range(0, columns.size())
-                .mapToObj(i -> Map.entry(i, precision))
-                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-
-        try (ResultSet resultSet = createResultSet(zoneId, columns, precisions, (row) -> {
-            row.appendTime(time);
+        try (ResultSet resultSet = createResultSet(null, columns, (row) -> {
             row.appendDate(date);
-            row.appendDateTime(dateTime);
+        })) {
+            resultSet.next();
+            String actual = resultSet.getString(1);
+            assertEquals(expected, actual);
+        }
+    }
+
+    private static Stream<Arguments> getStringTimeValues() {
+        return Stream.of(
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 0, "00:00:00"),
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 1, "00:00:00.0"),
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 2, "00:00:00.00"),
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 3, "00:00:00.000"),
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 6, "00:00:00.000000"),
+                Arguments.of(LocalTime.of(0, 0, 0, 0), 9, "00:00:00.000000000"),
+
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 0, "13:05:02"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 1, "13:05:02.0"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 2, "13:05:02.00"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 3, "13:05:02.000"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 5, "13:05:02.00012"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 6, "13:05:02.000123"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_456), 9, "13:05:02.000123456"),
+
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 0, "13:05:02"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 1, "13:05:02.0"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 2, "13:05:02.01"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 3, "13:05:02.012"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 5, "13:05:02.01234"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 6, "13:05:02.012345"),
+                Arguments.of(LocalTime.of(13, 5, 2, 12345600), 9, "13:05:02.012345600"),
+
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 0, "13:05:02"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 1, "13:05:02.1"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 2, "13:05:02.12"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 3, "13:05:02.123"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 6, "13:05:02.123000"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123_000_000), 9, "13:05:02.123000000"),
+
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 0, "13:05:02"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 1, "13:05:02.1"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 2, "13:05:02.12"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 3, "13:05:02.123"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 6, "13:05:02.123456"),
+                Arguments.of(LocalTime.of(13, 5, 2, 123456789), 9, "13:05:02.123456789")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("getStringTimeValues")
+    public void getStringTimeWithPrecision(LocalTime time, int precision, String expected) throws SQLException {
+        List<ColumnType> columns = List.of(ColumnType.TIME);
+        Map<Integer, Integer> precisions = Map.of(1, precision);
+
+        try (ResultSet resultSet = createResultSet(null, columns, precisions, (row) -> {
+            row.appendTime(time);
+        })) {
+            resultSet.next();
+            String actual = resultSet.getString(1);
+            assertEquals(expected, actual);
+        }
+    }
+
+    private static Stream<Arguments> getStringDateTimeValues() {
+        LocalTime time = LocalTime.of(13, 5, 2, 12345600);
+
+        LocalDate date2 = LocalDate.of(2, 5, 17);
+        LocalDate date20 = LocalDate.of(20, 5, 17);
+        LocalDate date200 = LocalDate.of(200, 5, 17);
+        LocalDate date2000 = LocalDate.of(2000, 5, 17);
+
+        return Stream.of(
+                // 2
+                Arguments.of(LocalDateTime.of(date2, time), 0, "0002-05-17 13:05:02"),
+                Arguments.of(LocalDateTime.of(date2, time), 1, "0002-05-17 13:05:02.0"),
+                Arguments.of(LocalDateTime.of(date2, time), 2, "0002-05-17 13:05:02.01"),
+                Arguments.of(LocalDateTime.of(date2, time), 3, "0002-05-17 13:05:02.012"),
+                Arguments.of(LocalDateTime.of(date2, time), 5, "0002-05-17 13:05:02.01234"),
+                Arguments.of(LocalDateTime.of(date2, time), 6, "0002-05-17 13:05:02.012345"),
+                Arguments.of(LocalDateTime.of(date2, time), 9, "0002-05-17 13:05:02.012345600"),
+
+                // 20
+                Arguments.of(LocalDateTime.of(date20, time), 0, "0020-05-17 13:05:02"),
+                Arguments.of(LocalDateTime.of(date20, time), 1, "0020-05-17 13:05:02.0"),
+                Arguments.of(LocalDateTime.of(date20, time), 2, "0020-05-17 13:05:02.01"),
+                Arguments.of(LocalDateTime.of(date20, time), 3, "0020-05-17 13:05:02.012"),
+                Arguments.of(LocalDateTime.of(date20, time), 5, "0020-05-17 13:05:02.01234"),
+                Arguments.of(LocalDateTime.of(date20, time), 6, "0020-05-17 13:05:02.012345"),
+                Arguments.of(LocalDateTime.of(date20, time), 9, "0020-05-17 13:05:02.012345600"),
+
+                // 200
+                Arguments.of(LocalDateTime.of(date200, time), 0, "0200-05-17 13:05:02"),
+                Arguments.of(LocalDateTime.of(date200, time), 1, "0200-05-17 13:05:02.0"),
+                Arguments.of(LocalDateTime.of(date200, time), 2, "0200-05-17 13:05:02.01"),
+                Arguments.of(LocalDateTime.of(date200, time), 3, "0200-05-17 13:05:02.012"),
+                Arguments.of(LocalDateTime.of(date200, time), 5, "0200-05-17 13:05:02.01234"),
+                Arguments.of(LocalDateTime.of(date200, time), 6, "0200-05-17 13:05:02.012345"),
+                Arguments.of(LocalDateTime.of(date200, time), 9, "0200-05-17 13:05:02.012345600"),
+
+                // 2000
+                Arguments.of(LocalDateTime.of(date2000, time), 0, "2000-05-17 13:05:02"),
+                Arguments.of(LocalDateTime.of(date2000, time), 1, "2000-05-17 13:05:02.0"),
+                Arguments.of(LocalDateTime.of(date2000, time), 2, "2000-05-17 13:05:02.01"),
+                Arguments.of(LocalDateTime.of(date2000, time), 3, "2000-05-17 13:05:02.012"),
+                Arguments.of(LocalDateTime.of(date2000, time), 5, "2000-05-17 13:05:02.01234"),
+                Arguments.of(LocalDateTime.of(date2000, time), 6, "2000-05-17 13:05:02.012345"),
+                Arguments.of(LocalDateTime.of(date2000, time), 9, "2000-05-17 13:05:02.012345600")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("getStringDateTimeValues")
+    public void getStringDateTimeWithPrecision(LocalDateTime value, int precision, String expected) throws SQLException {
+        List<ColumnType> columns = List.of(ColumnType.DATETIME);
+        Map<Integer, Integer> precisions = Map.of(1, precision);
+
+        try (ResultSet resultSet = createResultSet(null, columns, precisions, (row) -> {
+            row.appendDateTime(value);
+        })) {
+            resultSet.next();
+            String actual = resultSet.getString(1);
+            assertEquals(expected, actual);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getStringDateTimeValues")
+    public void getStringTimestampWithPrecision(LocalDateTime value, int precision, String expected) throws SQLException {
+        ZoneOffset zoneOffset = ZoneOffset.ofHoursMinutes(3, 30);
+
+        List<ColumnType> columns = List.of(ColumnType.TIMESTAMP);
+        Map<Integer, Integer> precisions = Map.of(1, precision);
+
+        try (ResultSet resultSet = createResultSet(zoneOffset, columns, precisions, (row) -> {
+            Instant instant = value.toInstant(zoneOffset);
             row.appendTimestamp(instant);
         })) {
             resultSet.next();
-
-            String actual = resultSet.getString(1)
-                    + " | " + resultSet.getString(2)
-                    + " | " + resultSet.getString(3)
-                    + " | " + resultSet.getString(4);
-
-            String expected = timeStr
-                    + " | " + dateStr
-                    + " | " + localDateTimeStr
-                    + " | " + localDateTimeStr;
-
+            String actual = resultSet.getString(1);
             assertEquals(expected, actual);
         }
     }
@@ -637,7 +735,7 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         List<JdbcColumnMeta> columns = new ArrayList<>();
         for (ColumnType columnType : columnTypes) {
             String columnName = "C" + columns.size();
-            int precision = precisions.getOrDefault(columns.size(), -1);
+            int precision = precisions.getOrDefault(columns.size() + 1, -1);
 
             JdbcColumnMeta columnMeta = new JdbcColumnMeta(
                     columnName, 

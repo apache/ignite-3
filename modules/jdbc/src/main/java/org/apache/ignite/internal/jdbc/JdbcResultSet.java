@@ -410,6 +410,8 @@ public class JdbcResultSet implements ResultSet {
             return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
         } else if (value instanceof byte[]) {
             return StringUtils.toHexString((byte[]) value);
+        } else if (value instanceof LocalDate) {
+            return Formatters.formatDate((LocalDate) value);
         } else {
             return String.valueOf(value);
         }
@@ -2353,8 +2355,16 @@ public class JdbcResultSet implements ResultSet {
                 .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
                 .toFormatter();
 
+        static final DateTimeFormatter DATE = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR, 4)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .toFormatter();
+
         static final DateTimeFormatter DATE_TIME = new DateTimeFormatterBuilder()
-                .appendValue(ChronoField.YEAR)
+                .appendValue(ChronoField.YEAR, 4)
                 .appendLiteral('-')
                 .appendValue(ChronoField.MONTH_OF_YEAR, 2)
                 .appendLiteral('-')
@@ -2374,6 +2384,10 @@ public class JdbcResultSet implements ResultSet {
 
         static String formatDateTime(LocalDateTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
             return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDate(LocalDate value) {
+            return DATE.format(value);
         }
 
         private static String formatWithPrecision(
