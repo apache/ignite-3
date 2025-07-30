@@ -55,14 +55,14 @@ public enum IgniteMethod {
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
-    /** See {@link IgniteSqlFunctions#verifyBoundsDate(Object)}. **/
-    VERIFY_BOUNDS_DATE(IgniteSqlFunctions.class, "verifyBoundsDate", Object.class),
+    /** See {@link IgniteSqlFunctions#checkDateBounds(Object)}. **/
+    CHECK_DATE_BOUNDS(IgniteSqlFunctions.class, "checkDateBounds", Object.class),
 
-    /** See {@link IgniteSqlFunctions#verifyBoundsTimestamp(Object)}. **/
-    VERIFY_BOUNDS_TIMESTAMP(IgniteSqlFunctions.class, "verifyBoundsTimestamp", Object.class),
+    /** See {@link IgniteSqlFunctions#checkTimestampBounds(Object)}. **/
+    CHECK_TIMESTAMP_BOUNDS(IgniteSqlFunctions.class, "checkTimestampBounds", Object.class),
 
-    /** See {@link IgniteSqlFunctions#verifyBoundsTimestampLtz(Object)}. **/
-    VERIFY_BOUNDS_TIMESTAMP_LTZ(IgniteSqlFunctions.class, "verifyBoundsTimestampLtz", Object.class),
+    /** See {@link IgniteSqlFunctions#checkTimestampLtzBounds(Object)}. **/
+    CHECK_TIMESTAMP_LTZ_BOUNDS(IgniteSqlFunctions.class, "checkTimestampLtzBounds", Object.class),
 
     /** See {@link IgniteSqlFunctions#toTimeExact(Object, int)}. **/
     TO_TIME_EXACT(IgniteSqlFunctions.class, "toTimeExact", Object.class, int.class),

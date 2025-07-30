@@ -54,7 +54,7 @@ public class IgniteSqlDateTimeUtils {
         int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
 
         // After adjusting to UTC, you need to make sure that the value matches the allowed values.
-        return IgniteSqlFunctions.verifyBoundsTimestampLtz(timestamp - offset);
+        return IgniteSqlFunctions.checkTimestampLtzBounds(timestamp - offset);
     }
 
     /** Returns the timestamp value truncated to the specified fraction of a second. */

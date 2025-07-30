@@ -383,7 +383,7 @@ public class IgniteSqlFunctions {
         assert precision >= 0 : "Invalid precision: " + precision;
         assert object instanceof Long : object.getClass();
 
-        long verified = verifyBoundsTimestamp((long) object);
+        long verified = checkTimestampBounds(object);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
     }
@@ -397,13 +397,13 @@ public class IgniteSqlFunctions {
         assert precision >= 0 : "Invalid precision: " + precision;
         assert object instanceof Long : object.getClass();
 
-        long verified = verifyBoundsTimestampLtz((long) object);
+        long verified = checkTimestampLtzBounds(object);
 
         return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
     }
 
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static @Nullable Integer verifyBoundsDate(@Nullable Object object) {
+    public static @Nullable Integer checkDateBounds(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -420,7 +420,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static @Nullable Long verifyBoundsTimestamp(@Nullable Object object) {
+    public static @Nullable Long checkTimestampBounds(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -437,7 +437,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static @Nullable Long verifyBoundsTimestampLtz(@Nullable Object object) {
+    public static @Nullable Long checkTimestampLtzBounds(@Nullable Object object) {
         if (object == null) {
             return null;
         }

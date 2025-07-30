@@ -114,15 +114,15 @@ public class IgniteExpressions {
 
         switch (type) {
             case DATE:
-                method = IgniteMethod.VERIFY_BOUNDS_DATE.method();
+                method = IgniteMethod.CHECK_DATE_BOUNDS.method();
                 break;
 
             case TIMESTAMP:
-                method = IgniteMethod.VERIFY_BOUNDS_TIMESTAMP.method();
+                method = IgniteMethod.CHECK_TIMESTAMP_BOUNDS.method();
                 break;
 
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                method = IgniteMethod.VERIFY_BOUNDS_TIMESTAMP_LTZ.method();
+                method = IgniteMethod.CHECK_TIMESTAMP_LTZ_BOUNDS.method();
                 break;
 
             default:

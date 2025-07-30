@@ -205,7 +205,7 @@ public class ConverterUtils {
     private static Expression convertToDate(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.DATE;
         return Expressions.call(
-                IgniteMethod.VERIFY_BOUNDS_DATE.method(),
+                IgniteMethod.CHECK_DATE_BOUNDS.method(),
                 operand
         );
     }
