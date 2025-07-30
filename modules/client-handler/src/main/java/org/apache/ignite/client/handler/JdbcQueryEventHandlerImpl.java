@@ -108,7 +108,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, @Nullable String username) {
+    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, String username) {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                     txManager,

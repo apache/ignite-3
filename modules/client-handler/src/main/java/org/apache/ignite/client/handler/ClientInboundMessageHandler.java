@@ -1000,7 +1000,9 @@ public class ClientInboundMessageHandler
     }
 
     /**
-     * Return authenticated user name.
+     * Return authenticated user name or {@code unknown} if not authorized.
+     *
+     * @see UserDetails#UNKNOWN
      */
     private String resolveCurrentUsername() {
         return clientContext.userDetails().username();

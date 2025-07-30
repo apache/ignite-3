@@ -177,10 +177,6 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             @Nullable CancellationToken cancellationToken,
             Object... params
     ) {
-        if (properties.userName() == null) {
-            properties.userName(Commons.SYSTEM_USER_NAME);
-        }
-
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,

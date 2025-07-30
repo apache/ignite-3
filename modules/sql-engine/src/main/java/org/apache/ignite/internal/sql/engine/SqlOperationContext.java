@@ -107,6 +107,7 @@ public final class SqlOperationContext {
         return timeZoneId;
     }
 
+    /** Returns current user name or {@code null} if unknown. */
     public @Nullable String userName() {
         return userName;
     }
