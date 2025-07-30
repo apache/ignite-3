@@ -26,7 +26,7 @@ import org.apache.ignite3.internal.cli.core.style.component.ErrorUiComponent.Err
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.BeanInitializationException;
 
-/** ExceptionHandlers for Error loading inpute configurations. */
+/** ExceptionHandlers for Error loading input configurations. */
 public class ErrorLoadingInputConfigurationHandlers {
     /**
      * Create method.
