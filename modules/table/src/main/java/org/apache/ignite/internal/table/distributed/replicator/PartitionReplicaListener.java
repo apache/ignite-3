@@ -926,21 +926,17 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     result.add(row);
                 }
             } else {
-                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+                resolutionFutures.add(resolveWriteIntentAsync(readResult, readTimestamp, () -> {
+                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
-                TimedBinaryRow candidate;
-                if (newestCommitTimestamp == null) {
-                    candidate = null;
-                } else {
-                    // TODO: Calling "cursor.committed" here may lead to performance degradation in presence of many write intents.
-                    //  This part should probably moved inside the "() -> candidate" lambda.
-                    //  See https://issues.apache.org/jira/browse/IGNITE-26052.
-                    BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
+                    if (newestCommitTimestamp == null) {
+                        return null;
+                    } else {
+                        BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
 
-                    candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
-                }
-
-                resolutionFutures.add(resolveWriteIntentAsync(readResult, readTimestamp, () -> candidate));
+                        return committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
+                    }
+                }));
 
                 // Add a placeholder in the result array to later transfer the resolved write intent.
                 result.add(null);
