@@ -277,7 +277,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             } else if (recoverable(invokeThrowable)) {
                 logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
                     if (topologyGetThrowable != null) {
-                        LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
+                        if (!(unwrapCause(topologyGetThrowable) instanceof NodeStoppingException)) {
+                            LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
+                        }
 
                         msgSendFut.completeExceptionally(topologyGetThrowable);
 
