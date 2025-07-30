@@ -408,10 +408,10 @@ public class JdbcResultSet implements ResultSet {
             assert jdbcMeta != null;
 
             return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
-        } else if (value instanceof byte[]) {
-            return StringUtils.toHexString((byte[]) value);
         } else if (value instanceof LocalDate) {
             return Formatters.formatDate((LocalDate) value);
+        } else if (value instanceof byte[]) {
+            return StringUtils.toHexString((byte[]) value);
         } else {
             return String.valueOf(value);
         }
