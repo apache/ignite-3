@@ -587,7 +587,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService,
                 failureProcessor,
                 nodeProperties,
-                clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication()
+                clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
+                threadPoolsManager.commonScheduler(),
+                metricManager
         );
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
@@ -660,7 +662,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                failureProcessor
+                failureProcessor,
+                metricManager
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);

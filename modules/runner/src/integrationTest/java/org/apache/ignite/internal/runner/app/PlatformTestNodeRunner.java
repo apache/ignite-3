@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -918,7 +919,7 @@ public class PlatformTestNodeRunner {
 
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 
@@ -979,7 +980,7 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
             if (arg == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             arg.price = arg.price.add(BigDecimal.ONE);

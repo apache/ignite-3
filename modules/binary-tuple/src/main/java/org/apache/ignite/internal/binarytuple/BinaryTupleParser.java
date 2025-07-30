@@ -386,7 +386,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    protected BigInteger numberValue(int begin, int end) {
+    public BigInteger numberValue(int begin, int end) {
         int len = end - begin;
         if (len <= 0) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);

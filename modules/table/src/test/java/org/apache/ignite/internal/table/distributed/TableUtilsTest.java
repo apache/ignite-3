@@ -40,12 +40,13 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -132,8 +133,20 @@ public class TableUtilsTest extends IgniteAbstractTest {
         verify(spy).activeCatalog(eq(beginTs.longValue()));
     }
 
+    private int indexId(String indexName) {
+        return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
+    }
+
+    private int tableId(String tableName) {
+        return getTableIdStrict(catalogManager, tableName, clock.nowLong());
+    }
+
+    private HybridTimestamp catalogTime(int catalogVersion) {
+        return hybridTimestamp(catalogManager.catalog(catalogVersion).time());
+    }
+
     @Test
-    void testDroppedTables() {
+    void testAliveTables() {
         String tableName0 = TABLE_NAME + 0;
         String tableName1 = TABLE_NAME + 1;
         String tableName2 = TABLE_NAME + 2;
@@ -152,6 +165,8 @@ public class TableUtilsTest extends IgniteAbstractTest {
 
         int tableId0 = tableId(tableName0);
         int tableId1 = tableId(tableName1);
+        int tableId2 = tableId(tableName2);
+        Set<Integer> allTableIds = Set.of(tableId0, tableId1, tableId2);
 
         int catalogVersionBeforeRemoveTable1 = catalogManager.latestCatalogVersion();
         dropSimpleTable(catalogManager, tableName1);
@@ -159,54 +174,36 @@ public class TableUtilsTest extends IgniteAbstractTest {
         int catalogVersionBeforeRemoveTable0 = catalogManager.latestCatalogVersion();
         dropSimpleTable(catalogManager, tableName0);
 
-        assertThat(droppedTables(null), empty());
-        assertThat(droppedTables(catalogTime(catalogVersionBeforeRemoveTable1)), empty());
+        assertThat(aliveTables(null), is(allTableIds));
+        assertThat(aliveTables(catalogTime(catalogVersionBeforeRemoveTable1)), is(allTableIds));
         // Let's check that if the time is slightly different from the activation time, the result will be the same.
-        assertThat(droppedTables(catalogTime(catalogVersionBeforeRemoveTable1).addPhysicalTime(1)), empty());
-        assertThat(droppedTables(catalogTime(catalogVersionBeforeRemoveTable0).addPhysicalTime(-1)), empty());
+        assertThat(aliveTables(catalogTime(catalogVersionBeforeRemoveTable1).addPhysicalTime(1)), is(allTableIds));
+        assertThat(aliveTables(catalogTime(catalogVersionBeforeRemoveTable0).addPhysicalTime(-1)), is(allTableIds));
 
         assertThat(
-                droppedTables(catalogTime(catalogVersionBeforeRemoveTable0)),
-                containsInAnyOrder(new DroppedTableInfo(tableId1, catalogVersionBeforeRemoveTable0))
+                aliveTables(catalogTime(catalogVersionBeforeRemoveTable0)),
+                containsInAnyOrder(tableId0, tableId2)
         );
 
         assertThat(
-                droppedTables(catalogTime(catalogVersionBeforeRemoveTable0).addPhysicalTime(1)),
-                containsInAnyOrder(new DroppedTableInfo(tableId1, catalogVersionBeforeRemoveTable0))
+                aliveTables(catalogTime(catalogVersionBeforeRemoveTable0).addPhysicalTime(1)),
+                containsInAnyOrder(tableId0, tableId2)
         );
 
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
 
         assertThat(
-                droppedTables(catalogTime(latestCatalogVersion)),
-                containsInAnyOrder(
-                        new DroppedTableInfo(tableId1, catalogVersionBeforeRemoveTable0),
-                        new DroppedTableInfo(tableId0, latestCatalogVersion)
-                )
+                aliveTables(catalogTime(latestCatalogVersion)),
+                contains(tableId2)
         );
 
         assertThat(
-                droppedTables(catalogTime(latestCatalogVersion).addPhysicalTime(1)),
-                containsInAnyOrder(
-                        new DroppedTableInfo(tableId1, catalogVersionBeforeRemoveTable0),
-                        new DroppedTableInfo(tableId0, latestCatalogVersion)
-                )
+                aliveTables(catalogTime(latestCatalogVersion).addPhysicalTime(1)),
+                contains(tableId2)
         );
     }
 
-    private int indexId(String indexName) {
-        return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
-    }
-
-    private int tableId(String tableName) {
-        return getTableIdStrict(catalogManager, tableName, clock.nowLong());
-    }
-
-    private HybridTimestamp catalogTime(int catalogVersion) {
-        return hybridTimestamp(catalogManager.catalog(catalogVersion).time());
-    }
-
-    private List<DroppedTableInfo> droppedTables(@Nullable HybridTimestamp lwm) {
-        return TableUtils.droppedTables(catalogManager, lwm);
+    private Set<Integer> aliveTables(@Nullable HybridTimestamp lwm) {
+        return TableUtils.aliveTables(catalogManager, lwm);
     }
 }

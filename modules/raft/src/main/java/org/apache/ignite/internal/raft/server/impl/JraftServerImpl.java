@@ -605,14 +605,32 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        destroyRaftNodeStoragesInternal(nodeId, groupOptions, false);
+    }
+
+    @Override
+    public void destroyRaftNodeStoragesDurably(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        destroyRaftNodeStoragesInternal(nodeId, groupOptions, true);
+    }
+
+    private void destroyRaftNodeStoragesInternal(RaftNodeId nodeId, RaftGroupOptions groupOptions, boolean durable) {
         StorageDestructionIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
 
-        groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+        if (durable) {
+            groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+        }
 
-        destroyStorages(new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()));
+        destroyStorages(
+                new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()),
+                durable
+        );
     }
 
     private void destroyStorages(StoragesDestructionContext context) {
+        destroyStorages(context, true);
+    }
+
+    private void destroyStorages(StoragesDestructionContext context, boolean wasDurable) {
         String nodeId = context.intent().nodeId();
 
         try {
@@ -628,7 +646,9 @@ public class JraftServerImpl implements RaftServer {
             throw new IgniteInternalException(INTERNAL_ERR, "Failed to delete storage for node: " + nodeId, e);
         }
 
-        groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
+        if (wasDurable) {
+            groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
+        }
     }
 
     /**
@@ -651,6 +671,7 @@ public class JraftServerImpl implements RaftServer {
 
     private Set<String> raftNodeMetaStorageIdsOnDisk() {
         return groupStoragesContextResolver.serverDataPaths().stream()
+                .filter(Files::exists)
                 .flatMap(JraftServerImpl::listFiles)
                 .filter(Files::isDirectory)
                 .map(groupDirPath -> groupDirPath.getFileName().toString())
