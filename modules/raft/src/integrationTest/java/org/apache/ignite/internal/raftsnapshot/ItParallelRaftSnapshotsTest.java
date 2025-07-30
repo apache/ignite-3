@@ -49,7 +49,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItParallelRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
@@ -95,7 +94,6 @@ class ItParallelRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26034")
     void testInstallRaftSnapshotAfterUpdateLowWatermark() {
         updateLowWatermarkUpdateInterval(1_000);
 
