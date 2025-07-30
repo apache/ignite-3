@@ -162,8 +162,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 new long[]{SEGMENT_SIZE},
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
-                (pageMem, pageId, pageBuf) -> {
-                    checkpointManager.writePageToDeltaFilePageStore(pageMem, pageId, pageBuf);
+                (pageMem, pageId, pageBuf, newPage) -> {
+                    checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf, newPage);
 
                     // Almost the same code that happens in data region, but here the region is mocked.
                     CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();

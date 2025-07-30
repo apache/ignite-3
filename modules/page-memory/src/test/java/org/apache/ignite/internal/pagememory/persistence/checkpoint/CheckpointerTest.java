@@ -360,6 +360,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testDoCheckpoint() throws Exception {
         CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
+                Map.of(),
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
@@ -516,8 +517,12 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         onPartitionDestructionFuture.get(1, SECONDS);
     }
 
-    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
-        return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, pageIds)));
+    private static CheckpointDirtyPages dirtyPages(
+            PersistentPageMemory pageMemory,
+            Map<GroupPartitionId, FullPageId[]> newPages,
+            FullPageId... pageIds
+    ) {
+        return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, newPages, pageIds)));
     }
 
     private static CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {

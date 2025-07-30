@@ -315,9 +315,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     }
 
     private void flushDirtyPageOnReplacement(
-            PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
+            PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer, boolean newPage
     ) throws IgniteInternalCheckedException {
-        checkpointManager.writePageToDeltaFilePageStore(pageMemory, fullPageId, byteBuffer);
+        checkpointManager.writePageToFilePageStore(pageMemory, fullPageId, byteBuffer, newPage);
 
         CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 

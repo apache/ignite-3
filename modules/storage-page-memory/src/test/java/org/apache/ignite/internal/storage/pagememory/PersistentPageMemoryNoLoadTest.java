@@ -365,7 +365,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 defaultCheckpointBufferSize(),
                 filePageStoreManager,
                 checkpointManager,
-                (pageMemory0, fullPageId, buffer) -> flushDirtyPageForReplacementFuture.complete(null)
+                (pageMemory0, fullPageId, buffer, newPage) -> flushDirtyPageForReplacementFuture.complete(null)
         );
 
         dataRegions.add(() -> pageMemory);
@@ -480,7 +480,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static WriteDirtyPage shouldNotHappenFlushDirtyPageForReplacement() {
-        return (fullPageId, buf, tag) -> fail("Should not happen");
+        return (fullPageId, buf, tag, newPage) -> fail("Should not happen");
     }
 
     private CheckpointManager createCheckpointManager(

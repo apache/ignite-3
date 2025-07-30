@@ -31,6 +31,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -38,7 +39,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
@@ -150,7 +151,7 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
     }
 
     private static DirtyPagesAndPartitions createDirtyPagesAndPartitions(FullPageId... pageIds) {
-        return TestCheckpointUtils.createDirtyPagesAndPartitions(mock(PersistentPageMemory.class), pageIds);
+        return TestCheckpointUtils.createDirtyPagesAndPartitions(mock(PersistentPageMemory.class), Map.of(), pageIds);
     }
 
     private static FullPageId of(int groupId, int partId, int pageIdx) {
@@ -195,8 +196,8 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
                 .collect(toList());
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(CheckpointDirtyPagesView view) {
-        return IntStream.range(0, view.size()).mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.get(i))).collect(toList());
+    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(CheckpointPagesView view) {
+        return IntStream.range(0, view.dirtyPagesSize()).mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.getDirtyPage(i))).collect(toList());
     }
 
     private static Predicate<FullPageId> equalsByGroupAndPartition(int grpId, int partId) {

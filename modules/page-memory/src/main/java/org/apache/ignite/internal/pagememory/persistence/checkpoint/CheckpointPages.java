@@ -20,14 +20,11 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
-import java.nio.ByteBuffer;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -39,22 +36,22 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used.</p>
  *
- * @see PersistentPageMemory#checkpointWritePage(FullPageId, ByteBuffer, PageStoreWriter, CheckpointMetricsTracker)
+ * @see PersistentPageMemory#checkpointWritePage
  * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
  */
 public class CheckpointPages {
-    private final Set<FullPageId> pageIds;
+    private final PagesToWrite pagesToWrite;
 
     private final CheckpointProgressImpl checkpointProgress;
 
     /**
      * Constructor.
      *
-     * @param pageIds Dirty page IDs in the segment that should be written at a checkpoint or page replacement.
+     * @param pagesToWrite Page IDs in the segment that should be written at a checkpoint or page replacement.
      * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
-        this.pageIds = pageIds;
+    public CheckpointPages(PagesToWrite pagesToWrite, CheckpointProgress checkpointProgress) {
+        this.pagesToWrite = pagesToWrite;
         this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
 
@@ -86,7 +83,7 @@ public class CheckpointPages {
             throw new IgniteInternalCheckedException(e);
         }
 
-        return pageIds.remove(pageId);
+        return pagesToWrite.remove(pageId);
     }
 
     /**
@@ -101,7 +98,7 @@ public class CheckpointPages {
      * @see #removeOnPageReplacement(FullPageId)
      */
     public boolean removeOnCheckpoint(FullPageId pageId) {
-        return pageIds.remove(pageId);
+        return pagesToWrite.remove(pageId);
     }
 
     /**
@@ -110,12 +107,12 @@ public class CheckpointPages {
      * @param pageId Page ID for checking.
      */
     public boolean contains(FullPageId pageId) {
-        return pageIds.contains(pageId);
+        return pagesToWrite.contains(pageId);
     }
 
     /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */
     public int size() {
-        return pageIds.size();
+        return pagesToWrite.size();
     }
 
     /**
@@ -196,5 +193,9 @@ public class CheckpointPages {
      */
     public void unblockPartitionDestruction(GroupPartitionId groupPartitionId) {
         checkpointProgress.unblockPartitionDestruction(groupPartitionId);
+    }
+
+    public boolean isNewPage(FullPageId fullPageId) {
+        return pagesToWrite.newPages().contains(fullPageId);
     }
 }

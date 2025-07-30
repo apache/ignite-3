@@ -34,5 +34,5 @@ public interface PageStoreWriter {
      *      for a page and need to try writing again later.
      * @throws IgniteInternalCheckedException If write page failed.
      */
-    void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
+    void writePage(FullPageId fullPageId, ByteBuffer buf, boolean newPage, int tag) throws IgniteInternalCheckedException;
 }

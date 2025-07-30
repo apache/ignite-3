@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -30,9 +31,17 @@ class DirtyPagesAndPartitions {
 
     final Set<GroupPartitionId> dirtyPartitions;
 
-    DirtyPagesAndPartitions(PersistentPageMemory pageMemory, FullPageId[] dirtyPages, Set<GroupPartitionId> dirtyPartitions) {
+    final Map<GroupPartitionId, FullPageId[]> newPages;
+
+    DirtyPagesAndPartitions(
+            PersistentPageMemory pageMemory,
+            FullPageId[] dirtyPages,
+            Set<GroupPartitionId> dirtyPartitions,
+            Map<GroupPartitionId, FullPageId[]> newPages
+    ) {
         this.pageMemory = pageMemory;
         this.dirtyPages = dirtyPages;
         this.dirtyPartitions = dirtyPartitions;
+        this.newPages = newPages;
     }
 }
