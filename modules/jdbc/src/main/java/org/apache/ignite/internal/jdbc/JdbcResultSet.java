@@ -2377,7 +2377,6 @@ public class JdbcResultSet implements ResultSet {
                 .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
                 .toFormatter();
 
-
         static String formatTime(LocalTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
             return formatWithPrecision(TIME, value, colIdx, jdbcMeta);
         }
