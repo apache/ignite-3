@@ -440,9 +440,11 @@ TEST_F(transactions_test, tx_successful_when_timeout_does_not_exceed) {
 
     int64_t key = 42;
     std::string val = "Lorem ipsum";
-    auto tx = m_client.get_transactions().begin(transaction_options {.timeoutMillis = 10'000L, .readOnly = true});
 
-    record_view.insert(nullptr, get_tuple(key, val));
+    auto tx_opts = transaction_options().set_timeout_millis(10'000L).set_read_only(false);
+    auto tx = m_client.get_transactions().begin(tx_opts);
+
+    record_view.insert(&tx, get_tuple(key, val));
 
     tx.commit();
 
@@ -461,9 +463,9 @@ TEST_F(transactions_test, tx_failed_when_timeout_exceeds) {
 
     int64_t key = 42;
     std::string val = "Lorem ipsum";
-    auto tx_opts = transaction_options {
-        .timeoutMillis = std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count(),
-        .readOnly = false};
+    auto tx_opts = transaction_options()
+        .set_timeout_millis(std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count())
+        .set_read_only(false);
 
     auto tx = m_client.get_transactions().begin(tx_opts);
 
@@ -476,7 +478,7 @@ TEST_F(transactions_test, tx_failed_when_timeout_exceeds) {
             try {
                 // TODO change to check tx.commit when IGNITE-24233 is implemented
                 // tx.commit();
-                [[maybe_unused]]auto rec = record_view.get(&tx, get_tuple(key));
+                auto rec = record_view.get(&tx, get_tuple(key));
             } catch (const ignite_error& e) {
                 EXPECT_EQ(e.get_status_code(), error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT);
                 throw;

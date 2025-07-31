@@ -58,8 +58,8 @@ public:
      */
     IGNITE_API void begin_async(ignite_callback<transaction> callback, transaction_options tx_opts) {
         auto writer_func = [this, &tx_opts](protocol::writer &writer, auto) {
-            writer.write_bool(tx_opts.readOnly); // readOnly.
-            writer.write(tx_opts.timeoutMillis); // timeoutMillis.
+            writer.write_bool(tx_opts.is_read_only());
+            writer.write(tx_opts.get_timeout_millis());
             writer.write(m_connection->get_observable_timestamp());
         };
 

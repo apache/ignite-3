@@ -44,20 +44,36 @@ public:
     /**
      * Starts a new transaction.
      *
+     * @param tx_opts Transaction options.
      * @return A new transaction.
      */
-    IGNITE_API transaction begin(transaction_options tx_opts = {.timeoutMillis = 0, .readOnly = false}) {
+    IGNITE_API transaction begin(transaction_options tx_opts) {
         return sync<transaction>([this, &tx_opts](auto callback) { begin_async(std::move(callback), tx_opts); });
+    }
+
+    /**
+     * Starts a new transaction.
+     *
+     * @return A new transaction.
+     */
+    IGNITE_API transaction begin() {
+        return begin({});
     }
 
     /**
      * Starts a new transaction asynchronously.
      *
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
+     * @param tx_opts Transaction options.
      */
-    IGNITE_API void begin_async(
-        ignite_callback<transaction> callback,
-        transaction_options tx_opts = {.timeoutMillis = 0, .readOnly = false});
+    IGNITE_API void begin_async(ignite_callback<transaction> callback, transaction_options tx_opts);
+
+    /**
+     * Starts a new transaction asynchronously.
+     *
+     * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
+     */
+    IGNITE_API void begin_async(ignite_callback<transaction> callback);
 
 private:
     /**

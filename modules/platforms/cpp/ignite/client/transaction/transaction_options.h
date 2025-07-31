@@ -20,7 +20,29 @@
 /**
  * Transaction options.
  */
-struct transaction_options {
-    const std::int64_t timeoutMillis = 0;
-    const bool readOnly = false;
+class transaction_options {
+public:
+    transaction_options() = default;
+    ~transaction_options() = default;
+    transaction_options(const transaction_options&) = default;
+    transaction_options(transaction_options &&) = default;
+    transaction_options &operator=(const transaction_options &other) = default;
+    transaction_options &operator=(transaction_options &&other) = default;
+
+    [[nodiscard]] std::int64_t get_timeout_millis() const { return m_timeout_millis; }
+
+    transaction_options& set_timeout_millis(std::int64_t timeout_millis) {
+        m_timeout_millis = timeout_millis;
+        return *this;
+    }
+
+    [[nodiscard]] bool is_read_only() const { return m_read_only; }
+
+    transaction_options& set_read_only(bool read_only) {
+        m_read_only = read_only;
+        return *this;
+    }
+private:
+    std::int64_t m_timeout_millis = 0;
+    bool m_read_only = false;
 };

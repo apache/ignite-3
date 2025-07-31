@@ -24,4 +24,8 @@ void transactions::begin_async(ignite_callback<transaction> callback, transactio
     m_impl->begin_async(std::move(callback), tx_opts);
 }
 
+void transactions::begin_async(ignite_callback<transaction> callback) {
+    m_impl->begin_async(std::move(callback), {});
+}
+
 } // namespace ignite
