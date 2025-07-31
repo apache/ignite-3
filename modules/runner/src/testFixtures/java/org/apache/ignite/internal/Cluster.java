@@ -232,7 +232,8 @@ public class Cluster {
 
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNodes)
-                .clusterName(clusterConfiguration.clusterName());
+                .clusterName(clusterConfiguration.clusterName())
+                .clusterConfiguration("ignite { metrics: { exporters { log { exporterName = logPush, periodMillis = 10000 } } } }");
 
         initParametersConfigurator.accept(builder);
 
