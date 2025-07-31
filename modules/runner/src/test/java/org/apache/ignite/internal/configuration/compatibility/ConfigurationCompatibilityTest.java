@@ -55,7 +55,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for configuration compatibility.
  */
 public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
-    static final String DEFAULT_FILE_NAME = "snapshot.bin";
+    static final String DEFAULT_FILE_NAME = "ignite-snapshot.bin";
     private static final String SNAPSHOTS_RESOURCE_LOCATION = "compatibility/configuration/";
     private static final String SNAPSHOT_FILE_NAME_PREFIX = "ignite-";
 
@@ -175,7 +175,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
                         .map(Path::getFileName)
                         .map(Path::toString)
                         .filter(p -> p.endsWith(".bin"))
-                        .filter(p -> p.startsWith(SNAPSHOT_FILE_NAME_PREFIX) || DEFAULT_FILE_NAME.equals(p))
+                        .filter(p -> p.startsWith(SNAPSHOT_FILE_NAME_PREFIX))
                         .map(Arguments::of)
                         .collect(Collectors.toList())
                         .stream();
