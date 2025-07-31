@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -203,7 +204,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ComponentContext componentContext = new ComponentContext();
 
         when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
-        when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
+        when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
@@ -342,7 +343,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         when(updateLogMock.startAsync(startComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
-        when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
+        when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
 

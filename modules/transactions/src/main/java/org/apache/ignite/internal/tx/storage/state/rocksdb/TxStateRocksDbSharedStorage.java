@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -35,8 +36,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageException;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.DBOptions;
@@ -346,5 +350,23 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
         }
 
         return unmodifiableSet(ids);
+    }
+
+    /**
+     * Flushes the whole storage to disk.
+     */
+    @TestOnly
+    public void flush() {
+        try {
+            awaitFlush(true).get(1, MINUTES);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new TxStateStorageException("Interrupted while waiting for a flush", e);
+        } catch (ExecutionException e) {
+            throw new TxStateStorageException("Flush failed", e);
+        } catch (TimeoutException e) {
+            throw new TxStateStorageException("Flush failed to finish in time", e);
+        }
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,7 +79,7 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
             cache = newCache;
             cacheByChannel = newCacheByChannel;
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

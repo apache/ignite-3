@@ -160,13 +160,19 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         return cluster.node(index);
     }
 
-    private static List<String> baseVersions() {
+    /**
+     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, last 2
+     * are taken.
+     *
+     * @return A list of base versions for a test.
+     */
+    public static List<String> baseVersions() {
         return baseVersions(2);
     }
 
     /**
-     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, at
-     * most {@code numLatest} are taken.
+     * Returns a list of base versions. If {@code testAllVersions} system property is empty or set to {@code true}, then all versions are
+     * returned, otherwise, at most {@code numLatest} latest versions are taken.
      *
      * @param numLatest Number of latest versions to take by default.
      * @param skipVersions Array of strings to skip.
@@ -178,12 +184,21 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
                 .map(Version::version)
                 .filter(Predicate.not(skipSet::contains))
                 .collect(Collectors.toList());
-        if (System.getProperty("testAllVersions") != null) {
+        if (shouldTestAllVersions()) {
             return versions;
         } else {
-            // Take at most two latest versions by default.
+            // Take at most numLatest latest versions.
             int fromIndex = Math.max(versions.size() - numLatest, 0);
             return versions.subList(fromIndex, versions.size());
         }
+    }
+
+    private static boolean shouldTestAllVersions() {
+        String value = System.getProperty("testAllVersions");
+        if (value != null) {
+            value = value.trim().toLowerCase();
+            return value.isEmpty() || "true".equals(value);
+        }
+        return false;
     }
 }

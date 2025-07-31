@@ -96,8 +96,4 @@ public class FinishedReadOnlyTransactionTracker {
     private CompletableFuture<Void> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
         return messagingService.send(node, message);
     }
-
-    void onTransactionFinished(UUID id) {
-        transactionInflights.markReadOnlyTxFinished(id, false);
-    }
 }

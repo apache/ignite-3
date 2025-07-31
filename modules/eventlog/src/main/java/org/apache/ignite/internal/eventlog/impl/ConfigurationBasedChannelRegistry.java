@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -84,7 +84,7 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
             cache = newCache;
             typeCache = newTypeCache;
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         private EventChannel createChannel(ChannelView view) {

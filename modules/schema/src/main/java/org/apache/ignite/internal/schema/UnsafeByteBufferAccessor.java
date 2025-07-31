@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.GridUnsafe;
  * This class supports reading various primitive types (e.g., `byte`, `int`, `long`, etc.)
  * and handles byte order differences between the buffer and the native system.
  */
-class UnsafeByteBufferAccessor implements ByteBufferAccessor {
+public class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     /** Whether the byte order of the underlying buffer is reversed compared to the native byte order. */
     private static final boolean REVERSE_BYTE_ORDER = GridUnsafe.NATIVE_BYTE_ORDER != BinaryTupleParser.ORDER;
 
@@ -37,6 +37,9 @@ class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     private final long addr;
     private final int capacity;
 
+    /**
+     * Constructor that initializes the accessor with a {@link ByteBuffer}.
+     */
     public UnsafeByteBufferAccessor(ByteBuffer buff) {
         if (buff.isDirect()) {
             bytes = null;
@@ -92,5 +95,19 @@ class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     @Override
     public int capacity() {
         return capacity;
+    }
+
+    /**
+     * Returns the underlying byte array instance.
+     */
+    public byte[] getArray() {
+        return bytes;
+    }
+
+    /**
+     * Returns the underlying address.
+     */
+    public long getAddress() {
+        return addr;
     }
 }
