@@ -1855,7 +1855,14 @@ public class NodeImpl implements Node, RaftServerService {
         final long startMs = Utils.monotonicMs();
         this.readLock.lock();
         try {
-            switch (this.state) {
+            if (leaderId == null || leaderId.isEmpty()) {
+                done.run(new Status(RaftError.EPERM, "No leader at term %d: %s.", this.currTerm, this.state));
+                return;
+            }
+
+            done.setResponse(raftOptions.getRaftMessagesFactory().getLeaderResponse().leaderId(leaderId.toString()).currentTerm(getCurrentTerm()).build());
+            done.run(Status.OK());
+            /*switch (this.state) {
                 case STATE_LEADER:
                     getLeaderFromLeader(request, done);
                     break;
@@ -1868,7 +1875,7 @@ public class NodeImpl implements Node, RaftServerService {
                 default:
                     done.run(new Status(RaftError.EPERM, "Invalid state for getLeaderAndTerm: %s.", this.state));
                     break;
-            }
+            }*/
         }
         finally {
             this.readLock.unlock();
@@ -1896,11 +1903,11 @@ public class NodeImpl implements Node, RaftServerService {
             .currentTerm(this.getCurrentTerm());
 
         final int quorum = getQuorum();
-        if (quorum <= 1) {
+        //if (quorum <= 1) {
             // Only one peer, fast path.
             closure.setResponse(respBuilder.build());
             closure.run(Status.OK());
-            return;
+            /*return;
         }
 
         final List<PeerId> peers = this.conf.getConf().getPeers();
@@ -1921,7 +1928,7 @@ public class NodeImpl implements Node, RaftServerService {
                 continue;
             }
             this.replicatorGroup.sendHeartbeat(peer, heartbeatDone);
-        }
+        }*/
     }
 
     private int getQuorum() {
