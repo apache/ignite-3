@@ -874,7 +874,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 Arguments.of("00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.01"), TIME, 2),
                 Arguments.of("00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.001"), TIME, 3),
 
-                // TIMESTAMP", "", "INTERVAL
+                // TIMESTAMP
                 Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
                         dateTime("1970-01-01 00:00:00"), DATETIME, 6),
                 Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
@@ -913,7 +913,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
                         dateTime("1969-12-31 23:58:59.001"), DATETIME, 3),
 
-                // TIMESTAMP_LTZ", "", "INTERVAL
+                // TIMESTAMP_LTZ
                 Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
                         instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
                 Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
