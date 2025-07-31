@@ -1,5 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
+* Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-#include "ignite/client/transaction/transactions.h"
-#include "ignite/client/detail/transaction/transactions_impl.h"
+#pragma once
 
-namespace ignite {
-
-void transactions::begin_async(ignite_callback<transaction> callback, transaction_options tx_opts) {
-    m_impl->begin_async(std::move(callback), tx_opts);
-}
-
-} // namespace ignite
+/**
+ * Transaction options.
+ */
+struct transaction_options {
+    const std::int64_t timeoutMillis = 0;
+    const bool readOnly = false;
+};
