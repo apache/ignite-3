@@ -33,6 +33,10 @@ public class Account {
         this.active  = active;
     }
 
+    public Account(int id) {
+        this.id = id;
+    }
+
     public int getId() {
         return id;
     }
