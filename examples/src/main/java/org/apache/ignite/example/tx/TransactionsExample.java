@@ -71,7 +71,8 @@ public class TransactionsExample {
                 }
                 accounts.put(tx, key, acct);
             });
-            System.out.println("Balance after runInTransaction: " + accounts.get(null, key).balance);
+
+            System.out.println("Balance after the sync transaction: " + accounts.get(null, key).balance);
 
             /* Using asynchronous transactional API to update the balance */
             CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
@@ -82,7 +83,7 @@ public class TransactionsExample {
                             })
             );
             future.join();
-            System.out.println("Balance after runInTransactionAsync: " + accounts.get(null, key).balance);
+            System.out.println("Balance after the async transaction: " + accounts.get(null, key).balance);
 
         } finally {
 
