@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import org.apache.logging.log4j.LogManager;
@@ -313,11 +314,15 @@ public class LogInspector {
         appender.stop();
 
         removeAppender(appender, config);
+
+        config = null;
     }
 
     private static synchronized void addAppender(Appender appender, Configuration config) {
         for (LoggerConfig loggerConfig : config.getLoggers().values()) {
-            loggerConfig.addAppender(appender, null, null);
+            if (!loggerConfig.isAdditive()) {
+                loggerConfig.addAppender(appender, null, null);
+            }
         }
         config.getRootLogger().addAppender(appender, null, null);
     }
@@ -336,8 +341,8 @@ public class LogInspector {
         /** Predicate that is used to check log messages. */
         private final Predicate<LogEvent> predicate;
 
-        /** Action to be executed when the {@code predicate} is matched. */
-        private final Runnable action;
+        /** Consumer to be supplied with event when the {@code predicate} is matched. */
+        private final Consumer<LogEvent> consumer;
 
         /** Counter that indicates how many times the predicate has matched. */
         private final AtomicInteger timesMatched = new AtomicInteger();
@@ -353,7 +358,21 @@ public class LogInspector {
             Objects.requireNonNull(action);
 
             this.predicate = predicate;
-            this.action = action;
+            this.consumer = event -> action.run();
+        }
+
+        /**
+         * Creates a new instance of {@link Handler}.
+         *
+         * @param predicate Predicate to check log messages.
+         * @param consumer Consumer to be supplied with the event when the {@code predicate} is matched.
+         */
+        public Handler(Predicate<LogEvent> predicate, Consumer<LogEvent> consumer) {
+            Objects.requireNonNull(predicate);
+            Objects.requireNonNull(consumer);
+
+            this.predicate = predicate;
+            this.consumer = consumer;
         }
 
         /**
@@ -376,7 +395,7 @@ public class LogInspector {
     }
 
     private class TestLogAppender extends AbstractAppender {
-        public TestLogAppender(String name) {
+        private TestLogAppender(String name) {
             super(name, null, null, true, Property.EMPTY_ARRAY);
         }
 
@@ -391,7 +410,7 @@ public class LogInspector {
                 handlers.forEach(handler -> {
                     if (handler.predicate.test(event)) {
                         handler.timesMatched.incrementAndGet();
-                        handler.action.run();
+                        handler.consumer.accept(event);
                     }
                 });
             } finally {
