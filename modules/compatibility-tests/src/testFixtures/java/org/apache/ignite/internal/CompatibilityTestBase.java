@@ -41,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the embedded
@@ -50,8 +48,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-@ParameterizedClass
-@MethodSource("baseVersions")
 public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"

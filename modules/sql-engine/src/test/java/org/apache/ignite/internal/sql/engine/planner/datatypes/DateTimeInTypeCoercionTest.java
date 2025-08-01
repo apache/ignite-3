@@ -433,70 +433,70 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIME 0
 
                 Arguments.of(DatetimePair.TIME_0_TIME_0,
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_3,
-                        castTo(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_6,
-                        castTo(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_9,
+                        ofTypeWithoutCast(Types.TIME_9),
                         castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIME 3
 
                 Arguments.of(DatetimePair.TIME_3_TIME_3,
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_3_TIME_6,
-                        castTo(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_3_TIME_9,
+                        ofTypeWithoutCast(Types.TIME_9),
                         castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 Arguments.of(DatetimePair.TIME_6_TIME_6,
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_6_TIME_9,
+                        ofTypeWithoutCast(Types.TIME_9),
                         castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
-                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIME 9
 
                 Arguments.of(DatetimePair.TIME_9_TIME_9,
-                        castTo(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9),
-                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9)
                 ),
 
@@ -515,15 +515,15 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_6,
-                        ofTypeWithoutCast(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_9,
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
@@ -543,12 +543,12 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
                         castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        castTo(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9)
                 ),
 
@@ -564,12 +564,12 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
                         castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_3_TIMESTAMP_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
@@ -586,9 +586,9 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9)
                 ),
 
@@ -596,43 +596,43 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_6,
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_WLTZ_6,
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        castTo(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9)
                 ),
 
                 // TIMESTAMP 9
 
                 Arguments.of(DatetimePair.TIMESTAMP_9_TIMESTAMP_9,
-                        castTo(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_9,
-                        castTo(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9)
                 ),
 
@@ -652,12 +652,12 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)
                 ),
 
@@ -676,10 +676,10 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_6,
-                        castTo(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
                         castTo(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9,
                         castTo(Types.TIMESTAMP_9),
@@ -700,12 +700,12 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)
                 ),
 
@@ -716,10 +716,10 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_6,
-                        castTo(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_9,
                         castTo(Types.TIMESTAMP_9),
@@ -731,23 +731,23 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIMESTAMP LTZ 6
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_6,
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_6),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_6),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_6),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_6)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9,
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_6,
-                        castTo(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
-                        castTo(Types.TIMESTAMP_6),
-                        ofTypeWithoutCast(Types.TIMESTAMP_6)
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_9,
                         castTo(Types.TIMESTAMP_9),
@@ -759,9 +759,9 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIMESTAMP LTZ 9
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9,
-                        castTo(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)
                 ),
 
@@ -815,73 +815,73 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIME 0
 
                 Arguments.of(DatetimePair.TIME_0_TIME_0,
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_3,
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_6,
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_0_TIME_9,
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0),
-                        ofTypeWithoutCast(Types.TIME_0)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIME 3
 
                 Arguments.of(DatetimePair.TIME_3_TIME_3,
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_3_TIME_6,
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_3_TIME_9,
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3),
-                        castTo(Types.TIME_3)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIME 6
 
                 Arguments.of(DatetimePair.TIME_6_TIME_6,
-                        ofTypeWithoutCast(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6),
-                        castTo(Types.TIME_6)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
                 Arguments.of(DatetimePair.TIME_6_TIME_9,
-                        ofTypeWithoutCast(Types.TIME_6),
-                        castTo(Types.TIME_6),
-                        ofTypeWithoutCast(Types.TIME_6),
-                        castTo(Types.TIME_6)
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9),
+                        castTo(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIME 9
 
                 Arguments.of(DatetimePair.TIME_9_TIME_9,
                         ofTypeWithoutCast(Types.TIME_9),
-                        castTo(Types.TIME_9),
                         ofTypeWithoutCast(Types.TIME_9),
-                        castTo(Types.TIME_9)
+                        ofTypeWithoutCast(Types.TIME_9),
+                        ofTypeWithoutCast(Types.TIME_9)
                 ),
 
                 // TIMESTAMP 0
@@ -979,28 +979,28 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIMESTAMP 6
 
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_6,
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_9,
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_WLTZ_6,
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_6_TIMESTAMP_WLTZ_9,
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_DYN_PARAM),
                         castTo(Types.TIMESTAMP_DYN_PARAM)
                 ),
 
@@ -1008,14 +1008,14 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(DatetimePair.TIMESTAMP_9_TIMESTAMP_9,
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9)
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_9,
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9)
                 ),
@@ -1115,15 +1115,15 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIMESTAMP LTZ 6
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_6,
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)
                 ),
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9,
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
-                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM),
+                        castTo(Types.TIMESTAMP_WLTZ_DYN_PARAM),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)
                 ),
 
@@ -1144,16 +1144,16 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9,
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
-                        castTo(Types.TIMESTAMP_WLTZ_9)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_9,
                         castTo(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
                         castTo(Types.TIMESTAMP_9),
-                        castTo(Types.TIMESTAMP_9)
+                        ofTypeWithoutCast(Types.TIMESTAMP_9)
                 )
         );
     }

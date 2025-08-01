@@ -287,44 +287,44 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                 // TIME 0
 
                 forTypePair(DatetimePair.TIME_0_TIME_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_0_TIME_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_0_TIME_6)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_0_TIME_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
 
                 // TIME 3
 
                 forTypePair(DatetimePair.TIME_3_TIME_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_3_TIME_6)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_3_TIME_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
 
                 // TIME 6
 
                 forTypePair(DatetimePair.TIME_6_TIME_6)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM)),
                 forTypePair(DatetimePair.TIME_6_TIME_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_DYN_PARAM))
+                        .secondOpBeSame(),
 
                 // TIME 9
 
                 forTypePair(DatetimePair.TIME_9_TIME_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
+                        .firstOpBeSame()
+                        .secondOpBeSame(),
 
                 // TIMESTAMP 0
 
