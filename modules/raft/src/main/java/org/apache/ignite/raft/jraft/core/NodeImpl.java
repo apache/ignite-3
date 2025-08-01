@@ -36,12 +36,10 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -54,15 +52,9 @@ import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
-import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.apache.ignite.internal.raft.JraftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.raft.jraft.Closure;
-import org.apache.ignite.internal.util.ThreadUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -79,8 +71,6 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
@@ -354,8 +344,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // Patch the command.
-            if (event.done instanceof SafeTimeAwareCommandClosure) {
-                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
+            if (event.getDone() instanceof SafeTimeAwareCommandClosure) {
+                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.getDone();
                 WriteCommand command = clo.command();
                 HybridTimestamp timestamp = command.initiatorTime();
 
@@ -1380,33 +1370,39 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.info("Node {} uses shared event loop", groupId);
         }
 
-        if (!useSharedDisruptor) {
+        if (!useSharedDisruptor || opts.isSystemGroup()) {
             int stripes = opts.getStripes();
-            String postfix = "";
-            if (ownFsmCallerExecutorDisruptorConfig != null) {
-                stripes = ownFsmCallerExecutorDisruptorConfig.getStripes();
-                postfix = ownFsmCallerExecutorDisruptorConfig.getThreadPostfix();
-            }
-
-            if (opts.getfSMCallerExecutorDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
-                opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+            if (opts.isSystemGroup()) {
+                opts.setfSMCallerExecutorDisruptor(StripedDisruptor.createSerialDisruptor(
                         opts.getServerName(),
-                        "JRaft-FSMCaller-Disruptor" + postfix,
-                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
+                        "JRaft-FSMCaller-Disruptor-" + groupId,
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ApplyTask::new,
-                        stripes,
                         false,
-                        false,
-                        opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                        null
                 ));
+            } else {
+                if (opts.getfSMCallerExecutorDisruptor() == null) {
+                    opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+                            opts.getServerName(),
+                            "JRaft-FSMCaller-Disruptor",
+                            (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
+                            opts.getRaftOptions().getDisruptorBufferSize(),
+                            ApplyTask::new,
+                            stripes,
+                            false,
+                            false,
+                            opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                    ));
+                }
             }
 
-            if (opts.getNodeApplyDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
+            if (opts.getNodeApplyDisruptor() == null) {
                 opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
-                        "JRaft-NodeImpl-Disruptor" + postfix,
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        "JRaft-NodeImpl-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         LogEntryAndClosure::new,
                         stripes,
@@ -1416,11 +1412,11 @@ public class NodeImpl implements Node, RaftServerService {
                 ));
             }
 
-            if (opts.getReadOnlyServiceDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
+            if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
-                        "JRaft-ReadOnlyService-Disruptor" + postfix,
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        "JRaft-ReadOnlyService-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ReadIndexEvent::new,
                         stripes,
@@ -1430,11 +1426,11 @@ public class NodeImpl implements Node, RaftServerService {
                 ));
             }
 
-            if (opts.getLogManagerDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
+            if (opts.getLogManagerDisruptor() == null) {
                 opts.setLogManagerDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
-                        "JRaft-LogManager-Disruptor" + postfix,
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        "JRaft-LogManager-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         StableClosureEvent::new,
                         Math.min(stripes, opts.getLogStripesCount()),
@@ -1447,23 +1443,18 @@ public class NodeImpl implements Node, RaftServerService {
             }
         } else {
             int stripes = opts.getStripes();
-            String postfix = "";
-            if (ownFsmCallerExecutorDisruptorConfig != null) {
-                stripes = ownFsmCallerExecutorDisruptorConfig.getStripes();
-                postfix = ownFsmCallerExecutorDisruptorConfig.getThreadPostfix();
-            }
 
             StripedDisruptor<SharedEvent> sharedDisruptor =
-                    opts.getfSMCallerExecutorDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null ? new StripedDisruptor<>(
+                    opts.getfSMCallerExecutorDisruptor() == null ? new StripedDisruptor<>(
                             opts.getServerName(),
-                            "JRaft-Shared-Disruptor" + postfix,
+                            "JRaft-Shared-Disruptor",
                             (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
                             opts.getRaftOptions().getDisruptorBufferSize(),
                             SharedEvent::new,
                             stripes,
                             logStorage instanceof RocksDbSharedLogStorage,
                             false,
-                            opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor" + postfix)
+                            opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
                     ) : null;
 
             if (sharedDisruptor != null) {
@@ -1475,17 +1466,17 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.setLogStripes(IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList()));
             }
 
-            if (opts.getReadOnlyServiceDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
+            if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
-                        "JRaft-ReadOnlyService-Disruptor" + postfix,
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        "JRaft-ReadOnlyService-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ReadIndexEvent::new,
                         opts.getStripes(),
                         false,
                         false,
-                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor" + postfix)
+                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
                 ));
             }
         }
@@ -3417,13 +3408,13 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || opts.isSystemGroup())) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
         }
-        if (opts.getNodeApplyDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
+        if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
             opts.getNodeApplyDisruptor().shutdown();
         }
-        if (opts.getReadOnlyServiceDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
+        if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
             opts.getReadOnlyServiceDisruptor().shutdown();
         }
-        if (opts.getLogManagerDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
+        if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
             opts.getLogManagerDisruptor().shutdown();
         }
     }

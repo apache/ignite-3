@@ -107,7 +107,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
      * @return A disruptor instance.
      * @param <U> Type of disruptor events.
      */
-    public static <U extends NodeIdAware> StripedDisruptor<U> createSerialDisruptor(
+    public static <U extends INodeIdAware> StripedDisruptor<U> createSerialDisruptor(
             String nodeName,
             String poolName,
             BiFunction<String, IgniteLogger, ThreadFactory> threadFactorySupplier,
