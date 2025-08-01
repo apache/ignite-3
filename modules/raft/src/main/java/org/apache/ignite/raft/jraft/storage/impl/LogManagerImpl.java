@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.internal.raft.storage.TermCache;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
@@ -36,6 +37,8 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
+import org.apache.ignite.raft.jraft.disruptor.INodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -86,15 +89,15 @@ public class LogManagerImpl implements LogManager {
     private volatile long lastLogIndex;
     private volatile LogId lastSnapshotId = new LogId(0, 0);
     private final Map<Long, WaitMeta> waitMap = new HashMap<>();
-    private StripedDisruptor<StableClosureEvent> disruptor;
-    private RingBuffer<StableClosureEvent> diskQueue;
+    private StripedDisruptor<IStableClosureEvent> disruptor;
+    private RingBuffer<IStableClosureEvent> diskQueue;
     private RaftOptions raftOptions;
     private volatile CountDownLatch shutDownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners = new CopyOnWriteArrayList<>();
     private NodeOptions nodeOptions;
 
-    private enum EventType {
+    public enum EventType {
         OTHER, // other event type.
         RESET, // reset
         TRUNCATE_PREFIX, // truncate log from prefix
@@ -103,9 +106,29 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    public static class StableClosureEvent extends NodeIdAware {
-        StableClosure done;
+    public interface IStableClosureEvent extends INodeIdAware {
+        public Closure getDone();
+        public void setDone(Closure done);
+        public EventType getEventType();
+        public void setEventType(EventType type);
+    }
+
+    public static class StableClosureEvent extends NodeIdAware implements IStableClosureEvent {
+        Closure done;
         EventType type;
+
+        @Override public Closure getDone() {
+            return done;
+        }
+        @Override public void setDone(Closure done) {
+            this.done = done;
+        }
+        @Override public EventType getEventType() {
+            return type;
+        }
+        @Override public void setEventType(EventType type) {
+            this.type = type;
+        }
 
         @Override
         public void reset() {
@@ -113,6 +136,15 @@ public class LogManagerImpl implements LogManager {
 
             this.done = null;
             this.type = null;
+        }
+
+        @Override
+        public String toString() {
+            return "StableClosureEvent{" +
+                    "done=" + done +
+                    ", type=" + type +
+                    ", super=" + super.toString() +
+                    '}';
         }
     }
 
@@ -184,7 +216,7 @@ public class LogManagerImpl implements LogManager {
             this.fsmCaller = opts.getFsmCaller();
             this.disruptor = opts.getLogManagerDisruptor();
 
-            this.diskQueue = disruptor.subscribe(this.nodeId, new StableClosureEventHandler(),
+            this.diskQueue = disruptor.subscribe(this.nodeId, new StableClosureEventHandler(), DisruptorEventSourceType.LOG,
                 (event, ex) -> reportError(-1, "LogManager handle event error"));
 
             if (this.nodeMetrics.getMetricRegistry() != null) {
@@ -214,8 +246,9 @@ public class LogManagerImpl implements LogManager {
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
 
-            event.nodeId = this.nodeId;
-            event.type = EventType.SHUTDOWN;
+            event.setSrcType(DisruptorEventSourceType.LOG);
+            event.setNodeId(this.nodeId);
+            event.setEventType(EventType.SHUTDOWN);
         }));
     }
 
@@ -225,7 +258,7 @@ public class LogManagerImpl implements LogManager {
             return;
         }
         this.shutDownLatch.await();
-        this.disruptor.unsubscribe(this.nodeId);
+        this.disruptor.unsubscribe(this.nodeId, DisruptorEventSourceType.LOG);
     }
 
     @Override
@@ -336,9 +369,10 @@ public class LogManagerImpl implements LogManager {
             this.diskQueue.publishEvent((event, sequence) -> {
               event.reset();
 
-              event.nodeId = this.nodeId;
-              event.type = EventType.OTHER;
-              event.done = done;
+              event.setSrcType(DisruptorEventSourceType.LOG);
+              event.setNodeId(this.nodeId);
+              event.setEventType(EventType.OTHER);
+              event.setDone(done);
             });
         }
         finally {
@@ -363,9 +397,10 @@ public class LogManagerImpl implements LogManager {
         this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
 
-            event.nodeId = this.nodeId;
-            event.type = type;
-            event.done = done;
+            event.setSrcType(DisruptorEventSourceType.LOG);
+            event.setNodeId(this.nodeId);
+            event.setEventType(type);
+            event.setDone(done);
         });
     }
 
@@ -497,23 +532,23 @@ public class LogManagerImpl implements LogManager {
         return new AppendBatcher(storages, cap, new ArrayList<>(), diskId);
     }
 
-    private class StableClosureEventHandler implements EventHandler<StableClosureEvent> {
+    private class StableClosureEventHandler implements EventHandler<IStableClosureEvent> {
         LogId lastId = LogManagerImpl.this.diskId;
         List<StableClosure> storage = new ArrayList<>(256);
         AppendBatcher ab = newAppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
 
         @Override
-        public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
+        public void onEvent(final IStableClosureEvent event, final long sequence, final boolean endOfBatch)
             throws Exception {
-            if (event.type == EventType.SHUTDOWN) {
+            if (event.getEventType() == EventType.SHUTDOWN) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
                 LogManagerImpl.this.shutDownLatch.countDown();
                 event.reset();
                 return;
             }
-            final StableClosure done = event.done;
-            final EventType eventType = event.type;
+            final StableClosure done = (StableClosure) event.getDone();
+            final EventType eventType = event.getEventType();
 
             event.reset();
 
