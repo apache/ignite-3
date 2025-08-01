@@ -590,7 +590,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     query,
                     cancellationToken,
                     arguments,
-                    new SqlProperties(),
+                    new SqlProperties().userName(Commons.SYSTEM_USER_NAME),
                     commonExecutor
             );
         } finally {

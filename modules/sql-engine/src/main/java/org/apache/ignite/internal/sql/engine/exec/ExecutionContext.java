@@ -156,7 +156,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
-        this.currentUser = username == null ? Commons.SYSTEM_USER_NAME : username;
+        this.currentUser = username;
 
         assert this.inBufSize > 0 : this.inBufSize;
 

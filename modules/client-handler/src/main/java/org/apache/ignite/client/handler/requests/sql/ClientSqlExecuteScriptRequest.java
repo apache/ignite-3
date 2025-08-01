@@ -44,7 +44,7 @@ public class ClientSqlExecuteScriptRequest {
      * @param requestId Id of the request.
      * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
      *         thread.
-     * @param username Authenticated user name or {@code null} for unknown user.
+     * @param username Authenticated user name.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(

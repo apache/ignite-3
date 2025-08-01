@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -34,11 +36,13 @@ import java.util.Map;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -405,18 +409,24 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCurrentUser() {
-        assertExpression("CURRENT_USER")
-                .returns(Commons.SYSTEM_USER_NAME)
-                .columnMetadata(new MetadataMatcher().type(ColumnType.STRING))
-                .check();
+        IgniteSql sql = igniteSql();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)");
         sql("INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)");
 
-        assertQuery("SELECT val FROM t1 WHERE val = CURRENT_USER")
-                .returns(Commons.SYSTEM_USER_NAME)
-                .columnMetadata(new MetadataMatcher().type(ColumnType.STRING))
-                .check();
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
     private QueryChecker assertExpression(String qry) {
