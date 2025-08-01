@@ -340,6 +340,27 @@ public class TestNode implements LifecycleAware {
         return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
+    /**
+     * Prepares (aka parses, validates, and optimizes) the given (possible multiple) query string
+     * and returns the plan(s) to execute.
+     *
+     * @param query A query string to prepare.
+     * @return A plan(s) to execute.
+     */
+    public List<QueryPlan> prepareScript(String query) {
+        List<ParsedResult> parsedResult = parserService.parseScript(query);
+        SqlOperationContext ctx = createContext().build();
+
+        List<QueryPlan> plans = new ArrayList<>();
+
+        for (ParsedResult res : parsedResult) {
+            plans.add(awaitPlan(prepareService.prepareAsync(res, ctx)));
+        }
+
+        return plans;
+    }
+
+
     /** Executes the given script. */
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
