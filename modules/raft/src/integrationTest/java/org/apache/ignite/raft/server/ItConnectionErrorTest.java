@@ -44,7 +44,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
@@ -171,7 +170,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
             return false;
         };
 
-        return new LogInspector(cls.getName(), new Handler(pred, () -> {}));
+        return new LogInspector(cls.getName(), pred);
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {
