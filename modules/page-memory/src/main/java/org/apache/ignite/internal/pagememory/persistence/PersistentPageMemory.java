@@ -1115,17 +1115,17 @@ public class PersistentPageMemory implements PageMemory {
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
         writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
-        copyPageIfInCheckpoint(absPtr, fullId);
+        maybeCopyToCheckpointBuffer(absPtr, fullId);
 
         assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
 
-    private void copyPageIfInCheckpoint(long absPtr, FullPageId fullId) {
+    private void maybeCopyToCheckpointBuffer(long absPtr, FullPageId fullId) {
         Segment seg = segment(fullId);
 
-        if (!seg.isInCheckpoint(fullId) || tempBufferPointer(absPtr) != INVALID_REL_PTR) {
+        if (!(seg.isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR)) {
             return;
         }
 
@@ -1154,7 +1154,7 @@ public class PersistentPageMemory implements PageMemory {
         seg.writeLock().lock();
 
         try {
-            // Double check to see if we need to clear the page because it has already been partitioned.
+            // Let's check if the page needs to be cleared because its partition has been deleted.
             long relPtr = resolveRelativePointer(seg, fullId, generationTag(seg, fullId));
 
             assert relPtr != INVALID_REL_PTR : "fullPageId=" + fullId + ", pageId=" + hexLong(fullId.pageId());
@@ -1188,10 +1188,8 @@ public class PersistentPageMemory implements PageMemory {
                     pageSize()
             );
 
-            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
-                    "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId()) + ", cmpAbsPtr=" + tmpAbsPtr;
-            assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
-                    "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
+            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
+            assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
 
             dirty(absPtr, false);
             tempBufferPointer(absPtr, tmpRelPtr);
@@ -2028,17 +2026,15 @@ public class PersistentPageMemory implements PageMemory {
                 if (!pageSingleAcquire) {
                     PageHeader.releasePage(absPtr);
                 }
+
+                // TODO: IGNITE-25861 Temporary solution needs to be done differently
+                assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
+                assert getVersion(buf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
             } else {
                 copyInBuffer(absPtr, buf);
 
                 dirty(absPtr, false);
-
-                // TODO: IGNITE-25861 Temporary solution needs to be done differently
-                return;
             }
-
-            assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
-            assert getVersion(buf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
 
             canWrite = true;
         } finally {
