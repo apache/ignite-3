@@ -150,7 +150,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                checkpointManager::writePageToDeltaFilePageStore,
+                checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
@@ -392,13 +392,17 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private void createAndFillTestSimpleValuePages(int pageCount) throws Exception {
         for (int i = 0; i < pageCount; i++) {
-            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+            long pageId = pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA);
+            createAndFillTestSimpleValuePage(pageId);
+            createAndFillTestSimpleValuePage(pageId);
         }
     }
 
     private void createAndFillTestSimpleValuePages(BooleanSupplier continuePredicate) throws Exception {
         while (continuePredicate.getAsBoolean()) {
-            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
+            long pageId = pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA);
+            createAndFillTestSimpleValuePage(pageId);
+            createAndFillTestSimpleValuePage(pageId);
         }
     }
 }
