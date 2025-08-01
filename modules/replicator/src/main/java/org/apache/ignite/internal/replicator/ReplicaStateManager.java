@@ -254,6 +254,8 @@ class ReplicaStateManager {
     ) {
         ReplicaStateContext context = getContext(groupId);
 
+        System.out.println("!@# AAAA");
+
         synchronized (context) {
             ReplicaState state = context.replicaState;
 
@@ -276,10 +278,13 @@ class ReplicaStateManager {
                     return stopReplica(groupId, context, stopOperation);
                 } // else: no-op.
             } else if (reason == WeakReplicaStopReason.RESTART) {
+                System.out.println("!@# BBBB + reservedForPrimary = " + context.reservedForPrimary);
                 // Explicit restart: always stop.
                 if (context.reservedForPrimary) {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
+
+                    System.out.println("!@# WE ARE HERE");
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
