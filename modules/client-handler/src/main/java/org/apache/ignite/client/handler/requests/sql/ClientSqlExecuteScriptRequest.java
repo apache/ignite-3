@@ -42,7 +42,9 @@ public class ClientSqlExecuteScriptRequest {
      * @param in Unpacker.
      * @param sql SQL API.
      * @param requestId Id of the request.
-     * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another thread.
+     * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
+     *         thread.
+     * @param username Authenticated user name.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -51,7 +53,8 @@ public class ClientSqlExecuteScriptRequest {
             QueryProcessor sql,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            String username
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
@@ -72,7 +75,7 @@ public class ClientSqlExecuteScriptRequest {
                     script,
                     cancelHandle.token(),
                     arguments,
-                    props.toSqlProps(),
+                    props.toSqlProps().userName(username),
                     operationExecutor
             ).handle((none2, error) -> {
                 cancelHandleMap.remove(requestId);

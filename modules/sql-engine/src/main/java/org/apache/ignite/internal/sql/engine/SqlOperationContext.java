@@ -50,6 +50,7 @@ public final class SqlOperationContext {
     private final @Nullable String defaultSchemaName;
     private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
     private final @Nullable Consumer<Throwable> errorListener;
+    private final @Nullable String userName;
 
     /**
      * Private constructor, used by a builder.
@@ -63,7 +64,8 @@ public final class SqlOperationContext {
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
-            @Nullable Consumer<Throwable> errorListener
+            @Nullable Consumer<Throwable> errorListener,
+            @Nullable String userName
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -74,6 +76,7 @@ public final class SqlOperationContext {
         this.defaultSchemaName = defaultSchemaName;
         this.txUsedListener = txUsedListener;
         this.errorListener = errorListener;
+        this.userName = userName;
     }
 
     public static Builder builder() {
@@ -102,6 +105,11 @@ public final class SqlOperationContext {
     /** Returns zone id provided by user, to adjust temporal values to match user's time zone during to string conversion. */
     public ZoneId timeZoneId() {
         return timeZoneId;
+    }
+
+    /** Returns current user name or {@code null} if unknown. */
+    public @Nullable String userName() {
+        return userName;
     }
 
     /**
@@ -177,6 +185,7 @@ public final class SqlOperationContext {
         private @Nullable Consumer<Throwable> errorListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
+        private @Nullable String userName;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -223,6 +232,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder userName(@Nullable String userName) {
+            this.userName = userName;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -234,7 +248,8 @@ public final class SqlOperationContext {
                     cancel,
                     defaultSchemaName,
                     txUsedListener,
-                    errorListener
+                    errorListener,
+                    userName
             );
         }
     }

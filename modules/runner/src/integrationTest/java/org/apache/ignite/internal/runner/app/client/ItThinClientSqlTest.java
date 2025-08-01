@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -658,6 +659,28 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
+    @Test
+    public void testCurrentUser() {
+        String expectedUsername = UserDetails.UNKNOWN.username();
+        IgniteSql sql = client().sql();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        sql.execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
     private static class Pojo {

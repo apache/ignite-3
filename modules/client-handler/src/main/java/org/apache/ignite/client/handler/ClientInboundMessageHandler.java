@@ -847,7 +847,7 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.JDBC_CONNECT:
-                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
+                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler, tsTracker);
@@ -939,7 +939,7 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId)
+                        clockService, notificationSender(requestId), resolveCurrentUsername()
                 );
 
             case ClientOp.OPERATION_CANCEL:
@@ -959,7 +959,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker, resolveCurrentUsername()
                 );
 
             case ClientOp.SQL_QUERY_META:
@@ -969,7 +969,8 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        resolveCurrentUsername()
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
@@ -997,6 +998,15 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
+    }
+
+    /**
+     * Return authenticated user name or {@code unknown} if not authorized.
+     *
+     * @see UserDetails#UNKNOWN
+     */
+    private String resolveCurrentUsername() {
+        return clientContext.userDetails().username();
     }
 
     private void processOperationInternal(

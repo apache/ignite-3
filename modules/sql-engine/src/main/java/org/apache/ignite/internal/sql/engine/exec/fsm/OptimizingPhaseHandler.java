@@ -53,6 +53,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
 
         String schemaName = query.properties.defaultSchema();
         ZoneId timeZoneId = query.properties.timeZoneId();
+        String userName = query.properties.userName();
 
         SqlOperationContext operationContext = SqlOperationContext.builder()
                 .queryId(query.id)
@@ -64,6 +65,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .txContext(query.txContext)
                 .txUsedListener(tx -> query.usedTransaction = tx)
                 .errorHandler(query::setError)
+                .userName(userName)
                 .build();
 
         query.operationContext = operationContext;

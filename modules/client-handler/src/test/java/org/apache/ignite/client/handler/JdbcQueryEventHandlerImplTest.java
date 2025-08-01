@@ -126,7 +126,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     void connectOnStoppingNode() {
         resourceRegistry.close();
 
-        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault(), null));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
@@ -387,7 +387,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     }
 
     private long acquireConnectionId() {
-        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault(), null));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));

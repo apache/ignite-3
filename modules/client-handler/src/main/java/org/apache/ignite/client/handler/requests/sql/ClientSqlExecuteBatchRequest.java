@@ -49,6 +49,7 @@ public class ClientSqlExecuteBatchRequest {
      * @param requestId Id of the request.
      * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
      *         thread.
+     * @param username Authenticated user name.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -58,7 +59,8 @@ public class ClientSqlExecuteBatchRequest {
             ClientResourceRegistry resources,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            String username
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
@@ -79,7 +81,7 @@ public class ClientSqlExecuteBatchRequest {
                             cancelHandle.token(),
                             statement,
                             arguments,
-                            props.toSqlProps(),
+                            props.toSqlProps().userName(username),
                             () -> true,
                             () -> {},
                             cursor -> 0,

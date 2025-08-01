@@ -636,7 +636,8 @@ public class TestBuilders {
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,
                     -1,
-                    clock
+                    clock,
+                    null
             );
         }
     }
