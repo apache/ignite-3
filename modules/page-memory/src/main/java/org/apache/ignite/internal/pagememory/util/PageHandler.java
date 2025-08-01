@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.pagememory.util;
 
 import static java.lang.Boolean.FALSE;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.jetbrains.annotations.Nullable;
@@ -31,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Type of the result.
  */
 public interface PageHandler<X, R> {
+    IgniteLogger LOG = Loggers.forClass(PageHandler.class);
+
     /** No-op page handler. */
     PageHandler<Void, Boolean> NO_OP = (groupId, pageId, page, pageAddr, io, arg, intArg) -> Boolean.TRUE;
 
@@ -237,6 +242,12 @@ public interface PageHandler<X, R> {
                     pageMem.writeUnlock(groupId, pageId, page, ok);
                 }
             }
+        } catch (Throwable t) {
+            // This logging was added because of the case when an exception was thrown from "pageMem.writeLock" and it was not got in the
+            // "catch" in the calling code of this method, the exception seems to disappear.
+            LOG.error("Error writing page: [grpId={}, pageId={}]", t, groupId, hexLong(page));
+
+            throw t;
         } finally {
             if (releaseAfterWrite) {
                 pageMem.releasePage(groupId, pageId, page);

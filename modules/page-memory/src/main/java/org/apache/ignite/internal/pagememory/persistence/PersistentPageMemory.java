@@ -1115,25 +1115,64 @@ public class PersistentPageMemory implements PageMemory {
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
         writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
+        copyPageIfInCheckpoint(absPtr, fullId);
+
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+
+        return absPtr + PAGE_OVERHEAD;
+    }
+
+    private void copyPageIfInCheckpoint(long absPtr, FullPageId fullId) {
+        Segment seg = segment(fullId);
+
+        if (!seg.isInCheckpoint(fullId) || tempBufferPointer(absPtr) != INVALID_REL_PTR) {
+            return;
+        }
+
         // Create a buffer copy if the page is scheduled for a checkpoint.
-        if (isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
-            long tmpRelPtr;
+        long tmpRelPtr;
 
-            PagePool checkpointPool = this.checkpointPool;
+        PagePool checkpointPool = this.checkpointPool;
 
-            while (true) {
-                tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
+        while (true) {
+            int tag = tag(fullId.pageId());
+            tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag);
 
-                if (tmpRelPtr != INVALID_REL_PTR) {
-                    break;
-                }
+            if (tmpRelPtr != INVALID_REL_PTR) {
+                break;
+            }
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-23106 Replace spin-wait with a proper wait.
-                try {
-                    Thread.sleep(1);
-                } catch (InterruptedException ignore) {
-                    // No-op.
-                }
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23106 Replace spin-wait with a proper wait.
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignore) {
+                // No-op.
+            }
+        }
+
+        // The partition could have been deleted in parallel and we could get an empty page.
+        seg.writeLock().lock();
+
+        try {
+            // Double check to see if we need to clear the page because it has already been partitioned.
+            long relPtr = resolveRelativePointer(seg, fullId, generationTag(seg, fullId));
+
+            assert relPtr != INVALID_REL_PTR : "fullPageId=" + fullId + ", pageId=" + hexLong(fullId.pageId());
+
+            if (relPtr == OUTDATED_REL_PTR) {
+                relPtr = seg.refreshOutdatedPage(
+                        fullId.groupId(),
+                        fullId.effectivePageId(),
+                        true
+                );
+
+                seg.pageReplacementPolicy.onRemove(relPtr);
+
+                seg.pool.releaseFreePage(relPtr);
+
+                checkpointPool.releaseFreePage(tmpRelPtr);
+
+                return;
             }
 
             // Pin the page until checkpoint is not finished.
@@ -1149,7 +1188,8 @@ public class PersistentPageMemory implements PageMemory {
                     pageSize()
             );
 
-            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
+            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
+                    "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId()) + ", cmpAbsPtr=" + tmpAbsPtr;
             assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
                     "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
 
@@ -1158,13 +1198,11 @@ public class PersistentPageMemory implements PageMemory {
             // info for checkpoint buffer cleaner.
             fullPageId(tmpAbsPtr, fullId);
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
-            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+        } finally {
+            seg.writeLock().unlock();
         }
-
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
-
-        return absPtr + PAGE_OVERHEAD;
     }
 
     private void writeUnlockPage(
@@ -1303,6 +1341,10 @@ public class PersistentPageMemory implements PageMemory {
         int idx = segmentIndex(grpId, pageId, segments.length);
 
         return segments[idx];
+    }
+
+    private Segment segment(FullPageId fullPageId) {
+        return segment(fullPageId.groupId(), fullPageId.pageId());
     }
 
     /**
@@ -1733,6 +1775,12 @@ public class PersistentPageMemory implements PageMemory {
             return tag == null ? INIT_PART_GENERATION : tag;
         }
 
+        private boolean isInCheckpoint(FullPageId fullPageId) {
+            CheckpointPages checkpointPages = this.checkpointPages;
+
+            return checkpointPages != null && checkpointPages.contains(fullPageId);
+        }
+
         /**
          * Gets loaded pages map.
          */
@@ -1877,16 +1925,14 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns {@code true} if it was added to the checkpoint list.
+     * Returns {@code true} if page was added to the checkpoint list.
      *
      * @param pageId Page ID to check if it was added to the checkpoint list.
      */
-    boolean isInCheckpoint(FullPageId pageId) {
-        Segment seg = segment(pageId.groupId(), pageId.pageId());
+    private boolean isInCheckpoint(FullPageId pageId) {
+        Segment seg = segment(pageId);
 
-        CheckpointPages pages0 = seg.checkpointPages;
-
-        return pages0 != null && pages0.contains(pageId);
+        return seg.isInCheckpoint(pageId);
     }
 
     /**
@@ -1986,6 +2032,9 @@ public class PersistentPageMemory implements PageMemory {
                 copyInBuffer(absPtr, buf);
 
                 dirty(absPtr, false);
+
+                // TODO: IGNITE-25861 Temporary solution needs to be done differently
+                return;
             }
 
             assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());

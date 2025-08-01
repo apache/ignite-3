@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -266,5 +269,108 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
             return null;
         });
+    }
+
+    @Test
+    void createMvPartitionStorageAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        for (int i = 0; i < 10; i++) {
+            runRace(
+                    () -> getOrCreateMvPartition(PARTITION_ID),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    void clearMvPartitionStorageAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        for (int i = 0; i < 10; i++) {
+            getOrCreateMvPartition(PARTITION_ID);
+
+            runRace(
+                    () -> assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    void destroyMvPartitionStorageAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        for (int i = 0; i < 10; i++) {
+            getOrCreateMvPartition(PARTITION_ID);
+
+            runRace(
+                    () -> assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    @Test
+    void startRebalancePartitionAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            runRace(
+                    () -> assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    void abortRebalancePartitionAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+            runRace(
+                    () -> assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    @Test
+    void finishRebalancePartitionAndDoCheckpointInParallel() throws Exception {
+        stopCompactor();
+
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+            var meta = new MvPartitionMeta(1, 1, BYTE_EMPTY_ARRAY, null, BYTE_EMPTY_ARRAY);
+
+            runRace(
+                    () -> assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, meta), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    private CompletableFuture<Void> forceCheckpointAsync() {
+        return engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED);
+    }
+
+    // TODO: IGNITE-25861 Get rid of it
+    private void stopCompactor() throws Exception {
+        engine.checkpointManager().compactor().stop();
     }
 }
