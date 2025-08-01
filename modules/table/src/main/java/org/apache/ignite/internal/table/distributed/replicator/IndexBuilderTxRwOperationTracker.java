@@ -45,7 +45,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     <li>When completing a RW transaction operation, {@link #decrementOperationCount(int)} must be used.</li>
  * </ul>
  */
-class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
+public class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
     private final AtomicInteger minAllowedCatalogVersionForStartOperation = new AtomicInteger(-1);
 
     private final NavigableMap<Integer, CompletableFuture<Void>> minAllowedVersionRaiseFutures = new ConcurrentSkipListMap<>();
@@ -100,7 +100,7 @@ class IndexBuilderTxRwOperationTracker implements ManuallyCloseable {
      *
      * @param catalogVersion Catalog version in which the new index appeared.
      */
-    CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion) {
+    public CompletableFuture<Void> awaitCompleteTxRwOperations(int catalogVersion) {
         return inBusyLock(busyLock, () -> {
             // This code is needed to avoid races with updateAllowedCatalogVersionForStartOperation.
             CompletableFuture<Void> waitForMinAllowedReachingVersion = minAllowedVersionRaiseFutures.computeIfAbsent(

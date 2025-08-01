@@ -30,9 +30,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -52,9 +54,11 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
+    private static final long NOW_MILLIS = 1000L;
+
     private ScheduledExecutorService scheduler;
 
-    private ClockService clocService;
+    private ClockService clockService;
 
     private ConfigurationValue<Long> idempotentCacheTtlConfigurationValue;
 
@@ -63,7 +67,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setup() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
-        clocService = new TestClockService(new TestHybridClock(() -> 1L));
+        clockService = new TestClockService(new TestHybridClock(() -> NOW_MILLIS));
 
         idempotentCacheTtlConfigurationValue = mock(ConfigurationValue.class, LENIENT_SETTINGS);
         when(idempotentCacheTtlConfigurationValue.value()).thenReturn(0L);
@@ -77,6 +81,41 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
         }
 
         scheduler.shutdown();
+    }
+
+    /**
+     * Tests that ttl and clock skew are properly taken into account while calculating an eviction timestamp.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testIdempotentCacheVacuumizerTtl() throws Exception {
+        AtomicReference<HybridTimestamp> evictionTimestamp = new AtomicReference<>();
+
+        long ttl = 10L;
+        when(idempotentCacheTtlConfigurationValue.value()).thenReturn(ttl);
+
+        vacuumizer = new IdempotentCacheVacuumizer(
+                "Node1",
+                scheduler,
+                evictionTimestamp::set,
+                idempotentCacheTtlConfigurationValue,
+                clockService,
+                mock(FailureProcessor.class),
+                0,
+                1,
+                TimeUnit.MILLISECONDS
+        );
+
+        assertThat(vacuumizer.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        vacuumizer.startLocalVacuumizationTriggering();
+        assertTrue(waitForCondition(
+                () -> evictionTimestamp.get() != null,
+                TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS
+        ));
+
+        assertEquals(NOW_MILLIS - ttl - clockService.maxClockSkewMillis(), evictionTimestamp.get().getPhysical());
     }
 
     /**
@@ -94,12 +133,13 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     public void testIdempotentCacheVacuumizer() throws Exception {
         AtomicInteger touchCounter = new AtomicInteger(0);
 
-        IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
+        vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,
                 ignored -> touchCounter.incrementAndGet(),
                 idempotentCacheTtlConfigurationValue,
-                clocService,
+                clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -149,12 +189,13 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     public void testIdempotentCacheVacuumizerAfterShutdown() throws Exception {
         AtomicInteger touchCounter = new AtomicInteger(0);
 
-        IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
+        vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,
                 ignored -> touchCounter.incrementAndGet(),
                 idempotentCacheTtlConfigurationValue,
-                clocService,
+                clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -201,12 +242,13 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
             throw new IllegalStateException();
         };
 
-        IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
+        vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,
                 vacuumizationActionStub,
                 idempotentCacheTtlConfigurationValue,
-                clocService,
+                clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS

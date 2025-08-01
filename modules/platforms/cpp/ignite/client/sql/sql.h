@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/cancel_handle.h"
 #include "ignite/client/sql/result_set.h"
 #include "ignite/client/sql/sql_statement.h"
 #include "ignite/client/transaction/transaction.h"
@@ -44,49 +45,57 @@ public:
     sql() = delete;
 
     /**
-     * Executes single SQL statement asynchronously and returns rows.
+     * Executes a single SQL statement asynchronously and returns rows.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
+     * @param token Cancellation token. Can be @c nullptr.
      * @param statement Statement to execute.
      * @param args Arguments for the statement (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    IGNITE_API void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> args,
-        ignite_callback<result_set> callback);
+    IGNITE_API void execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
+        std::vector<primitive> args, ignite_callback<result_set> callback);
 
     /**
-     * Executes single SQL statement and returns rows.
+     * Executes a single SQL statement and returns rows.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this single operation is used.
+     * @param token Cancellation token. Can be @c nullptr.
      * @param statement Statement to execute.
      * @param args Arguments for the statement (can be empty).
      * @return SQL result set.
      */
-    IGNITE_API result_set execute(transaction *tx, const sql_statement &statement, std::vector<primitive> args) {
-        return sync<result_set>([this, tx, &statement, args = std::move(args)](auto callback) mutable {
-            execute_async(tx, statement, std::move(args), std::move(callback));
-        });
+    IGNITE_API result_set execute(transaction *tx, cancellation_token *token, const sql_statement &statement,
+        std::vector<primitive> args) {
+        return sync<result_set>(
+            [this, tx, token, &statement, args = std::move(args)](auto callback) mutable {
+                execute_async(tx, token, statement, std::move(args), std::move(callback));
+            }
+        );
     }
 
     /**
      * Executes a multi-statement SQL query asynchronously.
      *
+     * @param token Cancellation token. Can be @c nullptr.
      * @param statement Statement to execute.
      * @param args Arguments for the template (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    IGNITE_API void execute_script_async(
-        const sql_statement &statement, std::vector<primitive> args, ignite_callback<void> callback);
+    IGNITE_API void execute_script_async(cancellation_token *token, const sql_statement &statement,
+        std::vector<primitive> args, ignite_callback<void> callback);
 
     /**
      * Executes a multi-statement SQL query.
      *
+     * @param token Cancellation token. Can be @c nullptr.
      * @param statement Statement to execute.
      * @param args Arguments for the template (can be empty).
      */
-    IGNITE_API void execute_script(const sql_statement &statement, std::vector<primitive> args) {
-        sync<void>([this, &statement, args = std::move(args)](auto callback) mutable {
-            execute_script_async(statement, std::move(args), std::move(callback));
+    IGNITE_API void execute_script(cancellation_token *token, const sql_statement &statement,
+        std::vector<primitive> args) {
+        sync<void>([this, token, &statement, args = std::move(args)](auto callback) mutable {
+            execute_script_async(token, statement, std::move(args), std::move(callback));
         });
     }
 

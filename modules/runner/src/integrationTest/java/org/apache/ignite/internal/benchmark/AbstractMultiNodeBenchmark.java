@@ -19,8 +19,6 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -28,18 +26,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -71,8 +73,16 @@ public class AbstractMultiNodeBenchmark {
     protected static Ignite publicIgnite;
     protected static IgniteImpl igniteImpl;
 
-    @Param({"false", "true"})
+    @Param({"false"})
+    protected boolean remote;
+
+    @Param({"false"})
     private boolean fsync;
+
+    @Nullable
+    protected String clusterConfiguration() {
+        return "ignite {}";
+    }
 
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
@@ -80,26 +90,34 @@ public class AbstractMultiNodeBenchmark {
     @Setup
     public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
-        startCluster();
+        if (!remote) {
+            startCluster();
+        }
 
         try {
-            var queryEngine = igniteImpl.queryEngine();
+            // Create a new zone on the cluster's start-up.
+            createDistributionZoneOnStartup();
 
-            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                    + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
-
-            getAllFromCursor(
-                    await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createZoneStatement
-                    ))
-            );
-
-            createTable(TABLE_NAME);
+            // Create tables on the cluster's start-up.
+            createTablesOnStartup();
         } catch (Throwable th) {
             nodeTearDown();
 
             throw th;
         }
+    }
+
+    protected void createDistributionZoneOnStartup() {
+        var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " (partitions " + partitionCount()
+                + ", replicas " + replicaCount() + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
+            // No-op.
+        }
+    }
+
+    protected void createTablesOnStartup() {
+        createTable(TABLE_NAME);
     }
 
     protected void createTable(String tableName) {
@@ -123,7 +141,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected static void createTable(String tableName, List<String> columns, List<String> primaryKeys, List<String> colocationKeys) {
-        var createTableStatement = "CREATE TABLE " + tableName + "(\n";
+        var createTableStatement = "CREATE TABLE IF NOT EXISTS " + tableName + "(\n";
 
         createTableStatement += String.join(",\n", columns);
         createTableStatement += "\n, PRIMARY KEY (" + String.join(", ", primaryKeys) + ")\n)";
@@ -132,13 +150,11 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nZONE " + ZONE_NAME;
 
-        getAllFromCursor(
-                await(igniteImpl.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createTableStatement
-                ))
-        );
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createTableStatement)) {
+            // No-op.
+        }
     }
 
     static void populateTable(String tableName, int size, int batchSize) {
@@ -179,6 +195,10 @@ public class AbstractMultiNodeBenchmark {
     }
 
     private void startCluster() throws Exception {
+        if (remote) {
+            throw new AssertionError("Can't start the cluster in remote mode");
+        }
+
         Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
@@ -193,15 +213,18 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
-                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 "
-                + "  },\n"
-                + "  storage.profiles: {"
-                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
-                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 " // Avoid page replacement.
+                + "        " + DEFAULT_STORAGE_PROFILE + ".sizeBytes: 2073741824 " // Avoid page replacement.
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
+                + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync()
+                + "  raft.fsync = " + fsync() + ",\n"
+                + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
+                + "  failureHandler.handler: {\n"
+                + "      type: \"" + StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE + "\",\n"
+                + "      tryStop: true,\n"
+                + "      timeoutMillis: 60000,\n" // 1 minute for graceful shutdown
+                + "  },\n"
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -211,7 +234,7 @@ public class AbstractMultiNodeBenchmark {
             String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
                     BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
 
-            igniteServers.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+            igniteServers.add(TestIgnitionManager.startWithProductionDefaults(nodeName, config, workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = nodeName(BASE_PORT);
@@ -219,6 +242,7 @@ public class AbstractMultiNodeBenchmark {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodeNames(metaStorageNodeName)
                 .clusterName("cluster")
+                .clusterConfiguration(clusterConfiguration())
                 .build();
 
         TestIgnitionManager.init(igniteServers.get(0), initParameters);
@@ -233,12 +257,27 @@ public class AbstractMultiNodeBenchmark {
         }
     }
 
+    /**
+     * Gets client connector addresses for the specified nodes.
+     *
+     * @return Array of client addresses.
+     */
+    static String[] getServerEndpoints(int clusterNodes) {
+        return IntStream.range(0, clusterNodes)
+                .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
+                .toArray(String[]::new);
+    }
+
     private static String nodeName(int port) {
         return "node_" + port;
     }
 
     protected Path workDir() throws Exception {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    }
+
+    protected String logPath() {
+        return "";
     }
 
     protected boolean fsync() {

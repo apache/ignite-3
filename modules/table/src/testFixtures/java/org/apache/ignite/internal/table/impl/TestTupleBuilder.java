@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,7 +39,7 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public TestTupleBuilder set(String columnName, Object value) {
-        map.put(IgniteNameUtils.parseSimpleName(columnName), value);
+        map.put(IgniteNameUtils.parseIdentifier(columnName), value);
 
         return this;
     }
@@ -46,13 +47,13 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> T valueOrDefault(String columnName, T def) {
-        return (T) map.getOrDefault(IgniteNameUtils.parseSimpleName(columnName), def);
+        return (T) map.getOrDefault(IgniteNameUtils.parseIdentifier(columnName), def);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T value(String columnName) {
-        return (T) map.get(IgniteNameUtils.parseSimpleName(columnName));
+        return (T) map.get(IgniteNameUtils.parseIdentifier(columnName));
     }
 
     /** {@inheritDoc} */
@@ -165,6 +166,18 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return value(columnName);
     }
@@ -172,6 +185,18 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public String stringValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
         return null;
     }
 

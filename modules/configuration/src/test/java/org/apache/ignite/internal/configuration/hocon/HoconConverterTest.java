@@ -47,6 +47,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -120,34 +121,42 @@ public class HoconConverterTest {
     @Config
     public static class HoconPrimitivesConfigurationSchema {
         @Value(hasDefault = true)
+        @PublicName("boolean")
         public boolean booleanVal = false;
 
+        @PublicName("byte")
         @Value(hasDefault = true)
         public byte byteVal = 0;
 
+        @PublicName("short")
         @Value(hasDefault = true)
         public short shortVal = 0;
 
+        @PublicName("int")
         @Value(hasDefault = true)
         public int intVal = 0;
 
+        @PublicName("long")
         @Value(hasDefault = true)
         public long longVal = 0L;
 
+        @PublicName("char")
         @Value(hasDefault = true)
         public char charVal = 0;
 
+        @PublicName("float")
         @Value(hasDefault = true)
         public float floatVal = 0;
 
+        @PublicName("double")
         @Value(hasDefault = true)
         public double doubleVal = 0;
 
         @Value(hasDefault = true)
-        public String stringVal = "";
+        public String string = "";
 
         @Value(hasDefault = true)
-        public UUID uuidVal = new UUID(100, 200);
+        public UUID uuid = new UUID(100, 200);
     }
 
     /**
@@ -165,6 +174,7 @@ public class HoconConverterTest {
     @PolymorphicConfigInstance("first")
     public static class HoconFirstPolymorphicInstanceConfigurationSchema extends HoconPolymorphicConfigurationSchema {
         @Value(hasDefault = true)
+        @PublicName("long")
         public int longVal = 0;
     }
 
@@ -174,6 +184,7 @@ public class HoconConverterTest {
     @PolymorphicConfigInstance("second")
     public static class HoconSecondPolymorphicInstanceConfigurationSchema extends HoconPolymorphicConfigurationSchema {
         @Value(hasDefault = true)
+        @PublicName("int")
         public int intVal = 0;
     }
 
@@ -301,21 +312,21 @@ public class HoconConverterTest {
         UUID uuid = new UUID(100, 200);
 
         assertEquals(
-                "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\""
-                        + ",uuidVal=\"" + uuid + "\"",
+                "boolean=false,byte=0,char=\"\\u0000\",double=0.0,float=0,int=0,long=0,short=0,string=\"\""
+                        + ",uuid=\"" + uuid + "\"",
                 asHoconStr(basePath)
         );
 
-        assertEquals("false", asHoconStr(basePath, "booleanVal"));
-        assertEquals("0", asHoconStr(basePath, "byteVal"));
-        assertEquals("0", asHoconStr(basePath, "shortVal"));
-        assertEquals("0", asHoconStr(basePath, "intVal"));
-        assertEquals("0", asHoconStr(basePath, "longVal"));
-        assertEquals("\"\\u0000\"", asHoconStr(basePath, "charVal"));
-        assertEquals("0", asHoconStr(basePath, "floatVal"));
-        assertEquals("0.0", asHoconStr(basePath, "doubleVal"));
-        assertEquals("\"\"", asHoconStr(basePath, "stringVal"));
-        assertEquals("\"" + uuid + "\"", asHoconStr(basePath, "uuidVal"));
+        assertEquals("false", asHoconStr(basePath, "boolean"));
+        assertEquals("0", asHoconStr(basePath, "byte"));
+        assertEquals("0", asHoconStr(basePath, "short"));
+        assertEquals("0", asHoconStr(basePath, "int"));
+        assertEquals("0", asHoconStr(basePath, "long"));
+        assertEquals("\"\\u0000\"", asHoconStr(basePath, "char"));
+        assertEquals("0", asHoconStr(basePath, "float"));
+        assertEquals("0.0", asHoconStr(basePath, "double"));
+        assertEquals("\"\"", asHoconStr(basePath, "string"));
+        assertEquals("\"" + uuid + "\"", asHoconStr(basePath, "uuid"));
     }
 
     /**
@@ -424,41 +435,47 @@ public class HoconConverterTest {
         HoconPrimitivesConfiguration primitives = configuration.primitivesList().get("name");
         assertNotNull(primitives);
 
-        change("root.primitivesList.name.booleanVal = true");
+        change("root.primitivesList.name.boolean = true");
         assertThat(primitives.booleanVal().value(), is(true));
 
-        change("root.primitivesList.name.byteVal = 123");
+        change("root.primitivesList.name.byte = 123");
         assertThat(primitives.byteVal().value(), is((byte) 123));
 
-        change("root.primitivesList.name.shortVal = 12345");
+        change("root.primitivesList.name.short = 12345");
         assertThat(primitives.shortVal().value(), is((short) 12345));
 
-        change("root.primitivesList.name.intVal = 12345");
+        change("root.primitivesList.name.int = 12345");
         assertThat(primitives.intVal().value(), is(12345));
 
-        change("root.primitivesList.name.longVal = 12345678900");
+        change("root.primitivesList.name.long = 12345678900");
         assertThat(primitives.longVal().value(), is(12345678900L));
 
-        change("root.primitivesList.name.charVal = p");
+        change("root.primitivesList.name.char = p");
         assertThat(primitives.charVal().value(), is('p'));
 
-        change("root.primitivesList.name.floatVal = 2.5");
+        change("root.primitivesList.name.char = 1");
+        assertThat(primitives.charVal().value(), is('1'));
+
+        change("root.primitivesList.name.float = 2.5");
         assertThat(primitives.floatVal().value(), is(2.5f));
 
-        change("root.primitivesList.name.doubleVal = 2.5");
+        change("root.primitivesList.name.double = 2.5");
         assertThat(primitives.doubleVal().value(), is(2.5d));
 
-        change("root.primitivesList.name.stringVal = foo");
-        assertThat(primitives.stringVal().value(), is("foo"));
+        change("root.primitivesList.name.string = foo");
+        assertThat(primitives.string().value(), is("foo"));
+
+        change("root.primitivesList.name.string = 10");
+        assertThat(primitives.string().value(), is("10"));
 
         UUID newUuid0 = UUID.randomUUID();
         UUID newUuid1 = UUID.randomUUID();
 
-        change("root.primitivesList.name.uuidVal = " + newUuid0);
-        assertThat(primitives.uuidVal().value(), is(newUuid0));
+        change("root.primitivesList.name.uuid = " + newUuid0);
+        assertThat(primitives.uuid().value(), is(newUuid0));
 
-        change("root.primitivesList.name.uuidVal = \"" + newUuid1 + "\"");
-        assertThat(primitives.uuidVal().value(), is(newUuid1));
+        change("root.primitivesList.name.uuid = \"" + newUuid1 + "\"");
+        assertThat(primitives.uuid().value(), is(newUuid1));
     }
 
     /**
@@ -467,68 +484,63 @@ public class HoconConverterTest {
     @Test
     public void testInvalidHoconPrimitivesDeserialization() {
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.booleanVal = \"true\""),
-                "'boolean' is expected as a type for the 'root.primitivesList.name.booleanVal' configuration value"
+                () -> change("root.primitivesList.name.boolean = \"true\""),
+                "'boolean' is expected as a type for the 'root.primitivesList.name.boolean' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.byteVal = 290"),
-                "Value '290' of 'root.primitivesList.name.byteVal' is out of its declared bounds"
+                () -> change("root.primitivesList.name.byte = 290"),
+                "Value '290' of 'root.primitivesList.name.byte' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.byteVal = false"),
-                "'byte' is expected as a type for the 'root.primitivesList.name.byteVal' configuration value"
+                () -> change("root.primitivesList.name.byte = false"),
+                "'byte' is expected as a type for the 'root.primitivesList.name.byte' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.shortVal = 12345678900"),
-                "Value '12345678900' of 'root.primitivesList.name.shortVal' is out of its declared bounds"
+                () -> change("root.primitivesList.name.short = 12345678900"),
+                "Value '12345678900' of 'root.primitivesList.name.short' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.shortVal = false"),
-                "'short' is expected as a type for the 'root.primitivesList.name.shortVal' configuration value"
+                () -> change("root.primitivesList.name.short = false"),
+                "'short' is expected as a type for the 'root.primitivesList.name.short' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.intVal = 12345678900"),
-                "Value '12345678900' of 'root.primitivesList.name.intVal' is out of its declared bounds"
+                () -> change("root.primitivesList.name.int = 12345678900"),
+                "Value '12345678900' of 'root.primitivesList.name.int' is out of its declared bounds"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.intVal = false"),
-                "'int' is expected as a type for the 'root.primitivesList.name.intVal' configuration value"
+                () -> change("root.primitivesList.name.int = false"),
+                "'int' is expected as a type for the 'root.primitivesList.name.int' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.longVal = false"),
-                "'long' is expected as a type for the 'root.primitivesList.name.longVal' configuration value"
+                () -> change("root.primitivesList.name.long = false"),
+                "'long' is expected as a type for the 'root.primitivesList.name.long' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.charVal = 10"),
-                "'char' is expected as a type for the 'root.primitivesList.name.charVal' configuration value"
+                () -> change("root.primitivesList.name.char = 10"),
+                "'char' is expected as a type for the 'root.primitivesList.name.char' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.floatVal = false"),
-                "'float' is expected as a type for the 'root.primitivesList.name.floatVal' configuration value"
+                () -> change("root.primitivesList.name.float = false"),
+                "'float' is expected as a type for the 'root.primitivesList.name.float' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.doubleVal = []"),
-                "'double' is expected as a type for the 'root.primitivesList.name.doubleVal' configuration value"
+                () -> change("root.primitivesList.name.double = []"),
+                "'double' is expected as a type for the 'root.primitivesList.name.double' configuration value"
         );
 
         assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.stringVal = 10"),
-                "'String' is expected as a type for the 'root.primitivesList.name.stringVal' configuration value"
-        );
-
-        assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.uuidVal = 123"),
-                "'UUID' is expected as a type for the 'root.primitivesList.name.uuidVal' configuration value"
+                () -> change("root.primitivesList.name.uuid = 123"),
+                "'UUID' is expected as a type for the 'root.primitivesList.name.uuid' configuration value"
         );
     }
 
@@ -669,11 +681,11 @@ public class HoconConverterTest {
         change("root.polymorphicCfg = [{poly = name, typeId = second}]");
 
         assertInstanceOf(HoconSecondPolymorphicInstanceConfiguration.class, configuration.polymorphicCfg().get("name"));
-        assertEquals("arraysList=[],polymorphicCfg=[{intVal=0,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[{int=0,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
 
         // Check change field.
-        change("root.polymorphicCfg.name.intVal = 10");
-        assertEquals("arraysList=[],polymorphicCfg=[{intVal=10,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
+        change("root.polymorphicCfg.name.int = 10");
+        assertEquals("arraysList=[],polymorphicCfg=[{int=10,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
 
         // Check error: unknown typeId.
         assertThrowsIllegalArgException(
@@ -683,8 +695,8 @@ public class HoconConverterTest {
 
         // Check error: try update field from typeId = first.
         assertThrowsIllegalArgException(
-                () -> change("root.polymorphicCfg.name.longVal = 10"),
-                "'root.polymorphicCfg.name' configuration doesn't have the 'longVal' sub-configuration"
+                () -> change("root.polymorphicCfg.name.long = 10"),
+                "'root.polymorphicCfg.name' configuration doesn't have the 'long' sub-configuration"
         );
     }
 
@@ -697,6 +709,12 @@ public class HoconConverterTest {
         assertThrowsIllegalArgException(
                 () -> change("rootInjectedName.nested.someName = testName"),
                 "rootInjectedName.nested' configuration doesn't have the 'someName' sub-configuration"
+        );
+
+        // Check injected name field value in path
+        assertThrowsIllegalArgException(
+                () -> change("rootInjectedName.nestedNamed = [{someName = foo, nonExistingValue = bar}]"),
+                "rootInjectedName.nestedNamed.foo' configuration doesn't have the 'nonExistingValue' sub-configuration"
         );
 
         assertThrowsIllegalArgException(
@@ -714,7 +732,7 @@ public class HoconConverterTest {
         // Let's check that the NamedConfigValue#syntheticKeyName key will not work.
         assertThrowsIllegalArgException(
                 () -> change("rootInjectedName.nestedNamed = [{superName = foo}]"),
-                "'rootInjectedName.nestedNamed[0].someName' configuration value is mandatory and must be a String"
+                "'rootInjectedName.nestedNamed' configuration doesn't have the 'superName' sub-configuration"
         );
     }
 

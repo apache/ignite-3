@@ -36,13 +36,16 @@ public class UpdateCommandResult implements Serializable {
     /** {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise. */
     private final boolean primaryInPeersAndLearners;
 
+    /** The safe timestamp. */
+    private final long safeTimestamp;
+
     /**
      * Constructor.
      *
      * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
-    public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners) {
-        this(primaryReplicaMatch, null, primaryInPeersAndLearners);
+    public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners, long safeTimestamp) {
+        this(primaryReplicaMatch, null, primaryInPeersAndLearners, safeTimestamp);
     }
 
     /**
@@ -52,17 +55,20 @@ public class UpdateCommandResult implements Serializable {
      * @param currentLeaseStartTime Actual lease start time.
      * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology: peers and learners,
      *     (@code false) otherwise.
+     * @param safeTimestamp The safe timestamp.
      */
     public UpdateCommandResult(
             boolean primaryReplicaMatch,
             @Nullable Long currentLeaseStartTime,
-            boolean primaryInPeersAndLearners
+            boolean primaryInPeersAndLearners,
+            long safeTimestamp
     ) {
         assert primaryReplicaMatch || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
 
         this.primaryReplicaMatch = primaryReplicaMatch;
         this.currentLeaseStartTime = currentLeaseStartTime;
         this.primaryInPeersAndLearners = primaryInPeersAndLearners;
+        this.safeTimestamp = safeTimestamp;
     }
 
     /**
@@ -92,6 +98,15 @@ public class UpdateCommandResult implements Serializable {
      */
     public boolean isPrimaryInPeersAndLearners() {
         return primaryInPeersAndLearners;
+    }
+
+    /**
+     * Returns a safe timestamp associated with the moment of command application.
+     *
+     * @return The timestamp.
+     */
+    public long safeTimestamp() {
+        return safeTimestamp;
     }
 
     @Override

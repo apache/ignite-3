@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
@@ -24,38 +25,39 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests distribution zone manager interactions with data nodes filtering.
+ * Tests distribution zone manager interactions with data nodes filtering in a SC zone.
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -88,7 +90,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.removeNodes(Set.of(B));
 
         LogicalNode newB = new LogicalNode(
-                new ClusterNodeImpl("2", "newB", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "newB", new NetworkAddress("localhost", 123)),
                 Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30"),
                 Map.of(),
                 List.of(DEFAULT_STORAGE_PROFILE)
@@ -115,9 +117,13 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, DEFAULT_STORAGE_PROFILE);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, consistencyMode(), DEFAULT_STORAGE_PROFILE);
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 getZoneId(ZONE_NAME), Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+    }
+
+    protected ConsistencyMode consistencyMode() {
+        return ConsistencyMode.STRONG_CONSISTENCY;
     }
 }

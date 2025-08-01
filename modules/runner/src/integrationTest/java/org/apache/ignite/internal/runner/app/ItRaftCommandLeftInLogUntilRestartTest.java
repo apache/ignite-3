@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -174,7 +176,11 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         TableViewInternal table = unwrapTableViewInternal(createTable(DEFAULT_TABLE_NAME, 2, 1));
 
-        ClusterNode leader = ReplicaTestUtils.leaderAssignment(node0, table.tableId(), 0);
+        ClusterNode leader = ReplicaTestUtils.leaderAssignment(
+                node0,
+                colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                0
+        );
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
@@ -193,10 +199,14 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
-            RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(node0, table.tableId(), 0)
+            RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
+                            node0,
+                            colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                            0
+                    )
                     .orElseThrow(AssertionError::new);
 
-            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
+            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer, false), willCompleteSuccessfully()));
 
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
 
@@ -347,7 +357,11 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void transferLeadershipToLocalNode(Ignite ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
-        RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(ignite, table.tableId(), 0)
+        RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
+                        ignite,
+                        colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                        0
+                )
                 .orElseThrow(AssertionError::new);
 
         List<Peer> peers = raftGroupService.peers();

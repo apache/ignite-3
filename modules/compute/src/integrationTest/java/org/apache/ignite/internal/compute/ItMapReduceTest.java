@@ -24,12 +24,14 @@ import static org.apache.ignite.compute.TaskStatus.EXECUTING;
 import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatusAndCreateTimeStartTimeFinishTime;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -46,9 +48,11 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveTasks;
-import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -73,8 +77,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
-        testExecution.assertExecuting();
+        assertTaskExecuting(taskExecution);
         InteractiveTasks.GlobalApi.assertAlive();
 
         // Save state before split.
@@ -87,7 +90,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveTasks.GlobalApi.finishSplit();
 
         // Then the task is still executing while waiting for the jobs to finish.
-        testExecution.assertExecuting();
+        assertTaskExecuting(taskExecution);
         assertTaskStateIs(taskExecution, EXECUTING, stateBeforeSplit, nullValue(Instant.class));
 
         // And states list contains states for 3 running nodes.
@@ -97,7 +100,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.all().finishReturnWorkerNames();
 
         // Then the task is still executing while waiting for the reduce to finish.
-        testExecution.assertExecuting();
+        assertTaskExecuting(taskExecution);
         assertTaskStateIs(taskExecution, EXECUTING, stateBeforeSplit, nullValue(Instant.class));
 
         // When finish the reduce job.
@@ -140,22 +143,20 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = startTask(entryNode, cooperativeCancel ? "NO_INTERRUPT" : "");
+        CancelHandle cancelHandle = CancelHandle.create();
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, cancelHandle.token(), cooperativeCancel ? "NO_INTERRUPT" : "");
 
         // Save state before split.
         TaskState stateBeforeSplit = taskExecution.stateAsync().join();
 
         // When cancel the task.
-        assertThat(taskExecution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         // Then the task is cancelled.
         assertTaskFailed(taskExecution, CANCELED, stateBeforeSplit);
 
         // And states list will fail.
         assertThat(taskExecution.statesAsync(), willThrow(RuntimeException.class));
-
-        // And second cancel will fail.
-        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -183,12 +184,8 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
-        IgniteCompute igniteCompute = entryNode.compute();
-        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
-                TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
-        testExecution.assertExecuting();
-        InteractiveTasks.GlobalApi.assertAlive();
+        CancelHandle cancelHandle = CancelHandle.create();
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, cancelHandle.token(), null);
 
         // Save state before split.
         TaskState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -197,16 +194,13 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         finishSplit(taskExecution);
 
         // When cancel the task.
-        assertThat(taskExecution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         // Then the task is cancelled.
         assertTaskFailed(taskExecution, FAILED, stateBeforeSplit);
 
         // And states list contains canceled states.
         assertJobStates(taskExecution, JobStatus.CANCELED);
-
-        // And second cancel will fail.
-        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -241,13 +235,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
+        CancelHandle cancelHandle = CancelHandle.create();
         String arg = cooperativeCancel ? "NO_INTERRUPT" : null;
-        IgniteCompute igniteCompute = entryNode.compute();
-        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
-                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
-        testExecution.assertExecuting();
-        InteractiveTasks.GlobalApi.assertAlive();
+        TaskExecution<List<String>> taskExecution = startTask(entryNode, cancelHandle.token(), arg);
 
         // Save state before split.
         TaskState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -262,25 +252,41 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveTasks.GlobalApi.assertAlive();
 
         // When cancel the task.
-        assertThat(taskExecution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         // Then the task is cancelled.
         assertTaskFailed(taskExecution, CANCELED, stateBeforeSplit);
 
         // And states list contains completed states.
         assertJobStates(taskExecution, JobStatus.COMPLETED);
-
-        // And second cancel will fail.
-        assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
-    private static TaskExecution<List<String>> startTask(Ignite entryNode, String args) throws InterruptedException {
-        IgniteCompute igniteCompute = entryNode.compute();
-        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
-                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), args);
-        new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution)).assertExecuting();
+    private static TaskExecution<List<String>> startTask(Ignite entryNode, @Nullable String arg) throws InterruptedException {
+        return startTask(entryNode, null, arg);
+    }
+
+    private static TaskExecution<List<String>> startTask(
+            Ignite entryNode,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable String arg
+    ) throws InterruptedException {
+        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
+                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg, cancellationToken
+        );
+        assertTaskExecuting(taskExecution);
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;
+    }
+
+    private static void assertTaskExecuting(TaskExecution<List<String>> taskExecution) {
+        await().until(
+                () -> taskExecution.stateAsync().thenApply(JobTaskStatusMapper::toJobState),
+                willBe(jobStateWithStatus(JobStatus.EXECUTING))
+        );
+
+        assertThat(taskExecution.resultAsync().isDone(), equalTo(false));
+
+        assertThat(taskExecution.idAsync(), willBe(notNullValue()));
     }
 
     private static void finishSplit(TaskExecution<List<String>> taskExecution) {
@@ -302,7 +308,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
             TaskState stateBeforeSplit,
             Matcher<Instant> finishTimeMatcher
     ) {
-        assertThat(taskExecution.stateAsync(), willBe(taskStateWithStatusAndCreateTimeStartTimeFinishTime(
+        await().until(taskExecution::stateAsync, willBe(taskStateWithStatusAndCreateTimeStartTimeFinishTime(
                 is(status),
                 is(stateBeforeSplit.createTime()),
                 is(stateBeforeSplit.startTime()),

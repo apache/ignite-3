@@ -29,8 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -41,7 +43,9 @@ import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A part of exchange which receives batches from remote sources.
@@ -112,12 +116,10 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::doPush, this::onError);
+            this.execute(this::push);
         }
     }
 
@@ -155,6 +157,26 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent)
+                .app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+
+        for (String nodeName : srcNodeNames) {
+            RemoteSource<?> source = perNodeBuffers.get(nodeName);
+            writer.app(childIndent)
+                    .app("class=" + source.getClass().getSimpleName())
+                    .app(", nodeName=").app(nodeName)
+                    .app(", state=").app(source.state)
+                    .nl();
+        }
+    }
+
     /**
      * Pushes a batch into a buffer.
      *
@@ -164,6 +186,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param rows Rows.
      */
     public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<BinaryTupleMessage> rows) throws Exception {
+        checkState();
+
         RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
@@ -179,12 +203,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         if (requested > 0 && waitingBefore && source.check() != State.WAITING) {
             push();
         }
-    }
-
-    private void doPush() throws Exception {
-        checkState();
-
-        push();
     }
 
     private void push() throws Exception {
@@ -250,12 +268,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             }
         }
 
+        int processed = 0;
         inLoop = true;
         try {
             loop:
             while (requested > 0 && !heap.isEmpty()) {
-                checkState();
-
                 RemoteSource<RowT> source = heap.poll().right;
 
                 requested--;
@@ -277,6 +294,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                     default:
                         throw unexpected(state);
                 }
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::push);
+
+                    return;
+                }
             }
         } finally {
             inLoop = false;
@@ -296,11 +320,10 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         int idx = 0;
         int noProgress = 0;
 
+        int processed = 0;
         inLoop = true;
         try {
             while (requested > 0 && !remoteSources.isEmpty()) {
-                checkState();
-
                 RemoteSource<RowT> source = remoteSources.get(idx);
 
                 switch (source.check()) {
@@ -330,6 +353,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 if (idx == remoteSources.size()) {
                     idx = 0;
                 }
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::push);
+
+                    return;
+                }
             }
         } finally {
             inLoop = false;
@@ -346,7 +376,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) {
-        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
+        exchange.request(nodeName, executionId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
                         IgniteInternalException wrapperEx = ExceptionUtils.withCause(
@@ -356,26 +386,19 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                                 ex
                         );
 
-                        context().execute(() -> onError(wrapperEx), this::onError);
+                        this.execute(() -> onError(wrapperEx));
                     }
                 });
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
-            context().execute(this::close, this::onError);
-        } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
-            context().execute(() -> onNodeLeft0(nodeName), this::onError);
+    /** Notifies the inbox that provided node has left the cluster. */
+    public void onNodeLeft(ClusterNode node) {
+        if (srcNodeNames.contains(node.name())) {
+            this.execute(() -> onNodeLeft0(node.name()));
         }
     }
 
-    private void onNodeLeft0(String nodeName) throws Exception {
-        checkState();
-
+    private void onNodeLeft0(String nodeName) {
         if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new NodeLeftException(nodeName);
         }
@@ -519,8 +542,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         /**
-         * Drops all received but not yet processed batches. Accepts the state that should be propagated
-         * to the source on the next {@link #request} invocation.
+         * Drops all received but not yet processed batches. Accepts the state that should be propagated to the source on the next
+         * {@link #request} invocation.
          *
          * @param state State to propagate to the source.
          */
@@ -550,8 +573,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         /**
-         * Requests another several batches from remote source if a count of in-flight batches
-         * is less or equal than half of {@link #IO_BATCH_CNT}.
+         * Requests another several batches from remote source if a count of in-flight batches is less or equal than half of
+         * {@link #IO_BATCH_CNT}.
          */
         void requestNextBatchIfNeeded() throws IgniteInternalCheckedException {
             int maxInFlightCount = Math.max(IO_BATCH_CNT, 1);

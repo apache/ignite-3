@@ -28,15 +28,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Iterator;
+import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
+import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.KeyValueView;
 
 /**
  * Enumeration of tables from TPC-H specification.
  */
-public enum TpchTables {
+@SuppressWarnings("NonSerializableFieldInSerializableClass")
+public enum TpchTables implements TpcTable {
     LINEITEM(
+            new long[] {6_001_215, 5_999_989_709L, 18_000_048_306L, 59_999_994_267L, 179_999_978_268L, 599_999_969_200L},
             new Column("L_ORDERKEY", INT32),
             new Column("L_PARTKEY", INT32),
             new Column("L_SUPPKEY", INT32),
@@ -65,6 +67,7 @@ public enum TpchTables {
     },
 
     PART(
+            new long[] {200_000, 200_000_000, 600_000_000, 2_000_000_000, 6_000_000_000L, 20_000_000_000L},
             new Column("P_PARTKEY", INT32),
             new Column("P_NAME", STRING),
             new Column("P_MFGR", STRING),
@@ -85,6 +88,7 @@ public enum TpchTables {
     },
 
     SUPPLIER(
+            new long[] {10_000, 10_000_000, 30_000_000, 100_000_000, 300_000_000, 1_000_000_000},
             new Column("S_SUPPKEY", INT32),
             new Column("S_NAME", STRING),
             new Column("S_ADDRESS", STRING),
@@ -102,6 +106,7 @@ public enum TpchTables {
     },
 
     PARTSUPP(
+            new long[] {800_000, 800_000_000, 2_400_000_000L, 8_000_000_000L, 24_000_000_000L, 80_000_000_000L},
             new Column("PS_PARTKEY", INT32),
             new Column("PS_SUPPKEY", INT32),
             new Column("PS_AVAILQTY", INT32),
@@ -117,6 +122,7 @@ public enum TpchTables {
     },
 
     NATION(
+            new long[] {25, 25, 25, 25, 25, 25},
             new Column("N_NATIONKEY", INT32),
             new Column("N_NAME", STRING),
             new Column("N_REGIONKEY", INT32),
@@ -130,6 +136,7 @@ public enum TpchTables {
     },
 
     REGION(
+            new long[] {5, 5, 5, 5, 5, 5},
             new Column("R_REGIONKEY", INT32),
             new Column("R_NAME", STRING),
             new Column("R_COMMENT", STRING)
@@ -142,6 +149,7 @@ public enum TpchTables {
     },
 
     ORDERS(
+            new long[] {1_500_000, 1_500_000_000, 4_500_000_000L, 15_000_000_000L, 45_000_000_000L, 150_000_000_000L},
             new Column("O_ORDERKEY", INT32),
             new Column("O_CUSTKEY", INT32),
             new Column("O_ORDERSTATUS", STRING),
@@ -162,6 +170,7 @@ public enum TpchTables {
     },
 
     CUSTOMER(
+            new long[] {150_000, 150_000_000, 450_000_000L, 1_500_000_000L, 4_500_000_000L, 15_000_000_000L},
             new Column("C_CUSTKEY", INT32),
             new Column("C_NAME", STRING),
             new Column("C_ADDRESS", STRING),
@@ -181,55 +190,44 @@ public enum TpchTables {
     };
 
     private final Column[] columns;
+    private final long[] tableSizes;
 
-    TpchTables(Column... columns) {
+    TpchTables(long[] tableSizes, Column... columns) {
+        this.tableSizes = tableSizes;
         this.columns = columns;
     }
 
-    /** Returns name of the table. */
+    @Override
     public String tableName() {
         return name().toLowerCase();
     }
 
-    /** Returns number of column in the table. */
+    @Override
     public int columnsCount() {
         return columns.length;
     }
 
+    @Override
     public String columnName(int idx) {
         return columns[idx].name;
     }
 
-    /** Returns definition of a table including necessary indexes. */
+    @Override
     public String ddlScript() {
         return TpchHelper.loadFromResource("tpch/ddl/" + tableName() + "_ddl.sql");
     }
 
-    /**
-     * Returns DML string representing single-row INSERT statement with dynamic
-     * parameters placeholders.
-     *
-     * <p>The order of columns matches the order specified in TPC-H specification
-     * (see table declarations or output of {@link #ddlScript()}).
-     *
-     * <p>The statement returned is tolerant to columns' type mismatch, implying you
-     * can use any value while there is cast from provided value to required type.
-     */
-    public abstract String insertPrepareStatement();
-
-    /**
-     * Returns iterator returning rows of the corresponding table.
-     *
-     * <p>May be used to fill the table via {@link KeyValueView KV API} or {@link IgniteSql SQL API}.
-     *
-     * @param pathToDataset A path to a directory with CSV file containing data for the table.
-     * @return Iterator over data of the table.
-     * @throws IOException In case of error.
-     */
+    @SuppressWarnings("resource")
+    @Override
     public Iterator<Object[]> dataProvider(Path pathToDataset) throws IOException {
         return Files.lines(pathToDataset.resolve(tableName() + ".tbl"))
                 .map(this::csvLineToTableValues)
                 .iterator();
+    }
+
+    @Override
+    public long estimatedSize(TpcScaleFactor sf) {
+        return sf.size(tableSizes);
     }
 
     private Object[] csvLineToTableValues(String line) {

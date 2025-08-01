@@ -19,21 +19,30 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.lowerBoundFor;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.upperBoundFor;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -50,7 +59,6 @@ import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -79,8 +87,8 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     private static final BaseTypeSpec INT64 = RowSchemaTypes.nativeType(NativeTypes.INT64);
     private static final BaseTypeSpec FLOAT = RowSchemaTypes.nativeType(NativeTypes.FLOAT);
     private static final BaseTypeSpec DOUBLE = RowSchemaTypes.nativeType(NativeTypes.DOUBLE);
-    private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.STRING);
-    private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.BYTES);
+    private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.stringOf(65536));
+    private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.blobOf(65536));
     private static final BaseTypeSpec UUID = RowSchemaTypes.nativeType(NativeTypes.UUID);
 
     @Test
@@ -200,6 +208,38 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("binaryTypes")
+    public void testValidateBinaryTypesOverflow(SqlTypeName type, int precision, Object[] input, boolean exceptionally) {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        RelDataType rowType = typeFactory.builder()
+                .add("c1", typeFactory.createSqlType(type, precision))
+                .build();
+
+        if (exceptionally) {
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Value too long for type: " + type,
+                    () -> buildTrimmedRow(rowType, input));
+        } else {
+            buildTrimmedRow(rowType, input);
+        }
+    }
+
+    private static Stream<Arguments> binaryTypes() {
+        Object[] input = {ByteString.of("AABBCC", 16)};
+        Object[] inputWithZeros = {ByteString.of("AABBCC0000", 16)};
+
+        return Stream.of(
+                arguments(SqlTypeName.BINARY, 2, input, true),
+                arguments(SqlTypeName.VARBINARY, 2, input, true),
+
+                arguments(SqlTypeName.BINARY, 3, inputWithZeros, false),
+                arguments(SqlTypeName.VARBINARY, 3, inputWithZeros, false)
+        );
+    }
+
     private static void expectOutputRow(RelDataType rowType, Object[] input, Object[] expected) {
         Object[] newRow = buildTrimmedRow(rowType, input);
 
@@ -210,7 +250,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         List<RelDataType> columnTypes = rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList());
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(columnTypes);
 
-        Object[] newRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType,
+        Object[] newRow = TypeUtils.validateStringTypesOverflowAndTrimIfPossible(rowType,
                 ArrayRowHandler.INSTANCE,
                 input,
                 () -> rowSchema
@@ -221,33 +261,41 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     /**
      * Checks that conversions to and from internal types is consistent.
      *
-     * @see TypeUtils#toInternal(Object, Type) to internal.
-     * @see TypeUtils#fromInternal(Object, Type) from internal.
+     * @see TypeUtils#toInternal(Object, ColumnType) to internal.
+     * @see TypeUtils#fromInternal(Object, ColumnType) from internal.
      */
     @ParameterizedTest
     @MethodSource("valueAndType")
-    public void testToFromInternalMatch(Object value, Class<?> type) {
+    public void testToFromInternalMatch(Object value, ColumnType type) {
         Object internal = TypeUtils.toInternal(value, type);
         assertNotNull(internal, "Conversion to internal has produced null");
 
         Object original = TypeUtils.fromInternal(internal, type);
-        assertEquals(value, original, "toInternal -> fromInternal");
         assertNotNull(original, "Conversion from internal has produced null");
+
+        if (value instanceof byte[]) {
+            assertArrayEquals((byte[]) value, (byte[]) original, "toInternal -> fromInternal");
+        } else {
+            assertEquals(value, original, "toInternal -> fromInternal");
+        }
     }
 
     private static Stream<Arguments> valueAndType() {
         return Stream.of(
-                Arguments.of((byte) 1, Byte.class),
-                Arguments.of((short) 1, Short.class),
-                Arguments.of(1, Integer.class),
-                Arguments.of(1L, Long.class),
-                Arguments.of(1.0F, Float.class),
-                Arguments.of(1.0D, Double.class),
-                Arguments.of("hello", String.class),
-                Arguments.of(LocalDate.of(1970, 1, 1), LocalDate.class),
-                Arguments.of(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0), LocalDateTime.class),
-                Arguments.of(LocalTime.NOON, LocalTime.class),
-                Arguments.of(new UUID(1, 1), UUID.class)
+                Arguments.of((byte) 1, ColumnType.INT8),
+                Arguments.of((short) 1, ColumnType.INT16),
+                Arguments.of(1, ColumnType.INT32),
+                Arguments.of(1L, ColumnType.INT64),
+                Arguments.of(1.0F, ColumnType.FLOAT),
+                Arguments.of(1.0D, ColumnType.DOUBLE),
+                Arguments.of("hello", ColumnType.STRING),
+                Arguments.of(new byte[]{1, 2, 3}, ColumnType.BYTE_ARRAY),
+                Arguments.of(LocalDate.of(1970, 1, 1), ColumnType.DATE),
+                Arguments.of(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0), ColumnType.DATETIME),
+                Arguments.of(Instant.now().truncatedTo(ChronoUnit.MILLIS), ColumnType.TIMESTAMP),
+                Arguments.of(LocalTime.NOON, ColumnType.TIME),
+                Arguments.of(new UUID(1, 1), ColumnType.UUID),
+                Arguments.of(BigDecimal.valueOf(1.001), ColumnType.DECIMAL)
         );
     }
 
@@ -331,10 +379,15 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     public Stream<DynamicTest> testTypesFromDifferentFamiliesAreNotCompatible() {
         RelDataType type1 = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR);
         RelDataType type2 = TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER);
+        RelDataType nullType = TYPE_FACTORY.createSqlType(SqlTypeName.NULL);
 
         return Stream.of(
                 expectIncompatible(type2, type1),
-                expectIncompatible(type1, type2)
+                expectIncompatible(type1, type2),
+
+                expectIncompatible(nullType, type1, type2),
+                expectIncompatible(type1, nullType, type2),
+                expectIncompatible(type1, type2, nullType)
         );
     }
 
@@ -351,6 +404,14 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
             boolean compatible = TypeUtils.typeFamiliesAreCompatible(TYPE_FACTORY, target, from);
 
             assertFalse(compatible, format("{} {} should not be compatible", from, target));
+        });
+    }
+
+    private static DynamicTest expectIncompatible(RelDataType... types) {
+        return DynamicTest.dynamicTest("Incompatible types: " + Arrays.toString(types), () -> {
+            boolean compatible = TypeUtils.typeFamiliesAreCompatible(TYPE_FACTORY, types);
+
+            assertFalse(compatible, format("Types {} should not be compatible", Arrays.toString(types)));
         });
     }
 
@@ -394,20 +455,19 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, 4,
                 RowSchemaTypes.nativeType(NativeTypes.timestamp(4))));
 
-        // Year intervals are stored as days (int)
         for (SqlTypeName interval : SqlTypeName.YEAR_INTERVAL_TYPES) {
             SqlIntervalQualifier yearMonth = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
-            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(yearMonth), INT32));
+            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(yearMonth),
+                    RowSchemaTypes.nativeType(NativeTypes.PERIOD)));
         }
 
-        // Day intervals are stored as nanoseconds (long)
         for (SqlTypeName interval : SqlTypeName.DAY_INTERVAL_TYPES) {
             SqlIntervalQualifier dayTime = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
-            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime), INT64));
+            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime),
+                    RowSchemaTypes.nativeType(NativeTypes.DURATION)));
         }
 
-        // IgniteCustomTypes
-        testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createCustomType(UuidType.NAME), UUID));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.UUID, UUID));
 
         // Add test cases for nullable variants
         for (RelToExecTestCase testCase : new ArrayList<>(testCaseList)) {
@@ -471,6 +531,78 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         testCaseList.add(new RelToExecTestCase(relType2, expected2));
 
         return testCaseList.stream().map(RelToExecTestCase::toTest);
+    }
+
+    @Test
+    void testLowerBound() {
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT)),
+                is(new BigDecimal("-128"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT)),
+                is(new BigDecimal("-32768"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER)),
+                is(new BigDecimal("-2147483648"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
+                is(new BigDecimal("-9223372036854775808"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
+                is(new BigDecimal("-3.4028234663852886E+38"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
+                is(new BigDecimal("-1.7976931348623157E+308"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
+                is(new BigDecimal("-99"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 2)),
+                is(new BigDecimal("-9.99"))
+        );
+    }
+
+    @Test
+    void testUpperBound() {
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT)),
+                is(new BigDecimal("127"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT)),
+                is(new BigDecimal("32767"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER)),
+                is(new BigDecimal("2147483647"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
+                is(new BigDecimal("9223372036854775807"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
+                is(new BigDecimal("3.4028234663852886E+38"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
+                is(new BigDecimal("1.7976931348623157E+308"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
+                is(new BigDecimal("99"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 2)),
+                is(new BigDecimal("9.99"))
+        );
     }
 
     private static final class TestCustomType extends IgniteCustomType {

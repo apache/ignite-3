@@ -20,7 +20,7 @@ package org.apache.ignite.internal.raft;
 /**
  * Raft index with the corresponding term.
  */
-public class IndexWithTerm {
+public class IndexWithTerm implements Comparable<IndexWithTerm> {
     private final long index;
     private final long term;
 
@@ -38,5 +38,44 @@ public class IndexWithTerm {
     /** Returns the term corresponding to the index. */
     public long term() {
         return term;
+    }
+
+    @Override
+    public int compareTo(IndexWithTerm that) {
+        int byTerm = Long.compare(this.term, that.term);
+        if (byTerm != 0) {
+            return byTerm;
+        }
+
+        return Long.compare(this.index, that.index);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        IndexWithTerm that = (IndexWithTerm) o;
+
+        if (index != that.index) {
+            return false;
+        }
+        return term == that.term;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (int) (index ^ (index >>> 32));
+        result = 31 * result + (int) (term ^ (term >>> 32));
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return index + ":" + term;
     }
 }

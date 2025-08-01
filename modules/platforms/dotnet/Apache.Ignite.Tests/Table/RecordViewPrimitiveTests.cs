@@ -43,6 +43,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(1.1f, TableFloatName);
         await TestKey(1.1d, TableDoubleName);
         await TestKey(1.234m, TableDecimalName);
+        await TestKey(new BigDecimal(1.234m), TableDecimalName);
         await TestKey("foo", TableStringName);
         await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), TableDateTimeName);
         await TestKey(new LocalTime(3, 4, 5), TableTimeName);

@@ -41,7 +41,12 @@ public class NetworkConfigurationModule implements ConfigurationModule {
     }
 
     @Override
+    public Collection<Class<?>> polymorphicSchemaExtensions() {
+        return List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class);
+    }
+
+    @Override
     public Set<Validator<?, ?>> validators() {
-        return Set.of(SslConfigurationValidatorImpl.INSTANCE);
+        return Set.of(SslConfigurationValidatorImpl.INSTANCE, MulticastAddressValidator.INSTANCE);
     }
 }

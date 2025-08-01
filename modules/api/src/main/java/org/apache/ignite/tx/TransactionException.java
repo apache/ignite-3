@@ -24,26 +24,6 @@ import org.jetbrains.annotations.Nullable;
 /** This exception is thrown if a transaction can't be finished for some reason. */
 public class TransactionException extends IgniteException {
     /**
-     * Creates a new transaction exception with a message.
-     *
-     * @param message The message.
-     */
-    @Deprecated
-    public TransactionException(String message) {
-        super(message);
-    }
-
-    /**
-     * Creates a new transaction exception with a cause.
-     *
-     * @param cause The cause.
-     */
-    @Deprecated
-    public TransactionException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
      * Creates a new transaction exception with the given error code and cause.
      *
      * @param code Full error code.

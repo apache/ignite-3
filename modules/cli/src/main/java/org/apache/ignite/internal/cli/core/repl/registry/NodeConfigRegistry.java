@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.cli.core.repl.registry;
 
 import com.typesafe.config.Config;
+import org.jetbrains.annotations.Nullable;
 
 /** Node config registry. */
 public interface NodeConfigRegistry {
 
     /** Returns node config. */
+    @Nullable
     Config config();
 }

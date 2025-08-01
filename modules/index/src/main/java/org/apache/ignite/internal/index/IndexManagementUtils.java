@@ -30,8 +30,10 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
@@ -40,10 +42,11 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -56,7 +59,7 @@ import org.apache.ignite.network.ClusterNode;
 /** Helper class for index management. */
 class IndexManagementUtils {
     /** Metastore key prefix for the "index in the process of building" in the format: {@code "indexBuild.inProgress.<indexId>"}. */
-    static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
+    private static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
 
     /**
      * Metastore key prefix for the "index in the process of building for partition" in the format:
@@ -183,20 +186,23 @@ class IndexManagementUtils {
     /**
      * Returns partition count from the catalog.
      *
-     * @param catalogService Catalog service.
+     * @param catalog Catalog snapshot.
      * @param indexId Index ID.
-     * @param catalogVersion Catalog version.
      */
-    static int getPartitionCountFromCatalog(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = index(catalogService, indexId, catalogVersion);
+    static int getPartitionCountFromCatalog(Catalog catalog, int indexId) {
+        assert catalog != null : "catalog";
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
+        CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
 
-        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalogVersion;
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalog.version();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalog.table(indexDescriptor.tableId());
 
-        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalog.version();
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+
+        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalog.version();
 
         return zoneDescriptor.partitions();
     }
@@ -209,7 +215,7 @@ class IndexManagementUtils {
      * @param catalogVersion Version of the catalog in which to look for the index.
      */
     static CatalogIndexDescriptor index(CatalogService catalogService, int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+        CatalogIndexDescriptor indexDescriptor = catalogService.catalog(catalogVersion).index(indexId);
 
         assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
         return indexDescriptor;
@@ -223,19 +229,20 @@ class IndexManagementUtils {
      *
      * @param catalogManager Catalog manger.
      * @param indexId Index ID.
-     * @param log Logger.
+     * @param failureProcessor Failure processor.
      */
-    static void makeIndexAvailableInCatalogWithoutFuture(CatalogManager catalogManager, int indexId, IgniteLogger log) {
+    static void makeIndexAvailableInCatalogWithoutFuture(CatalogManager catalogManager, int indexId, FailureProcessor failureProcessor) {
         catalogManager
                 .execute(MakeIndexAvailableCommand.builder().indexId(indexId).build())
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        Throwable unwrapCause = unwrapCause(throwable);
+                        Throwable unwrappedCause = unwrapCause(throwable);
 
-                        if (!(unwrapCause instanceof IndexNotFoundValidationException)
-                                && !(unwrapCause instanceof ChangeIndexStatusValidationException)
-                                && !(unwrapCause instanceof NodeStoppingException)) {
-                            log.error("Error processing the command to make the index available: {}", unwrapCause, indexId);
+                        if (!(unwrappedCause instanceof IndexNotFoundValidationException)
+                                && !(unwrappedCause instanceof ChangeIndexStatusValidationException)
+                                && !(unwrappedCause instanceof NodeStoppingException)) {
+                            String errorMessage = "Error processing the command to make the index available: " + indexId;
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     }
                 });
@@ -296,7 +303,7 @@ class IndexManagementUtils {
      * @param clusterService Cluster service.
      * @param nodeId Node ID of interest.
      */
-    static boolean isLocalNode(ClusterService clusterService, String nodeId) {
+    static boolean isLocalNode(ClusterService clusterService, UUID nodeId) {
         return nodeId.equals(localNode(clusterService).id());
     }
 

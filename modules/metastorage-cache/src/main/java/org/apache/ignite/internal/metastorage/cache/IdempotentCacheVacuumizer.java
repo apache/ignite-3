@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.cache;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -62,6 +63,8 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
     /** Clock service. */
     private final ClockService clockService;
 
+    private final FailureProcessor failureProcessor;
+
     /** The time to delay first execution. */
     private final long initialDelay;
 
@@ -82,6 +85,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
      * @param vacuumizationAction Action that will trigger vacuumization process.
      * @param idempotentCacheTtl Idempotent cache ttl.
      * @param clockService Clock service.
+     * @param failureProcessor Failure processor.
      * @param initialDelay The time to delay first execution.
      * @param delay The delay between the termination of one execution and the commencement of the next.
      * @param unit The time unit of the initialDelay and delay parameters.
@@ -92,6 +96,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
             Consumer<HybridTimestamp> vacuumizationAction,
             ConfigurationValue<Long> idempotentCacheTtl,
             ClockService clockService,
+            FailureProcessor failureProcessor,
             long initialDelay,
             long delay,
             TimeUnit unit
@@ -102,6 +107,7 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
         this.vacuumizationAction = vacuumizationAction;
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.clockService = clockService;
+        this.failureProcessor = failureProcessor;
         this.initialDelay = initialDelay;
         this.delay = delay;
         this.unit = unit;
@@ -113,11 +119,14 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            vacuumizationAction.accept(hybridTimestamp(clockService.nowLong()
-                                    - (idempotentCacheTtl.value() + clockService.maxClockSkewMillis())));
+                            HybridTimestamp evictionTimestamp = clockService.current()
+                                    .subtractPhysicalTime(idempotentCacheTtl.value() + clockService.maxClockSkewMillis());
+
+                            vacuumizationAction.accept(evictionTimestamp);
                         } catch (Exception e) {
-                            LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
-                                    + " Idempotent cache vacuumizer won't be stopped.", e);
+                            String errorMessage = "An exception occurred while executing idempotent cache vacuumization action."
+                                    + " Idempotent cache vacuumizer won't be stopped.";
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     }
                 },

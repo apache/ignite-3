@@ -22,11 +22,12 @@ set(TARGET ${PROJECT_NAME})
 set(PUBLIC_HEADERS
     big_decimal.h
     big_integer.h
-    bit_array.h
+    binary_object.h
     bytes_view.h
     detail/bits.h
     detail/bytes.h
     detail/config.h
+    detail/mpi.h
     end_point.h
     error_codes.h
     ignite_date.h
@@ -46,6 +47,9 @@ set(SOURCES
     big_decimal.cpp
     big_integer.cpp
     detail/mpi.cpp
+    detail/string_utils.cpp
+    detail/thread_timer.cpp
+    uuid.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
@@ -63,7 +67,8 @@ endif()
 
 ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test DISCOVER SOURCES detail/bytes_test.cpp LIBS ${TARGET})
+ignite_test(string_utils_test DISCOVER SOURCES detail/string_utils_test.cpp LIBS ${TARGET})
+ignite_test(thread_timer_test DISCOVER SOURCES detail/thread_timer_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test DISCOVER SOURCES uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test DISCOVER SOURCES bignum_test.cpp LIBS ${TARGET})
-ignite_test(bit_array_test DISCOVER SOURCES bit_array_test.cpp LIBS ${TARGET})
 ignite_test(primitive_test DISCOVER SOURCES primitive_test.cpp LIBS ${TARGET})

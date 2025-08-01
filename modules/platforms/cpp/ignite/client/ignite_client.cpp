@@ -21,22 +21,28 @@
 
 #include <ignite/common/ignite_error.h>
 
-#include <thread>
+#include "detail/argument_check_utils.h"
 
 namespace ignite {
 
 void ignite_client::start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
     ignite_callback<ignite_client> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
-    auto res = std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
+    auto fut = std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
         auto res =
             result_of_operation<ignite_client>([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
-    UNUSED_VALUE res;
+    UNUSED_VALUE fut;
 }
 
 ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
+    detail::arg_check::container_non_empty(configuration.get_endpoints(), "Connection endpoint list");
+
+    if (configuration.get_heartbeat_interval().count() < 0) {
+        throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative");
+    }
+
     auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 
     auto promise = std::make_shared<std::promise<ignite_result<void>>>();
@@ -47,7 +53,7 @@ ignite_client ignite_client::start(ignite_client_configuration configuration, st
     auto status = future.wait_for(timeout);
     if (status == std::future_status::timeout) {
         impl->stop();
-        throw ignite_error("Can not establish connection within timeout");
+        throw ignite_error(error::code::CONNECTION, "Can not establish connection within timeout");
     }
 
     assert(status == std::future_status::ready);
@@ -94,11 +100,11 @@ std::vector<cluster_node> ignite_client::get_cluster_nodes() {
 }
 
 detail::ignite_client_impl &ignite_client::impl() noexcept {
-    return *((detail::ignite_client_impl *) (m_impl.get()));
+    return *static_cast<detail::ignite_client_impl *>(m_impl.get());
 }
 
 const detail::ignite_client_impl &ignite_client::impl() const noexcept {
-    return *((detail::ignite_client_impl *) (m_impl.get()));
+    return *static_cast<detail::ignite_client_impl *>(m_impl.get());
 }
 
 } // namespace ignite

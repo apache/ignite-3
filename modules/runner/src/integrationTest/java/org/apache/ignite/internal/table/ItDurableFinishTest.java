@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -50,23 +52,25 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -75,14 +79,16 @@ import org.junit.jupiter.api.Test;
 public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
+    private static final String ZONE_NAME = "TEST_ZONE";
+
     private static final String TABLE_NAME = "TEST_FINISH";
 
     private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " zone " + ZONE_NAME;
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -93,7 +99,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private Context prepareTransactionData() throws ExecutionException, InterruptedException {
         createTestTableWith3Replicas();
 
-        var tblReplicationGrp = defaultTablePartitionId(node(0));
+        var tblReplicationGrp = defaultZonePartitionId(node(0));
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = unwrapIgniteImpl(node(0)).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -123,10 +129,18 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
-    private TablePartitionId defaultTablePartitionId(Ignite node) {
-        TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
+    private ReplicationGroupId defaultZonePartitionId(Ignite node) {
+        if (colocationEnabled()) {
+            IgniteImpl ignite = unwrapIgniteImpl(node);
+            var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
+            assertNotNull(zoneDescriptor);
 
-        return new TablePartitionId(table.tableId(), 0);
+            return new ZonePartitionId(zoneDescriptor.id(), 0);
+        } else {
+            TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
+
+            return new TablePartitionId(table.tableId(), 0);
+        }
     }
 
     private void commitAndValidate(InternalTransaction rwTx, Table publicTable, Tuple keyTpl) {
@@ -192,7 +206,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 NodeUtils.transferPrimary(
                         cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
-                        defaultTablePartitionId(node(0))
+                        defaultZonePartitionId(node(0))
                 );
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -253,7 +267,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 .getConfiguration(ReplicationExtensionConfiguration.KEY);
 
         replicationExtensionConfiguration.replication().change(replicationChange ->
-                replicationChange.changeRpcTimeout(3000));
+                replicationChange.changeRpcTimeoutMillis(3000));
 
         Context context = prepareTransactionData();
 
@@ -297,7 +311,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 NodeUtils.transferPrimary(
                         cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
-                        defaultTablePartitionId(node(0))
+                        defaultZonePartitionId(node(0))
                 );
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -325,13 +339,23 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
         TableImpl tableImpl = unwrapTableImpl(publicTable);
 
-        TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
+        TxStatePartitionStorage storage;
 
-        TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove !enabledColocation part.
+        if (colocationEnabled()) {
+            storage = primaryNode.partitionReplicaLifecycleManager().txStatePartitionStorage(tableImpl.internalTable().zoneId(), 0);
+        } else {
+            TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
+            storage = primaryTbl.internalTable().txStateStorage().getPartitionStorage(0);
+        }
+
+        ReplicationGroupId replicationGroupIdToEnlist =
+                colocationEnabled() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), 0) :
+                new TablePartitionId(tableImpl.tableId(), 0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tableImpl.tableId(), 0)),
+                asList(new EnlistedPartitionGroup(replicationGroupIdToEnlist, Set.of(tableImpl.tableId()))),
                 null
         );
         bypassingThreadAssertions(() -> storage.putForRebalance(tx.id(), txMetaToSet));
@@ -381,16 +405,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 },
                 10_000)
         );
-    }
-
-    private @Nullable Integer nodeIndex(String name) {
-        for (int i = 0; i < initialNodes(); i++) {
-            if (node(i).name().equals(name)) {
-                return i;
-            }
-        }
-
-        return null;
     }
 
     private static class Context {

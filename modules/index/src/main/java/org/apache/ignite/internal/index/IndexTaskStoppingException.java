@@ -17,6 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-/** An internal exception that will be thrown when the task stops. */
+/** An internal exception that will be thrown when the task (legitimately) stops. */
 class IndexTaskStoppingException extends RuntimeException {
 }

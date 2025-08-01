@@ -19,14 +19,15 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -62,27 +63,29 @@ public class SqlBenchmark {
     // @formatter:off
     private final TestCluster cluster = TestBuilders.cluster()
             .nodes("N1", "N2", "N3")
-            .addTable()
-                    .name("T1")
-                    .addKeyColumn("ID", NativeTypes.INT32)
-                    .addColumn("VAL", NativeTypes.stringOf(64))
-                    .end()
-            .dataProvider("N1", "T1", TestBuilders.tableScan(dataProvider))
-            .dataProvider("N2", "T1", TestBuilders.tableScan(dataProvider))
-            .dataProvider("N3", "T1", TestBuilders.tableScan(dataProvider))
             .build();
     // @formatter:on
 
     private final TestNode gatewayNode = cluster.node("N1");
-
-    private QueryPlan plan;
 
     /** Starts the cluster and prepares the plan of the query. */
     @Setup
     public void setUp() {
         cluster.start();
 
-        plan = gatewayNode.prepare("SELECT * FROM t1");
+        //noinspection ConcatenationWithEmptyString
+        cluster.node("N1").initSchema(""
+                + "CREATE ZONE test_zone (partitions 3) storage profiles ['Default'];"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR(64)) ZONE test_zone");
+
+        cluster.setAssignmentsProvider("T1", (partitionCount, b) -> {
+            assert partitionCount == 3;
+
+            return Stream.of("N1", "N2", "N3")
+                    .map(List::of)
+                    .collect(Collectors.toList());
+        });
+        cluster.setDataProvider("T1", TestBuilders.tableScan(dataProvider));
     }
 
     /** Stops the cluster. */
@@ -94,7 +97,7 @@ public class SqlBenchmark {
     /** Very simple test to measure performance of minimal possible distributed query. */
     @Benchmark
     public void selectAllSimple(Blackhole bh) {
-        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery("SELECT * FROM t1").requestNextAsync(10_000)).items()) {
             bh.consume(row);
         }
     }

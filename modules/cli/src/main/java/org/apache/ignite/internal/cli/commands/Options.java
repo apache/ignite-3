@@ -140,7 +140,8 @@ public enum Options {
 
         /** Verbose option description. */
         public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls. "
-                + "This flag is useful for debugging";
+                + "This flag is useful for debugging. Specify multiple options to increase verbosity for REST calls. "
+                + "Single option shows request and response, second option (-vv) shows headers, third one (-vvv) shows body";
 
         /** Help option long name. */
         public static final String HELP_OPTION = "--help";
@@ -292,8 +293,39 @@ public enum Options {
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
                 + "Case-sensitive, without quotes, all nodes if not set";
 
+        public static final String RECOVERY_METASTORAGE_REPLICATION_OPTION = "--metastorage-replication-factor";
+
+        public static final String RECOVERY_METASTORAGE_REPLICATION_DESC = "Number of nodes in the voting member set of the Metastorage "
+                + "RAFT group.";
+
+        public static final String RECOVERY_CMG_NODES_OPTION = "--cluster-management-group";
+
+        public static final String RECOVERY_CMG_NODES_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
+                + "'--cluster-management-group node1, node2' "
+                + "to specify more than one node) that will host the Cluster Management Group.";
+
+        /** Old cluster endpoint URL option long name. */
+        public static final String RECOVERY_OLD_CLUSTER_URL_OPTION = "--old-cluster-url";
+
+        /** Old cluster endpoint URL option description. */
+        public static final String RECOVERY_OLD_CLUSTER_URL_OPTION_DESC = "URL of old cluster endpoint (nodes of this cluster will be "
+                + "migrated to a new cluster). It can be URL of any node of the old cluster.";
+
+        /** New cluster endpoint URL option long name. */
+        public static final String RECOVERY_NEW_CLUSTER_URL_OPTION = "--new-cluster-url";
+
+        /** New cluster endpoint URL option description. */
+        public static final String RECOVERY_NEW_CLUSTER_URL_OPTION_DESC = "URL of new cluster endpoint (nodes of old cluster will be "
+                + "migrated to this cluster). It can be URL of any node of the new cluster.";
+
         public static final String CONFIG_FORMAT_OPTION = "--format";
 
         public static final String CONFIG_FORMAT_OPTION_DESC = "Output format. Valid values: ${COMPLETION-CANDIDATES}";
+
+        /** Config update file option long name. */
+        public static final String CONFIG_UPDATE_FILE_OPTION = "--file";
+
+        /** Config update file option description. */
+        public static final String CONFIG_UPDATE_FILE_OPTION_DESC = "Path to file with config update commands to execute";
     }
 }

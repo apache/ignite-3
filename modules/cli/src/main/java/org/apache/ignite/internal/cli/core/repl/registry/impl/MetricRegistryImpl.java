@@ -38,13 +38,13 @@ public class MetricRegistryImpl implements MetricRegistry, ConnectionEventListen
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;
 
+    @Nullable
     private LazyObjectRef<Set<String>> metricSourcesRef;
 
     @Override
     public Set<String> metricSources() {
-        return (metricSourcesRef == null || metricSourcesRef.get() == null)
-                ? Set.of()
-                : metricSourcesRef.get();
+        Set<String> sources = metricSourcesRef == null ? null : metricSourcesRef.get();
+        return sources == null ? Set.of() : sources;
     }
 
     /**

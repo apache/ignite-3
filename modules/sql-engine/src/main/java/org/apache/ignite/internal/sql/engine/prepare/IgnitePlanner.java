@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -41,7 +42,6 @@ import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -51,6 +51,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
@@ -70,6 +71,8 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlWith;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
@@ -79,7 +82,6 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.Program;
-import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -226,6 +228,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * @return Relational type representation of given SQL type.
      */
     public RelDataType convert(SqlDataTypeSpec typeSpec, boolean nullable) {
+        // Validate data type first.
+        validator().validateDataType(typeSpec);
         return typeSpec.deriveType(validator(), nullable);
     }
 
@@ -233,6 +237,22 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     @Override
     public RelNode convert(SqlNode sql) {
         throw new UnsupportedOperationException();
+    }
+
+    /** Derives hints from given relation node, if possible. */
+    List<RelHint> deriveHints(SqlNode node) {
+        SqlSelect select = null;
+        if (node instanceof SqlSelect) {
+            select = (SqlSelect) node;
+        } else if (node instanceof SqlWith && ((SqlWith) node).body instanceof SqlSelect) {
+            select = (SqlSelect) ((SqlWith) node).body;
+        }
+
+        if (select != null && select.hasHints()) {
+            return SqlUtil.getRelHint(cluster.getHintStrategies(), select.getHints());
+        }
+
+        return List.of();
     }
 
     /**
@@ -473,7 +493,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         // prevent join-reordering.
         final SqlToRelConverter.Config config = sqlToRelConverterCfg
                 .withExpand(false)
-                .withTrimUnusedFields(RelOptUtil.countJoins(root.rel) < 2);
+                .withTrimUnusedFields(true);
         SqlToRelConverter converter = sqlToRelConverter(validator(), catalogReader, config);
         boolean ordered = !root.collation.getFieldCollations().isEmpty();
         boolean dml = SqlKind.DML.contains(root.kind);
@@ -614,23 +634,26 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * Sets names of the rules which should be excluded from query optimization pipeline.
+     * Adds given rule to list of exclusion.
      *
-     * @param disabledRuleNames Names of the rules to exclude. The name can be derived from rule by
-     *     {@link Commons#shortRuleName(RelOptRule)}.
+     * @param ruleName Name of the rule to exclude. The name can be derived from rule by {@link Commons#shortRuleName(RelOptRule)}.
      */
-    public void setDisabledRules(Set<String> disabledRuleNames) {
-        ctx.rulesFilter(rulesSet -> {
-            List<RelOptRule> newSet = new ArrayList<>();
+    public void disableRule(String ruleName) {
+        ctx.disableRule(ruleName);
+    }
 
-            for (RelOptRule r : rulesSet) {
-                if (!disabledRuleNames.contains(shortRuleName(r))) {
-                    newSet.add(r);
-                }
-            }
+    /**
+     * Adds all rules with name from given collections to list of exclusion.
+     *
+     * @param ruleNamesToDisable Names of the rules to exclude. The name can be derived from rule by
+     *         {@link Commons#shortRuleName(RelOptRule)}.
+     */
+    public void disableRules(Collection<String> ruleNamesToDisable) {
+        if (nullOrEmpty(ruleNamesToDisable)) {
+            return;
+        }
 
-            return RuleSets.ofList(newSet);
-        });
+        ruleNamesToDisable.forEach(this::disableRule);
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {

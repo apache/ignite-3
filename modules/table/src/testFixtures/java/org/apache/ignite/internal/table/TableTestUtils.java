@@ -78,11 +78,43 @@ public class TableTestUtils {
             List<ColumnParams> columns,
             List<String> pkColumns
     ) {
+        createTable(
+                catalogManager,
+                schemaName,
+                zoneName,
+                tableName,
+                columns,
+                pkColumns,
+                null
+        );
+    }
+
+    /**
+     * Creates table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param zoneName Zone name or {@code null} to use default distribution zone.
+     * @param tableName Table name.
+     * @param columns Table columns.
+     * @param pkColumns Primary key columns.
+     * @param storageProfile Storage profile name.
+     */
+    public static void createTable(
+            CatalogManager catalogManager,
+            String schemaName,
+            @Nullable String zoneName,
+            String tableName,
+            List<ColumnParams> columns,
+            List<String> pkColumns,
+            @Nullable String storageProfile
+    ) {
         CatalogCommand command = CreateTableCommand.builder()
                 .schemaName(schemaName)
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
+                .storageProfile(storageProfile)
                 // Hash index for primary key is being used here,
                 // because such index only requests a list of column names.
                 .primaryKey(TableHashPrimaryKey.builder()
@@ -194,7 +226,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogTableDescriptor getTable(CatalogService catalogService, String tableName, long timestamp) {
-        return catalogService.table(tableName, timestamp);
+        return catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
     }
 
     /**
@@ -206,7 +238,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
 
         assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
@@ -222,7 +254,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, int tableId, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableId, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(tableId);
 
         assertNotNull(table, "tableId=" + table + ", timestamp=" + timestamp);
 
@@ -252,6 +284,18 @@ public class TableTestUtils {
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).id();
+    }
+
+    /**
+     * Returns zone ID for the given table.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getZoneIdByTableNameStrict(CatalogService catalogService, String tableName, long timestamp) {
+        return getTableStrict(catalogService, tableName, timestamp).zoneId();
     }
 
     /**
@@ -287,7 +331,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
-        return catalogService.aliveIndex(indexName, timestamp);
+        return catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
     }
 
     /**
@@ -299,7 +343,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.aliveIndex(indexName, timestamp);
+        CatalogIndexDescriptor index = catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
 
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -38,7 +37,7 @@ public interface ExchangeService extends LifecycleAware {
      * Asynchronously sends a batch of data to the specified node.
      *
      * @param nodeName The name of the node to which the data will be sent.
-     * @param queryId The ID of the query to which the data belongs.
+     * @param executionId The ID of the execution to which the data belongs.
      * @param fragmentId The ID of the fragment to which the data will be sent.
      * @param exchangeId The ID of the exchange through which the data will be sent.
      * @param batchId The ID of the batch to which the data belongs.
@@ -47,14 +46,14 @@ public interface ExchangeService extends LifecycleAware {
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the data has been sent.
      */
-    CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
+    CompletableFuture<Void> sendBatch(String nodeName, ExecutionId executionId, long fragmentId, long exchangeId, int batchId, boolean last,
             List<BinaryTupleMessage> rows);
 
     /**
      * Asynchronously requests data from the specified node.
      *
      * @param nodeName The name of the node from which the data will be requested.
-     * @param queryId The ID of the query for which the data is being requested.
+     * @param executionId The ID of the execution for which the data is being requested.
      * @param fragmentId The ID of the fragment from which the data will be requested.
      * @param exchangeId The ID of the exchange through which the data will be requested.
      * @param amountOfBatches The number of batches of data to request.
@@ -62,18 +61,18 @@ public interface ExchangeService extends LifecycleAware {
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the request message has been sent.
      */
-    CompletableFuture<Void> request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+    CompletableFuture<Void> request(String nodeName, ExecutionId executionId, long fragmentId, long exchangeId, int amountOfBatches,
             @Nullable SharedState state);
 
     /**
      * Asynchronously sends an error message to the specified node.
      *
      * @param nodeName The name of the node to which the error will be sent.
-     * @param queryId The ID of the query to which the error belongs.
+     * @param executionId The ID of the execution to which the error belongs.
      * @param fragmentId The ID of the fragment to which the error belongs.
      * @param error The error to send.
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the error message has been sent.
      */
-    CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error);
+    CompletableFuture<Void> sendError(String nodeName, ExecutionId executionId, long fragmentId, Throwable error);
 }

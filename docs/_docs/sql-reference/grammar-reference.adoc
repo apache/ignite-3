@@ -20,16 +20,22 @@ This section describes grammar elements that are common to multiple SQL function
 
 [.diagram-container]
 Diagram(
+Choice(0,
 Sequence(
-Optional('('),
+Choice(0,
+Sequence(
 Choice(0,Sequence(
 NonTerminal('column_name'),
+NonTerminal('data_type'))
+)),
+Sequence(
+Terminal('('),
+OneOrMore(Sequence(
+NonTerminal('column_name'),
 NonTerminal('data_type')),
-NonTerminal(',')
-),
-Optional(')')
-),
-)
+Terminal(',')
+),Terminal(')')
+)))))
 
 Keywords and parameters:
 
@@ -43,14 +49,25 @@ Referenced by:
 
 '''
 
-== column_list
+== column_name_or_list
 
 [.diagram-container]
-Diagram(Sequence(
-Optional('('),
-OneOrMore(NonTerminal('column_name'), ','),
-Optional(')')),
-)
+Diagram(
+Choice(0,
+Sequence(
+Choice(0,
+Sequence(
+Choice(0,Sequence(
+NonTerminal('column_name'))
+)),
+Sequence(
+Terminal('('),
+OneOrMore(Sequence(
+NonTerminal('column_name')),
+Terminal(',')
+),Terminal(')')
+)))))
+
 
 Keywords and parameters:
 

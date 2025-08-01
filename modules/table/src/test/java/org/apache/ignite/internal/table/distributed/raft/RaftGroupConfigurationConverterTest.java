@@ -22,6 +22,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.junit.jupiter.api.Test;
 
 class RaftGroupConfigurationConverterTest {
@@ -30,6 +32,8 @@ class RaftGroupConfigurationConverterTest {
     @Test
     void convertsAndParses() {
         RaftGroupConfiguration configuration = new RaftGroupConfiguration(
+                13L,
+                37L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),

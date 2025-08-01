@@ -70,7 +70,7 @@ to collect timestamps from the entire cluster in one round trip.
 
 This stage consists of the following steps:
 
-1. Each node uses [ActiveLocalTxMinimumBeginTimeProvider](../transactions/src/main/java/org/apache/ignite/internal/tx/ActiveLocalTxMinimumBeginTimeProvider.java)
+1. Each node uses [ActiveLocalTxMinimumRequiredTimeProvider](../transactions/src/main/java/org/apache/ignite/internal/tx/ActiveLocalTxMinimumRequiredTimeProvider.java)
    to determine the minimum begin time among all local active read-write transactions and sends it to coordinator.
 2. Coordinator calculates global minimum and sends it to all nodes using [CatalogCompactionPrepareUpdateTxBeginTimeMessage](src/main/java/org/apache/ignite/internal/catalog/compaction/message/CatalogCompactionPrepareUpdateTxBeginTimeMessage.java).
 3. Each node stores this time within replication groups for which the local node is the leader  
@@ -84,8 +84,8 @@ This stage consists of the following steps:
 ![Replicas update](tech-notes/compaction.png)
 
 1. Each node determines the local minimum required time, this consists of the following steps:
-   1. Using the introduced `RaftGroupStateProvider` to determine minimum time among all published
-      timestamps (`minTxTime`) in local replication groups.
+   1. Using the introduced [MinimumRequiredTimeCollectorService](../table/src/main/java/org/apache/ignite/internal/table/distributed/raft/MinimumRequiredTimeCollectorService.java)
+      to determine minimum time among all published timestamps (`minTxTime`) in local replication groups.
    2. If `minTxTime` is not published yet, the current iteration of compaction is aborted.
    3. Selects minimum between determined minimum `minTxTime` and current `low watermark`.
 2. Each node sends the calculated local minimum timestamp to the coordinator,

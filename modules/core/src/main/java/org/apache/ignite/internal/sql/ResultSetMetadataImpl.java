@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -65,7 +65,7 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
     /** {@inheritDoc} */
     @Override
     public int indexOf(String columnName) {
-        return columnsIndices.getOrDefault(parseSimpleName(columnName), -1);
+        return columnsIndices.getOrDefault(parseIdentifier(columnName), -1);
     }
 
     /** {@inheritDoc} */

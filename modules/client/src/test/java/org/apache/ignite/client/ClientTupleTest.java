@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,6 +37,10 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
@@ -169,10 +175,26 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(STRING_VALUE, tuple.stringValue(7));
         assertEquals(STRING_VALUE, tuple.stringValue("str"));
 
+        assertEquals(DATE_VALUE, tuple.dateValue(8));
         assertEquals(DATE_VALUE, tuple.dateValue("date"));
+
+        assertEquals(TIME_VALUE, tuple.timeValue(9));
         assertEquals(TIME_VALUE, tuple.timeValue("time"));
+
+        assertEquals(DATETIME_VALUE, tuple.datetimeValue(10));
         assertEquals(DATETIME_VALUE, tuple.datetimeValue("datetime"));
+
+        assertEquals(TIMESTAMP_VALUE, tuple.timestampValue(11));
         assertEquals(TIMESTAMP_VALUE, tuple.timestampValue("timestamp"));
+
+        assertTrue(tuple.booleanValue(12));
+        assertTrue(tuple.booleanValue("bool"));
+
+        assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue(13));
+        assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue("decimal"));
+
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue(14));
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue("bytes"));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
@@ -257,9 +279,85 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(valTupleUser, valTuplePartialData);
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
+    public void testKeyOnlyDoesNotReturnValColumns() {
+        Tuple keyTupleWithFullRow = createTuplePart(TuplePart.KEY, false);
+
+        assertEquals(-1, keyTupleWithFullRow.columnIndex("I8"));
+        assertEquals(-1, keyTupleWithFullRow.columnIndex("\"i16\""));
+
+        assertThrows(IllegalArgumentException.class, () -> keyTupleWithFullRow.byteValue("I8"), "Column doesn't exist [name=I8]");
+        assertThrows(IllegalArgumentException.class, () -> keyTupleWithFullRow.byteValue("\"i16\""), "Column doesn't exist [name=\"i16\"]");
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @Test
+    public void testValOnlyDoesNotReturnKeyColumns() {
+        Tuple valTupleWithFullRow = createTuplePart(TuplePart.VAL, false);
+
+        assertEquals(-1, valTupleWithFullRow.columnIndex("I32"));
+        assertEquals(-1, valTupleWithFullRow.columnIndex("\"STR\""));
+
+        assertThrows(IllegalArgumentException.class, () -> valTupleWithFullRow.byteValue("I32"), "Column doesn't exist [name=I32]");
+        assertThrows(IllegalArgumentException.class, () -> valTupleWithFullRow.byteValue("\"STR\""), "Column doesn't exist [name=\"STR\"]");
+    }
+
+    @SuppressWarnings("DynamicRegexReplaceableByCompiledPattern")
+    @Test
+    public void testToString() {
+        Tuple tuple = getTupleWithColumnOfAllTypes();
+
+        // Before mutation.
+        assertEquals(
+                "ClientTuple [I8=1, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
+                        + "UUID=" + UUID_VALUE + ", STR=" + STRING_VALUE + ", DATE=" + DATE_VALUE + ", "
+                        + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
+                        + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
+                        + "BYTES=, PERIOD=P16D, DURATION=PT408H]",
+                tuple.toString().replaceAll("\\[B@\\w+", ""));
+
+        // After mutation (different impl).
+        tuple.set("I8", 2).set("BYTES", null);
+
+        assertEquals(
+                "ClientTuple [I8=2, \"i16\"=2, I32=3, \"i64\"=4, FLOAT=5.5, DOUBLE=6.6, "
+                        + "UUID=" + UUID_VALUE + ", STR=" + STRING_VALUE + ", DATE=" + DATE_VALUE + ", "
+                        + "TIME=" + TIME_VALUE + ", DATETIME=" + DATETIME_VALUE + ", "
+                        + "TIMESTAMP=" + TIMESTAMP_VALUE + ", BOOL=true, DECIMAL=1.234, "
+                        + "BYTES=null, PERIOD=P16D, DURATION=PT408H]",
+                tuple.toString());
+    }
+
+    @Test
+    public void testToStringMatchesTupleImpl() {
+        Tuple clientTuple = getTuple();
+        Tuple tupleImpl = Tuple.copy(clientTuple);
+
+        assertEquals(
+                tupleImpl.toString().replace("TupleImpl ", ""),
+                clientTuple.toString().replace("ClientTuple ", ""));
+    }
+
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(getTuple());
+    }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        ClientSchema clientSchema = new ClientSchema(1, new ClientColumn[]{
+                new ClientColumn(columnName, type, false, 0, -1, 0, 0, 5, 0)
+        }, marshallers);
+
+        NativeType nativeType = NativeTypes.fromObject(value);
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.create(new Element[]{new Element(nativeType, false)});
+
+        var builder = new BinaryTupleBuilder(1);
+        binaryTupleSchema.appendValue(builder, 0, value);
+
+        var reader = new BinaryTupleReader(1, builder.build());
+        return new ClientTuple(clientSchema, TuplePart.KEY_AND_VAL, reader);
     }
 
     @Override

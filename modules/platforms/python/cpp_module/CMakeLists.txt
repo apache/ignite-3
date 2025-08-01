@@ -15,16 +15,16 @@
 # limitations under the License.
 #
 
-project(_pyignite3_extension)
+project(_pyignite_dbapi_extension)
 
 set(TARGET ${PROJECT_NAME})
-
-find_package(ODBC REQUIRED)
 
 set(SOURCES
     module.cpp
     py_connection.cpp
     py_cursor.cpp
+    statement.cpp
+    utils.cpp
 )
 
 set(LIBRARIES
@@ -32,14 +32,16 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
-    ignite3-odbc-obj
 )
+
+if(APPLE)
+    add_link_options(-undefined dynamic_lookup)
+endif()
 
 add_library(${TARGET} SHARED ${SOURCES})
 
 target_include_directories(${TARGET} PUBLIC
     ${Python3_INCLUDE_DIRS}
-    ${ODBC_INCLUDE_DIRS}
 )
 
 if(NOT DEFINED EXTENSION_FILENAME)
@@ -54,6 +56,11 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES SUFFIX ".pyd")
     target_link_libraries(${TARGET} ${Python3_LIBRARIES})
     remove_definitions(-DUNICODE=1)
+elseif(APPLE)
+    set_target_properties(${TARGET} PROPERTIES
+        PREFIX ""
+        SUFFIX ".so"
+    )
 else()
     set_target_properties(${TARGET} PROPERTIES PREFIX "")
 endif()

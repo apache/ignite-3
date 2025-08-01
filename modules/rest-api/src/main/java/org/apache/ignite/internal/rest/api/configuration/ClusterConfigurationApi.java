@@ -46,7 +46,11 @@ public interface ClusterConfigurationApi {
      *
      * @return the whole cluster configuration in HOCON format.
      */
-    @Operation(operationId = "getClusterConfiguration", description = "Gets the current configuration of the cluster.")
+    @Operation(
+            operationId = "getClusterConfiguration",
+            summary = "Get cluster configuration",
+            description = "Gets the current configuration of the cluster. The configuration is returned in HOCON format."
+    )
     @ApiResponse(
             responseCode = "200", description = "Received cluster configuration.",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
@@ -65,14 +69,19 @@ public interface ClusterConfigurationApi {
      *
      * @param updatedConfiguration the cluster configuration to update.
      */
-    @Operation(operationId = "updateClusterConfiguration", description = "Updates cluster configuration. "
-            + "New configuration should be provided in HOCON format.")
+    @Operation(
+            operationId = "updateClusterConfiguration",
+            summary = "Update cluster configuration",
+            description = "Updates cluster configuration. New configuration should be provided in HOCON format."
+    )
     @ApiResponse(responseCode = "200", description = "Configuration updated.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "404", description = "Configuration not found. Most likely, the cluster is not initialized.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "422", description = "Configuration parse error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
@@ -87,8 +96,11 @@ public interface ClusterConfigurationApi {
      * @param path to represent a cluster configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getClusterConfigurationByPath",
-            description = "Gets the configuration on the specific path. Configuration is in HOCON format")
+    @Operation(
+            operationId = "getClusterConfigurationByPath",
+            summary = "Get configuration represented by path",
+            description = "Gets the configuration on the specific path. Configuration is in HOCON format"
+    )
     @ApiResponse(responseCode = "200", description = "Configuration of the cluster on the specified path.",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
     @ApiResponse(responseCode = "500", description = "Internal error.",

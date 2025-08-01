@@ -18,14 +18,18 @@
 package org.apache.ignite.client;
 
 /**
- * This interface provides a list of addresses of Ignite server nodes within a cluster. Thin client uses the list to route user requests.
- * There are cases when the list is not static, for example in cloud environment. In such cases addresses of nodes and/or number of server
- * nodes can change. Implementation of this interface should handle these.
+ * Provides a list of Ignite node addresses.
+ *
+ * <p>Unlike {@link IgniteClientConfiguration#addresses()}, this interface allows to provide addresses dynamically and handle
+ * changes in the cluster topology.
+ *
+ * <p>Ignite client will periodically call {@link #getAddresses()} method to get the actual list of addresses.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface IgniteClientAddressFinder {
     /**
-     * Get addresses of Ignite server nodes within a cluster. An address can be IPv4 address or hostname, with or without port. If port is
-     * not set then Ignite will generate multiple addresses for default port range.
+     * Get addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
+     * If port is not set then Ignite will use the default port - {@link IgniteClientConfiguration#DFLT_PORT}.
      *
      * @return Addresses of Ignite server nodes within a cluster.
      */

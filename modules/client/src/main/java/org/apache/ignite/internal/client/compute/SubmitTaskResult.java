@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,8 +31,8 @@ import org.jetbrains.annotations.Nullable;
 class SubmitTaskResult extends SubmitResult {
     private final List<UUID> jobIds;
 
-    SubmitTaskResult(UUID jobId, List<UUID> jobIds, CompletableFuture<PayloadInputChannel> notificationFuture) {
-        super(jobId, notificationFuture);
+    SubmitTaskResult(UUID jobId, List<UUID> jobIds, ClusterNode node, CompletableFuture<PayloadInputChannel> notificationFuture) {
+        super(jobId, node, notificationFuture);
         this.jobIds = jobIds;
     }
 

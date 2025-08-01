@@ -27,14 +27,15 @@ import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeMetaIo;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,6 +53,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     @Nullable
     private final BinaryTupleComparator binaryTupleComparator;
 
+    @Nullable
+    private final PartialBinaryTupleMatcher partialBinaryTupleMatcher;
+
     /** Inline size in bytes. */
     private final int inlineSize;
 
@@ -62,7 +66,6 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -77,20 +80,20 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             StorageSortedIndexDescriptor indexDescriptor,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = initNew
                 ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
                 : readInlineSizeFromMetaIo();
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
-        this.binaryTupleComparator = new BinaryTupleComparator(indexDescriptor.columns());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
+        this.binaryTupleComparator = StorageUtils.binaryTupleComparator(indexDescriptor.columns());
+        this.partialBinaryTupleMatcher = StorageUtils.partialBinaryTupleComparator(indexDescriptor.columns());
 
         init(initNew);
     }
@@ -102,7 +105,6 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -114,16 +116,16 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
-        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+        this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = null;
+        this.partialBinaryTupleMatcher = null;
 
         init(false);
     }
@@ -136,13 +138,12 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             StorageSortedIndexDescriptor indexDescriptor
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList, indexDescriptor, true);
+        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, true);
     }
 
     /**
@@ -153,13 +154,12 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             StorageSortedIndexDescriptor indexDescriptor
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList, indexDescriptor, false);
+        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList, indexDescriptor, false);
     }
 
     /**
@@ -170,12 +170,11 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
-        return new SortedIndexTree(grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        return new SortedIndexTree(grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
     }
 
     private void init(boolean initNew) throws IgniteInternalCheckedException {
@@ -211,7 +210,15 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             throws IgniteInternalCheckedException {
         SortedIndexTreeIo sortedIndexTreeIo = (SortedIndexTreeIo) io;
 
-        return sortedIndexTreeIo.compare(dataPageReader, getBinaryTupleComparator(), partId, pageAddr, idx, row);
+        return sortedIndexTreeIo.compare(
+                dataPageReader,
+                getBinaryTupleComparator(),
+                getPartialBinaryTupleComparator(),
+                partId,
+                pageAddr,
+                idx,
+                row
+        );
     }
 
     @Override
@@ -231,7 +238,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     private int readInlineSizeFromMetaIo() throws IgniteInternalCheckedException {
         Integer inlineSize = read(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> ((SortedIndexTreeMetaIo) io).getInlineSize(pageAddr),
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> ((SortedIndexTreeMetaIo) io).getInlineSize(pageAddr),
                 null,
                 0,
                 -1
@@ -245,14 +252,13 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     private void writeInlineSizeToMetaIo(int inlineSize) throws IgniteInternalCheckedException {
         Boolean result = write(
                 metaPageId,
-                (groupId, pageId, page, pageAddr, io, arg, intArg, statHolder) -> {
+                (groupId, pageId, page, pageAddr, io, arg, intArg) -> {
                     ((SortedIndexTreeMetaIo) io).setInlineSize(pageAddr, inlineSize);
 
                     return Boolean.TRUE;
                 },
                 0,
-                Boolean.FALSE,
-                statisticsHolder()
+                Boolean.FALSE
         );
 
         assert result == Boolean.TRUE : result;
@@ -265,5 +271,14 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         assert binaryTupleComparator != null : "This index tree must only be used for destruction during recovery";
 
         return binaryTupleComparator;
+    }
+
+    /**
+     * Returns comparator of index columns {@link BinaryTuple}s.
+     */
+    PartialBinaryTupleMatcher getPartialBinaryTupleComparator() {
+        assert partialBinaryTupleMatcher != null : "This index tree must only be used for destruction during recovery";
+
+        return partialBinaryTupleMatcher;
     }
 }

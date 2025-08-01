@@ -40,7 +40,11 @@ public interface TopologyApi {
      * Cluster physical topology.
      */
     @Get("physical")
-    @Operation(operationId = "physical", description = "Gets information about physical cluster topology.")
+    @Operation(
+            operationId = "physical",
+            summary = "Get physical topology",
+            description = "Gets information about physical cluster topology."
+    )
     @ApiResponse(responseCode = "200", description = "Physical topology returned.",
             content = @Content(mediaType = MediaType.APPLICATION_JSON,
                     array = @ArraySchema(schema = @Schema(implementation = ClusterNode.class))))
@@ -52,7 +56,11 @@ public interface TopologyApi {
      * Cluster logical topology.
      */
     @Get("logical")
-    @Operation(operationId = "logical", description = "Gets information about logical cluster topology.")
+    @Operation(
+            operationId = "logical",
+            summary = "Get logical topology",
+            description = "Gets information about logical cluster topology."
+    )
     @ApiResponse(responseCode = "200", description = "Logical topology returned.",
             content = @Content(mediaType = MediaType.APPLICATION_JSON,
                     array = @ArraySchema(schema = @Schema(implementation = ClusterNode.class))))

@@ -18,19 +18,25 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.hamcrest.CoreMatchers;
+import org.apache.ignite.table.QualifiedName;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
 
@@ -39,13 +45,8 @@ public interface QueryChecker {
     Object[] NULL_AS_VARARG = {null};
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
-    static Matcher<String> containsUnion(boolean all) {
-        return CoreMatchers.containsString("UnionAll(all=[" + all + "])");
-    }
-
-    /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion() {
-        return CoreMatchers.containsString("UnionAll(all=");
+        return matchesOnce("UnionAll");
     }
 
     /**
@@ -56,7 +57,45 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsTableScan(String schema, String tblName) {
-        return containsSubPlan("TableScan(table=[[" + schema + ", " + tblName + "]]");
+        return matchesOnce("TableScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+    }
+
+    /**
+     * Matcher which ensures that node matching the pattern has row count matching provided matcher.
+     *
+     * @param nodePattern A pattern describing a node of interest.
+     * @param rowCountMatcher Matcher for the estimated row count.
+     * @return Matcher.
+     */
+    static Matcher<String> nodeRowCount(String nodePattern, Matcher<Integer> rowCountMatcher) {
+        Pattern pattern = Pattern.compile(".*" + nodePattern 
+                + ".*?est: \\(rows=(?<rowcount>\\d+).*");
+
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object o) {
+                if (!(o instanceof String)) {
+                    return false;
+                }
+
+                String sanitized = ((String) o).replace("\n", "");
+                java.util.regex.Matcher matcher = pattern.matcher(sanitized);
+
+                if (!matcher.matches()) {
+                    return false;
+                }
+
+                String rowCountString = matcher.group("rowcount");
+
+                return rowCountMatcher.matches(new BigDecimal(rowCountString).intValue());
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("node that matches pattern \"" + nodePattern + "\" should have \"rowcount\" that ");
+                description.appendDescriptionOf(rowCountMatcher);
+            }
+        };
     }
 
     /**
@@ -67,8 +106,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return matchesOnce(".*IndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
-                + " tableId=\\[.*\\].*\\)");
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
     }
 
     /**
@@ -80,43 +118,22 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
-        return matchesOnce(".*IndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
-                + " tableId=\\[.*\\], index=\\[" + idxName + "\\].*\\)");
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName);
     }
 
     /**
-     * Ignite table|index scan with projects unmatcher.
+     * Ignite index scan matcher which checks for the presence of search bounds.
      *
      * @param schema Schema name.
      * @param tblName Table name.
+     * @param idxName Index name.
      * @return Matcher.
      */
-    static Matcher<String> notContainsProject(String schema, String tblName) {
-        return CoreMatchers.not(containsSubPlan("Scan(table=[[" + schema + ", "
-                + tblName + "]], " + "requiredColumns="));
-    }
-
-    /**
-     * {@link #containsProject(String, String, int...)} reverter.
-     */
-    static Matcher<String> notContainsProject(String schema, String tblName, int... requiredColumns) {
-        return CoreMatchers.not(containsProject(schema, tblName, requiredColumns));
-    }
-
-    /**
-     * Ignite table|index scan with projects matcher.
-     *
-     * @param schema Schema name.
-     * @param tblName Table name.
-     * @param requiredColumns columns in projection.
-     * @return Matcher.
-     */
-    static Matcher<String> containsProject(String schema, String tblName, int... requiredColumns) {
-        return matches(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
-                + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
-                + Arrays.toString(requiredColumns)
-                .replaceAll("\\[", "")
-                .replaceAll("]", "") + "\\}\\].*");
+    static Matcher<String> containsIndexScanWithAnySearchBounds(String schema, String tblName, String idxName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: ");
     }
 
     /**
@@ -124,27 +141,12 @@ public interface QueryChecker {
      *
      * @param schema Schema name.
      * @param tblName Table name.
-     * @param requiredColumns columns in projection.
+     * @param names Columns in projection.
      * @return Matcher.
      */
-    static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColumns) {
-        return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
-                + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
-                + Arrays.toString(requiredColumns)
-                .replaceAll("\\[", "")
-                .replaceAll("]", "") + "\\}\\].*");
-    }
-
-    /**
-     * Ignite table|index scan with any project matcher.
-     *
-     * @param schema Schema name.
-     * @param tblName Table name.
-     * @return Matcher.
-     */
-    static Matcher<String> containsAnyProject(String schema, String tblName) {
-        return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
-                + tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
+    static Matcher<String> containsProject(String schema, String tblName, String... names) {
+        return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?fieldNames: \\[" + String.join(", ", List.of(names)) + "\\]");
     }
 
     /**
@@ -154,7 +156,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsSubPlan(String subPlan) {
-        return CoreMatchers.containsString(subPlan);
+        return containsString(subPlan);
     }
 
     /**
@@ -253,8 +255,8 @@ public interface QueryChecker {
     }
 
     /** Matches only one occurrence. */
-    static Matcher<String> matchesOnce(String substring) {
-        return new SubstringMatcher("contains once", false, substring) {
+    static Matcher<String> matchesOnce(String pattern) {
+        return new SubstringMatcher("contains once", false, pattern) {
             /** {@inheritDoc} */
             @Override
             protected boolean evalSubstringOf(String strIn) {
@@ -284,10 +286,10 @@ public interface QueryChecker {
      */
     static Matcher<String> containsAnyScan(String schema, String tblName, String... idxNames) {
         if (nullOrEmpty(idxNames)) {
-            return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\].*");
+            return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
         }
 
-        return CoreMatchers.anyOf(
+        return anyOf(
                 Arrays.stream(idxNames).map(idx -> containsIndexScan(schema, tblName, idx)).collect(Collectors.toList())
         );
     }
@@ -300,9 +302,15 @@ public interface QueryChecker {
 
     QueryChecker withTimeZoneId(ZoneId timeZoneId);
 
+    QueryChecker withDefaultSchema(String schema);
+
     QueryChecker disableRules(String... rules);
 
+    /** Adds validator that ensures the next row in resultset equals to the one represented by array. */
     QueryChecker returns(Object... res);
+
+    /** Adds validator that ensures the next row in resultset satisfies the given matcher. */
+    QueryChecker results(Matcher<List<List<?>>> matcher);
 
     QueryChecker returnNothing();
 

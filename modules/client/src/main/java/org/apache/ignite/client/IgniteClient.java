@@ -17,13 +17,12 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -81,14 +81,8 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         /** Connect timeout. */
         private long connectTimeout = DFLT_CONNECT_TIMEOUT;
 
-        /** Reconnect throttling period. */
-        private long reconnectThrottlingPeriod = DFLT_RECONNECT_THROTTLING_PERIOD;
-
-        /** Reconnect throttling retries. */
-        private int reconnectThrottlingRetries = DFLT_RECONNECT_THROTTLING_RETRIES;
-
         /** Reconnect interval, in milliseconds. */
-        private long reconnectInterval = DFLT_RECONNECT_INTERVAL;
+        private long backgroundReconnectInterval = DFLT_BACKGROUND_RECONNECT_INTERVAL;
 
         /** Async continuation executor. */
         private Executor asyncContinuationExecutor;
@@ -116,6 +110,8 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /** Operation timeout. */
         private long operationTimeout = DFLT_OPERATION_TIMEOUT;
+
+        private int sqlPartitionAwarenessMetadataCacheSize = DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -194,58 +190,24 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         }
 
         /**
-         * Sets the reconnect throttling period, in milliseconds.
-         *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.
-         *
-         * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
-         * @return This instance.
-         */
-        public Builder reconnectThrottlingPeriod(long reconnectThrottlingPeriod) {
-            this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
-
-            return this;
-        }
-
-        /**
-         * Sets the reconnect throttling retries.
-         *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.
-         *
-         * @param reconnectThrottlingRetries Reconnect throttling retries.
-         * @return This instance.
-         * @throws IllegalArgumentException When value is less than zero.
-         */
-        public Builder reconnectThrottlingRetries(int reconnectThrottlingRetries) {
-            if (reconnectThrottlingRetries < 0) {
-                throw new IllegalArgumentException("Reconnect throttling retries ["
-                        + reconnectThrottlingRetries + "] must be a non-negative integer value.");
-            }
-
-            this.reconnectThrottlingRetries = reconnectThrottlingRetries;
-
-            return this;
-        }
-
-        /**
-         * Sets the reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
+         * Sets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
          *
          * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
          * Ignite also repairs connections on demand (when a request is made).
          * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
          * client will check all configured endpoints and try to reconnect them in case of failure.
          *
-         * @param reconnectInterval Reconnect interval, in milliseconds.
+         * @param backgroundReconnectInterval Reconnect interval, in milliseconds.
          * @return This instance.
          * @throws IllegalArgumentException When value is less than zero.
          */
-        public Builder reconnectInterval(long reconnectInterval) {
-            if (reconnectInterval < 0) {
-                throw new IllegalArgumentException("reconnectInterval ["
-                        + reconnectInterval + "] must be a non-negative integer value.");
+        public Builder backgroundReconnectInterval(long backgroundReconnectInterval) {
+            if (backgroundReconnectInterval < 0) {
+                throw new IllegalArgumentException("backgroundReconnectInterval ["
+                        + backgroundReconnectInterval + "] must be a non-negative integer value.");
             }
 
-            this.reconnectInterval = reconnectInterval;
+            this.backgroundReconnectInterval = backgroundReconnectInterval;
 
             return this;
         }
@@ -283,6 +245,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatInterval(long heartbeatInterval) {
+            if (heartbeatInterval < 0) {
+                throw new IllegalArgumentException("Heartbeat interval [" + heartbeatInterval + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatInterval = heartbeatInterval;
 
             return this;
@@ -297,6 +264,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatTimeout(long heartbeatTimeout) {
+            if (heartbeatTimeout < 0) {
+                throw new IllegalArgumentException("Heartbeat timeout [" + heartbeatTimeout + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatTimeout = heartbeatTimeout;
 
             return this;
@@ -316,6 +288,18 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /**
          * Enables or disables JMX metrics.
+         *
+         * <p>When enabled, Ignite client will expose JMX metrics via the platform MBean server
+         * with bean name "org.apache.ignite:group=metrics,name=client".
+         *
+         * <p>Use {@code jconsole} or any other JMX client to view the metrics.
+         *
+         * <p>To get metrics programmatically:
+         * {@code MBeanServerInvocationHandler.newProxyInstance(ManagementFactory.getPlatformMBeanServer(),
+         * new ObjectName("org.apache.ignite:group=metrics,name=client"), DynamicMBean.class, false).getAttribute("ConnectionsActive")}
+         *
+         * <p>See <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jmx/">Java Management Extensions (JMX)</a>
+         * for more information.
          *
          * @param metricsEnabled Metrics enabled flag.
          * @return This instance.
@@ -343,6 +327,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         /**
          * Sets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
          *
+         * <p>An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
+         * which case the operation timeout is applied to each individual network call.
+         *
          * @param operationTimeout Operation timeout, in milliseconds.
          * @return This instance.
          * @throws IllegalArgumentException When value is less than zero.
@@ -354,6 +341,48 @@ public interface IgniteClient extends Ignite, AutoCloseable {
             }
 
             this.operationTimeout = operationTimeout;
+
+            return this;
+        }
+
+        /**
+         * Sets the size of cache to store partition awareness metadata of sql queries, in number of entries. Default is
+         * {@value IgniteClientConfiguration#DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+         *
+         * <p>SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+         * relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and
+         * leverages this cache to speed up subsequent queries.
+         *
+         * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve
+         * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available for
+         * queries which have equality predicate over all colocation columns, or which inserts the whole tuple. Let's consider the following
+         * example:
+         * <pre>
+         *     // Creates reservations table. Please mind the {@code COLOCATE BY (floor_no)}: all reservations are colocated by
+         *     // {@code floor_no}.
+         *     CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+         *
+         *     // Here, we are selecting all reserved rooms on a particular floor. All reservation are colocated by {@code floor_no},
+         *     // therefore having predicate like {@code floor_no = ?} make it possible to compute a partition which keeps the data of
+         *     // interest. Which in turn makes it possible to send the query directly to the node that hold the relevant data.
+         *     SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+         *
+         *     // Similar with INSERT: since values of dynamic parameters are known on a client, it makes it possible to route the
+         *     // query directly to the node that hold the relevant data.
+         *     INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+         * </pre>
+         *
+         * @param size Cache size, in number of entries.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder sqlPartitionAwarenessMetadataCacheSize(int size) {
+            if (size < 0) {
+                throw new IllegalArgumentException("Partition awareness metadata cache size [" + size + "] "
+                        + "must be a non-negative integer value.");
+            }
+
+            this.sqlPartitionAwarenessMetadataCacheSize = size;
 
             return this;
         }
@@ -377,9 +406,7 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     addressFinder,
                     addresses,
                     connectTimeout,
-                    reconnectThrottlingPeriod,
-                    reconnectThrottlingRetries,
-                    reconnectInterval,
+                    backgroundReconnectInterval,
                     asyncContinuationExecutor,
                     heartbeatInterval,
                     heartbeatTimeout,
@@ -388,7 +415,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     sslConfiguration,
                     metricsEnabled,
                     authenticator,
-                    operationTimeout);
+                    operationTimeout,
+                    sqlPartitionAwarenessMetadataCacheSize
+            );
 
             return TcpIgniteClient.startAsync(cfg);
         }

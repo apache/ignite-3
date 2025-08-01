@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -44,7 +44,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -67,7 +67,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -108,7 +108,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(messagingService);
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("foo", 0)));
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("foo", 0)));
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
@@ -116,7 +116,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(nodeName, "partition-operations", log)
+                IgniteThreadFactory.create(nodeName, "partition-operations", log)
         );
 
         RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
@@ -130,13 +130,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new NoOpFailureProcessor(),
+                new NoOpFailureManager(),
                 marshaller,
                 raftGroupServiceFactory,
                 raftManager,
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                replicaGrpId -> nullCompletedFuture()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -184,7 +185,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 any(RaftGroupOptions.class),
                 any(TopologyAwareRaftGroupServiceFactory.class))
         )
-                .thenReturn(completedFuture(raftGroupService));
+                .thenReturn(raftGroupService);
 
         when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
         when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());

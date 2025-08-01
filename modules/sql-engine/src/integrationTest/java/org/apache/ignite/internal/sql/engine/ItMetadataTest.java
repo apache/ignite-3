@@ -70,8 +70,8 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
-        assertQuery("select ceil(salary), floor(salary), position('text' IN salary) from person")
-                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+        assertQuery("select ceil(salary), floor(salary), position('text' IN name) from person")
+                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN NAME)").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
         assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
@@ -168,7 +168,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                 + "VARCHAR_C VARCHAR, " + "VARCHAR_C2 VARCHAR(125), "
 
                 // Binary string types
-                + "BINARY_C BINARY, " + "BINARY_C2 BINARY(65536), " + "VARBINARY_C VARBINARY, " + "VARBINARY_C2 VARBINARY(125), "
+                + "VARBINARY_C VARBINARY, " + "VARBINARY_C2 VARBINARY(125), "
 
                 // Datetime types
                 // ANSI`99 syntax "WITH TIME ZONE" is not supported,
@@ -224,8 +224,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-                        new MetadataMatcher().name("BINARY_C").type(ColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("BINARY_C2").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARBINARY_C2").type(ColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 

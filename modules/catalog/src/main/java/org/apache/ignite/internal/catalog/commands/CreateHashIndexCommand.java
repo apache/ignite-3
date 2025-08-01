@@ -50,15 +50,14 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
             boolean ifNotExists,
             String tableName,
             boolean unique,
-            List<String> columns,
-            boolean isCreatedWithTable
+            List<String> columns
     ) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns);
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status) {
-        return new CatalogHashIndexDescriptor(indexId, indexName, tableId, unique, status, columns, isCreatedWithTable);
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
+        return new CatalogHashIndexDescriptor(indexId, indexName, tableId, unique, status, columns, createdWithTable);
     }
 
     private static class Builder implements CreateHashIndexCommandBuilder {
@@ -68,7 +67,6 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
         private String tableName;
         private List<String> columns;
         private boolean unique;
-        private boolean isCreatedWithTable;
 
         @Override
         public Builder tableName(String tableName) {
@@ -113,15 +111,8 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
-        public CreateHashIndexCommandBuilder isCreatedWithTable(boolean isCreatedWithTable) {
-            this.isCreatedWithTable = isCreatedWithTable;
-
-            return this;
-        }
-
-        @Override
         public CatalogCommand build() {
-            return new CreateHashIndexCommand(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
+            return new CreateHashIndexCommand(schemaName, indexName, ifNotExists, tableName, unique, columns);
         }
     }
 }

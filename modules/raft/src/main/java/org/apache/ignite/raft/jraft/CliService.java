@@ -129,9 +129,10 @@ public interface CliService extends Lifecycle<CliOptions> {
      *
      * @param groupId the raft group id
      * @param peer target peer
+     * @param forced {code True} to force snapshot and log truncation
      * @return operation status
      */
-    Status snapshot(final String groupId, final PeerId peer);
+    Status snapshot(final String groupId, final PeerId peer, boolean forced);
 
     /**
      * Get the leader of the replication group.

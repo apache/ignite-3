@@ -1,0 +1,124 @@
+# description: Tests for printout of Sort and Limit operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
+# simple fetch
+explain plan
+SELECT * FROM system_range(1, 10) LIMIT 5;
+----
+Limit
+    fetch: 5
+    est: (rows=5)
+  TableFunctionScan
+      fieldNames: [X]
+      invocation: SYSTEM_RANGE(1, 10)
+      est: (rows=100)
+
+# simple offset
+explain plan
+SELECT * FROM system_range(1, 10) OFFSET 5;
+----
+Limit
+    offset: 5
+    est: (rows=95)
+  TableFunctionScan
+      fieldNames: [X]
+      invocation: SYSTEM_RANGE(1, 10)
+      est: (rows=100)
+
+# offset + fetch
+explain plan
+SELECT * FROM system_range(1, 10) OFFSET 5 ROWS FETCH FIRST 30 ROWS ONLY;
+----
+Limit
+    offset: 5
+    fetch: 30
+    est: (rows=30)
+  TableFunctionScan
+      fieldNames: [X]
+      invocation: SYSTEM_RANGE(1, 10)
+      est: (rows=100)
+
+# simple sort
+explain plan
+SELECT * 
+  FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
+ ORDER BY c1 DESC NULLS FIRST, c2 ASC NULLS FIRST;
+----
+Sort
+    collation: [C1 DESC, C2 ASC NULLS FIRST]
+    est: (rows=100)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+
+# sort + limit
+explain plan
+SELECT * 
+  FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
+ ORDER BY c1, c2
+ FETCH FIRST 5 ROWS ONLY;
+----
+Sort
+    collation: [C1 ASC, C2 ASC]
+    fetch: 5
+    est: (rows=5)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)
+
+# sort + offset
+explain plan
+SELECT * 
+  FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
+ ORDER BY c1, c2
+OFFSET 5 ROWS;
+----
+Limit
+    offset: 5
+    est: (rows=95)
+  Sort
+      collation: [C1 ASC, C2 ASC]
+      est: (rows=100)
+    Project
+        fieldNames: [C1, C2]
+        projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+        est: (rows=100)
+      TableFunctionScan
+          fieldNames: [X]
+          invocation: SYSTEM_RANGE(1, 10)
+          est: (rows=100)
+
+# sort + offset + limit
+explain plan
+SELECT * 
+  FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
+ ORDER BY c1, c2
+OFFSET 5 ROWS
+ FETCH FIRST 30 ROWS ONLY;
+----
+Sort
+    collation: [C1 ASC, C2 ASC]
+    offset: 5
+    fetch: 30
+    est: (rows=30)
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
+        est: (rows=100)

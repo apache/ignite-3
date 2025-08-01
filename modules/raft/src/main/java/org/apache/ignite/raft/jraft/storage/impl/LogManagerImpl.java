@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +30,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.internal.raft.storage.TermCache;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -84,6 +84,7 @@ public class LogManagerImpl implements LogManager {
     private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
     private LogId appliedId = new LogId(0, 0);
     private final SegmentList<LogEntry> logsInMemory = new SegmentList<>(true);
+    private final TermCache termCache = new TermCache(8);
     private volatile long firstLogIndex;
     private volatile long lastLogIndex;
     private volatile LogId lastSnapshotId = new LogId(0, 0);
@@ -352,6 +353,10 @@ public class LogManagerImpl implements LogManager {
             if (!entries.isEmpty()) {
                 done.setFirstLogIndex(entries.get(0).getId().getIndex());
                 this.logsInMemory.addAll(entries);
+
+                for (LogEntry entry : entries) {
+                    this.termCache.append(entry.getId());
+                }
             }
             done.setEntries(entries);
 
@@ -579,7 +584,7 @@ public class LogManagerImpl implements LogManager {
                         startMs = Utils.monotonicMs();
                         try {
                             final TruncateSuffixClosure tsc = (TruncateSuffixClosure) done;
-                            LOG.warn(
+                            LOG.info(
                                     "Truncating log storage suffix [groupId={}, lastIndexKept={}]",
                                     nodeId.getGroupId(),
                                     tsc.lastIndexKept
@@ -650,7 +655,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     @Override
-    public void setSnapshot(final SnapshotMeta meta) {
+    public void setSnapshot(final SnapshotMeta meta, boolean useLastSnapshotIndex) {
         LOG.debug("set snapshot: {}.", meta);
         boolean doUnlock = true;
         this.writeLock.lock();
@@ -682,7 +687,7 @@ public class LogManagerImpl implements LogManager {
             //                this.diskId = this.lastSnapshotId.copy();
             //            }
 
-            if (term == 0) {
+            if (useLastSnapshotIndex || term == 0) {
                 // last_included_index is larger than last_index
                 // FIXME: what if last_included_index is less than first_index?
                 doUnlock = false;
@@ -854,9 +859,10 @@ public class LogManagerImpl implements LogManager {
             if (index > this.lastLogIndex || index < this.firstLogIndex) {
                 return 0;
             }
-            final LogEntry entry = getEntryFromMemory(index);
-            if (entry != null) {
-                return entry.getId().getTerm();
+
+            long term = termCache.lookup(index);
+            if (term != -1) {
+                return term;
             }
         }
         finally {
@@ -924,6 +930,13 @@ public class LogManagerImpl implements LogManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+
+        if (c.lastLogId == null) {
+            assert stopped : "Last log id can be null only when node is stopping.";
+
+            throw new IllegalStateException("Node is shutting down");
+        }
+
         return c.lastLogId.getIndex();
     }
 
@@ -939,10 +952,12 @@ public class LogManagerImpl implements LogManager {
         if (index > this.lastLogIndex || index < this.firstLogIndex) {
             return 0;
         }
-        final LogEntry entry = getEntryFromMemory(index);
-        if (entry != null) {
-            return entry.getId().getTerm();
+
+        long term = termCache.lookup(index);
+        if (term != -1) {
+            return term;
         }
+
         return getTermFromLogStorage(index);
     }
 
@@ -975,6 +990,12 @@ public class LogManagerImpl implements LogManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+        if (c.lastLogId == null) {
+            assert stopped : "Last log id can be null only when node is stopping.";
+
+            throw new IllegalStateException("Node is shutting down");
+        }
+
         return c.lastLogId;
     }
 
@@ -1049,6 +1070,7 @@ public class LogManagerImpl implements LogManager {
         this.writeLock.lock();
         try {
             this.logsInMemory.clear();
+            this.termCache.reset();
             this.firstLogIndex = nextLogIndex;
             this.lastLogIndex = nextLogIndex - 1;
             this.configManager.truncatePrefix(this.firstLogIndex);
@@ -1070,6 +1092,7 @@ public class LogManagerImpl implements LogManager {
         }
 
         this.logsInMemory.removeFromLastWhen(entry -> entry.getId().getIndex() > lastIndexKept);
+        termCache.truncateTail(lastIndexKept + 1);
 
         this.lastLogIndex = lastIndexKept;
         final long lastTermKept = unsafeGetTerm(lastIndexKept);

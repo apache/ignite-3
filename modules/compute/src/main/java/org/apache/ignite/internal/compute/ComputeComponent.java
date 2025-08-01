@@ -23,10 +23,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,37 +37,20 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
-     *
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <T, R> JobExecution<R> executeLocally(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            T arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
-
-    /**
-     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> executeLocally(
-            List<DeploymentUnit> units,
-            String jobClassName,
-            T arg
-    ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, arg);
-    }
 
     /**
      * Executes a job of the given class on a remote node.
@@ -76,36 +59,18 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <T, R> JobExecution<R> executeRemotely(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
-
-    /**
-     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param remoteNode Remote node name.
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> executeRemotely(
-            ClusterNode remoteNode,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            T arg
-    ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, arg);
-    }
 
     /**
      * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
@@ -113,20 +78,21 @@ public interface ComputeComponent extends IgniteComponent {
      *
      * @param remoteNode Remote node name.
      * @param nextWorkerSelector The selector that returns the next worker to execute job on.
-     * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
+     * @param options Job execution options.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <T, R> JobExecution<R> executeRemotelyWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -139,7 +105,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Task result type.
      * @return Task execution object.
      */
-    <I, M, T, R> TaskExecution<R> executeTask(
+    <I, M, T, R> CancellableTaskExecution<R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,

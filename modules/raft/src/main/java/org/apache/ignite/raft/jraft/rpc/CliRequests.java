@@ -119,6 +119,8 @@ public final class CliRequests {
         String groupId();
 
         String peerId();
+
+        boolean forced();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.RESET_PEER_REQUEST)

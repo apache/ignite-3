@@ -60,10 +60,9 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
             String tableName,
             boolean unique,
             List<String> columns,
-            List<CatalogColumnCollation> collations,
-            boolean isCreatedWithTable
+            List<CatalogColumnCollation> collations
     ) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists, tableName, unique, columns, isCreatedWithTable);
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns);
 
         this.collations = copyOrNull(collations);
 
@@ -71,7 +70,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
@@ -81,17 +80,17 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, status, indexColumnDescriptors, isCreatedWithTable
+                indexId, indexName, tableId, unique, status, indexColumnDescriptors, createdWithTable
         );
     }
 
     private void validate() {
         if (nullOrEmpty(collations)) {
-            throw new CatalogValidationException("Collations not specified");
+            throw new CatalogValidationException("Collations not specified.");
         }
 
         if (collations.size() != columns.size()) {
-            throw new CatalogValidationException("Columns collations doesn't match number of columns");
+            throw new CatalogValidationException("Columns collations doesn't match number of columns.");
         }
     }
 
@@ -103,7 +102,6 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         private List<String> columns;
         private List<CatalogColumnCollation> collations;
         private boolean unique;
-        private boolean isCreatedWithTable;
 
         @Override
         public Builder tableName(String tableName) {
@@ -155,16 +153,9 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
-        public CreateSortedIndexCommandBuilder isCreatedWithTable(boolean isCreatedWithTable) {
-            this.isCreatedWithTable = isCreatedWithTable;
-
-            return this;
-        }
-
-        @Override
         public CatalogCommand build() {
             return new CreateSortedIndexCommand(
-                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations, isCreatedWithTable
+                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations
             );
         }
     }

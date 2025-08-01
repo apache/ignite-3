@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/job_state.h"
+#include "ignite/client/network/cluster_node.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/binary_object.h"
@@ -66,14 +67,21 @@ public:
      *
      * @return Job ID.
      */
-    [[nodiscard]] uuid get_id() const;
+    [[nodiscard]] IGNITE_API uuid get_id() const;
+
+    /**
+     * Gets the cluster node.
+     *
+     * @return Cluster node.
+     */
+    [[nodiscard]] IGNITE_API const cluster_node &get_node() const;
 
     /**
      * Gets the job execution state asynchronously. Can be @c nullopt if the job state no longer exists due to
      * exceeding the retention time limit.
      *
      * @param callback Callback to be called when the operation is complete. Called with the job state.
-     *  Can be @c nullopt if the job state no longer exists due to exceeding the retention time limit.
+     *  It Can be @c nullopt if the job state no longer exists due to exceeding the retention time limit.
      */
     IGNITE_API void get_state_async(ignite_callback<std::optional<job_state>> callback);
 
@@ -92,7 +100,7 @@ public:
     /**
      * Gets the job execution result asynchronously.
      *
-     * Only one callback can be submitted for this operation at a time, which means you can not call this method in
+     * Only one callback can be submitted for this operation at a time, which means you cannot call this method in
      * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
@@ -101,7 +109,7 @@ public:
     /**
      * Gets the job execution result.
      *
-     * Only one thread can wait for result at a time, which means you can not call this method in parallel from
+     * Only one thread can wait for a result at a time, which means you cannot call this method in parallel from
      * multiple threads.
      * @return The job execution result.
      */
@@ -120,14 +128,14 @@ public:
     /**
      * Cancels the job execution.
      *
-     * @param return Result of the cancel operation.
+     * @return Result of the cancel operation.
      */
     IGNITE_API operation_result cancel() {
         return sync<operation_result>([this](auto callback) mutable { cancel_async(std::move(callback)); });
     }
 
     /**
-     * Changes the job priority asynchronously. After priority change the job will be the last in the queue of jobs
+     * Changes the job priority asynchronously. After priority change, the job will be the last in the queue of jobs
      * with the same priority.
      *
      * @param priority New priority.
@@ -136,11 +144,11 @@ public:
     IGNITE_API void change_priority_async(std::int32_t priority, ignite_callback<operation_result> callback);
 
     /**
-     * Changes the job priority. After priority change the job will be the last in the queue of jobs with the same
+     * Changes the job priority. After priority change, the job will be the last in the queue of jobs with the same
      * priority.
      *
      * @param priority New priority.
-     * @param return Result of the operation.
+     * @return Result of the operation.
      */
     IGNITE_API operation_result change_priority(std::int32_t priority) {
         return sync<operation_result>(

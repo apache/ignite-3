@@ -29,6 +29,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -79,6 +80,16 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
+        return doAsyncOperation(() -> catalog.tableDefinitionAsync(tableName));
+    }
+
+    @Override
+    public TableDefinition tableDefinition(QualifiedName tableName) {
+        return execUserSyncOperation(() -> catalog.tableDefinition(tableName));
+    }
+
+    @Override
     public CompletableFuture<Void> createZoneAsync(ZoneDefinition definition) {
         return doAsyncOperation(() -> catalog.createZoneAsync(definition));
     }
@@ -88,13 +99,24 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
         execUserSyncOperation(() -> catalog.createZone(definition));
     }
 
+
+    @Override
+    public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
+        return execUserSyncOperation(() -> catalog.zoneDefinitionAsync(zoneName));
+    }
+
+    @Override
+    public ZoneDefinition zoneDefinition(String zoneName) {
+        return execUserSyncOperation(() -> catalog.zoneDefinition(zoneName));
+    }
+
     @Override
     public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
         return doAsyncOperation(() -> catalog.dropTableAsync(definition));
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
+    public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return doAsyncOperation(() -> catalog.dropTableAsync(name));
     }
 
@@ -104,7 +126,7 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public void dropTable(String name) {
+    public void dropTable(QualifiedName name) {
         execUserSyncOperation(() -> catalog.dropTable(name));
     }
 

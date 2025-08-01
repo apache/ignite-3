@@ -20,6 +20,7 @@ package org.apache.ignite.internal.systemview;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -39,11 +40,11 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -61,9 +62,6 @@ import org.apache.ignite.lang.ErrorGroups.Common;
  * SQL system views manager implementation.
  */
 public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesProvider, LogicalTopologyEventListener {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(SystemViewManagerImpl.class);
-
     public static final String NODE_ATTRIBUTES_KEY = "sql-system-views";
 
     public static final String NODE_ATTRIBUTES_LIST_SEPARATOR = ",";
@@ -71,6 +69,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     private final String localNodeName;
 
     private final CatalogManager catalogManager;
+
+    private final FailureProcessor failureProcessor;
 
     private final Map<String, String> nodeAttributes = new HashMap<>();
 
@@ -94,9 +94,10 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     private volatile Map<String, List<String>> owningNodesByViewName = Map.of();
 
     /** Creates a system view manager. */
-    public SystemViewManagerImpl(String localNodeName, CatalogManager catalogManager) {
+    public SystemViewManagerImpl(String localNodeName, CatalogManager catalogManager, FailureProcessor failureProcessor) {
         this.localNodeName = localNodeName;
         this.catalogManager = catalogManager;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -121,8 +122,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
             catalogManager.catalogReadyFuture(1).thenCompose((x) -> catalogManager.execute(commands)).whenComplete((r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
-                        if (t != null) {
-                            LOG.warn("Failed to register system views.", t);
+                        if (t != null && !hasCause(t, NodeStoppingException.class)) {
+                            failureProcessor.process(new FailureContext(t, "Failed to register system views."));
                         }
                     }
             );

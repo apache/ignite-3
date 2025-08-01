@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,6 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -47,6 +50,7 @@ import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
@@ -73,6 +77,38 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+    }
+
+    @Test
+    void subqueryInUpdateAndMerge() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript("" 
+                + "CREATE TABLE t0(ID INT PRIMARY KEY, A INT);" 
+                + "CREATE TABLE t1(ID INT PRIMARY KEY, B INT);" 
+                + "INSERT INTO t0 VALUES (1, 0), (2, 0);" 
+                + "INSERT INTO t1 VALUES (1, -100), (3, 3);");
+
+        sql("MERGE INTO t0 USING t1 ON t0.id = t1.id "
+                + "WHEN MATCHED THEN UPDATE SET A = (SELECT B FROM t1 WHERE id = 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, -100)
+                .returns(2, 0)
+                .check();
+
+        sql("UPDATE t0 SET A = (SELECT id::BIGINT FROM t1 ORDER BY b DESC LIMIT 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 3)
+                .returns(2, 3)
+                .check();
+
+        sql("UPDATE t0 SET a = a + (SELECT 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 4)
+                .returns(2, 4)
+                .check();
     }
 
     @Test
@@ -144,7 +180,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
-
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
                 .check();
@@ -211,7 +246,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
     }
 
-    /**Test full MERGE command. */
+    /** Test full MERGE command. */
     @Test
     public void testMerge() {
         clearAndPopulateMergeTable1();
@@ -339,7 +374,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         String sql = "MERGE INTO test1 dst USING test1 src ON dst.a = src.a + 1 "
                 + "WHEN MATCHED THEN UPDATE SET b = dst.b + 1 " // dst.b just for check here
-                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a)";
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a::varchar)";
 
         for (int i = 0; i < 5; i++) {
             sql(sql);
@@ -370,9 +405,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(10_000L).check();
 
-        sql("MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
+        var longerTimeoutOptions = new TransactionOptions().readOnly(false).timeoutMillis(TimeUnit.MINUTES.toMillis(2));
+        var tx = igniteTx().begin(longerTimeoutOptions);
+        sql(tx, "MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
                 + " WHEN MATCHED THEN UPDATE SET b = 1 "
                 + " WHEN NOT MATCHED THEN INSERT (key, a, b) VALUES (src.key, src.a, 2)");
+        tx.commit();
 
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(5_000L).check();
         assertQuery("SELECT count(*) FROM test2 WHERE b = 1").returns(5_000L).check();
@@ -486,6 +524,39 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testMergeWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        String sql = "MERGE INTO t0 USING t1 ON t0.id = t1.id "
+                + "WHEN MATCHED THEN UPDATE SET val = (SELECT val FROM t1 WHERE id > ?)";
+
+        sql("INSERT INTO t0 VALUES (1, 0), (2, 0)");
+        sql("INSERT INTO t1 VALUES (1, -100), (3, 3)");
+
+        // sub-query returns no rows.
+        sql(sql, 3);
+        assertQuery("SELECT * FROM t0 ORDER BY id")
+                .returns(1, null)
+                .returns(2, 0)
+                .check();
+
+        // sub-query returns single row.
+        sql(sql, 1);
+        assertQuery("SELECT * FROM t0 ORDER BY id")
+                .returns(1, 3)
+                .returns(2, 0)
+                .check();
+
+        // sub-query returns more than one row.
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql(sql, 0)
+        );
+    }
+
     /**
      * Test verifies that scan is executed within provided transaction.
      */
@@ -577,7 +648,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"
                 //         , LocalDateTime.parse("2021-01-01T01:01:01")),
 
-                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
+                new DefaultValueArg("VARBINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
                 new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
         return vals.flatMap(arg -> Stream.of(arg, new DefaultValueArg(arg.sqlType + " NOT NULL", arg.sqlVal, arg.expectedVal)));
@@ -683,6 +754,37 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 sql("DROP TABLE IF EXISTS test");
             }
         }
+    }
+
+    @Test
+    public void testUpdateWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        sql("INSERT INTO t0 VALUES (1, 1), (2, 2)");
+        sql("INSERT INTO t1 VALUES (1, 1), (2, 2)");
+
+        // Sub-query returns no rows.
+        sql("UPDATE t0 SET val = (SELECT val FROM t1 WHERE id = -42)");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .returns(2, null)
+                .check();
+
+        // Sub-query returns single row.
+        sql("UPDATE t0 SET val = (SELECT val FROM t1 WHERE id = 2)");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 2)
+                .returns(2, 2)
+                .check();
+
+        // Sub-query returns more than one row.
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("UPDATE t0 SET val = (SELECT val FROM t1)")
+        );
     }
 
     @Test
@@ -848,6 +950,35 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void testInsertValueWithSubqueryExpression() {
+        sql("CREATE TABLE t0(ID INT PRIMARY KEY, VAL INT)");
+        sql("CREATE TABLE t1(ID INT PRIMARY KEY, VAL INT)");
+
+        sql("INSERT INTO t1 VALUES (1, 1), (2, 2)");
+
+        // Sub-query returns no rows.
+        sql("INSERT INTO t0 VALUES (1, (SELECT val FROM t1 WHERE id = -42))");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .check();
+
+        // Sub-query returns single row.
+        sql("INSERT INTO t0 VALUES (2, (SELECT val FROM t1 WHERE id = 2))");
+        assertQuery("SELECT * FROM t0")
+                .returns(1, null)
+                .returns(2, 2)
+                .check();
+
+        // Sub-query returns more than one row.
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("INSERT INTO t0 VALUES (2, (SELECT val FROM t1))")
+        );
+    }
+
     @ParameterizedTest
     @CsvSource(value = {
             "id1,id2; id1",
@@ -952,6 +1083,37 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");
+    }
+
+    @Test
+    void ensureLockConflictAreProperlyHandledForImplicitTransactions() {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO my VALUES (1, 0), (2, 0), (3, 0), (4, 0)");
+
+        int parties = 2;
+        Phaser phaser = new Phaser(parties);
+
+        int operationCount = 10;
+        List<CompletableFuture<?>> results = new ArrayList<>(parties);
+        for (int i = 0; i < parties; i++) {
+            int newValue = i + 1;
+            results.add(runAsync(() -> {
+
+                for (int opNo = 0; opNo < operationCount; opNo++) {
+                    phaser.awaitAdvanceInterruptibly(phaser.arrive());
+
+                    sql("UPDATE my SET val = ?", newValue);
+                }
+            }));
+        }
+
+        // all queries are expected to complete successfully
+        await(CompletableFutures.allOf(results));
+
+        // make sure state is consistent
+        assertQuery("SELECT COUNT(*), COUNT(DISTINCT val) FROM my")
+                .returns(4L, 1L)
+                .check();
     }
 
     private static Stream<Arguments> decimalLimits() {

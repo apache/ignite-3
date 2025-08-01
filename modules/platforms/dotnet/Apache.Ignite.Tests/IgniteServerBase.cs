@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
@@ -35,7 +36,7 @@ public abstract class IgniteServerBase : IDisposable
 
     private readonly object _disposeSyncRoot = new();
 
-    private volatile Socket? _handler;
+    private readonly ConcurrentDictionary<Socket, object?> _handlers = new();
 
     private bool _disposed;
 
@@ -49,7 +50,8 @@ public abstract class IgniteServerBase : IDisposable
         _listener.Bind(new IPEndPoint(IPAddress.Any, port));
         _listener.Listen(backlog: 1);
 
-        Console.WriteLine($"Fake server started [port={Port}, test={TestContext.CurrentContext.Test.Name}]");
+        Name = TestContext.CurrentContext.Test.Name;
+        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
 
         Task.Run(ListenLoop);
     }
@@ -57,6 +59,10 @@ public abstract class IgniteServerBase : IDisposable
     public int Port => ((IPEndPoint)Listener.LocalEndPoint!).Port;
 
     public string Endpoint => "127.0.0.1:" + Port;
+
+    public bool AllowMultipleConnections { get; set; }
+
+    public string Name { get; set; }
 
     public bool DropNewConnections
     {
@@ -66,7 +72,13 @@ public abstract class IgniteServerBase : IDisposable
 
     protected Socket Listener => _listener;
 
-    public void DropExistingConnection() => _handler?.Dispose();
+    public void DropExistingConnection()
+    {
+        foreach (var handler in _handlers.Keys)
+        {
+            handler.Dispose();
+        }
+    }
 
     public void Dispose()
     {
@@ -124,7 +136,14 @@ public abstract class IgniteServerBase : IDisposable
                 }
 
                 _cts.Cancel();
-                _handler?.Dispose();
+
+                foreach (var handler in _handlers.Keys)
+                {
+                    handler.Dispose();
+                }
+
+                _handlers.Clear();
+
                 _listener.Dispose();
                 _cts.Dispose();
 
@@ -150,7 +169,7 @@ public abstract class IgniteServerBase : IDisposable
                     continue;
                 }
 
-                Console.WriteLine("Error in FakeServer: " + e);
+                Console.WriteLine($"Error in FakeServer [Name={Name}]: {e}");
             }
         }
     }
@@ -159,21 +178,37 @@ public abstract class IgniteServerBase : IDisposable
     {
         while (!_cts.IsCancellationRequested)
         {
-            using Socket handler = _listener.Accept();
+            Socket handler = _listener.Accept();
+            handler.NoDelay = true;
+
             if (DropNewConnections)
             {
                 handler.Disconnect(true);
-                _handler = null;
+                handler.Dispose();
 
                 continue;
             }
 
-            _handler = handler;
-            handler.NoDelay = true;
+            _handlers[handler] = null;
 
-            Handle(handler, _cts.Token);
-            handler.Disconnect(true);
-            _handler = null;
+            var handleAction = () =>
+            {
+                using (handler)
+                {
+                    Handle(handler, _cts.Token);
+                    handler.Disconnect(true);
+                    _handlers.TryRemove(handler, out _);
+                }
+            };
+
+            if (AllowMultipleConnections)
+            {
+                Task.Run(handleAction);
+            }
+            else
+            {
+                handleAction();
+            }
         }
     }
 

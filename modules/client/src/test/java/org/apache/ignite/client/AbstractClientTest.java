@@ -41,7 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
  * Base class for client tests.
  */
 public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
-    protected static final String DEFAULT_TABLE = "default_test_table";
+    protected static final String DEFAULT_TABLE = "DEFAULT_TEST_TABLE";
 
     protected static TestServer testServer;
 
@@ -79,7 +79,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      * After each.
      */
     @BeforeEach
-    public void beforeEach() throws InterruptedException {
+    public void beforeEach() {
         FakeSchemaRegistry.setLastVer(1);
 
         dropTables(server);
@@ -87,7 +87,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
     protected void dropTables(Ignite ignite) {
         for (var t : ignite.tables().tables()) {
-            ((FakeIgniteTables) ignite.tables()).dropTable(t.name());
+            ((FakeIgniteTables) ignite.tables()).dropTable(t.qualifiedName());
         }
     }
 
@@ -174,7 +174,6 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
         return IgniteClient.builder()
                 .addresses(addresses)
-                .reconnectThrottlingPeriod(0)
                 .retryPolicy(new RetryLimitPolicy().retryLimit(3))
                 .build();
     }
@@ -187,7 +186,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static JobTarget getClusterNodes(String... names) {
         return JobTarget.anyNode(Arrays.stream(names)
-                .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .map(s -> new ClientClusterNode(new UUID(1, 2), s, new NetworkAddress("127.0.0.1", 8080)))
                 .collect(Collectors.toSet()));
     }
 }

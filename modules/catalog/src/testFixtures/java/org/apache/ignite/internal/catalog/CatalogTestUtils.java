@@ -19,17 +19,22 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -40,7 +45,6 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -50,24 +54,31 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
 
 /** Utilities for working with the catalog in tests. */
 public class CatalogTestUtils {
+    private static final IgniteLogger LOG = Loggers.forClass(CatalogTestUtils.class);
+
+    public static final int TEST_DELAY_DURATION = 0;
+
     /**
      * Creates a test implementation of {@link CatalogManager}.
      *
@@ -77,17 +88,30 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName), clock);
+        return createTestCatalogManager(nodeName, clock, () -> TEST_DELAY_DURATION);
+    }
 
-        var clockWaiter = new ClockWaiter(nodeName, clock);
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     */
+    public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, LongSupplier delayDurationMsSupplier) {
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName, clock);
+
+        ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
+
+        var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
+        FailureProcessor failureProcessor = new NoOpFailureManager();
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
+        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
+                assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
                 return allOf(
-                        metastore.startAsync(componentContext),
                         clockWaiter.startAsync(componentContext),
                         super.startAsync(componentContext)
                 ).thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
@@ -106,6 +130,7 @@ public class CatalogTestUtils {
                 return IgniteUtils.stopAsync(
                         () -> super.stopAsync(componentContext),
                         () -> clockWaiter.stopAsync(componentContext),
+                        () -> shutdownAsync(scheduledExecutor),
                         () -> metastore.stopAsync(componentContext)
                 );
             }
@@ -122,9 +147,15 @@ public class CatalogTestUtils {
      * @param clock Hybrid clock.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(metastore.startAsync(componentContext), super.startAsync(componentContext))
@@ -162,7 +193,13 @@ public class CatalogTestUtils {
             ClockWaiter clockWaiter,
             HybridClock clock
     ) {
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
+        var failureProcessor = new NoOpFailureManager();
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        );
     }
 
     /**
@@ -175,9 +212,29 @@ public class CatalogTestUtils {
      * @param metastore Meta storage manager.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
-        var clockWaiter = new ClockWaiter(nodeName, clock);
+        return createTestCatalogManager(nodeName, clock, metastore, () -> TEST_DELAY_DURATION);
+    }
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     */
+    public static CatalogManager createTestCatalogManager(
+            String nodeName,
+            HybridClock clock,
+            MetaStorageManager metastore,
+            LongSupplier delayDurationMsSupplier
+    ) {
+        ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
+
+        var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
+
+        var failureProcessor = new NoOpFailureManager();
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                delayDurationMsSupplier
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
@@ -194,7 +251,8 @@ public class CatalogTestUtils {
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
                         () -> super.stopAsync(componentContext),
-                        () -> clockWaiter.stopAsync(componentContext)
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> shutdownAsync(scheduledExecutor)
                 );
             }
         };
@@ -215,9 +273,13 @@ public class CatalogTestUtils {
             MetaStorageManager metastore,
             UpdateHandlerInterceptor interceptor
     ) {
-        var clockWaiter = new ClockWaiter(nodeName, clock);
+        ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
 
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore) {
+        var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
+
+        var failureProcessor = new NoOpFailureManager();
+
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor) {
             @Override
             public void registerUpdateHandler(OnUpdateHandler handler) {
                 interceptor.registerUpdateHandler(handler);
@@ -226,7 +288,12 @@ public class CatalogTestUtils {
             }
         };
 
-        return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
+        return new CatalogManagerImpl(
+                updateLog,
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
@@ -243,7 +310,8 @@ public class CatalogTestUtils {
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
                         () -> super.stopAsync(componentContext),
-                        () -> clockWaiter.stopAsync(componentContext)
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> shutdownAsync(scheduledExecutor)
                 );
             }
         };
@@ -263,9 +331,16 @@ public class CatalogTestUtils {
      * @return An instance of {@link CatalogManager catalog manager}.
      */
     public static CatalogManager createCatalogManagerWithTestUpdateLog(String nodeName, HybridClock clock) {
-        var clockWaiter = new ClockWaiter(nodeName, clock);
+        ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
 
-        return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
+        var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
+
+        return new CatalogManagerImpl(
+                new TestUpdateLog(clock),
+                new TestClockService(clock, clockWaiter),
+                new NoOpFailureManager(),
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
@@ -282,7 +357,8 @@ public class CatalogTestUtils {
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
                         () -> super.stopAsync(componentContext),
-                        () -> clockWaiter.stopAsync(componentContext)
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> shutdownAsync(scheduledExecutor)
                 );
             }
         };
@@ -294,7 +370,7 @@ public class CatalogTestUtils {
     /** Append precision\scale according to type requirement. */
     public static Builder initializeColumnWithDefaults(ColumnType type, Builder colBuilder) {
         if (type.precisionAllowed()) {
-            colBuilder.precision(11);
+            colBuilder.precision(4);
         }
 
         if (type.scaleAllowed()) {
@@ -460,7 +536,7 @@ public class CatalogTestUtils {
      * @param tableName Table name.
      */
     public static CatalogTableDescriptor table(CatalogService catalogService, int catalogVersion, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalogService.tables(catalogVersion).stream()
+        CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).tables().stream()
                 .filter(table -> tableName.equals(table.name()))
                 .findFirst()
                 .orElse(null);
@@ -468,39 +544,6 @@ public class CatalogTestUtils {
         assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
 
         return tableDescriptor;
-    }
-
-    /**
-     * Searches for an index by name in the requested version of the catalog. Throws if the index is not found.
-     *
-     * @param catalogService Catalog service.
-     * @param catalogVersion Catalog version in which to find the index.
-     * @param indexName Index name.
-     * @return Index (cannot be null).
-     */
-    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
-        CatalogIndexDescriptor indexDescriptor = indexOrNull(catalogService,
-                catalogVersion, indexName);
-
-        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
-
-        return indexDescriptor;
-    }
-
-    /**
-     * Searches for an index by name in the requested version of the catalog.
-     *
-     * @param catalogService Catalog service.
-     * @param catalogVersion Catalog version in which to find the index.
-     * @param indexName Index name.
-     * @return Index or {@code null} if not found.
-     */
-    @Nullable
-    public static CatalogIndexDescriptor indexOrNull(CatalogService catalogService, int catalogVersion, String indexName) {
-        return catalogService.indexes(catalogVersion).stream()
-                .filter(index -> indexName.equals(index.name()))
-                .findFirst()
-                .orElse(null);
     }
 
     /**
@@ -538,36 +581,12 @@ public class CatalogTestUtils {
         }
     }
 
-    /**
-     * Waits till default zone appears in latest version of catalog.
-     *
-     * @param manager Catalog manager to monitor.
-     */
-    public static void awaitDefaultZoneCreation(CatalogManager manager) {
-        try {
-            int[] versionHolder = new int[1];
-
-            assertTrue(waitForCondition(() -> {
-                int latestVersion = manager.latestCatalogVersion();
-
-                versionHolder[0] = latestVersion;
-
-                return manager.catalog(latestVersion).defaultZone() != null;
-            }, 5_000));
-
-            // additionally we have to wait till all listeners complete handling of event
-            await(manager.catalogReadyFuture(versionHolder[0]));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     /** Test command that does nothing but increments object id counter of a catalog. */
     public static class TestCommand implements CatalogCommand {
 
-        private final boolean successful;
+        private final Boolean successful;
 
-        private TestCommand(boolean successful) {
+        private TestCommand(Boolean successful) {
             this.successful = successful;
         }
 
@@ -579,8 +598,15 @@ public class CatalogTestUtils {
             return new TestCommand(false);
         }
 
+        public static TestCommand empty() {
+            return new TestCommand(null);
+        }
+
         @Override
-        public List<UpdateEntry> get(Catalog catalog) {
+        public List<UpdateEntry> get(UpdateContext updateContext) {
+            if (successful == null) {
+                return List.of();
+            }
             if (!successful) {
                 throw new TestCommandFailure();
             }
@@ -591,5 +617,15 @@ public class CatalogTestUtils {
     /** Test command failure. */
     public static class TestCommandFailure extends RuntimeException {
         private static final long serialVersionUID = -6123535862914825943L;
+    }
+
+    private static ScheduledExecutorService createScheduledExecutorService(String nodeName) {
+        return Executors.newSingleThreadScheduledExecutor(
+                IgniteThreadFactory.create(nodeName, "catalog-utils-scheduled-executor", LOG)
+        );
+    }
+
+    private static CompletableFuture<Void> shutdownAsync(ScheduledExecutorService scheduledExecutorService) {
+        return runAsync(() -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutorService, 10, TimeUnit.SECONDS));
     }
 }

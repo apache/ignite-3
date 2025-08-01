@@ -20,7 +20,6 @@ package org.apache.ignite.internal.worker;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_WORKER_BLOCKED_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -36,13 +35,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,23 +68,23 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Creates a new instance of the watchdog.
      *
      * @param configuration Configuration.
      * @param scheduler Scheduler.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      */
     public CriticalWorkerWatchdog(
             CriticalWorkersConfiguration configuration,
             ScheduledExecutorService scheduler,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.configuration = configuration;
         this.scheduler = scheduler;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     @Override
@@ -101,7 +99,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+        long livenessCheckIntervalMs = configuration.livenessCheckIntervalMillis().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
@@ -119,12 +117,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         } catch (Exception | AssertionError e) {
             LOG.debug("Error while probing liveness", e);
         } catch (Error e) {
-            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
         }
     }
 
     private void doProbeLiveness() {
-        long maxAllowedLag = configuration.maxAllowedLag().value();
+        long maxAllowedLag = configuration.maxAllowedLagMillis().value();
 
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 
@@ -148,10 +146,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
                 appendThreadInfo(message, threadInfo);
 
-                failureProcessor.process(
-                        new FailureContext(
-                                SYSTEM_WORKER_BLOCKED,
-                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message.toString(), false)));
+                failureManager.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null, message.toString()));
             }
         }
     }

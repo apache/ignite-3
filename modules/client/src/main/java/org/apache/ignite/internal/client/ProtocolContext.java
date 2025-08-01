@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.network.ClusterNode;
 
@@ -82,6 +83,22 @@ public class ProtocolContext {
      */
     public boolean isFeatureSupported(ProtocolBitmaskFeature feature) {
         return features.contains(feature);
+    }
+
+    /**
+     * Gets a value indicating whether all provided features are supported.
+     *
+     * @param features Features.
+     * @return {@code true} if all features are supported.
+     */
+    public boolean allFeaturesSupported(ProtocolBitmaskFeature... features) {
+        for (ProtocolBitmaskFeature feature : features) {
+            if (!this.features.contains(feature)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

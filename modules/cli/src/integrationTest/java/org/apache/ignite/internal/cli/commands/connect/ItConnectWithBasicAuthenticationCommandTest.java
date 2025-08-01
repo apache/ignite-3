@@ -28,14 +28,17 @@ import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTestBase {
-
     @Inject
     private ApiClientFactory apiClientFactory;
+
+    @Inject
+    private Session session;
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
@@ -116,7 +119,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
     @Test
     @DisplayName("Should connect to cluster with username/password")
-    void connectWithAuthenticationParameters() throws IOException {
+    void connectWithAuthenticationParameters() {
         // Given basic authentication is NOT configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
@@ -448,6 +451,9 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And correct values are stored in config
         assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
         assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
+
+        // And JDBC URL in current session contains auth parameters
+        assertThat(session.info().jdbcUrl()).contains("username=admin&password=password");
     }
 
 

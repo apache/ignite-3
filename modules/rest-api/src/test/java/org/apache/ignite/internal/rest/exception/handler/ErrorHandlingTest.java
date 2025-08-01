@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.rest.exception.handler;
 
-import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
-import static org.apache.ignite.internal.rest.constants.HttpCode.METHOD_NOT_ALLOWED;
-import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
-import static org.apache.ignite.internal.rest.constants.HttpCode.UNSUPPORTED_MEDIA_TYPE;
-import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
+import static io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import static io.micronaut.http.HttpStatus.METHOD_NOT_ALLOWED;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static io.micronaut.http.HttpStatus.UNAUTHORIZED;
+import static io.micronaut.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
@@ -34,11 +36,10 @@ import io.micronaut.context.annotation.Property;
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.uri.UriBuilder;
 import io.micronaut.security.authentication.AuthenticationException;
 import io.micronaut.security.authentication.AuthorizationException;
@@ -52,9 +53,11 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
+import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.lang.IgniteException;
-import org.junit.jupiter.api.Assertions;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -70,143 +73,100 @@ public class ErrorHandlingTest {
     @Client("/test")
     HttpClient client;
 
-    private final AtomicReference<Throwable> throwable = new AtomicReference<>(new RuntimeException());
+    private static final AtomicReference<Throwable> throwable = new AtomicReference<>(new RuntimeException());
 
     private static Stream<Arguments> testExceptions() {
         return Stream.of(
                 // couldn't find a case when exception is thrown
-                Arguments.of(new UnsatisfiedArgumentException(Argument.DOUBLE)),
+                arguments(new UnsatisfiedArgumentException(Argument.DOUBLE), BAD_REQUEST,
+                        "Bad Request", "Required argument [double] not specified"),
                 // thrown when request uri is invalid, but it's not possible to create such request with HttpClient (it validates uri)
-                Arguments.of(new URISyntaxException("uri", "reason")),
-                Arguments.of(new AuthenticationException("authentication-exception")),
-                Arguments.of(new AuthorizationException(null)),
-                Arguments.of(new IgniteException("ignite-exception")),
-                Arguments.of(new IgniteInternalCheckedException("ignite-internal-exception")),
-                Arguments.of(new IgniteInternalException("ignite-internal-exception")),
-                Arguments.of(new RuntimeException("runtime-exception")),
-                Arguments.of(new Exception("exception"))
+                arguments(new URISyntaxException("uri", "reason"), BAD_REQUEST, "Malformed URI", "reason: uri"),
+                arguments(new AuthenticationException("authentication-exception"), UNAUTHORIZED,
+                        "Unauthorized", "authentication-exception"),
+                arguments(new AuthorizationException(null), UNAUTHORIZED, "Unauthorized", null),
+                arguments(new IgniteException(INTERNAL_ERR, "ignite-exception"), INTERNAL_SERVER_ERROR,
+                        "Internal Server Error", "ignite-exception"),
+                arguments(new IgniteInternalCheckedException(INTERNAL_ERR, "ignite-internal-exception"), INTERNAL_SERVER_ERROR,
+                        "Internal Server Error", "ignite-internal-exception"),
+                arguments(new IgniteInternalException(INTERNAL_ERR, "ignite-internal-exception"), INTERNAL_SERVER_ERROR,
+                        "Internal Server Error", "ignite-internal-exception"),
+                arguments(new RuntimeException("runtime-exception"), INTERNAL_SERVER_ERROR, "Internal Server Error", "runtime-exception"),
+                arguments(new Exception("exception"), INTERNAL_SERVER_ERROR, "Internal Server Error", "exception"),
+                // Can't test for the AssertionError because TC will fail if this text is logged. We log unhandled exception in the
+                // JavaExceptionHandler
+                // arguments(new AssertionError("assert"), INTERNAL_SERVER_ERROR, "Internal Server Error", "assert"),
+                arguments(new Throwable("assert"), INTERNAL_SERVER_ERROR, "Internal Server Error", "assert")
         );
     }
 
     @ParameterizedTest
     @MethodSource("testExceptions")
-    public void testExceptions(Throwable throwable) {
-        this.throwable.set(throwable);
+    public void testExceptions(Throwable throwable, HttpStatus status, String title, String detail) {
+        ErrorHandlingTest.throwable.set(throwable);
 
-        // Invoke endpoint with not allowed method
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/test/throw-exception")
-        );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-        assertEquals(response.code(), problem.status());
-        assertNotNull(problem.title());
+        assertThrowsProblem(() -> client.toBlocking().exchange("/throw-exception"), status, title, detail);
     }
 
     @Test
     public void endpoint404() {
         // Invoke non-existing endpoint
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/endpoint404")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange("/endpoint404"),
+                NOT_FOUND,
+                "Not Found",
+                "Requested resource not found: /test/endpoint404"
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(NOT_FOUND.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(NOT_FOUND.code(), problem.status());
-        assertEquals("Not Found", problem.title());
-        assertEquals("Requested resource not found: /test/endpoint404", problem.detail());
     }
 
     @Test
     public void invalidDataTypePathVariable() {
         // Invoke endpoint with wrong path variable data type
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/list/abc")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange("/list/abc"),
+                BAD_REQUEST,
+                "Invalid parameter",
+                "Failed to convert argument [id] for value [abc] due to: For input string: \"abc\""
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Invalid parameter", problem.title());
-        assertEquals("Failed to convert argument [id] for value [abc] due to: For input string: \"abc\"", problem.detail());
     }
 
     @Test
     public void requiredQueryValueNotSpecified() {
         // Invoke endpoint without required query value
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/list")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange("/list"),
+                BAD_REQUEST,
+                "Bad Request",
+                "Required QueryValue [greatThan] not specified"
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Bad Request", problem.title());
-        assertEquals("Required QueryValue [greatThan] not specified", problem.detail());
     }
 
     @Test
     public void invalidTypeQueryValue() {
         // Invoke endpoint with wrong data type of request argument
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/list?greatThan=abc")
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange("/list?greatThan=abc"),
+                BAD_REQUEST,
+                "Invalid parameter",
+                "Failed to convert argument [greatThan] for value [abc] due to: For input string: \"abc\""
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Invalid parameter", problem.title());
-        assertEquals("Failed to convert argument [greatThan] for value [abc] due to: For input string: \"abc\"", problem.detail());
     }
 
     @Test
     public void invalidTypeQueryValue1() {
         // Invoke endpoint with wrong request argument values
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/list?greatThan=-1&lessThan=11")
+        MicronautHttpResponseMatcher.assertThrowsProblem(
+                () -> client.toBlocking().exchange("/list?greatThan=-1&lessThan=11"),
+                BAD_REQUEST,
+                isProblem()
+                        .withStatus(BAD_REQUEST.getCode())
+                        .withTitle("Bad Request")
+                        .withDetail("Validation failed")
+                        .withInvalidParams(containsInAnyOrder(
+                                new InvalidParam("list.greatThan", "greatThan: must be greater than or equal to 0"),
+                                new InvalidParam("list.lessThan", "lessThan: must be less than or equal to 10")
+                        ))
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Bad Request", problem.title());
-        assertEquals("Validation failed", problem.detail());
-
-        assertEquals(2, problem.invalidParams().size());
-
-        assertThat(problem.invalidParams(), containsInAnyOrder(
-                new InvalidParam("list.greatThan", "greatThan: must be greater than or equal to 0"),
-                new InvalidParam("list.lessThan", "lessThan: must be less than or equal to 10")
-        ));
     }
 
     @Test
@@ -216,20 +176,12 @@ public class ErrorHandlingTest {
                 .contentType(MediaType.TEXT_PLAIN)
                 .body("text='qwe'");
 
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class))
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
+                UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported Media Type",
+                "Unsupported media type: text/plain"
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(UNSUPPORTED_MEDIA_TYPE.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(UNSUPPORTED_MEDIA_TYPE.code(), problem.status());
-        assertEquals("Unsupported Media Type", problem.title());
-        assertEquals("Unsupported media type: text", problem.detail());
     }
 
     @Test
@@ -239,20 +191,12 @@ public class ErrorHandlingTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{text='qwe'");
 
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class))
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
+                BAD_REQUEST,
+                "Invalid JSON",
+                containsString("Unexpected character")
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Invalid JSON", problem.title());
-        assertThat(problem.detail(), containsString("Unexpected character"));
     }
 
     @Test
@@ -262,20 +206,12 @@ public class ErrorHandlingTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("");
 
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class))
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
+                BAD_REQUEST,
+                "Bad Request",
+                containsString("Required Body [dto] not specified")
         );
-
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
-
-        assertEquals(BAD_REQUEST.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(BAD_REQUEST.code(), problem.status());
-        assertEquals("Bad Request", problem.title());
-        assertThat(problem.detail(), containsString("Required Body [dto] not specified"));
     }
 
     @Test
@@ -283,20 +219,24 @@ public class ErrorHandlingTest {
         // Invoke endpoint with not allowed method
         MutableHttpRequest<String> request = HttpRequest.GET(UriBuilder.of("/echo").build());
 
-        HttpClientResponseException thrown = Assertions.assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class))
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request, Argument.of(EchoMessage.class), Argument.of(Problem.class)),
+                METHOD_NOT_ALLOWED,
+                "Method Not Allowed",
+                "Method not allowed: GET"
         );
+    }
 
-        HttpResponse<?> response = thrown.getResponse();
-        Problem problem = response.getBody(Problem.class).get();
+    private static void assertThrowsProblem(Executable executable, HttpStatus status, String title, String detail) {
+        assertThrowsProblem(executable, status, title, equalTo(detail));
+    }
 
-        assertEquals(METHOD_NOT_ALLOWED.code(), response.status().getCode());
-        assertEquals(APPLICATION_JSON_PROBLEM_TYPE.getType(), response.getContentType().get().getType());
-
-        assertEquals(METHOD_NOT_ALLOWED.code(), problem.status());
-        assertEquals("Method Not Allowed", problem.title());
-        assertEquals("Method not allowed: GET", problem.detail());
+    private static void assertThrowsProblem(Executable executable, HttpStatus status, String title, Matcher<String> detailMatcher) {
+        MicronautHttpResponseMatcher.assertThrowsProblem(executable, status, isProblem()
+                .withStatus(status.getCode())
+                .withTitle(title)
+                .withDetail(detailMatcher)
+        );
     }
 
     @Bean

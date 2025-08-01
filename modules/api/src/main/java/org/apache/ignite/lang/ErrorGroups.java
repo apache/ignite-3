@@ -17,16 +17,33 @@
 
 package org.apache.ignite.lang;
 
+import static java.util.regex.Pattern.DOTALL;
+
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines error groups and its errors.
  */
 @SuppressWarnings("PublicInnerClass")
 public class ErrorGroups {
+    /** Additional prefix that is used in a human-readable format of ignite errors. */
+    public static final String IGNITE_ERR_PREFIX = "IGN";
+    private static final String PLACEHOLDER = "${ERROR_PREFIX}";
+    private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
+            "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)(\\s?)(.*)( TraceId:)([a-f0-9]{8})";
+
+    /** Error message pattern. */
+    private static Pattern EXCEPTION_MESSAGE_PATTERN;
+
+    private static final HashSet<String> REGISTERED_ERROR_PREFIXES = new HashSet<>();
+
     /** List of all registered error groups. */
     private static final Map<Short, ErrorGroup> registeredGroups = new HashMap<>();
 
@@ -44,7 +61,7 @@ public class ErrorGroups {
     }
 
     /**
-     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
+     * Creates a new error group with the given {@code groupName} and {@code groupCode} and default error prefix.
      *
      * @param groupName Group name to be created.
      * @param groupCode Group code to be created.
@@ -53,6 +70,20 @@ public class ErrorGroups {
      *         the given {@code groupName} is {@code null} or empty.
      */
     public static synchronized ErrorGroup registerGroup(String groupName, short groupCode) {
+        return registerGroup(IGNITE_ERR_PREFIX, groupName, groupCode);
+    }
+
+    /**
+     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
+     *
+     * @param errorPrefix Error prefix which should be used for the created error group.
+     * @param groupName Group name to be created.
+     * @param groupCode Group code to be created.
+     * @return New error group.
+     * @throws IllegalArgumentException If the specified name or group code already registered. Also, this exception is thrown if
+     *         the given {@code groupName} is {@code null} or empty.
+     */
+    public static synchronized ErrorGroup registerGroup(String errorPrefix, String groupName, short groupCode) {
         if (groupName == null || groupName.isEmpty()) {
             throw new IllegalArgumentException("Group name is null or empty");
         }
@@ -73,11 +104,34 @@ public class ErrorGroups {
             }
         }
 
-        ErrorGroup newGroup = new ErrorGroup(grpName, groupCode);
+        if (REGISTERED_ERROR_PREFIXES.add(errorPrefix)) {
+            String errorPrefixes = String.join("|", REGISTERED_ERROR_PREFIXES);
+            String pattern = EXCEPTION_MESSAGE_STRING_PATTERN.replace(PLACEHOLDER, errorPrefixes);
+            EXCEPTION_MESSAGE_PATTERN = Pattern.compile(pattern, DOTALL);
+        }
+
+        ErrorGroup newGroup = new ErrorGroup(errorPrefix, grpName, groupCode);
 
         registeredGroups.put(groupCode, newGroup);
 
         return newGroup;
+    }
+
+    /**
+     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
+     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
+     * {@code errorMessage}.
+     *
+     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
+     * @return Extracted message.
+     */
+    public static @Nullable String extractCauseMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
+        return (m.matches()) ? m.group(6) : errorMessage;
     }
 
     /**
@@ -161,29 +215,33 @@ public class ErrorGroups {
         /** Table error group. */
         public static final ErrorGroup TABLE_ERR_GROUP = registerGroup("TBL", (short) 2);
 
-        /** Table already exists. */
+        /**
+         * Table already exists.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Table not found. */
         public static final int TABLE_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** Column already exists. */
+        /**
+         * Column already exists.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int COLUMN_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 3);
 
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Table is stopping. */
-        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) (5));
-
-        /** Table definition is incorrect. */
-        public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
-
         /** Schema version mismatch. */
-        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Unsupported partition type. */
-        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Client error group. */
@@ -204,23 +262,20 @@ public class ErrorGroups {
         /** Table not found by ID. */
         public static final int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Authentication error. */
-        public static final int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 5);
-
-        /** Authorization error. */
-        public static final int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 6);
-
         /** Configuration error. */
-        public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Cluster ID mismatch error. */
-        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 6);
 
         /** Client SSL configuration error. */
-        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 7);
 
         /** Client handshake header error. */
-        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 8);
+
+        /** Server to client request failed. */
+        public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** SQL error group. */
@@ -232,7 +287,12 @@ public class ErrorGroups {
         /** Query without a result set error. */
         public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Schema not found. */
+        /**
+         * Schema not found.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
@@ -302,22 +362,33 @@ public class ErrorGroups {
 
         /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
         public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Failed to perform a read operation on the underlying key value storage because the revision has already been compacted. */
+        public static final int COMPACTED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Failed to start a node because Metastorage has diverged. The node has to be cleared and entered the cluster as a blank node. */
+        public static final int DIVERGED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
-    /** Index error group. */
+    /**
+     * Index error group.
+     *
+     * @deprecated The whole group is unused.
+     */
     @ErrorCodeGroup
+    @Deprecated
     public static class Index {
         /** Index error group. */
+        @Deprecated
         public static final ErrorGroup INDEX_ERR_GROUP = registerGroup("IDX", (short) 6);
 
-        /** Invalid index definition. */
-        public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Index not found. */
-        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
+        @Deprecated
+        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Index already exists. */
-        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 3);
+        @Deprecated
+        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Transactions error group. */
@@ -350,26 +421,32 @@ public class ErrorGroups {
         /** Failed to enlist read-write operation into read-only transaction. */
         public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** The error happens when the replica is not ready to handle a request. */
-        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode((short) 9);
-
         /** Tx state storage rebalancing error. */
-        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode((short) 9);
 
         /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
-        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Failure due to an incompatible schema change. */
-        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 11);
 
         /** Failure due to primary replica expiration. */
-        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
 
         /** Operation failed because the transaction is already finished. */
-        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
 
         /** Failure due to a stale operation of a completed transaction is detected. */
-        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+
+        /**
+         * Error occurred when trying to execute an operation in a read-only transaction on a node that has already destroyed data for
+         * read timestamp of the transaction.
+         */
+        public static final int TX_STALE_READ_ONLY_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+
+        /** Operation failed because the transaction is already finished with timeout. */
+        public static final int TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode((short) 16);
     }
 
     /** Replicator error group. */
@@ -402,8 +479,8 @@ public class ErrorGroups {
         /** Stopping replica exception code. */
         public static final int REPLICA_STOPPING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** Replication safe time reordering. */
-        public static final int REPLICATION_SAFE_TIME_REORDERING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
+        /** Replication group overloaded exception code. */
+        public static final int GROUP_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Storage error group. */
@@ -412,23 +489,11 @@ public class ErrorGroups {
         /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = registerGroup("STORAGE", (short) 9);
 
-        /** Default error code when nothing else is specified. */
-        public static final int GENERIC_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
-
-        /** Failed to create a directory. */
-        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Operation on a closed storage. */
-        public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 3);
-
-        /** Storage rebalancing error. */
-        public static final int STORAGE_REBALANCE_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 4);
-
-        /** Operation on a destroyed storage. */
-        public static final int ALREADY_DESTROYED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 5);
-
         /** Error reading from an index that has not yet been built. */
-        public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Error indicating a possible data corruption in the storage. */
+        public static final int STORAGE_CORRUPTED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Distribution zones error group. */
@@ -450,14 +515,24 @@ public class ErrorGroups {
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Port is in use. */
-        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+        /** Address or port bind error. */
+        public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** File transfer error. */
+        public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** File validation error. */
+        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Recipient node has left the physical topology. */
         public static final int RECIPIENT_LEFT_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
+        @Deprecated
+        public static final int PORT_IN_USE_ERR = BIND_ERR;
     }
 
     /** Node configuration error group. */
@@ -563,27 +638,27 @@ public class ErrorGroups {
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
 
-        /** Cannot change job priority, compute job not found error. */
-        public static final int CHANGE_JOB_PRIORITY_NO_JOB_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
-
-        /** Cannot change job priority, compute job is already executing. */
-        public static final int CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
-
         /** Cannot resolve primary replica for colocated execution. */
-        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Cannot change job priority. */
-        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
 
         /** Specified node is not found in the cluster. */
-        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
 
         /**
          * Incompatible types for argument/result in compute job.
          * For example, the one has defined a marshaller for Type A in the compute job
          * but on the client side they have passed Type B.
          */
-        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Compute job cancelled. */
+        public static final int COMPUTE_JOB_CANCELLED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+
+        /** Platform compute executor error. */
+        public static final int COMPUTE_PLATFORM_EXECUTOR_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Catalog error group. */
@@ -639,6 +714,9 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Error while restarting the cluster with clean up. */
+        public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Embedded API error group. */
@@ -672,7 +750,32 @@ public class ErrorGroups {
         /** Unsupported object type error. */
         public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** There format of bytes is wrong. */
+        /** Unmarshalling error. */
         public static final int UNMARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 3);
+    }
+
+    /** REST service error group. */
+    @ErrorCodeGroup
+    public static class Rest {
+        /** REST service error group. */
+        public static final ErrorGroup REST_ERR_GROUP = registerGroup("REST", (short) 23);
+
+        /** Cluster has not yet been initialized or the node is in the process of stopping. */
+        public static final int CLUSTER_NOT_INIT_ERR = REST_ERR_GROUP.registerErrorCode((short) 1);
+    }
+
+    /** Configuration error group. */
+    @ErrorCodeGroup
+    public static class CommonConfiguration {
+        public static final ErrorGroup COMMON_CONF_ERR_GROUP = registerGroup("COMMONCFG", (short) 24);
+
+        /** Configuration apply failed. */
+        public static final int CONFIGURATION_APPLY_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Configuration parse error. */
+        public static final int CONFIGURATION_PARSE_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Configuration validation error. */
+        public static final int CONFIGURATION_VALIDATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

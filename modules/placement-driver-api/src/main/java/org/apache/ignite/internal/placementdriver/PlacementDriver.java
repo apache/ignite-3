@@ -30,4 +30,11 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
  * replication group.</p>
  */
 public interface PlacementDriver extends LeasePlacementDriver, AssignmentsPlacementDriver {
+    /**
+     * Returns whether the state (on primary replicas/assignments) the placement driver operates upon is already present (and doesn't need
+     * to be awaited for) for the given timestamp.
+     *
+     * @param timestamp Timestamp of interest.
+     */
+    boolean isActualAt(HybridTimestamp timestamp);
 }

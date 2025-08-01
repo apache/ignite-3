@@ -25,20 +25,30 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
 /**
  * Abstract integration test that starts and stops a cluster per test method.
@@ -62,7 +72,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
@@ -73,17 +83,18 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "      netClusterNodes: [ {} ]\n"
             + "    },\n"
             + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
+            + "      membershipSyncIntervalMillis: 1000,\n"
+            + "      failurePingIntervalMillis: 500,\n"
             + "      scaleCube: {\n"
             + "        membershipSuspicionMultiplier: 1,\n"
             + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
+            + "        gossipIntervalMillis: 10\n"
             + "      },\n"
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
@@ -94,11 +105,24 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "      netClusterNodes: [ {} ]\n"
             + "    },\n"
             + "    membership: {\n"
-            + "      failurePingInterval: 1000000000\n"
+            + "      failurePingIntervalMillis: 1000000000\n"
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
+
+    /** Template for tests that may not have some storage engines enabled. */
+    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     protected Cluster cluster;
@@ -114,18 +138,33 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      * @throws Exception If failed.
      */
     @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
+    public void startCluster(TestInfo testInfo) throws Exception {
+        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
+
+        customizeConfiguration(clusterConfiguration);
+
+        cluster = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0) {
-            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
         }
     }
 
     @AfterEach
     @Timeout(60)
-    public void tearDown() {
+    public void stopCluster() {
         cluster.shutdown();
+
+        MicronautCleanup.removeShutdownHooks();
+
+        TestMvTableStorage.resetPartitionStorageFactory();
+    }
+
+    /**
+     * Inheritors should override this method to change configuration of the test cluster before its creation.
+     */
+    protected void customizeConfiguration(ClusterConfiguration.Builder clusterConfigurationBuilder) {
     }
 
     /**
@@ -138,7 +177,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected int[] cmgMetastoreNodes() {
-        return new int[] { 0 };
+        return new int[]{0};
     }
 
     protected void customizeInitParameters(InitParametersBuilder builder) {
@@ -193,6 +232,20 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster.stopNode(name);
     }
 
+    /** Stops nodes by indexes. */
+    public void stopNodes(int... nodeIndexes) {
+        for (int nodeIndex : nodeIndexes) {
+            stopNode(nodeIndex);
+        }
+    }
+
+    /** Starts nodes by indexes. */
+    public void startNodes(int... nodeIndexes) {
+        for (int nodeIndex : nodeIndexes) {
+            startNode(nodeIndex);
+        }
+    }
+
     /**
      * Returns nodes that are started and not stopped. This can include knocked out nodes.
      */
@@ -220,6 +273,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return cluster.node(index);
     }
 
+    public @Nullable Ignite nullableNode(int index) {
+        return cluster.nullableNode(index);
+    }
+
+    protected int nodeIndex(String name) {
+        return cluster.nodeIndex(name);
+    }
+
     protected final IgniteImpl igniteImpl(int index) {
         return unwrapIgniteImpl(node(index));
     }
@@ -231,6 +292,54 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
         Ignite ignite = node(nodeIndex);
 
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
+    }
+
+    protected ClusterNode clusterNode(int index) {
+        return clusterNode(node(index));
+    }
+
+    protected static ClusterNode clusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node();
+    }
+
+    protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(predicate)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("node not found"));
+    }
+
+    /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
+    @RegisterExtension
+    ClusterStateDumpingExtension testFailureHook = new ClusterStateDumpingExtension();
+
+    private static class ClusterStateDumpingExtension implements TestExecutionExceptionHandler {
+        @Override
+        public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+            if (DumpThreadsOnTimeout.isJunitMethodTimeout(throwable)) {
+                Optional<Object> testInstance = context.getTestInstance().filter(ClusterPerTestIntegrationTest.class::isInstance);
+
+                assert testInstance.isPresent();
+
+                try {
+                    dumpClusterState((ClusterPerTestIntegrationTest) testInstance.get());
+                } catch (Throwable suppressed) {
+                    // Add to suppressed if smth goes wrong.
+                    throwable.addSuppressed(suppressed);
+                }
+            }
+
+            // Re-throw original exception to fail the test.
+            throw throwable;
+        }
+
+        private static void dumpClusterState(ClusterPerTestIntegrationTest testInstance) throws Throwable {
+            List<Ignite> nodes = testInstance.runningNodes().collect(Collectors.toList());
+            for (Ignite node : nodes) {
+                unwrapIgniteImpl(node).dumpClusterState();
+            }
+        }
     }
 }

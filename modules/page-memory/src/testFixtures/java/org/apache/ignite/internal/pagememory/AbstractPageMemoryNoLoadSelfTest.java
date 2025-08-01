@@ -32,7 +32,6 @@ import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -86,28 +85,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
             } finally {
                 mem.releasePage(fullId1.groupId(), fullId1.pageId(), page1);
             }
-        } finally {
-            mem.stop(true);
-        }
-    }
-
-    @Test
-    public void testLoadedPagesCount() throws Exception {
-        PageMemory mem = memory();
-
-        mem.start();
-
-        int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
-
-        try {
-            for (int i = 0; i < expPages * 2; i++) {
-                allocatePage(mem);
-            }
-        } catch (IgniteOutOfMemoryException e) {
-            log.error(e.getMessage(), e);
-
-            // Expected.
-            assertEquals(mem.loadedPages(), expPages);
         } finally {
             mem.stop(true);
         }

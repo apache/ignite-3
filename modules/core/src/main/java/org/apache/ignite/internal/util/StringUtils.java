@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -188,5 +190,25 @@ public final class StringUtils {
      */
     public static String hexInt(int val) {
         return new IgniteStringBuilder(8).appendHex(val).toString();
+    }
+
+    /**
+     * Converts the given byte array into a String, without the first {@code prefixLength} bytes.
+     *
+     * @param bytes Byte array to convert.
+     * @param prefixLength The number of bytes to skip from the beginning of the array.
+     * @return String representation of the byte array without the first {@code prefixLength} bytes.
+     */
+    public static String toStringWithoutPrefix(byte[] bytes, int prefixLength) {
+        assert prefixLength > 0 : "prefixLength must be greater than zero: " + prefixLength;
+
+        return new String(bytes, prefixLength, bytes.length - prefixLength, UTF_8);
+    }
+
+    /**
+     * Escape double quotes in given string.
+     */
+    public static String escapeQuotes(String s) {
+        return s.replace("\"", "\\\"");
     }
 }

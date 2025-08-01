@@ -38,9 +38,10 @@ using namespace std::string_view_literals;
  */
 class ignite_runner_suite : public virtual ::testing::Test {
 public:
-    static constexpr std::string_view TABLE_1 = "tbl1"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
+    static constexpr std::string_view TABLE_1 = "TBL1"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL"sv;
+
 
     inline static const std::string PLATFORM_TEST_NODE_RUNNER =
         "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
@@ -57,8 +58,8 @@ public:
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
 
-    static constexpr const char *KEY_COLUMN = "key";
-    static constexpr const char *VAL_COLUMN = "val";
+    static constexpr const char *KEY_COLUMN = "KEY";
+    static constexpr const char *VAL_COLUMN = "VAL";
 
     /**
      * Get logger.
@@ -106,14 +107,14 @@ public:
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::SSL_NODE_ADDRS; }
+    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::get_ssl_node_addrs(); }
 
     /**
      * Get node addresses to use for tests.
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::SSL_NODE_CA_ADDRS; }
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::get_ssl_node_ca_addrs(); }
 
     /**
      * Clear table @c TABLE_1.
@@ -123,7 +124,7 @@ public:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
     }
 
     /**

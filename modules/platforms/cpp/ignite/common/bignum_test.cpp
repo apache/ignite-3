@@ -72,74 +72,84 @@ void CheckDoubleCast(double val) {
 }
 
 TEST(bignum, TestMultiplyBigIntegerArguments) {
-    big_integer bigInt(12345);
+    big_integer big_int(12345);
+
+    {
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
+
+        EXPECT_GE(mag.size_words(), 1);
+        EXPECT_GE(mag.size_bytes(), 4);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 2);
+    }
 
     big_integer res;
 
     // 152399025
-    bigInt.multiply(big_integer(12345), res);
+    big_int.multiply(big_integer(12345), res);
 
     {
         const big_integer::mag_array_view mag = res.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 4);
 
         EXPECT_EQ(mag[0], 152399025UL);
     }
 
     // 152399025
-    bigInt.assign_int64(12345);
-    bigInt.multiply(bigInt, res);
+    big_int.assign_int64(12345);
+    big_int.multiply(big_int, res);
 
     {
         const big_integer::mag_array_view mag = res.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 4);
 
         EXPECT_EQ(mag[0], 152399025UL);
     }
 
     // 152399025
-    bigInt.assign_int64(12345);
-    bigInt.multiply(big_integer(12345), bigInt);
+    big_int.assign_int64(12345);
+    big_int.multiply(big_integer(12345), big_int);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 4);
 
         EXPECT_EQ(mag[0], 152399025UL);
     }
 
     // 152399025
-    bigInt.assign_int64(12345);
-    bigInt.multiply(bigInt, bigInt);
+    big_int.assign_int64(12345);
+    big_int.multiply(big_int, big_int);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 4);
 
         EXPECT_EQ(mag[0], 152399025UL);
     }
 }
 
 TEST(bignum, TestMultiplyBigIntegerBigger) {
-    big_integer bigInt(12345);
+    big_integer big_int(12345);
 
     // 152399025
-    bigInt.multiply(bigInt, bigInt);
+    big_int.multiply(big_int, big_int);
 
     // 3539537889086624823140625
     // 0002 ED86  BBC3 30D1  DDC6 6111
-    big_integer buf = bigInt;
-    bigInt.multiply(buf, bigInt);
-    bigInt.multiply(buf, bigInt);
+    big_integer buf = big_int;
+    big_int.multiply(buf, big_int);
+    big_int.multiply(buf, big_int);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 3);
+        EXPECT_GE(mag.size_words(), 3);
+        EXPECT_GE(mag.size_bytes(), 12);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 11);
 
         EXPECT_EQ(mag[0], 0xDDC66111);
         EXPECT_EQ(mag[1], 0xBBC330D1);
@@ -148,13 +158,15 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
 
     // 2698355789040138398691723863616167551412718750 ==
     // 0078 FF9A  F760 4E12  4A1F 3179  D038 D455  630F CC9E
-    bigInt.multiply(big_integer(32546826734), bigInt);
-    bigInt.multiply(big_integer(23423079641), bigInt);
+    big_int.multiply(big_integer(32546826734), big_int);
+    big_int.multiply(big_integer(23423079641), big_int);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 5);
+        EXPECT_GE(mag.size_words(), 5);
+        EXPECT_GE(mag.size_bytes(), 20);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 19);
 
         EXPECT_EQ(mag[0], 0x630FCC9E);
         EXPECT_EQ(mag[1], 0xD038D455);
@@ -165,35 +177,41 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
 }
 
 TEST(bignum, TestPowBigInteger) {
-    big_integer bigInt(12345);
+    big_integer big_int(12345);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_GE(mag.size_words(), 1);
+        EXPECT_GE(mag.size_bytes(), 4);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 2);
 
         EXPECT_EQ(mag[0], 12345);
     }
 
     // 152399025
-    bigInt.pow(2);
+    big_int.pow(2);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 1);
+        EXPECT_GE(mag.size_words(), 1);
+        EXPECT_GE(mag.size_bytes(), 4);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 4);
 
         EXPECT_EQ(mag[0], 152399025UL);
     }
 
     // 3539537889086624823140625
     // 0002 ED86  BBC3 30D1  DDC6 6111
-    bigInt.pow(3);
+    big_int.pow(3);
 
     {
-        const big_integer::mag_array_view mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 3);
+        EXPECT_GE(mag.size_words(), 3);
+        EXPECT_GE(mag.size_bytes(), 12);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 11);
 
         EXPECT_EQ(mag[0], 0xDDC66111);
         EXPECT_EQ(mag[1], 0xBBC330D1);
@@ -210,12 +228,14 @@ TEST(bignum, TestPowBigInteger) {
     //  54E6 FF91  13FF 7B0A  455C F649  F4CD 37D0  C5B0 0507  1BFD 9083
     //  8F13 08B4  D962 08FC  FBC0 B5AB  F9F9 06C9  94B3 9715  8C43 C94F
     //  4891 09E5  57AA 66C9  A4F4 3494  A938 89FE  87AF 9056  7D90 17A1
-    bigInt.pow(10);
+    big_int.pow(10);
 
     {
-        const big_integer::mag_array_view &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view &mag = big_int.get_magnitude();
 
-        EXPECT_EQ(mag.size(), 26);
+        EXPECT_EQ(mag.size_words(), 26);
+        EXPECT_EQ(mag.size_bytes(), 104);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 102);
 
         EXPECT_EQ(mag[0], 0x7D9017A1);
         EXPECT_EQ(mag[1], 0x87AF9056);
@@ -245,33 +265,33 @@ TEST(bignum, TestPowBigInteger) {
         EXPECT_EQ(mag[25], 0x0000B4D0);
     }
 
-    bigInt.assign_int64(-1);
+    big_int.assign_int64(-1);
 
-    bigInt.pow(57298735);
-    EXPECT_EQ(bigInt.to_int64(), -1);
+    big_int.pow(57298735);
+    EXPECT_EQ(big_int.to_int64(), -1);
 
-    bigInt.pow(325347312);
-    EXPECT_EQ(bigInt.to_int64(), 1);
+    big_int.pow(325347312);
+    EXPECT_EQ(big_int.to_int64(), 1);
 
-    bigInt.assign_int64(2);
+    big_int.assign_int64(2);
 
-    bigInt.pow(10);
-    EXPECT_EQ(bigInt.to_int64(), 1024);
+    big_int.pow(10);
+    EXPECT_EQ(big_int.to_int64(), 1024);
 
-    bigInt.assign_int64(-2);
+    big_int.assign_int64(-2);
 
-    bigInt.pow(10);
-    EXPECT_EQ(bigInt.to_int64(), 1024);
+    big_int.pow(10);
+    EXPECT_EQ(big_int.to_int64(), 1024);
 
-    bigInt.assign_int64(2);
+    big_int.assign_int64(2);
 
-    bigInt.pow(11);
-    EXPECT_EQ(bigInt.to_int64(), 2048);
+    big_int.pow(11);
+    EXPECT_EQ(big_int.to_int64(), 2048);
 
-    bigInt.assign_int64(-2);
+    big_int.assign_int64(-2);
 
-    bigInt.pow(11);
-    EXPECT_EQ(bigInt.to_int64(), -2048);
+    big_int.pow(11);
+    EXPECT_EQ(big_int.to_int64(), -2048);
 }
 
 TEST(bignum, TestMultiplyDivideSimple) {
@@ -920,25 +940,25 @@ TEST(bignum, TestScalingSmall) {
 }
 
 TEST(bignum, TestScalingBig) {
-    big_integer bigInt(69213205262741);
+    big_integer big_int(69213205262741);
 
     big_decimal decimal;
     EXPECT_EQ(decimal.get_precision(), 1);
 
     // 4790467782742318458842833081
-    bigInt.multiply(bigInt, bigInt);
+    big_int.multiply(big_int, big_int);
 
-    decimal = big_decimal(bigInt, 0);
+    decimal = big_decimal(big_int, 0);
     EXPECT_EQ(decimal.get_precision(), 28);
 
     // 22948581577492104846692006446607391554788985798427952561
-    bigInt.multiply(bigInt, bigInt);
+    big_int.multiply(big_int, big_int);
 
-    decimal = big_decimal(bigInt, 0);
+    decimal = big_decimal(big_int, 0);
     EXPECT_EQ(decimal.get_precision(), 56);
 
     // 22948581577492104846692006446607391554.788985798427952561
-    decimal = big_decimal(bigInt, 18);
+    decimal = big_decimal(big_int, 18);
 
     // 22948581577492104846692006446607391554
     decimal.set_scale(0, decimal);
@@ -946,7 +966,7 @@ TEST(bignum, TestScalingBig) {
     EXPECT_EQ(decimal.get_precision(), 38);
 
     // 22948581.577492104846692006446607391554788985798427952561
-    decimal = big_decimal(bigInt, 48);
+    decimal = big_decimal(big_int, 48);
 
     // 22948581
     decimal.set_scale(0, decimal);
@@ -958,13 +978,13 @@ TEST(bignum, TestScalingBig) {
     // 436301540552945788827650832722026963914694916372255230793492080431332686
     // 268324254350022490844698008329270553114204362445999680199136593689695140
     // 0874934591063287320666899465891248127072522251998904759858801
-    bigInt.pow(5);
+    big_int.pow(5);
 
     // 63647190455381106.030680614025402628690608799785691446392543129561015071
     // 243630154055294578882765083272202696391469491637225523079349208043133268
     // 626832425435002249084469800832927055311420436244599968019913659368969514
     // 00874934591063287320666899465891248127072522251998904759858801
-    decimal = big_decimal(bigInt, 260);
+    decimal = big_decimal(big_int, 260);
     EXPECT_EQ(decimal.get_precision(), 277);
 
     // 63647190455381106
@@ -972,6 +992,17 @@ TEST(bignum, TestScalingBig) {
 
     EXPECT_EQ(decimal.get_precision(), 17);
     EXPECT_EQ(decimal.to_int64(), 63647190455381106L);
+
+    decimal = big_decimal(1, 10000);
+    {
+        EXPECT_EQ(decimal.byte_size(), 3);
+        auto mag = decimal.get_unscaled_value().get_magnitude();
+        EXPECT_EQ(mag.size_words(), 1);
+        EXPECT_EQ(mag.size_bytes(), 4);
+        EXPECT_EQ(mag.size_bytes_non_zero(), 1);
+
+        EXPECT_EQ(mag[0], 0x1);
+    }
 }
 
 TEST(bignum, TestDecimalSimple) {
@@ -1089,25 +1120,25 @@ TEST(bignum, TestPrecisionSimple) {
 }
 
 TEST(bignum, TestPrecisionChange) {
-    big_integer bigInt(32421);
+    big_integer big_int(32421);
 
     // 75946938183
-    bigInt.multiply(big_integer(2342523), bigInt);
+    big_int.multiply(big_integer(2342523), big_int);
 
     // 4244836901495581620
-    bigInt.multiply(big_integer(55892140), bigInt);
+    big_int.multiply(big_integer(55892140), big_int);
 
     // 1361610054778960404282184020
-    bigInt.multiply(big_integer(320768521), bigInt);
+    big_int.multiply(big_integer(320768521), big_int);
 
     // 1454144449122723409814375680476734820
-    bigInt.multiply(big_integer(1067959541), bigInt);
+    big_int.multiply(big_integer(1067959541), big_int);
 
     // 117386322514277938455905731466723946155156640
-    bigInt.multiply(big_integer(80725352), bigInt);
+    big_int.multiply(big_integer(80725352), big_int);
 
     // 1173863225142779384559.05731466723946155156640
-    big_decimal decimal(bigInt, 23);
+    big_decimal decimal(big_int, 23);
 
     EXPECT_EQ(decimal.get_precision(), 45);
     EXPECT_EQ(decimal.get_scale(), 23);

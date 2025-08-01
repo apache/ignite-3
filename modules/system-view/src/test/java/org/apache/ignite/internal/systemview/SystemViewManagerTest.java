@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.systemview;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
@@ -39,6 +40,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -69,16 +72,16 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mockito;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -88,13 +91,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE_NAME = "LOCAL_NODE_NAME";
 
-    private final CatalogManager catalog = Mockito.mock(CatalogManager.class);
+    private final CatalogManager catalog = mock(CatalogManager.class);
 
     private SystemViewManagerImpl viewMgr;
 
     @BeforeEach
     void setUp() {
-        viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog);
+        viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog, mock(FailureProcessor.class));
     }
 
     @Test
@@ -148,8 +151,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
-    public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void registerAllColumnTypes(ColumnType typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
         when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
@@ -352,7 +355,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < allNodes.size(); i++) {
             String name = allNodes.get(i);
 
-            ClusterNode clusterNode = new ClusterNodeImpl(name, name, new NetworkAddress("127.0.0.1", 1010 + i));
+            ClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
 
             Map<String, String> systemAttributes;
             if (owningNodesSet.get(i)) {

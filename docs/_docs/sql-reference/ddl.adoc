@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Definition Language (DDL)
 
-This section walks you through all data definition language (DDL) commands supported by Ignite 3.
+This section walks you through all data definition language (DDL) commands supported by Ignite 3.0.
 
 == CREATE TABLE
 
@@ -34,43 +34,42 @@ NonTerminal('constraint', {href:'./grammar-reference/#constraint'}),
 NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
 Terminal(',')),
 Terminal(')'),
+Optional(
+Sequence(
+Terminal('COLOCATE'),
+Optional('BY'),
+Terminal('('),
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'}),
+Terminal(')'),
+)
+),
 End({type:'complex'})
 )
+
 
 [.diagram-container]
 Diagram(
 Start({type:'complex'}),
 Optional(
 Sequence(
-Terminal('COLOCATE'),
-Optional('BY'),
-NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
+Terminal('ZONE'),
+NonTerminal('zone_name')
 )
 ),
 Optional(
 Sequence(
-Terminal('WITH'),
-OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
-)
-),
-Optional(
-Sequence(
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name')
+Terminal('STORAGE PROFILE'),
+NonTerminal('profile_name')
 )
 )
 )
 
 Keywords and parameters:
 
-* `table_name` - name of the table. Can be schema-qualified.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
-* `WITH` - accepts additional parameters; currently, accepts only:
-** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone].
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted. 
-* `expiry_column_name` - name of the column that contains values on which the record expiry is based.
+* `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key.
+* `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exists at the moment of table creation, and can be created before writing data.
+* `STORAGE PROFILE` - sets the link:administrators-guide/config/node-config#storage-configuration[storage profile] that will be used to store the table. Must be specified as a case-sensitive string.
 
 Examples:
 
@@ -97,19 +96,22 @@ CREATE TABLE IF NOT EXISTS Person (
   name varchar,
   age int,
   company varchar
-) WITH PRIMARY_ZONE=`MYZONE`
+) ZONE MYZONE
 ----
 
-Creates a Person table where the records expire at timestamps in the `ttl` column:
+Creates a Person table that uses the `default` storage profile regardless of the storage profile specified in the distribution zone:
 
 [source,sql]
 ----
-CREATE TABLE IF NOT EXISTS Person ( 
-  id int PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS Person (
+  id int primary key,
+  city_id int,
   name varchar,
-  ttl timestamp
-) EXPIRE AT ttl
+  age int,
+  company varchar
+) PRIMARY ZONE MYZONE STORAGE PROFILE 'default'
 ----
+
 
 Creates a Person table where the default value if the `city_id` column is 1:
 
@@ -124,19 +126,8 @@ CREATE TABLE IF NOT EXISTS Person (
 )
 ----
 
-Creates a Person table with the `duration` column automatically set a week into the future:
 
-[source,sql]
-----
-CREATE TABLE IF NOT EXISTS Person (
-  id int primary key,
-  city_id int,
-  name varchar,
-  age int,
-  company varchar,
-  duration timestamp default CURRENT_TIMESTAMP + INTERVAL '1' WEEK
-)
-----
+
 
 == ALTER TABLE
 
@@ -165,8 +156,6 @@ Diagram(
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
-* `COLUMN` - name of the defined column.
 
 Examples:
 
@@ -177,23 +166,26 @@ Add a column to the table:
 ALTER TABLE Person ADD COLUMN city varchar;
 ----
 
-Add a column​ only if the table exists:
+Add a column only if the table exists:
 
 [source,sql]
 ----
-ALTER TABLE IF EXISTS Missing ADD number bigint;
+ALTER TABLE IF EXISTS Person ADD number bigint;
 ----
 
 Add several columns to the table at once:
 
 [source,sql]
 ----
-ALTER TABLE Region ADD COLUMN (code varchar, gdp double);
+ALTER TABLE Person ADD COLUMN (code varchar, gdp double);
 ----
 
 === ALTER TABLE IF EXISTS table DROP COLUMN (column1, column2 int)
 
-Removes column(s) from an existing table.
+Removes column(s) from an existing table. Once a column is removed, it cannot be accessed within queries. This command has the following limitations:
+
+- If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
+- It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
 
 [.diagram-container]
 Diagram(
@@ -214,16 +206,6 @@ NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
-+
-If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
-It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
-Ignite stores data in the form of key-value pairs and all the new columns will belong to the value. It's not possible to change a set of columns of the key (`PRIMARY KEY`).
-+
-* `COLUMN` - name of the defined column.
-//Both DDL and DML commands targeting the same table are blocked for a short time until `ALTER TABLE` is in progress.
-
-Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
@@ -250,7 +232,7 @@ ALTER TABLE Person DROP COLUMN (code, gdp);
 
 === ALTER TABLE IF EXISTS table ALTER COLUMN column SET DATA TYPE
 
-Modifies column(s) in an existing table.
+Changes the data type for the column(s) in an existing table.
 
 [.diagram-container]
 Diagram(
@@ -258,7 +240,7 @@ Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
 NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 
@@ -268,20 +250,16 @@ Diagram(
 Start({type:'complex'}),
 Terminal('SET DATA TYPE'),
 NonTerminal('data_type'),
-NonTerminal('('),
-Optional(
-Sequence(
-Choice (0,'NOT NULL','NULLABLE')
-)
-)
-)
+Optional(Sequence(
+Terminal('('),
+Choice (0,'NULLABLE','NOT NULL'),
+Terminal(')')
+)))
 
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ALTER COLUMN` - alter the defined column.
-* `SET DATA TYPE` - set data type of the defined column.
-* `data_type` - a valid link:sql-reference/data-types[data type]. If the data type supports arguments, you can specify them as well.
+* `data_type` - a valid link:sql-reference/data-types[data type].
 
 Examples:
 
@@ -289,24 +267,15 @@ Alter a column in the table:
 
 [source,sql]
 ----
-ALTER TABLE Person ALTER COLUMN city varchar;
+ALTER TABLE Person ALTER COLUMN city SET DATA TYPE varchar;
 ----
-
-Alter several columns in the table at once:
-
-[source,sql]
-----
-ALTER TABLE Region ALTER COLUMN (code varchar, gdp double);
-----
-
-//The above examples need to be changed as they must show HOW the column(s) must be altered.
 
 ==== Supported Transitions
 
 Not all data type transitions are supported. The limitations are listed below:
 
 * `FLOAT` can be transitioned to `DOUBLE`
-* `INT8`, `INT16` and `INT64` can be transitioned to `INT32`
+* `INT8`, `INT16` and `INT32` can be transitioned to `INT64`
 * `TYPE SCALE` change is forbidden
 * `TYPE PRECISION` increase is allowed for DECIMAL non PK column
 * `TYPE LENGTH` increase is allowed for STRING and BYTE_ARRAY non PK column
@@ -319,14 +288,14 @@ Changes the possible range of IDs to BIGINT ranges:
 
 [source,sql]
 ----
-ALTER TABLE cities ALTER COLUMN ID SET DATA TYPE BIGINT
+ALTER TABLE Person ALTER COLUMN age SET DATA TYPE BIGINT
 ----
 
 Sets the length of a column text to 11:
 
 [source,sql]
 ----
-ALTER TABLE cities ALTER COLUMN name SET DATA TYPE varchar(11)
+ALTER TABLE Person ALTER COLUMN Name SET DATA TYPE varchar(11)
 ----
 
 === ALTER TABLE IF EXISTS table ALTER COLUMN column SET NOT NULL
@@ -337,7 +306,7 @@ Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
 NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 
@@ -352,8 +321,6 @@ End({type:'simple'})
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ALTER COLUMN` - alter the defined column.
-* `SET DATA TYPE` - set the defined column value to no a not-null value.
 
 ==== Supported Transitions
 
@@ -370,7 +337,7 @@ Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
 NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 
@@ -385,8 +352,6 @@ End({type:'simple'})
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ALTER COLUMN` - alter the defined column.
-* `DROP NOT NULL` - drop all not-null values.
 
 ==== Supported Transitions
 
@@ -402,7 +367,7 @@ Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
 NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 
@@ -410,17 +375,22 @@ End({type:'complex'})
 [.diagram-container]
 Diagram(
 Start({type:'complex'}),
-Terminal('SET DEFAULT'),
-NonTerminal('default_value'),
-End({type:'simple'})
+Terminal('SET DATA TYPE'),
+NonTerminal('data_type'),
+Optional(Sequence(
+Choice (0,'NULL','NOT NULL'),
+)),
+Optional(Sequence(
+Terminal('DEFAULT'),
+Sequence(Choice(0,
+NonTerminal('literal_value')
+),),
+))
 )
 
 Keywords and parameters:
 
 * `IF NOT EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ALTER COLUMN` - alter the defined column.
-* `SET DEFAULT` - set the defined column's default value to the provided one.
-* `default_value` - new default value for the column.
 
 === ALTER TABLE IF EXISTS table ALTER COLUMN column DROP DEFAULT
 
@@ -430,7 +400,7 @@ Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
 NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 
@@ -445,12 +415,10 @@ End({type:'simple'})
 Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
-* `ALTER COLUMN` - alter the defined column.
-* `DROP DEFAULT` - dropt the default value for the defined column.
 
 == DROP TABLE
 
-The `DROP TABLE` command drops an existing table.
+The `DROP TABLE` command drops an existing table. The table will be marked for deletion and will be removed by garbage collection after the link:administrators-guide/data-partitions#version-storage[low watermark] point is reached. Until the data is removed, it will be available to link:developers-guide/transactions#read-only-transactions[read-only transactions] that check the time before the table was marked for deletion.
 
 NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
 
@@ -465,7 +433,6 @@ Keywords and parameters:
 
 * `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
-Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
@@ -577,60 +544,5 @@ Drop index if the one exists:
 
 [source,sql]
 ----
-DROP INDEX IF EXISTS Persons;
+DROP INDEX IF EXISTS department_name_idx;
 ----
-
-
-== CREATE CACHE
-
-Creates a new link:ddl.adoc/developers-guide/cache[cache].
-
-[.diagram-container]
-Diagram(
-Terminal('CREATE'),
-Terminal('CACHE'),
-Optional(Terminal('IF NOT EXISTS')),
-NonTerminal('table_name', {href:'./grammar-reference/#qualified_table_name'}),
-Terminal('('),
-Choice(1,
-NonTerminal('constraint', {href:'./grammar-reference/#constraint'}),
-NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
-Terminal(',')),
-Terminal(')'),
-End({type:'complex'})
-)
-
-[.diagram-container]
-Diagram(
-Start({type:'complex'}),
-Optional(
-Sequence(
-Terminal('COLOCATE'),
-Optional('BY'),
-NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
-)
-),
-Optional(
-Sequence(
-Terminal('WITH'),
-OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
-)
-),
-Optional(
-Sequence(
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name')
-)
-)
-)
-
-Keywords and parameters:
-
-* `cache_name` - name of the cache. Can be schema-qualified.
-* `IF NOT EXISTS` - create the cache only if a cache with the same name does not exist.
-* `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
-* `WITH` - accepts additional parameters; currently, accepts only:
-** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. The selected distribution zone must use `aimem` storage engine.
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted.
-* `expiry_column_name` - name of the column that contains values on which the record expiry is based.

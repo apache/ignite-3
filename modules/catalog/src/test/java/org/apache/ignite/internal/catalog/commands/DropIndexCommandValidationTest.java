@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class DropIndexCommandValidationTest extends AbstractCommandValidationTest {
+
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
@@ -75,10 +77,18 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand dropCommand = DropIndexCommand.builder()
+                .schemaName(SCHEMA_NAME + "_UNK")
+                .indexName("TEST")
+                .ifExists(true)
+                .build();
+
+        dropCommand.get(new UpdateContext(catalog)); // No exception is thrown
     }
 
     @Test
@@ -91,7 +101,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 IndexNotFoundValidationException.class,
                 "Index with name 'PUBLIC.TEST' not found"
         );
@@ -115,7 +125,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Dropping primary key index is not allowed"
         );

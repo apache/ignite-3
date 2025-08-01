@@ -55,7 +55,7 @@ public class NodeMetricSourceListReplCommand extends BaseCommand implements Runn
         runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metrics"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metric sources"))
                 .print(new MetricSourceListDecorator(plain))
         );
     }

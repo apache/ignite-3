@@ -52,7 +52,7 @@ public class NodeMetricSourceListCommand extends BaseCommand implements Callable
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .decorator(new MetricSourceListDecorator(plain))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metrics"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metric sources"))
         );
     }
 }

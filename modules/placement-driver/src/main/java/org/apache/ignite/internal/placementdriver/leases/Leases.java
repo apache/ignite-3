@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import static java.util.Collections.unmodifiableMap;
+
 import java.util.Map;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -44,7 +46,7 @@ public class Leases {
 
     /** Returns leases grouped by replication group. */
     public Map<ReplicationGroupId, Lease> leaseByGroupId() {
-        return leaseByGroupId;
+        return unmodifiableMap(leaseByGroupId);
     }
 
     /** Returns an array of byte leases from the metastore. */

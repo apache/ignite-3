@@ -18,6 +18,7 @@
 #pragma once
 
 #include "error_codes.h"
+#include "uuid.h"
 
 #include <cstdint>
 #include <exception>
@@ -56,7 +57,7 @@ public:
     /**
      * Constructor.
      *
-     * @param statusCode Status code.
+     * @param code Status code.
      * @param message Message.
      */
     explicit ignite_error(error::code code, std::string message) noexcept
@@ -66,7 +67,7 @@ public:
     /**
      * Constructor.
      *
-     * @param statusCode Status code.
+     * @param code Status code.
      * @param message Message.
      * @param cause Error cause.
      */
@@ -76,12 +77,27 @@ public:
         , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
-     * Get error message.
+     * Constructor.
+     *
+     * @param code Status code.
+     * @param message Message.
+     * @param trace_id Trace ID.
+     * @param java_st Java stack trace.
+     */
+    explicit ignite_error(error::code code, std::string message, uuid trace_id,
+        std::optional<std::string> java_st) noexcept
+        : m_status_code(code)
+        , m_message(std::move(message))
+        , m_trace_id(trace_id)
+        , m_java_stack_trace(java_st) {} // NOLINT(bugprone-throw-keyword-missing)
+
+    /**
+     * Get an error message.
      */
     [[nodiscard]] char const *what() const noexcept override { return m_message.c_str(); }
 
     /**
-     * Get error message as std::string.
+     * Get the error message as std::string.
      */
     [[nodiscard]] const std::string &what_str() const noexcept { return m_message; }
 
@@ -91,6 +107,24 @@ public:
      * @return Status code.
      */
     [[nodiscard]] error::code get_status_code() const noexcept { return m_status_code; }
+
+    /**
+     * Get trace ID.
+     * Trace ID can be used to track the same error in different part of product and different logs (e.g., server and
+     * client)
+     *
+     * @return Trace ID.
+     */
+    [[nodiscard]] uuid get_trace_id() const noexcept { return m_trace_id; }
+
+    /**
+     * Get Java side stack trace.
+     * Can be empty if the error generated on the client side or if the server side option for sending stack traces
+     * to the client is disabled.
+     *
+     * @return Java side stack trace.
+     */
+    [[nodiscard]] const std::optional<std::string> &get_java_stack_trace() const noexcept { return m_java_stack_trace; }
 
     /**
      * Get error cause.
@@ -108,7 +142,7 @@ public:
     [[nodiscard]] std::int32_t get_flags() const noexcept { return m_flags; }
 
     /**
-     * Add an extra information.
+     * Add extra information.
      *
      * @tparam T Extra type.
      * @param key Key.
@@ -120,7 +154,7 @@ public:
     }
 
     /**
-     * Get an extra information by the key.
+     * Get extra information by the key.
      *
      * @return Extra.
      */
@@ -135,10 +169,16 @@ public:
 
 private:
     /** Status code. */
-    error::code m_status_code{error::code::GENERIC};
+    error::code m_status_code{error::code::INTERNAL};
 
     /** Message. */
     std::string m_message;
+
+    /** Trace ID. */
+    uuid m_trace_id{uuid::random()};
+
+    /** Java side stack trace. */
+    std::optional<std::string> m_java_stack_trace;
 
     /** Cause. */
     std::exception_ptr m_cause;

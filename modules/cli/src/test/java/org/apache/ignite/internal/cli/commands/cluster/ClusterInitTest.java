@@ -23,7 +23,6 @@ import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
-import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
 import com.typesafe.config.ConfigFactory;
@@ -31,15 +30,20 @@ import com.typesafe.config.ConfigRenderOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitCommand;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockserver.model.MediaType;
 
 /** Tests "cluster init" command. */
 @DisplayName("cluster init")
+@ExtendWith(WorkDirectoryExtension.class)
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
     private static final Pattern PATTERN = Pattern.compile("\"");
 
@@ -64,6 +68,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     void wrongConfigFilePath() {
+        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
+
         execute(
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId",
@@ -71,7 +77,34 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 "--config-files", "wrong-path"
         );
 
-        assertErrOutputIs("Couldn't read cluster configuration file: [wrong-path]");
+        assertErrOutputIs("Couldn't read cluster configuration file wrong-path");
+
+        execute(
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--name", "cluster"
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
+    }
+
+    @Test
+    void wrongConfigFile(@WorkDirectory Path workDir) throws IOException {
+        Path configFile = Files.createTempFile(workDir, "config", "");
+        Files.write(configFile, List.of("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+
+        execute(
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--name", "cluster",
+                "--config-files", configFile.toString()
+        );
+
+        assertErrOutputIs("Couldn't parse cluster configuration file " + configFile + "\n"
+                + "String: 1: Key '<' may not be followed by token: '?' (Reserved character '?' is not allowed outside quotes)"
+                + " (if you intended '?' (Reserved character '?' is not allowed outside quotes)"
+                + " to be part of a key or string value, try enclosing the key or value in double quotes)"
+        );
     }
 
     @Test
@@ -101,6 +134,31 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
+
+    @Test
+    @DisplayName("--url http://localhost:10300 --cluster-name cluster")
+    void initSuccessNoMsCmg() {
+        var expectedSentContent = "{\"metaStorageNodes\":[],"
+                + "\"cmgNodes\":[],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(
+                "--url", mockUrl,
+                "--name", "cluster"
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
+    }
+
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node1ConsistentId, node2ConsistentId"
             + " --cluster-management-group node2ConsistentId, node3ConsistentId --name cluster"
@@ -110,7 +168,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
         String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\",\n"
                 + "    \"node2ConsistentId\"\n"
@@ -171,29 +229,34 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     @DisplayName("--url http://localhost:10300 --cluster-management-group node2ConsistentId, node3ConsistentId")
-    void metastorageNodesAreMandatoryForInit() {
+    void metastorageNodesAreNotMandatoryForInit() {
+        var expectedSentContent = "{"
+                + "\"metaStorageNodes\":[],"
+                + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
+                + "\"clusterName\":\"cluster\"}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/cluster/init")
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
         execute(
                 "--url", mockUrl,
                 "--cluster-management-group", "node2ConsistentId, node3ConsistentId",
                 "--name", "cluster"
         );
 
-        assertAll(
-                () -> assertExitCodeIs(2),
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--metastorage-group=<node name>'")
-        );
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node2ConsistentId, node3ConsistentId")
     void cmgNodesAreNotMandatoryForInit() {
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                )
-                .respond(response().withStatusCode(OK_200.code()));
+        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
 
         execute(
                 "--url", mockUrl,
@@ -243,12 +306,12 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "    }\n"
                 + "  }\n"
                 + "}\n"
-                + "ignite.schemaSync.delayDuration: 100,\n"
-                + "ignite.schemaSync.maxClockSkew: 7,\n"
-                + "ignite.metaStorage.idleSyncTimeInterval: 10,\n"
-                + "ignite.replication.idleSafeTimePropagationDuration: 100";
+                + "ignite.schemaSync.delayDurationMillis: 100,\n"
+                + "ignite.schemaSync.maxClockSkewMillis: 7,\n"
+                + "ignite.system.idleSafeTimeSyncIntervalMillis: 10,\n"
+                + "ignite.replication.idleSafeTimePropagationDurationMillis: 100";
 
-        var expectedSentContent = "{\n"
+        String expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"
                 + "    \"node1ConsistentId\"\n"
                 + "  ],\n"

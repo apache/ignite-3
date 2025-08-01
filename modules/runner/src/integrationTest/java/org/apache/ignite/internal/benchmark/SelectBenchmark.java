@@ -33,16 +33,18 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -81,8 +83,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
     private KeyValueView<Tuple, Tuple> keyValueView;
 
+    private IgniteTransactions transactions;
+
+    private final TransactionOptions readOnlyTransactionOptions = new TransactionOptions().readOnly(true);
+
     @Param({"1", "2", "3"})
-    private int clusterSize;
+    private static int clusterSize;
 
     /**
      * Fills the table with data.
@@ -101,6 +107,8 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
             keyValueView.put(null, Tuple.create().set("ycsb_key", id++), t);
         }
+
+        transactions = publicIgnite.transactions();
     }
 
     /**
@@ -172,7 +180,21 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void kvGet(Blackhole bh) {
-        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        doKvGet(null, bh);
+    }
+
+    /**
+     * Benchmark for KV get in RO transaction via embedded client.
+     */
+    @Benchmark
+    public void kvGetInRoTransaction(Blackhole bh) {
+        transactions.runInTransaction(tx -> {
+            doKvGet(tx, bh);
+        }, readOnlyTransactionOptions);
+    }
+
+    private void doKvGet(@Nullable Transaction tx, Blackhole bh) {
+        Tuple val = keyValueView.get(tx, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
         bh.consume(val);
     }
 
@@ -190,7 +212,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
+                .include(".*\\." + SelectBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
@@ -216,13 +238,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
-        private final SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .build();
+        private final SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
-        private final SqlProperties scriptProperties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
+        private final SqlProperties scriptProperties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL);
 
         private final QueryProcessor queryProc = igniteImpl.queryEngine();
         private int pageSize;
@@ -236,11 +256,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         private Iterator<InternalSqlRow> query(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(properties, igniteImpl.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(properties, igniteImpl.observableTimeTracker(), null, null, sql, args));
         }
 
         private Iterator<InternalSqlRow> script(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(scriptProperties, igniteImpl.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(scriptProperties, igniteImpl.observableTimeTracker(), null, null, sql, args));
         }
 
         private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
@@ -268,7 +288,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             sql = client.sql();
         }
@@ -333,7 +355,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
 

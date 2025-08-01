@@ -5,3 +5,7 @@ global-exclude *__pycache__*
 include README.md
 include LICENSE
 include NOTICE
+include pyignite_dbapi/_version.txt
+include CMakeLists.txt
+recursive-include cpp_module *
+recursive-include cpp *

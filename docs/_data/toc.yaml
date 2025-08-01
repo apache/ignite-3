@@ -23,11 +23,24 @@
       url: installation/deb-rpm
     - title: Installing Docker
       url: installation/installing-using-docker
+    - title: Migration From Ignite 2
+      url: installation/migration-from-ai2/overview
 - title: Getting Started
   url: quick-start/getting-started-guide
+  items:
+    - title: Quick Start
+      url: quick-start/getting-started-guide
+    - title: Start Ignite 3 Cluster
+      url: quick-start/start-cluster
+    - title: Explore SQL Capabilities
+      url: quick-start/explore-sql
+    - title: Persist Your Data
+      url: quick-start/persist-data
+    - title: Use Java API
+      url: quick-start/java-api
 - title: Embedded Mode
   url: quick-start/embedded-mode
-- title: GridGain CLI Tool
+- title: Ignite CLI Tool
   url: ignite-cli-tool
 - title: Developers Guide
   url: developers-guide/table-api
@@ -52,6 +65,8 @@
       items:
         - title: Introduction
           url: developers-guide/sql/calcite-based-sql-engine
+        - title: SQL API
+          url: developers-guide/sql/sql-api
         - title: JDBC Driver
           url: developers-guide/sql/jdbc-driver
         - title: System Views
@@ -77,8 +92,6 @@
       url: developers-guide/data-streamer
     - title: Code Deployment
       url: developers-guide/code-deployment/code-deployment
-    - title: Cache Storage
-      url: developers-guide/cache
     - title: REST API
       url: developers-guide/rest/rest-api
       items:
@@ -87,7 +100,7 @@
 - title: Administrator’s Guide
   url: administrators-guide/config/config
   items:
-    - title: GridGain Configuration
+    - title: Ignite Configuration
       url: administrators-guide/config/config
       items:
         - title: Node Configuration Parameters
@@ -105,8 +118,18 @@
               url: administrators-guide/config/storage/volatile
             - title: Table Configuration
               url: administrators-guide/config/storage/table-configuration
-        - title: Memory Quotas Configuration
-          url: administrators-guide/config/memory-quotas
+    - title: Cluster Lifecycle
+      url: administrators-guide/lifecycle
+    - title: Distribution Zones
+      url: administrators-guide/distribution-zones
+    - title: Storage Profiles and Engines
+      url: administrators-guide/storage
+    - title: Data Partitioning
+      url: administrators-guide/data-partitions
+    - title: Data Colocation
+      url: administrators-guide/colocation
+    - title: Cluster Security
+      url: administrators-guide/cluster-security
     - title: Security and Authentication
       url: administrators-guide/security/ssl-tls
       items:
@@ -114,10 +137,6 @@
           url: administrators-guide/security/ssl-tls
         - title: Authentication
           url: administrators-guide/security/authentication
-        - title: JWT Authentication
-          url: administrators-guide/security/jwt
-        - title: User Permissions and Roles
-          url: administrators-guide/security/permissions
     - title: Metrics and Monitoring
       url: administrators-guide/metrics/configuring-metrics
       items:
@@ -144,8 +163,20 @@
       url: sql-reference/grammar-reference
     - title: Data Types
       url: sql-reference/data-types
+    - title: Explain Statement
+      url: sql-reference/explain-statement
+      items:
+        - title: Explain Statement
+          url: sql-reference/explain-statement
+        - title: List Of Operators
+          url: sql-reference/explain-operators-list
 - title: SQL Performance Tuning
-  url: sql-tuning
+  url: sql-tuning/sql-tuning
+  items:
+    - title: SQL Performance Tuning
+      url: sql-tuning/sql-tuning
+    - title: Improving Queries
+      url: sql-tuning/using-explain
 - title: General Configuration Tips
   url: general-tips
 - title: Glossary

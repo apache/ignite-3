@@ -27,11 +27,11 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,32 +39,34 @@ import org.jetbrains.annotations.Nullable;
  * Starts an implicit or script-driven transaction if there is no external transaction.
  */
 public class ScriptTransactionContext implements QueryTransactionContext {
-    private final QueryTransactionContextImpl txContext;
+    private final QueryTransactionContext txContext;
 
-    private final TransactionInflights transactionInflights;
+    private final TransactionalOperationTracker txTracker;
 
     private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
     /** Constructor. */
-    public ScriptTransactionContext(QueryTransactionContext txContext, TransactionInflights transactionInflights) {
-        assert txContext instanceof QueryTransactionContextImpl : txContext;
-
-        this.txContext = (QueryTransactionContextImpl) txContext;
-        this.transactionInflights = transactionInflights;
+    public ScriptTransactionContext(
+            QueryTransactionContext txContext,
+            TransactionalOperationTracker txTracker
+    ) {
+        this.txContext = txContext;
+        this.txTracker = txTracker;
     }
 
     /**
      * Starts a new implicit transaction if there is no external or script-driven transaction.
      *
-     * @param readOnly Type of the transaction to start if none is started.
+     * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
+     * @param implicit Indicates whether the implicit transaction will be partially managed by the table storage.
      * @return Transaction wrapper.
      */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         QueryTransactionWrapper wrapper = this.wrapper;
 
         if (wrapper == null) {
-            return txContext.getOrStartImplicit(readOnly);
+            return txContext.getOrStartSqlManaged(readOnly, implicit);
         }
 
         return wrapper;
@@ -106,9 +108,9 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             }
 
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
-            InternalTransaction tx = txContext.getOrStartImplicit(readOnly).unwrap();
+            InternalTransaction tx = txContext.getOrStartSqlManaged(readOnly, false).unwrap();
 
-            this.wrapper = new ScriptTransactionWrapperImpl(tx, transactionInflights);
+            this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
 
             return nullCompletedFuture();
         } else {
@@ -126,32 +128,27 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Registers a future statement cursor that must be closed before the transaction can be committed. */
     public void registerCursorFuture(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
-        if (queryType == SqlQueryType.DDL || queryType == SqlQueryType.EXPLAIN) {
-            return;
-        }
+        if (queryType.supportsTransactions()) {
+            ScriptTransactionWrapperImpl txWrapper = wrapper;
 
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        if (txWrapper != null) {
-            txWrapper.registerCursorFuture(cursorFut);
+            if (txWrapper != null) {
+                txWrapper.registerCursorFuture(cursorFut);
+            }
         }
     }
 
-    /** Attempts to rollback a script-driven transaction if it has not finished. */
-    public void rollbackUncommitted() {
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        if (txWrapper != null) {
-            txWrapper.rollbackWhenCursorsClosed();
-        }
-    }
-
-    /** Closes all associated cursors and rolls back the script-driven transaction. */
+    /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
+        assert t != null;
+
+        QueryTransactionWrapper txWrapper = wrapper;
+
+        if (txWrapper == null) {
+            txWrapper = txContext.explicitTx();
+        }
 
         if (txWrapper != null) {
-            txWrapper.rollback(t);
+            txWrapper.finalise(t);
         }
     }
 }

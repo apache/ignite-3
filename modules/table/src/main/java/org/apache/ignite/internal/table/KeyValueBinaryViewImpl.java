@@ -36,7 +36,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -55,8 +54,8 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -109,24 +108,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         });
     }
 
-    /**
-     * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        return sync(getNullableAsync(tx, key));
     }
 
-    /**
-     * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
+        return getAsync(tx, key).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
     /** {@inheritDoc} */
@@ -264,25 +257,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         });
     }
 
-    /**
-     * This method is not supported, {@link #getAndPut(Transaction, Tuple, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        return sync(getNullableAndPutAsync(tx, key, val));
     }
 
-    /**
-     * This method is not supported, {@link #getAndPutAsync(Transaction, Tuple, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, Tuple key,
-            Tuple val) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
+        return getAndPutAsync(tx, key, val).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
     /** {@inheritDoc} */
@@ -343,8 +329,20 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return sync(removeAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -378,24 +376,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         });
     }
 
-    /**
-     * This method is not supported, {@link #getAndRemove(Transaction, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        return sync(getNullableAndRemoveAsync(tx, key));
     }
 
-    /**
-     * This method is not supported, {@link #getAndRemoveAsync(Transaction, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
+        return getAndRemoveAsync(tx, key).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
     /** {@inheritDoc} */
@@ -461,28 +453,18 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         });
     }
 
-    /**
-     * This method is not supported, {@link #getAndReplace(Transaction, Tuple, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
     public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, Tuple key, Tuple val) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+        return sync(getNullableAndReplaceAsync(tx, key, val));
     }
 
-    /**
-     * This method is not supported, {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)} must be used instead.
-     *
-     * @throws UnsupportedOperationException unconditionally.
-     */
+    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(
-            @Nullable Transaction tx,
-            Tuple key,
-            Tuple val
-    ) {
-        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
+        // This method implemented for consistency and has the same semantics as regular get().
+        // NullableValue.get() will never return null and there is no ambiguity between value absence and null result.
+        return getAndReplaceAsync(tx, key, val).thenApply(r -> r == null ? null : NullableValue.of(r));
     }
 
     /**
@@ -594,14 +576,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     }
 
     @Override
-    public <E, V, R, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R> receiver,
             Function<E, Entry<Tuple, Tuple>> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -609,9 +591,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 
-        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionIndex, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
-                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                        tbl.partitionLocation(partitionIndex)
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 

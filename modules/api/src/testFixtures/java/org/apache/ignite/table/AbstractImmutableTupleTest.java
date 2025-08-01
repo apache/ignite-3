@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -33,12 +34,21 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Year;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /**
  * Base test class for immutable Tuple implementation.
@@ -87,6 +97,22 @@ public abstract class AbstractImmutableTupleTest {
 
     protected Tuple getTupleWithColumnOfAllTypes() {
         return createTuple(AbstractImmutableTupleTest::addColumnOfAllTypes);
+    }
+
+    protected abstract Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value);
+
+    @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"PERIOD", "DURATION", "NULL"})
+    @ParameterizedTest
+    public void testTupleColumnsEquality(ColumnType type) {
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        Object value = generateValue(rnd, type);
+
+        Tuple expected = Tuple.create().set("col", value);
+        Tuple actual = createTupleOfSingleColumn(type, "COL", value);
+
+        assertEquals(expected, actual);
+        assertEquals(expected.hashCode(), actual.hashCode());
+        assertNotEquals(Tuple.create().set("col", null), actual);
     }
 
     @Test
@@ -351,5 +377,72 @@ public abstract class AbstractImmutableTupleTest {
         }
 
         return new BigInteger("10").pow(NANOS_IN_SECOND - precision).intValue();
+    }
+
+    private static @Nullable Object generateValue(Random rnd, ColumnType type) {
+        switch (type) {
+            case NULL:
+                return null;
+            case BOOLEAN:
+                return rnd.nextBoolean();
+            case INT8:
+                return (byte) rnd.nextInt(255);
+            case INT16:
+                return (short) rnd.nextInt(65535);
+            case INT32:
+                return rnd.nextInt();
+            case INT64:
+                return rnd.nextLong();
+            case FLOAT:
+                return rnd.nextFloat();
+            case DOUBLE:
+                return rnd.nextDouble();
+            case DECIMAL:
+                return BigDecimal.valueOf(rnd.nextInt(), 5);
+            case DATE: {
+                Year year = Year.of(1 + rnd.nextInt(9998));
+                return LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
+            }
+            case TIME:
+                return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
+                        rnd.nextInt(1_000_000) * 1000);
+            case DATETIME:
+                return LocalDateTime.ofInstant(generateInstant(rnd), ZoneOffset.UTC);
+
+            case TIMESTAMP:
+                return generateInstant(rnd);
+
+            case UUID:
+                return new UUID(rnd.nextLong(), rnd.nextLong());
+
+            case STRING: {
+                int length = rnd.nextInt(256);
+
+                StringBuilder sb = new StringBuilder(length);
+                IntStream.generate(() -> rnd.nextInt(Character.MAX_VALUE + 1))
+                        .filter(c -> !Character.isSurrogate((char) c))
+                        .limit(length)
+                        .forEach(sb::appendCodePoint);
+
+                return sb.toString();
+            }
+            case BYTE_ARRAY: {
+                int length = rnd.nextInt(256);
+                byte[] bytes = new byte[length];
+                rnd.nextBytes(bytes);
+                return bytes;
+            }
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    private static Instant generateInstant(Random rnd) {
+        long minTs = LocalDateTime.of(LocalDate.of(1, 1, 1), LocalTime.MIN)
+                .minusSeconds(ZoneOffset.MIN.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
+        long maxTs = LocalDateTime.of(LocalDate.of(9999, 12, 31), LocalTime.MAX)
+                .minusSeconds(ZoneOffset.MAX.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
+
+        return Instant.ofEpochMilli(minTs + (long) (rnd.nextDouble() * (maxTs - minTs)));
     }
 }

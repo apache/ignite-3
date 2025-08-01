@@ -68,8 +68,8 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
         // Then the query is failed
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Handshake error")
+                () -> assertErrOutputIs("Could not connect to node. Check authentication configuration" + System.lineSeparator()
+                        + "Authentication failed" + System.lineSeparator())
         );
     }
 }

@@ -22,14 +22,14 @@ package org.apache.ignite.catalog;
  */
 public enum SortOrder {
     DEFAULT(""),
-    ASC("asc"),
-    ASC_NULLS_FIRST("asc nulls first"),
-    ASC_NULLS_LAST("asc nulls last"),
-    DESC("desc"),
-    DESC_NULLS_FIRST("desc nulls first"),
-    DESC_NULLS_LAST("desc nulls last"),
-    NULLS_FIRST("nulls first"),
-    NULLS_LAST("nulls last");
+    ASC("ASC"),
+    ASC_NULLS_FIRST("ASC NULLS FIRST"),
+    ASC_NULLS_LAST("ASC NULLS LAST"),
+    DESC("DESC"),
+    DESC_NULLS_FIRST("DESC NULLS FIRST"),
+    DESC_NULLS_LAST("DESC NULLS LAST"),
+    NULLS_FIRST("NULLS FIRST"),
+    NULLS_LAST("NULLS LAST");
 
     private final String sql;
 

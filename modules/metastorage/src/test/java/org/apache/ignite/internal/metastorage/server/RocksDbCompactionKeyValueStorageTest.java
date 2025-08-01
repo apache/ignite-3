@@ -17,21 +17,44 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
-    @WorkDirectory
-    private Path workDir;
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureProcessor());
+        return new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir.resolve("storage"),
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
+    }
+
+    @Test
+    void checksumsAreRemovedForCompactedRevisions() {
+        assertDoesNotThrow(() -> storage.checksum(3));
+
+        storage.compact(3);
+
+        assertThrows(CompactedException.class, () -> storage.checksum(1));
+        assertThrows(CompactedException.class, () -> storage.checksum(2));
+        assertThrows(CompactedException.class, () -> storage.checksum(3));
+        assertDoesNotThrow(() -> storage.checksum(4));
     }
 }

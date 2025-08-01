@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.cli.core.repl.registry;
 
 import com.typesafe.config.Config;
+import org.jetbrains.annotations.Nullable;
 
 /** Cluster config registry. */
 public interface ClusterConfigRegistry {
 
     /** Returns cluster config. */
+    @Nullable
     Config config();
 }

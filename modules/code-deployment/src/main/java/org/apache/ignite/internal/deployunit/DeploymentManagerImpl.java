@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
-import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -34,9 +33,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -128,6 +130,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     private final ClusterStatusWatchListener clusterStatusWatchListener;
 
+    private final UnitDownloader unitDownloader;
+
     /**
      * Constructor.
      *
@@ -137,6 +141,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
+     * @param onPathRemoving Consumer to call when a deployment unit path is being removed.
      */
     public DeploymentManagerImpl(
             ClusterService clusterService,
@@ -145,7 +150,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Path workDir,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager,
-            String nodeName
+            String nodeName,
+            Consumer<Path> onPathRemoving
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.configuration = configuration;
@@ -158,19 +164,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         undeployer = new DeploymentUnitAcquiredWaiter(
                 nodeName,
                 deploymentUnitAccessor,
-                unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
+                unit -> {
+                    onPathRemoving.accept(deployer.unitPath(unit.name(), unit.version(), false));
+                    deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING);
+                }
         );
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
+        unitDownloader = new UnitDownloader(deploymentUnitStore, nodeName, deployer, tracker, messaging);
 
-        nodeStatusCallback = new DefaultNodeCallback(
-                deploymentUnitStore,
-                messaging,
-                deployer,
-                undeployer,
-                tracker,
-                cmgManager,
-                nodeName
-        );
+        nodeStatusCallback = new DefaultNodeCallback(deploymentUnitStore, undeployer, unitDownloader, cmgManager);
         nodeStatusWatchListener = new NodeStatusWatchListener(deploymentUnitStore, nodeName, nodeStatusCallback);
 
         clusterEventCallback = new ClusterEventCallbackImpl(deploymentUnitStore, deployer, cmgManager, nodeName);
@@ -353,30 +355,41 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
-        return deploymentUnitStore.getAllNodes(id, version)
-                .thenCompose(nodes -> {
-                    if (nodes.isEmpty()) {
+        return deploymentUnitStore.getAllNodeStatuses(id, version)
+                .thenCompose(statuses -> {
+                    if (statuses.isEmpty()) {
                         return falseCompletedFuture();
                     }
-                    if (nodes.contains(nodeName)) {
-                        return trueCompletedFuture();
-                    }
-                    return messaging.downloadUnitContent(id, version, nodes)
-                            .thenCompose(content -> {
-                                return deploymentUnitStore.getClusterStatus(id, version)
-                                        .thenCompose(status -> {
-                                            DeploymentUnit unit = toDeploymentUnit(content);
-                                            return deployToLocalNode(status, unit)
-                                                    .whenComplete((deployed, throwable) -> {
-                                                        try {
-                                                            unit.close();
-                                                        } catch (Exception e) {
-                                                            LOG.error("Error closing deployment unit", e);
-                                                        }
-                                                    });
-                                        });
-                            });
 
+                    Optional<UnitNodeStatus> nodeStatus = statuses.stream()
+                            .filter(status -> status.nodeId().equals(nodeName))
+                            .findFirst();
+
+                    if (nodeStatus.isPresent()) {
+                        switch (nodeStatus.get().status()) {
+                            case UPLOADING:
+                                // Wait for the upload
+                                LOG.debug("Status is UPLOADING, downloading the unit");
+                                return unitDownloader.downloadUnit(statuses, id, version);
+                            case DEPLOYED:
+                                // Unit is already deployed on the local node.
+                                LOG.debug("Status is DEPLOYED");
+                                return trueCompletedFuture();
+                            default:
+                                // Invalid status, cluster status should be deployed
+                                LOG.debug("Invalid status {}", nodeStatus.get().status());
+                                return falseCompletedFuture();
+                        }
+                    } else {
+                        // Node was not in the initial deploy list, create status in the UPLOADING state and wait for the upload.
+                        return deploymentUnitStore.getClusterStatus(id, version).thenCompose(clusterStatus ->
+                                deploymentUnitStore.createNodeStatus(nodeName, id, version, clusterStatus.opId(), UPLOADING)
+                                        .thenCompose(created -> {
+                                            LOG.debug("Status {}, downloading the unit", created ? "created" : "not created");
+                                            return unitDownloader.downloadUnit(statuses, id, version);
+                                        })
+                        );
+                    }
                 });
     }
 
@@ -398,7 +411,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
+        deployer.initUnitsFolder(workDir.resolve(configuration.location().value()));
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();

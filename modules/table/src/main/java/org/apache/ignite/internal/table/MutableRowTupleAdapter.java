@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -198,6 +199,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return tuple != null ? tuple.decimalValue(columnName) : super.decimalValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return tuple != null ? tuple.decimalValue(columnIndex) : super.decimalValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return tuple != null ? tuple.stringValue(columnName) : super.stringValue(columnName);
     }
@@ -206,6 +219,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     @Override
     public String stringValue(int columnIndex) {
         return tuple != null ? tuple.stringValue(columnIndex) : super.stringValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(String columnName) {
+        return tuple != null ? tuple.bytesValue(columnName) : super.bytesValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return tuple != null ? tuple.bytesValue(columnIndex) : super.bytesValue(columnIndex);
     }
 
     /** {@inheritDoc} */

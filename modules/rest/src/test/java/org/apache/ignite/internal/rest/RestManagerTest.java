@@ -40,9 +40,22 @@ public class RestManagerTest {
             "cluster/v2/method"
     };
 
+    private static final String[] AVAILABLE_DURING_INITIALIZATION = {
+            "cluster/v1",
+    };
+
+    private static final String[] UNAVAILABLE_DURING_INITIALIZATION = {
+            "node/v1/test",
+            "cluster/v2/test",
+            "cluster/v2",
+            "node/v1",
+            "node",
+            "cluster/v2/method"
+    };
+
     @Test
     public void pathAvailabilityTest() {
-        RestManager restManager = new RestManager(AVAILABLE_ON_START);
+        RestManager restManager = new RestManager(AVAILABLE_ON_START, AVAILABLE_DURING_INITIALIZATION);
 
         for (String availablePath : AVAILABLE_ON_START) {
             assertThat(restManager.pathAvailability(availablePath), is(available()));
@@ -54,11 +67,11 @@ public class RestManagerTest {
 
         restManager.setState(RestState.INITIALIZATION);
 
-        for (String availablePath : AVAILABLE_ON_START) {
-            assertThat(restManager.pathAvailability(availablePath).isAvailable(), is(false));
+        for (String availablePath : AVAILABLE_DURING_INITIALIZATION) {
+            assertThat(restManager.pathAvailability(availablePath), is(available()));
         }
 
-        for (String unavailablePath : UNAVAILABLE_ON_START) {
+        for (String unavailablePath : UNAVAILABLE_DURING_INITIALIZATION) {
             assertThat(restManager.pathAvailability(unavailablePath).isAvailable(), is(false));
         }
 

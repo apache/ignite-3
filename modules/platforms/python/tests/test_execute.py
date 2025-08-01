@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pyignite3
+import pyignite_dbapi
 
 
 def test_execute_const_sql_success(cursor):
@@ -23,11 +23,11 @@ def test_execute_const_sql_success(cursor):
     assert len(cursor.description) == 2
 
     assert cursor.description[0].name == '1'
-    assert cursor.description[0].type_code == pyignite3.INT
+    assert cursor.description[0].type_code == pyignite_dbapi.INT
     assert cursor.description[0].null_ok is False
 
     assert cursor.description[1].name == "'Lorem Ipsum'"
-    assert cursor.description[1].type_code == pyignite3.STRING
+    assert cursor.description[1].type_code == pyignite_dbapi.STRING
     assert cursor.description[1].null_ok is False
 
 
@@ -39,15 +39,15 @@ def test_execute_sql_table_success(table_name, cursor, drop_table_cleanup):
     assert len(cursor.description) == 3
 
     assert cursor.description[0].name == 'ID'
-    assert cursor.description[0].type_code == pyignite3.INT
+    assert cursor.description[0].type_code == pyignite_dbapi.INT
     assert cursor.description[0].null_ok is False
 
     assert cursor.description[1].name == 'DATA'
-    assert cursor.description[1].type_code == pyignite3.STRING
+    assert cursor.description[1].type_code == pyignite_dbapi.STRING
     assert cursor.description[1].null_ok is True
 
     assert cursor.description[2].name == 'DEC'
-    assert cursor.description[2].type_code == pyignite3.NUMBER
+    assert cursor.description[2].type_code == pyignite_dbapi.NUMBER
     assert cursor.description[2].null_ok is True
     assert cursor.description[2].scale == 5
     assert cursor.description[2].precision == 3

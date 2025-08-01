@@ -22,8 +22,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -36,12 +37,14 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<VolatilePageMemoryMvPartitionStorage> {
     private final VolatilePageMemoryStorageEngine engine;
 
     private final VolatilePageMemoryDataRegion dataRegion;
 
     private final ExecutorService destructionExecutor;
+
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -51,19 +54,22 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor used to destruct partitions.
+     * @param failureProcessor Failure processor.
      */
     VolatilePageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryStorageEngine engine,
             VolatilePageMemoryDataRegion dataRegion,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -90,7 +96,8 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                 versionChainTree,
                 indexMetaTree,
                 gcQueue,
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
     }
 
@@ -103,7 +110,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -123,7 +129,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -159,7 +164,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     Integer.toString(getTableId()),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
@@ -174,7 +178,15 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        volatilePartitionStorage.destroyStructures();
+        volatilePartitionStorage.destroyStructures().whenComplete((res, ex) -> {
+            if (ex != null) {
+                String errorMessage = String.format(
+                        "Could not destroy structures: [tableId=%s, partitionId=%s]", getTableId(),
+                        volatilePartitionStorage.partitionId()
+                );
+                failureProcessor.process(new FailureContext(ex, errorMessage));
+            }
+        });
 
         int partitionId = mvPartitionStorage.partitionId();
 

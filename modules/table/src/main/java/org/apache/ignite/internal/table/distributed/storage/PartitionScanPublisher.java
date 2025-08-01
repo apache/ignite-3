@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +27,9 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition Scan Publisher.
@@ -38,21 +41,17 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
     /** True when the publisher has a subscriber, false otherwise. */
-    private final AtomicBoolean subscribed;
+    private final AtomicBoolean subscribed = new AtomicBoolean(false);
 
     private final InflightBatchRequestTracker inflightBatchRequestTracker;
 
     /**
      * The constructor.
      *
-     * @param inflightBatchRequestTracker {@link InflightBatchRequestTracker} to track betch requests completion.
+     * @param inflightBatchRequestTracker {@link InflightBatchRequestTracker} to track batch requests completion.
      */
-    public PartitionScanPublisher(
-            InflightBatchRequestTracker inflightBatchRequestTracker
-    ) {
+    public PartitionScanPublisher(InflightBatchRequestTracker inflightBatchRequestTracker) {
         this.inflightBatchRequestTracker = inflightBatchRequestTracker;
-
-        this.subscribed = new AtomicBoolean(false);
     }
 
     @Override
@@ -75,7 +74,7 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
      * @param batchSize The size of the batch to retrieve.
      * @return A future with a batch of rows.
      */
-    protected abstract CompletableFuture<Collection<T>> retrieveBatch(Long scanId, Integer batchSize);
+    protected abstract CompletableFuture<Collection<T>> retrieveBatch(long scanId, int batchSize);
 
     /**
      * The function will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
@@ -85,24 +84,34 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
      * @param th An exception which was thrown when entries were retrieving from the cursor.
      * @return A future which will be completed when the cursor is closed.
      */
-    protected abstract CompletableFuture<Void> onClose(Boolean intentionallyClose, Long scanId, @Nullable Throwable th);
+    protected abstract CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th);
+
+    // TODO Temporal getter, remove after https://issues.apache.org/jira/browse/IGNITE-22522
+    @TestOnly
+    public long scanId(Subscription subscription) {
+        return ((PartitionScanSubscription) subscription).scanId;
+    }
 
     /**
      * Partition Scan Subscription.
      */
     private class PartitionScanSubscription implements Subscription {
-        private final Subscriber<? super T> subscriber;
+        private static final int INTERNAL_BATCH_SIZE = 10_000;
 
-        private final AtomicBoolean canceled;
+        private final Subscriber<? super T> subscriber;
 
         /**
          * Scan id to uniquely identify it on server side.
          */
-        private final Long scanId;
+        private final long scanId;
 
-        private final AtomicLong requestedItemsCnt;
+        private final Object lock = new Object();
 
-        private static final int INTERNAL_BATCH_SIZE = 10_000;
+        private boolean canceled;
+
+        private long requestedItemsCnt;
+
+        private CompletableFuture<Void> serializationFuture = nullCompletedFuture();
 
         /**
          * The constructor. TODO: IGNITE-15544 Close partition scans on node left.
@@ -111,105 +120,152 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
          */
         private PartitionScanSubscription(Subscriber<? super T> subscriber) {
             this.subscriber = subscriber;
-            this.canceled = new AtomicBoolean(false);
             this.scanId = CURSOR_ID_GENERATOR.getAndIncrement();
-            this.requestedItemsCnt = new AtomicLong(0);
         }
 
         @Override
         public void request(long n) {
-            if (n <= 0) {
-                cancel(null, true);
-
-                subscriber.onError(new IllegalArgumentException(
-                        format("Invalid requested amount of items [requested={}, minValue=1].", n)));
-            }
-
-            if (canceled.get()) {
-                return;
-            }
-
-            long prevVal = requestedItemsCnt.getAndUpdate(origin -> {
-                try {
-                    return Math.addExact(origin, n);
-                } catch (ArithmeticException e) {
-                    return Long.MAX_VALUE;
+            synchronized (lock) {
+                if (canceled) {
+                    return;
                 }
-            });
 
-            if (prevVal == 0) {
-                scanBatch((int) Math.min(n, INTERNAL_BATCH_SIZE));
+                if (n <= 0) {
+                    serializationFuture = serializationFuture.thenRun(() -> {
+                        var e = new IllegalArgumentException(format("Invalid amount of items requested [requested={}, minValue=1].", n));
+
+                        completeSubscription(e);
+                    });
+
+                    return;
+                }
+
+                boolean shouldRetrieveBatch = requestedItemsCnt == 0;
+
+                requestedItemsCnt += n;
+
+                // Handle overflow.
+                if (requestedItemsCnt < 0) {
+                    requestedItemsCnt = Long.MAX_VALUE;
+                }
+
+                if (shouldRetrieveBatch) {
+                    serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch())
+                            .whenComplete((v, err) -> {
+                                if (err != null) {
+                                    completeSubscription(err);
+                                }
+                            });
+                }
             }
         }
 
         @Override
         public void cancel() {
-            cancel(null, true); // Explicit cancel.
-        }
-
-        /**
-         * After the method is called, a subscriber won't be received updates from the publisher.
-         *
-         * @param t An exception which was thrown when entries were retrieving from the cursor.
-         * @param intentionallyClose True if the subscription is closed for the client side.
-         */
-        private void cancel(@Nullable Throwable t, boolean intentionallyClose) {
-            if (!canceled.compareAndSet(false, true)) {
-                return;
-            }
-
-            onClose(intentionallyClose, scanId, t).whenComplete((ignore, th) -> {
-                if (th != null) {
-                    subscriber.onError(th);
-                } else {
-                    subscriber.onComplete();
+            synchronized (lock) {
+                if (canceled) {
+                    return;
                 }
-            });
+
+                canceled = true;
+
+                serializationFuture = serializationFuture.thenCompose(v -> onClose(true, scanId, null));
+            }
         }
 
         /**
-         * Requests and processes n requested elements where n is an integer.
+         * Completes the subscription.
          *
-         * @param n Amount of items to request and process.
+         * <p>If {@code t} is {@code null}, the subscription will be completed successfully, otherwise it will be completed with the
+         * provided error. Callers of this method must ensure that no ongoing requests are being made.
          */
-        private void scanBatch(int n) {
-            if (canceled.get()) {
-                return;
+        private void completeSubscription(@Nullable Throwable t) {
+            synchronized (lock) {
+                if (canceled) {
+                    return;
+                }
+
+                canceled = true;
             }
 
-            inflightBatchRequestTracker.onRequestBegin();
+            onClose(false, scanId, t)
+                    .whenComplete((v, e) -> {
+                        if (t == null) {
+                            if (e == null) {
+                                subscriber.onComplete();
+                            } else {
+                                subscriber.onError(e);
+                            }
+                        } else {
+                            // "onClose" actually modifies the provided throwable (!), so no need to add suppressed exceptions here.
+                            subscriber.onError(t);
+                        }
+                    });
+        }
 
-            retrieveBatch(scanId, n).thenAccept(binaryRows -> {
-                assert binaryRows != null;
-                assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
+        /**
+         * Retrieves the next batch of data, invokes {@link Subscriber#onNext} and schedules the next batch, if needed.
+         */
+        private CompletableFuture<Void> retrieveAndProcessBatch() {
+            int batchSize;
 
-                inflightBatchRequestTracker.onRequestEnd();
+            synchronized (lock) {
+                if (canceled) {
+                    return nullCompletedFuture();
+                }
 
-                binaryRows.forEach(subscriber::onNext);
+                batchSize = (int) Math.min(requestedItemsCnt, INTERNAL_BATCH_SIZE);
+            }
 
-                if (binaryRows.size() < n) {
-                    cancel(null, false);
+            assert batchSize > 0 : batchSize;
+
+            try {
+                inflightBatchRequestTracker.onRequestBegin();
+            } catch (TransactionException e) {
+                completeSubscription(e);
+
+                return nullCompletedFuture();
+            }
+
+            return retrieveBatch(scanId, batchSize)
+                    .whenComplete((batch, err) -> inflightBatchRequestTracker.onRequestEnd())
+                    .thenAccept(batch -> processBatch(batch, batchSize));
+        }
+
+        private void processBatch(Collection<T> batch, int requestedCnt) {
+            assert batch != null : "Batch is null";
+            assert batch.size() <= requestedCnt : "Got more rows than requested [batchSize=" + batch.size()
+                    + ", requested=" + requestedCnt + "]";
+
+            batch.forEach(subscriber::onNext);
+
+            synchronized (lock) {
+                if (canceled) {
+                    return;
+                }
+
+                if (batch.size() < requestedCnt) {
+                    completeSubscription(null);
                 } else {
-                    long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
+                    requestedItemsCnt -= batch.size();
 
-                    if (remaining > 0) {
-                        scanBatch((int) Math.min(remaining, INTERNAL_BATCH_SIZE));
+                    if (requestedItemsCnt > 0) {
+                        serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch())
+                                .whenComplete((v, err) -> {
+                                    if (err != null) {
+                                        completeSubscription(err);
+                                    }
+                                });
                     }
                 }
-            }).exceptionally(t -> {
-                inflightBatchRequestTracker.onRequestEnd();
-
-                cancel(t, false);
-
-                return null;
-            });
+            }
         }
     }
 
     /**
      * Tracks every inflight batch request.
      */
-    interface InflightBatchRequestTracker {
+    public interface InflightBatchRequestTracker {
         /**
          * Called right before a batch request is started.
          */
@@ -221,4 +277,3 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
         void onRequestEnd();
     }
 }
-

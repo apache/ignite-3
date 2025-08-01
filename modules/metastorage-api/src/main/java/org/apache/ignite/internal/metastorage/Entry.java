@@ -18,58 +18,48 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a storage unit as entry with key, value and revision.
+ * Represents a storage unit as entry.
  *
- * <p>Where:
+ * <p>Where:</p>
  * <ul>
  *     <li>key - an unique entry's key. Keys are comparable in lexicographic manner.</li>
  *     <li>value - a data which is associated with a key and represented as an array of bytes.</li>
  *     <li>revision - a number which denotes a version of whole meta storage. Each change increments the revision.</li>
+ *     <li>timestamp - a timestamp of execution of the operation that changed the entry in the meta storage. ach change increments the
+ *     timestamp.</li>
  * </ul>
  */
 public interface Entry extends Serializable {
-    /**
-     * Returns a key.
-     *
-     * @return The key.
-     */
+    /** Returns the key bytes. */
     byte[] key();
 
-    /**
-     * Returns a value. Could be {@code null} for empty entry.
-     *
-     * @return Value.
-     */
+    /** Returns a value. Could be {@code null} for {@link #empty empty} or {@link #tombstone tombstone} entry. */
     byte @Nullable [] value();
 
     /**
-     * Returns a revision.
+     * Returns the metastorage revision in which the entry was created, {@code 0} for an {@link #empty empty entry}.
      *
-     * @return Revision.
+     * <p>Revision is increased either by changing one key or the entire batch.</p>
      */
     long revision();
 
-    /**
-     * Returns an update counter.
-     *
-     * @return Update counter.
-     */
-    long updateCounter();
-
-    /**
-     * Returns value which denotes whether entry is empty or not.
-     *
-     * @return {@code True} if entry is empty, otherwise - {@code false}.
-     */
+    /** Returns {@code true} if entry is empty (never existed or was destroyed by the compaction), otherwise - {@code false}. */
     boolean empty();
 
     /**
-     * Returns value which denotes whether entry is tombstone or not.
-     *
-     * @return {@code True} if entry is tombstone, otherwise - {@code false}.
+     * Returns {@code true} if entry is tombstone (existed but was removed and has not yet been destroyed by the compaction), otherwise -
+     * {@code false}.
      */
     boolean tombstone();
+
+    /**
+     * Returns the metastorage operation timestamp in which the entry was created, {@code null} for an {@link #empty empty entry}.
+     *
+     * <p>Operation timestamp is assigned for each change of the key or the entire batch under one revision.</p>
+     */
+    @Nullable HybridTimestamp timestamp();
 }

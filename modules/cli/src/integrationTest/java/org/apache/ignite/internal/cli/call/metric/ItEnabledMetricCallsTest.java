@@ -26,7 +26,6 @@ import java.util.List;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
@@ -58,7 +57,7 @@ class ItEnabledMetricCallsTest extends CliIntegrationTest {
                 return;
             }
 
-            nodeMetricSourceEnableCall.execute(NodeMetricSourceEnableCallInput.builder()
+            nodeMetricSourceEnableCall.execute(MetricSourceEnableCallInput.builder()
                     .endpointUrl(NODE_URL)
                     .srcName(name)
                     .enable(false)

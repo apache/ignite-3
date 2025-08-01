@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -84,9 +85,11 @@ public class ClientRecordSerializer<R> {
      * @param out Packer.
      * @param part Tuple part.
      * @param <R> Record type.
+     * @param allowUnmappedFields Allow unmapped fields.
      */
-    public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        writeRecRaw(rec, out, schema.getMarshaller(mapper, part), columnCount(schema, part));
+    public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part,
+            boolean allowUnmappedFields) {
+        writeRecRaw(rec, out, schema.getMarshaller(mapper, part, allowUnmappedFields), columnCount(schema, part));
     }
 
     /**
@@ -98,7 +101,7 @@ public class ClientRecordSerializer<R> {
      * @param columnCount Column count.
      * @param <R> Record type.
      */
-    static <R> void writeRecRaw(@Nullable R rec, ClientMessagePacker out, Marshaller marshaller, int columnCount) {
+    private static <R> void writeRecRaw(@Nullable R rec, ClientMessagePacker out, Marshaller marshaller, int columnCount) {
         var builder = new BinaryTupleBuilder(columnCount);
         var noValueSet = new BitSet();
 
@@ -108,16 +111,35 @@ public class ClientRecordSerializer<R> {
         out.packBinaryTuple(builder, noValueSet);
     }
 
-    void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        writeRecRaw(rec, mapper, schema, out, part);
+    private void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part, boolean allowUnmappedFields) {
+        writeRecRaw(rec, mapper, schema, out, part, allowUnmappedFields);
     }
 
-    void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+    void writeRec(
+            @Nullable Transaction tx,
+            @Nullable R rec,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            WriteContext ctx,
+            TuplePart part
+    ) {
+        writeRec(tx, rec, schema, out, ctx, part, false);
+    }
+
+    void writeRec(
+            @Nullable Transaction tx,
+            @Nullable R rec,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            WriteContext ctx,
+            TuplePart part,
+            boolean allowUnmappedFields
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
-        writeRecRaw(rec, schema, out.out(), part);
+        writeRecRaw(rec, schema, out.out(), part, allowUnmappedFields);
     }
 
     void writeRecs(
@@ -126,13 +148,14 @@ public class ClientRecordSerializer<R> {
             @Nullable R rec2,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             TuplePart part
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
 
-        Marshaller marshaller = schema.getMarshaller(mapper, part);
+        Marshaller marshaller = schema.getMarshaller(mapper, part, false);
         int columnCount = columnCount(schema, part);
 
         writeRecRaw(rec, out.out(), marshaller, columnCount);
@@ -144,14 +167,27 @@ public class ClientRecordSerializer<R> {
             Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             TuplePart part
     ) {
+        writeRecs(tx, recs, schema, out, ctx, part, false);
+    }
+
+    void writeRecs(
+            @Nullable Transaction tx,
+            Collection<R> recs,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            WriteContext ctx,
+            TuplePart part,
+            boolean allowUnmappedFields
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
 
-        Marshaller marshaller = schema.getMarshaller(mapper, part);
+        Marshaller marshaller = schema.getMarshaller(mapper, part, allowUnmappedFields);
         int columnCount = columnCount(schema, part);
 
         for (R rec : recs) {

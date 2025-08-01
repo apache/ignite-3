@@ -34,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +48,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         PartitionPruningMetadata actual = extractMetadata(
@@ -68,7 +67,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         PartitionPruningMetadata actual = extractMetadata(
@@ -87,7 +86,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .sortedIndex().name("C1_SORTED")
                 .addColumn("C1", Collation.ASC_NULLS_FIRST)
                 .end()
@@ -109,7 +108,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .sortedIndex().name("C1_SORTED")
                 .addColumn("C1", Collation.ASC_NULLS_FIRST)
                 .end()
@@ -131,14 +130,14 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         IgniteTable table2 = TestBuilders.table()
                 .name("T2")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         PartitionPruningMetadata actual = extractMetadata(
@@ -161,14 +160,14 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         IgniteTable table2 = TestBuilders.table()
                 .name("T2")
                 .addKeyColumn("C1", NativeTypes.STRING)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
@@ -187,7 +186,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns col2 = result2.get(1);
         RexLiteral lit2 = (RexLiteral) col2.columns().get(0).get(0);
-        assertEquals(SqlTypeName.VARCHAR, lit2.getType().getSqlTypeName());
+        assertEquals(SqlTypeName.CHAR, lit2.getType().getSqlTypeName());
     }
 
     @Test
@@ -197,7 +196,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addKeyColumn("C2", NativeTypes.INT32)
                 .addColumn("C3", NativeTypes.INT32, true)
-                .distribution(IgniteDistributions.affinity(List.of(1, 0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
                 .build();
 
         PartitionPruningMetadata actual = extractMetadata(
@@ -216,14 +215,14 @@ public class PartitionPruningTest extends AbstractPlannerTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32, false)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         IgniteTable table2 = TestBuilders.table()
                 .name("T2")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .distribution(TestBuilders.affinity(List.of(0), 1, 2))
                 .build();
 
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
@@ -233,7 +232,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns cols = actual.get(2);
         assertNotNull(cols, "No metadata for source=2");
-        assertEquals("[[0=$cor0.C1], [0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
+        assertEquals("[[0=$cor1.C1], [0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {

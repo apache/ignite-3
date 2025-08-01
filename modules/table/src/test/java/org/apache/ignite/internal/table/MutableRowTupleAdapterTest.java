@@ -47,6 +47,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -56,7 +59,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
@@ -365,6 +367,24 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
     }
 
     @Test
+    public void testTupleNetworkSerialization() throws Exception {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
+
+        Tuple tuple = TableRow.tuple(row);
+
+        var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+        var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+        var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+        Tuple unmarshalled = userObjectMarshaller.unmarshal(userObjectMarshaller.marshal(tuple).bytes(), userObjectDescriptorRegistry);
+
+        assertEquals(tuple, unmarshalled);
+    }
+
+    @Test
     void testTemporalValuesPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
                 new Column[]{new Column("KEY", INT32, false)},
@@ -469,19 +489,9 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Set<ColumnType> schemaTypes = fullSchema.columns().stream()
                 .map(Column::type)
                 .map(NativeType::spec)
-                .map(NativeTypeSpec::asColumnType)
                 .collect(Collectors.toSet());
 
-        for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL) {
-                continue;
-            }
-
-            if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-15200: Not supported yet.
-                continue;
-            }
-
+        for (ColumnType columnType : NativeType.nativeTypes()) {
             assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
         }
     }
@@ -515,6 +525,21 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         tuple = addColumnOfAllTypes(tuple);
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
+
+        return TableRow.tuple(marshaller.marshal(tuple));
+    }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        NativeType nativeType = NativeTypes.fromObject(value);
+        SchemaDescriptor schema = new SchemaDescriptor(42,
+                new Column[]{new Column(columnName.toUpperCase(), nativeType, false)},
+                new Column[]{}
+        );
+
+        Tuple tuple = Tuple.create().set(columnName, value);
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }

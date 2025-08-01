@@ -39,13 +39,14 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -115,7 +116,7 @@ public class MockNode {
         var clusterStateStorage =
                 new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
 
-        FailureProcessor failureProcessor = new NoOpFailureProcessor();
+        FailureManager failureManager = new NoOpFailureManager();
 
         LogStorageFactory cmgLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(
@@ -126,18 +127,27 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
+        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
-                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
+                new ClusterInitializer(
+                        clusterService,
+                        hocon -> hocon,
+                        new TestConfigurationValidator(),
+                        () -> colocationEnabled
+                ),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier()),
+                new LogicalTopologyImpl(clusterStateStorage, failureManager),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
-                failureProcessor,
+                failureManager,
                 clusterIdHolder,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                new NoOpMetricManager(),
+                () -> colocationEnabled
         );
 
         components = List.of(
@@ -147,7 +157,7 @@ public class MockNode {
                 cmgLogStorageFactory,
                 raftManager,
                 clusterStateStorage,
-                failureProcessor,
+                failureManager,
                 clusterManager
         );
     }

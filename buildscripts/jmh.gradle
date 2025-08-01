@@ -1,0 +1,130 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply plugin: 'me.champeau.jmh'
+apply plugin: 'io.morethan.jmhreport'
+
+def isMac = System.getProperty('os.name').toLowerCase().contains('mac')
+def isLinux = System.getProperty('os.name').toLowerCase().contains('linux')
+def isWin = System.getProperty('os.name').toLowerCase().contains('win')
+
+dependencies {
+    jmhImplementation libs.jmh.core
+    jmhAnnotationProcessor libs.jmh.annotation.processor
+
+    jmhImplementation(sourceSets.main.output)
+}
+
+jmh {
+    includes = project.hasProperty('jmhBench') ? ["org.apache.ignite.*.${project.getProperty('jmhBench')}"] : ['.*']
+    // Match all benchmarks by default
+
+    // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
+    failOnError = true
+
+    // Should JMH force GC between iterations?
+    forceGC = false
+
+    // human-readable output file
+    humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt")
+
+    // results file
+    resultsFile = project.file("${project.buildDir}/reports/jmh/results.json")
+
+    resultFormat = 'JSON'
+
+    // Synchronize iterations?
+    synchronizeIterations = false
+
+    // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
+    duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
+
+
+    // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+    profilers = project.hasProperty('jmhProfileJfr') ? ["jfr:dir=build/profiler"] : []
+
+    // Determine the async profiler library path dynamically based on the OS
+    def asyncProfilerLibPath
+    if (isMac) {
+        asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.dylib"
+    } else if (isLinux) {
+        asyncProfilerLibPath = "${project.rootDir}/dev-utilities/libasyncProfiler.so"
+    }
+
+    if (isWin) {
+        // do not use async profiler since it is not supported for win
+    } else {
+        if (project.hasProperty('jmhProfileAsync')) {
+            profilers.add("async:libPath=${asyncProfilerLibPath};output=flamegraph;dir=build/profiler")
+        }
+    }
+
+    // Timeout for benchmark iteration.
+    // jmhTimeout = '5s'
+
+    // Time to spend at each measurement iteration.
+    // timeOnIteration = '500ms'
+
+    // Time to spend at each warmup iteration.
+    // warmup = '1s'
+
+    // Warmup batch size: number of benchmark method calls per operation.
+    // warmupBatchSize = 10
+
+    // Number of measurement iterations to do.
+    // iterations = 3
+
+    // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
+    // benchmarkMode = ['avgt']
+
+    // How many times to forks a single benchmark. Use 0 to disable forking altogether
+    // fork = 0
+
+    // Operations per invocation.
+    // operationsPerInvocation = 1
+
+    // Benchmark parameters.
+    // benchmarkParameters = [:]
+
+    // Number of worker threads to run with.
+    // threads = 1
+
+    // Output time unit. Available time units are: [m, s, ms, us, ns].
+    // timeUnit = 's'
+
+    // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
+    // verbosity = 'NORMAL'
+
+    // How many warmup forks to make for a single benchmark. 0 to disable warmup forks.
+    // warmupForks = 0
+
+    // Number of warmup iterations to do.
+    // warmupIterations = 1
+
+    // jvmArgsAppend = ['-XX:+FlightRecorder']
+}
+
+jmhReport {
+    jmhResultPath = project.file("${project.buildDir}/reports/jmh/results.json")
+    jmhReportOutput = project.file("${project.buildDir}/reports/jmh")
+}
+
+// Disable caching.
+// https://github.com/gradle/gradle/issues/9210
+tasks.jmh.outputs.upToDateWhen { false }
+
+tasks.jmh.finalizedBy tasks.jmhReport

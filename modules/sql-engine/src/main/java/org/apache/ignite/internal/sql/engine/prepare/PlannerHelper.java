@@ -19,8 +19,12 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +32,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
@@ -35,8 +43,15 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelHomogeneousShuttle;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.RelShuttle;
+import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
+import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
+import org.apache.calcite.rel.rules.MultiJoin;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
@@ -49,6 +64,7 @@ import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUtil;
@@ -57,6 +73,8 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
+import org.apache.calcite.util.Util.FoundOne;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
@@ -70,7 +88,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -79,14 +96,17 @@ import org.jetbrains.annotations.Nullable;
  * Utility class that encapsulates the query optimization pipeline.
  */
 public final class PlannerHelper {
+    static final RelOptRule JOIN_PUSH_THROUGH_JOIN_RULE = JoinPushThroughJoinRule.Config.RIGHT
+                    .withOperandFor(LogicalJoin.class).toRule();
+
     /**
-     * Maximum number of tables in join supported for join order optimization.
+     * Maximum number of tables in join supported for exhaustive join order enumeration.
      *
-     * <p>If query joins more table than specified, then rules {@link CoreRules#JOIN_COMMUTE} and
-     * {@link CoreRules#JOIN_COMMUTE_OUTER} will be disabled, tables will be joined in the order
-     * of enumeration in the query.
+     * <p>Exhaustive join order enumeration implies that rules switching join inputs and rotating
+     * a tree of a two or more joins will be applied to every Join relation multiple times until
+     * they begin to produce variants which have been produced before.
      */
-    private static final int MAX_SIZE_OF_JOIN_TO_OPTIMIZE = 5;
+    private static final int MAX_SIZE_OF_JOIN_FOR_EXHAUSTIVE_ENUMERATION = 5;
 
     private static final IgniteLogger LOG = Loggers.forClass(PlannerHelper.class);
 
@@ -121,15 +141,17 @@ public final class PlannerHelper {
 
             RelNode rel = root.rel;
 
-            Hints hints = Hints.parse(root.hints);
+            Hints hints = Hints.parse(planner.deriveHints(sqlNode));
 
             List<String> disableRuleParams = hints.params(DISABLE_RULE);
             if (!disableRuleParams.isEmpty()) {
-                planner.setDisabledRules(Set.copyOf(disableRuleParams));
+                planner.disableRules(disableRuleParams);
             }
 
             // Transformation chain
             rel = planner.transform(PlannerPhase.HEP_SUBQUERIES_TO_CORRELATES, rel.getTraitSet(), rel);
+
+            validateIndexesFromHints(rel, hints);
 
             rel = RelOptUtil.propagateRelHints(rel, false);
 
@@ -137,22 +159,19 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
-            boolean amountOfJoinsAreBig = hasTooMuchJoins(rel);
-            boolean enforceJoinOrder = hints.present(ENFORCE_JOIN_ORDER);
-            if (amountOfJoinsAreBig || enforceJoinOrder) {
-                Set<String> disabledRules = new HashSet<>(disableRuleParams);
-
-                disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE));
-                disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE_OUTER));
-
-                planner.setDisabledRules(Set.copyOf(disabledRules));
-            }
+            RelOptCluster cluster = rel.getCluster();
+            rel = rel.accept(new RelHomogeneousShuttle() {
+                @Override public RelNode visit(RelNode other) {
+                    RelNode next = super.visit(other);
+                    return next.accept(new OutOfRangeLiteralComparisonReductionShuttle(cluster.getRexBuilder()));
+                }
+            });
 
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            {
+            if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
@@ -164,23 +183,36 @@ public final class PlannerHelper {
                 }
             }
 
+            boolean enforceJoinOrder = hints.present(ENFORCE_JOIN_ORDER);
+            boolean fallBackToExhaustiveJoinEnumeration = false;
+            if (!enforceJoinOrder) {
+                RelNode optimized = planner.transform(PlannerPhase.HEP_OPTIMIZE_JOIN_ORDER, rel.getTraitSet(), rel);
+
+                if (hasMultiJoinNode(optimized)) { // HEP phase has failed optimization.
+                    fallBackToExhaustiveJoinEnumeration = true;
+                } else {
+                    rel = optimized;
+                }
+            }
+
+            if (!fallBackToExhaustiveJoinEnumeration || hasTooMuchJoins(rel)) {
+                // All rules are enabled by default, but if we are happy with current join ordering,
+                // or number of relations is too big, we need to disable these rules to save optimization time.
+                planner.disableRules(exhaustiveJoinOrderingRules());
+            }
+
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
+                    .replace(single())
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
+                LogicalProject project = (LogicalProject) root.project();
 
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(result, field));
-                }
-
-                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, project.getProjects(), project.getRowType());
             }
 
             return result;
@@ -196,6 +228,36 @@ public final class PlannerHelper {
             }
 
             throw ex;
+        }
+    }
+
+    private static void validateIndexesFromHints(RelNode rel, Hints hints) {
+        List<String> noIdxParams = hints.params(NO_INDEX);
+        List<String> forceIdxParams = hints.params(FORCE_INDEX);
+
+        if (!noIdxParams.isEmpty() || !forceIdxParams.isEmpty()) {
+            Set<String> indexes = new HashSet<>();
+
+            RelShuttleImpl shuttle = new RelShuttleImpl() {
+                @Override
+                public RelNode visit(TableScan rel) {
+                    IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+                    indexes.addAll(igniteTable.indexes().keySet());
+
+                    return super.visit(rel);
+                }
+            };
+
+            rel.accept(shuttle);
+
+            List<String> indexNamesFromHints = Stream.concat(noIdxParams.stream(), forceIdxParams.stream())
+                    .filter(name -> !indexes.contains(name))
+                    .collect(Collectors.toList());
+
+            if (!indexNamesFromHints.isEmpty()) {
+                throw new SqlException(STMT_VALIDATION_ERR, "Hints mentioned indexes " + indexNamesFromHints + " were not found.");
+            }
         }
     }
 
@@ -234,10 +296,14 @@ public final class PlannerHelper {
 
         TableDescriptor descriptor = igniteTable.descriptor();
         SqlBasicCall rowConstructor = (SqlBasicCall) rowConstructors.get(0);
+        SqlNodeList targetColumns = insertNode.getTargetColumnList();
+
+        // guaranteed by IgniteSqlValidator#validateInsert
+        assert targetColumns != null;
 
         Map<String, RexNode> columnToExpression = new HashMap<>();
         for (int i = 0; i < rowConstructor.getOperandList().size(); i++) {
-            String columnName = ((SqlIdentifier) insertNode.getTargetColumnList().get(i)).getSimple();
+            String columnName = ((SqlIdentifier) targetColumns.get(i)).getSimple();
             SqlNode operand = rowConstructor.operand(i);
 
             if (operand.getKind() == SqlKind.DEFAULT) {
@@ -286,7 +352,37 @@ public final class PlannerHelper {
 
         joinSizeFinder.visit(rel);
 
-        return joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE;
+        return joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_FOR_EXHAUSTIVE_ENUMERATION;
+    }
+
+    private static boolean hasMultiJoinNode(RelNode root) {
+        try {
+            RelShuttle visitor = new RelHomogeneousShuttle() {
+                @Override
+                public RelNode visit(RelNode node) {
+                    if (node instanceof MultiJoin) {
+                        throw FoundOne.NULL;
+                    } else {
+                        return super.visit(node);
+                    }
+                }
+            };
+
+            root.accept(visitor);
+
+            return false;
+        } catch (Util.FoundOne ignored) {
+            return true;
+        }
+    }
+
+    private static Set<String> exhaustiveJoinOrderingRules() {
+        return Set.of(
+                // No need to add CoreRules.JOIN_COMMUTE_OUTER since it has the same short name
+                // as CoreRules.JOIN_COMMUTE, therefore it will be excluded as well
+                shortRuleName(CoreRules.JOIN_COMMUTE),
+                shortRuleName(JOIN_PUSH_THROUGH_JOIN_RULE)
+        );
     }
 
     /**
@@ -363,7 +459,7 @@ public final class PlannerHelper {
      * @param node Query node.
      * @return Plan node with list of aliases, if the optimization is applicable.
      */
-    public static @Nullable Pair<IgniteRel, List<String>> tryOptimizeSelectCount(
+    static @Nullable Pair<IgniteRel, List<String>> tryOptimizeSelectCount(
             IgnitePlanner planner,
             SqlNode node
     ) {
@@ -426,7 +522,7 @@ public final class PlannerHelper {
 
         IgniteSelectCount rel = new IgniteSelectCount(
                 planner.cluster(),
-                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE).replace(single()),
                 targetTable,
                 expressions
         );

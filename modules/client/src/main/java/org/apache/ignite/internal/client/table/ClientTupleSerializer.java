@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -32,15 +32,16 @@ import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -67,14 +68,16 @@ public class ClientTupleSerializer {
      * @param tuple Tuple.
      * @param schema Schema.
      * @param out Out.
+     * @param ctx Write context.
      */
     void writeTuple(
             @Nullable Transaction tx,
             Tuple tuple,
             ClientSchema schema,
-            PayloadOutputChannel out
+            PayloadOutputChannel out,
+            WriteContext ctx
     ) {
-        writeTuple(tx, tuple, schema, out, false, false);
+        writeTuple(tx, tuple, schema, out, ctx, false, false);
     }
 
     /**
@@ -83,6 +86,7 @@ public class ClientTupleSerializer {
      * @param tuple Tuple.
      * @param schema Schema.
      * @param out Out.
+     * @param ctx Write context.
      * @param keyOnly Key only.
      */
     void writeTuple(
@@ -90,9 +94,10 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             boolean keyOnly
     ) {
-        writeTuple(tx, tuple, schema, out, keyOnly, false);
+        writeTuple(tx, tuple, schema, out, ctx, keyOnly, false);
     }
 
     /**
@@ -101,6 +106,7 @@ public class ClientTupleSerializer {
      * @param tuple Tuple.
      * @param schema Schema.
      * @param out Out.
+     * @param ctx Write context.
      * @param keyOnly Key only.
      * @param skipHeader Skip header.
      */
@@ -109,12 +115,13 @@ public class ClientTupleSerializer {
             Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             boolean keyOnly,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out);
+            writeTx(tx, out, ctx);
             out.out().packInt(schema.version());
         }
 
@@ -138,7 +145,7 @@ public class ClientTupleSerializer {
         int usedCols = 0;
 
         for (ClientColumn col : columns) {
-            Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+            Object v = TupleHelper.valueOrDefault(tuple, col.name(), NO_VALUE);
 
             if (v != NO_VALUE) {
                 usedCols++;
@@ -169,11 +176,12 @@ public class ClientTupleSerializer {
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             boolean skipHeader
     ) {
         if (!skipHeader) {
             out.out().packInt(tableId);
-            writeTx(tx, out);
+            writeTx(tx, out, ctx);
             out.out().packInt(schema.version());
         }
 
@@ -188,14 +196,14 @@ public class ClientTupleSerializer {
             Object v;
 
             if (col.key()) {
-                v = key.valueOrDefault(col.name(), NO_VALUE);
+                v = TupleHelper.valueOrDefault(key, col.name(), NO_VALUE);
 
                 if (v != NO_VALUE) {
                     usedKeyCols++;
                 }
             } else {
                 v = val != null
-                        ? val.valueOrDefault(col.name(), NO_VALUE)
+                        ? TupleHelper.valueOrDefault(val, col.name(), NO_VALUE)
                         : NO_VALUE;
 
                 if (v != NO_VALUE) {
@@ -224,14 +232,20 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    void writeKvTuples(@Nullable Transaction tx, Collection<Entry<Tuple, Tuple>> pairs, ClientSchema schema, PayloadOutputChannel out) {
+    void writeKvTuples(
+            @Nullable Transaction tx,
+            Collection<Entry<Tuple, Tuple>> pairs,
+            ClientSchema schema,
+            PayloadOutputChannel out,
+            WriteContext ctx
+    ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs) {
-            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
+            writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, ctx, true);
         }
     }
 
@@ -249,7 +263,8 @@ public class ClientTupleSerializer {
             Collection<Entry<Tuple, Tuple>> pairs,
             @Nullable BitSet deleted,
             ClientSchema schema,
-            PayloadOutputChannel out) {
+            PayloadOutputChannel out
+    ) {
         ClientMessagePacker w = out.out();
 
         w.packInt(tableId);
@@ -264,9 +279,9 @@ public class ClientTupleSerializer {
             boolean del = deleted != null && deleted.get(i++);
 
             if (del) {
-                writeTuple(null, pair.getKey(), schema, out, true, true);
+                writeTuple(null, pair.getKey(), schema, out, null, true, true);
             } else {
-                writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, true);
+                writeKvTuple(null, pair.getKey(), pair.getValue(), schema, out, null, true);
             }
         }
     }
@@ -277,6 +292,7 @@ public class ClientTupleSerializer {
      * @param tuples Tuples.
      * @param schema Schema.
      * @param out Out.
+     * @param ctx Write context.
      * @param keyOnly Key only.
      */
     void writeTuples(
@@ -284,15 +300,16 @@ public class ClientTupleSerializer {
             Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
+            WriteContext ctx,
             boolean keyOnly
     ) {
         out.out().packInt(tableId);
-        writeTx(tx, out);
+        writeTx(tx, out, ctx);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());
 
         for (var tuple : tuples) {
-            writeTuple(tx, tuple, schema, out, keyOnly, true);
+            writeTuple(tx, tuple, schema, out, ctx, keyOnly, true);
         }
     }
 
@@ -323,7 +340,7 @@ public class ClientTupleSerializer {
         int i = 0;
         for (var tuple : tuples) {
             boolean keyOnly = deleted != null && deleted.get(i++);
-            writeTuple(null, tuple, schema, out, keyOnly, true);
+            writeTuple(null, tuple, schema, out, null, keyOnly, true);
         }
     }
 
@@ -415,24 +432,23 @@ public class ClientTupleSerializer {
     /**
      * Gets partition awareness provider for the specified tuple.
      *
-     * @param tx Transaction.
      * @param rec Tuple.
      * @return Partition awareness provider.
      */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
-        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, rec));
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Tuple rec) {
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
     /**
      * Gets partition awareness provider for the specified object.
      *
-     * @param tx Transaction.
      * @param rec Object.
      * @return Partition awareness provider.
      */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(
-            @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
-        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, mapper, rec));
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(Mapper<?> m, Object rec) {
+        assert !(rec instanceof Collection);
+
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, m, rec));
     }
 
     /**
@@ -447,14 +463,14 @@ public class ClientTupleSerializer {
 
         for (ClientColumn col : schema.colocationColumns()) {
             // Colocation columns are always part of the key and can't be missing; serializer will check this.
-            Object value = rec.valueOrDefault(col.name(), null);
+            Object value = TupleHelper.valueOrDefault(rec, col.name(), null);
             hashCalc.append(value, col.scale(), col.precision());
         }
 
         return hashCalc.hash();
     }
 
-    static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
+    static int getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
         // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
         var marsh = schema.getMarshaller(mapper, TuplePart.KEY, true);

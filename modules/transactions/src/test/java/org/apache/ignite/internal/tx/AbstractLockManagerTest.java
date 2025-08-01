@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
 import static org.apache.ignite.internal.tx.LockMode.IX;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.SIX;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,6 +47,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -51,19 +57,24 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests a LockManager implementation.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
-    private LockManager lockManager;
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    protected LockManager lockManager;
 
     @BeforeEach
     public void before() {
-        lockManager = newInstance();
+        lockManager = newInstance(systemLocalConfiguration);
     }
 
-    protected abstract LockManager newInstance();
+    protected abstract LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration);
 
     protected abstract LockKey lockKey();
 
@@ -1068,7 +1079,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockIsReleased() {
-        LockKey key = new LockKey(0);
+        LockKey key = lockKey();
 
         UUID txId1 = TestTransactionIds.newTransactionId();
 
@@ -1087,6 +1098,33 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.release(txId2, key, X);
 
         assertTrue(lockManager.isEmpty());
+    }
+
+    @Test
+    public void testAcquireLockAfterFail() {
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
+
+        var key = lockKey();
+
+        assertThat(lockManager.acquire(tx1, key, S), willCompleteSuccessfully());
+        assertThat(lockManager.acquire(tx2, key, IS), willCompleteSuccessfully());
+
+        assertThat(lockManager.acquire(tx2, key, X), willThrow(LockException.class));
+
+        assertThat(lockManager.acquire(tx2, key, S), willCompleteSuccessfully());
+
+        assertThat(lockManager.acquire(tx3, key, S), willCompleteSuccessfully());
+
+        lockManager.releaseAll(tx1);
+
+        CompletableFuture<?> f = lockManager.acquire(tx2, key, X);
+        assertFalse(f.isDone());
+
+        lockManager.releaseAll(tx3);
+
+        assertThat(f, willCompleteSuccessfully());
     }
 
     /**
@@ -1185,7 +1223,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         }
 
         if (firstErr.get() != null) {
-            throw new IgniteException(firstErr.get());
+            throw new IgniteException(INTERNAL_ERR, firstErr.get());
         }
 
         log.info("After test readLocks={} writeLocks={} failedLocks={}", readLocks.sum(), writeLocks.sum(),

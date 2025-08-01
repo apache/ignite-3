@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,17 +40,14 @@ public interface IgniteClientConfiguration {
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
-    /** Default reconnect throttling period, in milliseconds. */
-    long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
-
-    /** Default reconnect throttling retries. */
-    int DFLT_RECONNECT_THROTTLING_RETRIES = 3;
-
-    /** Default reconnect interval, in milliseconds. */
-    long DFLT_RECONNECT_INTERVAL = 30_000L;
+    /** Default background reconnect interval, in milliseconds. */
+    long DFLT_BACKGROUND_RECONNECT_INTERVAL = 30_000L;
 
     /** Default operation timeout, in milliseconds. */
     int DFLT_OPERATION_TIMEOUT = 0;
+
+    /** Default size for partition awareness metadata cache. */
+    int DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE = 1024;
 
     /**
      * Gets the address finder.
@@ -85,22 +83,8 @@ public interface IgniteClientConfiguration {
     long connectTimeout();
 
     /**
-     * Gets the reconnect throttling period, in milliseconds.
-     *
-     * @return Reconnect period for throttling, in milliseconds.
-     */
-    long reconnectThrottlingPeriod();
-
-    /**
-     * Gets the reconnect throttling retries.
-     *
-     * @return Reconnect throttling retries.
-     */
-    int reconnectThrottlingRetries();
-
-    /**
      * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
-     * Default is {@link #DFLT_RECONNECT_INTERVAL}.
+     * Default is {@link #DFLT_BACKGROUND_RECONNECT_INTERVAL}.
      *
      * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
      * Ignite also repairs connections on demand (when a request is made).
@@ -109,7 +93,7 @@ public interface IgniteClientConfiguration {
      *
      * @return Background reconnect interval, in milliseconds.
      */
-    long reconnectInterval();
+    long backgroundReconnectInterval();
 
     /**
      * Gets the async continuation executor.
@@ -172,6 +156,7 @@ public interface IgniteClientConfiguration {
 
     /**
      * Gets a value indicating whether JMX metrics are enabled.
+     * See {@link IgniteClient.Builder#metricsEnabled(boolean)} for more details.
      *
      * @return {@code true} if metrics are enabled.
      */
@@ -189,7 +174,40 @@ public interface IgniteClientConfiguration {
     /**
      * Gets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
      *
+     * <p>An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
+     * which case the operation timeout is applied to each individual network call.
+     *
      * @return Operation timeout, in milliseconds.
      */
     long operationTimeout();
+
+    /**
+     * Gets the size of cache to store partition awareness metadata of sql queries, in number of entries. Default is
+     * {@value #DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+     *
+     * <p>SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+     * relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and leverages
+     * this cache to speed up subsequent queries.
+     *
+     * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve
+     * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available for queries
+     * which have equality predicate over all colocation columns, or which inserts the whole tuple. Let's consider the following example:
+     * <pre>
+     *     // Creates reservations table. Please mind the {@code COLOCATE BY (floor_no)}: all reservations are colocated by
+     *     // {@code floor_no}.
+     *     CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+     *
+     *     // Here, we are selecting all reserved rooms on a particular floor. All reservation are colocated by {@code floor_no},
+     *     // therefore having predicate like {@code floor_no = ?} make it possible to compute a partition which keeps the data of
+     *     // interest. Which in turn makes it possible to send the query directly to the node that hold the relevant data.
+     *     SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+     *
+     *     // Similar with INSERT: since values of dynamic parameters are known on a client, it makes it possible to route the
+     *     // query directly to the node that hold the relevant data.
+     *     INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+     * </pre>
+     *
+     * @return Cache size, in number of entries.
+     */
+    int sqlPartitionAwarenessMetadataCacheSize();
 }

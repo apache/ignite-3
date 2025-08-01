@@ -19,12 +19,23 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
+import static org.apache.ignite.sql.ColumnType.DATETIME;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.DURATION;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.PERIOD;
+import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.apache.ignite.sql.ColumnType.TIME;
+import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -36,6 +47,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -50,12 +62,18 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link CatalogUtils} testing. */
 public class CatalogUtilsTest extends BaseIgniteAbstractTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String TABLE_NAME = "test_table";
 
     private static final String COLUMN_NAME = "key";
@@ -81,11 +99,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createTable("foo");
         createTable("bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
-        CatalogTableDescriptor fooTable = catalogManager.table("foo", clock.nowLong());
+        CatalogTableDescriptor fooTable = schema.table("foo");
 
         assertThat(fooTable, is(notNullValue()));
 
@@ -93,7 +112,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 "baz",
                 fooTable.tableVersion(),
                 fooTable.columns(),
-                fooTable.updateToken(),
+                fooTable.updateTimestamp(),
                 fooTable.storageProfile()
         );
 
@@ -106,7 +125,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceTableMissingTable() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
@@ -116,7 +136,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceTable(schema, table));
 
-        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d", table.id(), 0)));
+        assertThat(e.getMessage(), is(String.format("Table with ID %d has not been found in schema with ID %d.", table.id(), 0)));
     }
 
     @Test
@@ -127,11 +147,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createIndex(tableName, "foo");
         createIndex(tableName, "bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
-        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.aliveIndex("foo", clock.nowLong());
+        var fooIndex = (CatalogHashIndexDescriptor) schema.aliveIndex("foo");
 
         assertThat(fooIndex, is(notNullValue()));
 
@@ -154,7 +175,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceIndexMissingIndex() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
@@ -164,7 +186,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceIndex(schema, index));
 
-        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 1)));
+        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d.", index.id(), 1)));
     }
 
     @Test
@@ -180,9 +202,79 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog.time(), TEST_MAX_CLOCK_SKEW_MILLIS));
     }
 
+    @Test
+    void testUnspecifiedConstants() {
+        assertEquals(-1, UNSPECIFIED_PRECISION, "unspecified precision");
+        assertEquals(-1, UNSPECIFIED_LENGTH, "unspecified length");
+        assertEquals(-1, UNSPECIFIED_LENGTH, "unspecified scale");
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesPrecision")
+    void testGetPrecision(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinPrecision(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxPrecision(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesPrecision() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(DECIMAL, 1, 32767),
+                Arguments.of(TIME, 0, 9),
+                Arguments.of(TIMESTAMP, 0, 9),
+                Arguments.of(DATETIME, 0, 9),
+                Arguments.of(DURATION, 1, 10),
+                Arguments.of(PERIOD, 1, 10)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.precisionAllowed())
+                .map(t -> Arguments.of(t, UNSPECIFIED_PRECISION, UNSPECIFIED_PRECISION));
+
+        return Stream.concat(types, otherTypes);
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesScale")
+    void testGetScale(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinScale(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxScale(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesScale() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(DECIMAL, 0, 32767)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.scaleAllowed())
+                .map(t -> Arguments.of(t, UNSPECIFIED_SCALE, UNSPECIFIED_SCALE));
+
+        return Stream.concat(types, otherTypes);
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesLength")
+    void testGetLength(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinLength(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxLength(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesLength() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(STRING, 1, Integer.MAX_VALUE),
+                Arguments.of(BYTE_ARRAY, 1, Integer.MAX_VALUE)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.lengthAllowed())
+                .map(t -> Arguments.of(t, UNSPECIFIED_LENGTH, UNSPECIFIED_LENGTH));
+
+        return Stream.concat(types, otherTypes);
+    }
+
     private void createTable(String tableName) {
         CatalogCommand catalogCommand = CreateTableCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 // Any type of a primary key index can be used.
@@ -198,7 +290,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private int createIndex(String tableName, String indexName) {
         CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .indexName(indexName)
                 .columns(List.of(COLUMN_NAME))
@@ -207,6 +299,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
 
-        return catalogManager.aliveIndex(indexName, clock.nowLong()).id();
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+        return schema.aliveIndex(indexName).id();
     }
 }

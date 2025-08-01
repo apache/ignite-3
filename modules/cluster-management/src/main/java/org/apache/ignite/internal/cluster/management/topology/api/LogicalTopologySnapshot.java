@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static java.util.Collections.emptySet;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
@@ -33,9 +32,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Instances of this class are immutable.
  */
-public class LogicalTopologySnapshot implements Serializable {
-    private static final long serialVersionUID = 0L;
-
+public class LogicalTopologySnapshot {
     /** Version that first topology snapshot in history will have. */
     public static final long FIRST_VERSION = 1;
 

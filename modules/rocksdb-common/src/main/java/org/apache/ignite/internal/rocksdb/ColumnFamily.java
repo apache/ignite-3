@@ -29,6 +29,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 /**
  * Wrapper for the column family that encapsulates {@link ColumnFamilyHandle} and RocksDB's operations with it.
@@ -130,6 +131,19 @@ public class ColumnFamily {
      */
     public void put(byte[] key, byte[] value) throws RocksDBException {
         db.put(cfHandle, key, value);
+    }
+
+    /**
+     * Puts a key-value pair into this column family with the given {@link WriteOptions}.
+     *
+     * @param writeOptions Write options to use.
+     * @param key Key.
+     * @param value Value.
+     * @throws RocksDBException If failed.
+     * @see RocksDB#put(ColumnFamilyHandle, byte[], byte[])
+     */
+    public void put(WriteOptions writeOptions, byte[] key, byte[] value) throws RocksDBException {
+        db.put(cfHandle, writeOptions, key, value);
     }
 
     /**

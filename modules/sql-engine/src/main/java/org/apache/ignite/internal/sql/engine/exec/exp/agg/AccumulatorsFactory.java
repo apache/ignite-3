@@ -23,8 +23,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Modifier;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
@@ -51,22 +54,26 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * AccumulatorsFactory.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A factory class for creating accumulators.
+ *
+ * <p>This class is responsible for creation of accumulators used for aggregation operations.
+ * It supports casting between different types, adapting input and output arguments, and
+ * ensuring proper handling of nullable types and other constraints.
+ *
+ * @param <RowT> The type of the row handled by the accumulators.
  */
-public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
+public class AccumulatorsFactory<RowT> {
     private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
             Caffeine.newBuilder().build(AccumulatorsFactory::cast0);
 
-    /**
-     * CastFunction interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** For internal use. Defines a function that cast a value to particular type. */
+    @SuppressWarnings("WeakerAccess") // used in code generation, must be public
+    @FunctionalInterface
     public interface CastFunction extends Function<Object, Object> {
-        @Override
-        Object apply(Object o);
     }
 
     private static Function<Object, Object> cast(RelDataType from, RelDataType to) {
@@ -107,10 +114,11 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         RexToLixTranslator.InputGetter getter =
                 new RexToLixTranslator.InputGetterImpl(
-                        List.of(
-                                Pair.of(EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
-                                        PhysTypeImpl.of(typeFactory, rowType,
-                                                JavaRowFormat.SCALAR, false))));
+                        Map.of(
+                                EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
+                                PhysTypeImpl.of(typeFactory, rowType, JavaRowFormat.SCALAR, false)
+                        )
+                );
 
         RexBuilder builder = Commons.rexBuilder();
         RexProgramBuilder programBuilder = new RexProgramBuilder(rowType, builder);
@@ -128,7 +136,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
-    private final ExecutionContext<RowT> ctx;
+    private final IgniteTypeFactory typeFactory;
 
     private final AggregateType type;
 
@@ -137,30 +145,32 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
     private final List<WrapperPrototype> prototypes;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructs the object.
+     *
+     * @param type The type of the aggregation phase.
+     * @param typeFactory The factory to use to create input and output types for conversion.
+     * @param aggCalls The list of aggregations to convert.
+     * @param inputRowType The type of the input.
      */
     public AccumulatorsFactory(
-            ExecutionContext<RowT> ctx,
             AggregateType type,
+            IgniteTypeFactory typeFactory,
             List<AggregateCall> aggCalls,
             RelDataType inputRowType
     ) {
-        this.ctx = ctx;
         this.type = type;
+        this.typeFactory = typeFactory;
         this.inputRowType = inputRowType;
 
-        var accumulators = new Accumulators(ctx.getTypeFactory());
+        var accumulators = new Accumulators(typeFactory);
         prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<AccumulatorWrapper<RowT>> get() {
-        return Commons.transform(prototypes, WrapperPrototype::get);
+    public List<AccumulatorWrapper<RowT>> get(ExecutionContext<RowT> context) {
+        return Commons.transform(prototypes, prototype -> prototype.apply(context));
     }
 
-    private final class WrapperPrototype implements Supplier<AccumulatorWrapper<RowT>> {
+    private final class WrapperPrototype implements Function<ExecutionContext<RowT>, AccumulatorWrapper<RowT>> {
         private Supplier<Accumulator> accFactory;
 
         private final Accumulators accumulators;
@@ -178,19 +188,19 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         /** {@inheritDoc} */
         @Override
-        public AccumulatorWrapper<RowT> get() {
-            Accumulator accumulator = accumulator();
+        public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
+            Accumulator accumulator = accumulator(context);
 
-            return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
+            return new AccumulatorWrapperImpl<>(context, accumulator, call, inAdapter, outAdapter);
         }
 
-        private Accumulator accumulator() {
+        private Accumulator accumulator(DataContext context) {
             if (accFactory != null) {
                 return accFactory.get();
             }
 
             // init factory and adapters
-            accFactory = accumulators.accumulatorFactory(call);
+            accFactory = accumulators.accumulatorFactory(context, call, inputRowType);
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);
@@ -205,7 +215,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             }
 
             List<RelDataType> inTypes = SqlTypeUtil.projectTypes(inputRowType, call.getArgList());
-            List<RelDataType> outTypes = accumulator.argumentTypes(ctx.getTypeFactory());
+            List<RelDataType> outTypes = accumulator.argumentTypes(typeFactory);
 
             if (call.getArgList().size() > outTypes.size()) {
                 throw new AssertionError("Unexpected number of arguments: "
@@ -235,25 +245,27 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 return Function.identity();
             }
 
-            RelDataType inType = accumulator.returnType(ctx.getTypeFactory());
+            RelDataType inType = accumulator.returnType(typeFactory);
             RelDataType outType = call.getType();
 
             return cast(inType, outType);
         }
 
         private RelDataType nonNull(RelDataType type) {
-            return ctx.getTypeFactory().createTypeWithNullability(type, false);
+            return typeFactory.createTypeWithNullability(type, false);
         }
     }
 
-    private final class AccumulatorWrapperImpl implements AccumulatorWrapper<RowT> {
+    private static final class AccumulatorWrapperImpl<RowT> implements AccumulatorWrapper<RowT> {
+        static final IntList SINGLE_ARG_LIST = IntList.of(0);
+
         private final Accumulator accumulator;
 
         private final Function<Object[], Object[]> inAdapter;
 
         private final Function<Object, Object> outAdapter;
 
-        private final List<Integer> argList;
+        private final IntList argList;
 
         private final boolean literalAgg;
 
@@ -266,61 +278,69 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         private final boolean distinct;
 
         AccumulatorWrapperImpl(
+                ExecutionContext<RowT> ctx,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
                 Function<Object, Object> outAdapter
         ) {
+            this.handler = ctx.rowHandler();
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
-            distinct = call.isDistinct();
+            this.distinct = call.isDistinct();
 
-            // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
-            argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
 
-            handler = ctx.rowHandler();
+            argList = distinct && call.getArgList().isEmpty() ? SINGLE_ARG_LIST : new IntArrayList(call.getArgList());
         }
 
-        /** {@inheritDoc} */
         @Override
-        public void add(RowT row) {
-            if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
-                return;
+        public boolean isDistinct() {
+            return distinct;
+        }
+
+        @Override
+        public Accumulator accumulator() {
+            return accumulator;
+        }
+
+        @Override
+        public Object @Nullable [] getArguments(RowT row) {
+            if (filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
+                return null;
+            }
+
+            if (literalAgg) {
+                // LiteralAgg has a constant as its argument.
+                return new Object[]{null};
+            }
+
+            if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {
+                int cnt = handler.columnCount(row);
+                assert cnt <= 1;
             }
 
             int params = argList.size();
 
-            List<Integer> argList0 = argList;
-
-            if ((distinct && argList.isEmpty()) || literalAgg) {
-                int cnt = handler.columnCount(row);
-                assert cnt <= 1;
-                argList0 = List.of(0);
-                params = 1;
-            }
-
             Object[] args = new Object[params];
             for (int i = 0; i < params; i++) {
-                int argPos = argList0.get(i);
+                int argPos = argList.getInt(i);
                 args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
-                    return;
+                    return null;
                 }
             }
 
-            accumulator.add(inAdapter.apply(args));
+            return inAdapter.apply(args);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public Object end() {
-            return outAdapter.apply(accumulator.end());
+        public Object convertResult(Object result) {
+            return outAdapter.apply(result);
         }
-
     }
 }

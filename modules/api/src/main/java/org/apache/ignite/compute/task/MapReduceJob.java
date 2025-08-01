@@ -27,7 +27,7 @@ import org.apache.ignite.network.ClusterNode;
 
 /**
  * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
- * {@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object)} method.
+ * {@link org.apache.ignite.compute.IgniteCompute#submitAsync(JobTarget, JobDescriptor, Object)} method.
  */
 public class MapReduceJob<T, R> {
     private final Set<ClusterNode> nodes;

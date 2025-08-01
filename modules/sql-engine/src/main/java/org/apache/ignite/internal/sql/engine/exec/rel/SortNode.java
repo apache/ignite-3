@@ -23,10 +23,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sort node.
@@ -44,7 +44,9 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final PriorityQueue<RowT> rows;
 
     /** SQL select limit. Negative if disabled. */
-    private final int limit;
+    private final long fetch;
+
+    private final long offset;
 
     /** Reverse-ordered rows in case of limited sort. */
     private List<RowT> reversed;
@@ -59,18 +61,30 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      */
     public SortNode(ExecutionContext<RowT> ctx,
             Comparator<RowT> comp,
-            @Nullable Supplier<Integer> offset,
-            @Nullable Supplier<Integer> fetch) {
+            long offset,
+            long fetch
+    ) {
         super(ctx);
-        assert fetch == null || fetch.get() >= 0;
-        assert offset == null || offset.get() >= 0;
 
-        limit = fetch == null ? -1 : fetch.get() + (offset == null ? 0 : offset.get());
+        assert fetch == -1 || fetch >= 0;
+        assert offset >= 0;
 
-        if (limit < 1) {
+        // Offset must be set only together with fetch.
+        // This is limitation is current implementation, and SortConverterRule
+        // should not produce unsupported variant.
+        if (offset > 0 && fetch == -1) {
+            throw new AssertionError("Offset-only case is not supported by Sort node");
+        }
+
+        this.fetch = fetch;
+        this.offset = offset;
+
+        long limit = fetch == -1 ? -1 : IgniteMath.addExact(fetch, offset);
+
+        if (limit < 1 || limit > Integer.MAX_VALUE) {
             rows = new PriorityQueue<>(comp);
         } else {
-            rows = new BoundedPriorityQueue<>(limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
+            rows = new BoundedPriorityQueue<>((int) limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
         }
     }
 
@@ -81,7 +95,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param comp Rows comparator.
      */
     public SortNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
-        this(ctx, comp, null, null);
+        this(ctx, comp, 0, -1);
     }
 
     /** {@inheritDoc} */
@@ -112,14 +126,18 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
+        if (fetch == 0) {
+            downstream().end();
+
+            return;
+        }
 
         requested = rowsCnt;
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            context().execute(this::flush, this::onError);
+            this.execute(this::flush);
         }
     }
 
@@ -129,8 +147,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
         assert reversed == null || reversed.isEmpty();
-
-        checkState();
 
         waiting--;
 
@@ -147,54 +163,57 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
 
-    private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting)
+                .app(", fetch=").app(fetch)
+                .app(", offset=").app(offset);
+    }
 
-        assert waiting == -1;
+    private void flush() throws Exception {
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
 
         inLoop = true;
         try {
             // Prepare final order (reversed).
-            if (limit > 0 && !rows.isEmpty()) {
+            if (fetch > 0 && !rows.isEmpty()) {
                 if (reversed == null) {
                     reversed = new ArrayList<>(rows.size());
                 }
 
-                while (!rows.isEmpty()) {
+                while (rows.size() > offset) {
                     reversed.add(rows.poll());
 
                     if (++processed >= inBufSize) {
                         // Allow the others to do their job.
-                        context().execute(this::flush, this::onError);
+                        this.execute(this::flush);
 
                         return;
                     }
                 }
 
+                rows.clear();
+
                 processed = 0;
             }
 
             while (requested > 0 && !(reversed == null ? rows.isEmpty() : reversed.isEmpty())) {
-                checkState();
-
                 requested--;
 
                 downstream().push(reversed == null ? rows.poll() : reversed.remove(reversed.size() - 1));
 
                 if (++processed >= inBufSize && requested > 0) {
                     // allow others to do their job
-                    context().execute(this::flush, this::onError);
+                    this.execute(this::flush);
 
                     return;
                 }

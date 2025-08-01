@@ -40,7 +40,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -61,7 +61,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {
         return ClusterConfigUpdateCallInput.builder()
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .clusterUrl(clusterUrl)
                 .build();
     }

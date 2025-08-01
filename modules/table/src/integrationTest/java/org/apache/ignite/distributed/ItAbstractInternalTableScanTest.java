@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -42,6 +43,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -51,10 +53,10 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -92,7 +94,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */
     @Mock
@@ -101,9 +106,11 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
 
-    PlacementDriver placementDriver;
+    protected final int zoneId = DummyInternalTableImpl.ZONE_ID;
 
-    ClusterNodeResolver clusterNodeResolver;
+    private PlacementDriver placementDriver;
+
+    protected ClusterNodeResolver clusterNodeResolver;
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -122,7 +129,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
 
             @Override
-            public @Nullable ClusterNode getById(String id) {
+            public @Nullable ClusterNode getById(UUID id) {
                 return singleNode.id().equals(id)
                         ? singleNode
                         : null;
@@ -137,7 +144,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
                 mockStorage,
                 ROW_SCHEMA,
                 txConfiguration,
-                storageUpdateConfiguration
+                systemDistributedConfiguration,
+                replicationConfiguration
         );
     }
 

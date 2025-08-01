@@ -17,8 +17,15 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ClientComputeJobPacker.packJobArgument;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobPacker.packJobResult;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobResult;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -31,10 +38,19 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.internal.client.proto.pojo.Pojo;
+import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +59,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+@SuppressWarnings("ThrowableNotThrown")
 class ClientComputeJobPackerUnpackerTest {
     private static Stream<Arguments> nativeTypes() {
         return Stream.of(
@@ -67,6 +84,27 @@ class ClientComputeJobPackerUnpackerTest {
         ).map(Arguments::of);
     }
 
+    private static Stream<Arguments> tupleCollections() {
+        return Stream.of(
+                List.of(),
+                Collections.singletonList(Tuple.create()),
+                Collections.singletonList(null),
+                List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
+                Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
+        ).map(Arguments::of);
+    }
+
+    private static List<Object> pojo() {
+        return List.of(Pojo.generateTestPojo());
+    }
+
+    private static List<Arguments> notMarshalled() {
+        return List.of(
+                arguments(Tuple.create(), ComputeJobDataType.TUPLE),
+                arguments(Pojo.generateTestPojo(), ComputeJobDataType.POJO)
+        );
+    }
+
     private ClientMessagePacker messagePacker;
 
     @BeforeEach
@@ -79,36 +117,57 @@ class ClientComputeJobPackerUnpackerTest {
         messagePacker.close();
     }
 
-    @MethodSource({"tuples", "nativeTypes"})
-    @ParameterizedTest
-    void packUnpackNoMarshalling_jobArgument(Object arg) {
-        // When pack job argument without marshaller.
-        ClientComputeJobPacker.packJobArgument(arg, null, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        // And unpack job argument without marshaller.
-        try (var messageUnpacker = messageUnpacker(data)) {
-            var res = ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker);
-
-            // Then.
-            assertEquals(arg, res);
-        }
-    }
-
-    private ClientMessageUnpacker messageUnpacker(byte[] data) {
+    private static ClientMessageUnpacker messageUnpacker(byte[] data) {
         return new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4));
     }
 
-    @MethodSource({"tuples", "nativeTypes"})
+    @MethodSource({"tuples", "nativeTypes", "tupleCollections"})
     @ParameterizedTest
-    void packUnpackNoMarshalling_jobResult(Object arg) {
+    void packUnpackNoMarshalling(Object arg) {
         // When pack job result without marshaller.
-        ClientComputeJobPacker.packJobResult(arg, null, messagePacker);
+        packJobResult(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var res = ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker);
+            var res = unpackJobResult(messageUnpacker, null, null);
+
+            // Then.
+            if (arg instanceof Collection<?>) {
+                assertIterableEquals((Collection<?>) arg, (Collection<?>) res);
+            } else {
+                assertEquals(arg, res);
+            }
+        }
+    }
+
+    @MethodSource("notMarshalled")
+    @ParameterizedTest
+    void notMarshalledArgument(Object arg, ComputeJobDataType type) {
+        // When pack job argument without marshaller.
+        packJobArgument(arg, null, messagePacker);
+        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
+
+        // And unpack without marshaller.
+        try (var messageUnpacker = messageUnpacker(data)) {
+            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker);
+
+            // Then argument is unpacked but not unmarshalled.
+            ComputeJobDataHolder argument = assertInstanceOf(ComputeJobDataHolder.class, res);
+            assertEquals(type, argument.type());
+        }
+    }
+
+    @MethodSource("pojo")
+    @ParameterizedTest
+    void packUnpackPojo(Object arg) {
+        // When pack job result without marshaller.
+        packJobResult(arg, null, messagePacker);
+        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
+
+        // And unpack job result without marshaller.
+        try (var messageUnpacker = messageUnpacker(data)) {
+            var res = unpackJobResult(messageUnpacker, null, arg.getClass());
 
             // Then.
             assertEquals(arg, res);
@@ -116,18 +175,18 @@ class ClientComputeJobPackerUnpackerTest {
     }
 
     @Test
-    void marshallingPackUnpack_jobResult() {
+    void marshallingPackUnpack() {
         // Given.
         Marshaller<String, byte[]> marshaller = new TestStringMarshaller();
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        ClientComputeJobPacker.packJobResult(str, marshaller, messagePacker);
+        packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobResult(marshaller, messageUnpacker);
+            Object res = unpackJobResult(messageUnpacker, marshaller, null);
 
             // Then.
             assertEquals(str, res);
@@ -135,102 +194,63 @@ class ClientComputeJobPackerUnpackerTest {
     }
 
     @Test
-    void marshallingPackUnpack_jobArgument() {
-        // Given.
-        Marshaller<String, byte[]> marshaller = new TestStringMarshaller();
-        var str = "Hi, marshal me!";
-
-        // When pack job argument with marshaller.
-        ClientComputeJobPacker.packJobArgument(str, marshaller, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        // And unpack job argument with marshaller.
-        try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobArgument(marshaller, messageUnpacker);
-
-            // Then.
-            assertEquals(str, res);
-        }
-    }
-
-    @Test
-    void packWithMarshallerUnpackWithout_jobResult() {
+    void packWithMarshallerUnpackWithout() {
         // Given.
         Marshaller<String, byte[]> marshaller = new TestStringMarshaller();
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        ClientComputeJobPacker.packJobResult(str, marshaller, messagePacker);
+        packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
             // Then the exception is thrown because it is not allowed unpack the marshalled object without marshaller.
             assertThrows(
-                    UnmarshallingException.class,
-                    () -> ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker)
+                    ComputeException.class,
+                    () -> unpackJobResult(messageUnpacker, null, null),
+                    "Marshaller should be defined on the client"
             );
         }
     }
 
     @Test
-    void packWithMarshallerUnpackWithout_jobArgument() {
-        // Given.
-        Marshaller<String, byte[]> marshaller = new TestStringMarshaller();
-        var str = "Hi, marshal me!";
-
-        // When pack job argument with marshaller.
-        ClientComputeJobPacker.packJobArgument(str, marshaller, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        // And unpack job argument without marshaller.
-        try (var messageUnpacker = messageUnpacker(data)) {
-            // Then the exception is thrown because it is not allowed unpack the marshalled object without marshaller.
-            assertThrows(
-                    UnmarshallingException.class,
-                    () -> ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker)
-            );
-        }
-    }
-
-    @Test
-    void packByteArrayUnpackStringWithMarshaller_jobResult() {
+    void packByteArrayUnpackStringWithMarshaller() {
         // Given.
         var str = "Hi, marshal me!";
         var bytes = str.getBytes();
 
         // When pack job result without marshaller.
-        ClientComputeJobPacker.packJobResult(bytes, null, messagePacker);
+        packJobResult(bytes, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
             // Then the exception is thrown because it is not allowed to define the marshaller only for the result.
             assertThrows(
-                    UnmarshallingException.class,
-                    () -> ClientComputeJobUnpacker.unpackJobResult(new TestStringMarshaller(), messageUnpacker)
+                    ComputeException.class,
+                    () -> unpackJobResult(messageUnpacker, new TestStringMarshaller(), null),
+                    "Marshaller is defined on the server, but the argument was not marshalled on the client"
             );
         }
     }
 
     @Test
-    void packByteArrayUnpackStringWithMarshaller_jobArgument() {
-        // Given.
-        var str = "Hi, marshal me!";
-        byte[] bytes = str.getBytes();
+    void packInvalidPojoStatic() {
+        assertThrows(
+                MarshallingException.class,
+                () -> packJobResult(new StaticFieldPojo(), null, messagePacker),
+                "Can't pack object"
+        );
+    }
 
-        // When pack job argument without marshaller.
-        ClientComputeJobPacker.packJobArgument(bytes, null, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        // And unpack job argument with marshaller.
-        try (var messageUnpacker = messageUnpacker(data)) {
-            // Then the exception is thrown because it is not allowed to define the marshaller only for the result.
-            assertThrows(
-                    UnmarshallingException.class,
-                    () -> ClientComputeJobUnpacker.unpackJobArgument(new TestStringMarshaller(), messageUnpacker)
-            );
-        }
+    @Test
+    void packInvalidPojoEmpty() {
+        assertThrows(
+                MarshallingException.class,
+                () -> packJobResult(new Object(), null, messagePacker),
+                "Can't pack object"
+        );
     }
 
     private static class TestStringMarshaller implements Marshaller<String, byte[]> {

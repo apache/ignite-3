@@ -57,7 +57,6 @@ public interface ClusterService extends IgniteComponent {
     /** {@inheritDoc} */
     @Override
     default CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        // TODO: IGNITE-15161 Implement component's stop.
         return nullCompletedFuture();
     }
 

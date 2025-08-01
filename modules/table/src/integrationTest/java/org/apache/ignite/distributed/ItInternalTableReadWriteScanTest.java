@@ -20,13 +20,18 @@ package org.apache.ignite.distributed;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.Flow.Publisher;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -35,9 +40,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** Timestamp tracker. */
-    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
+    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);
 
     @Override
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
@@ -45,10 +51,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
             return internalTbl.scan(part, null);
         }
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithConsistencyToken =
-                tx.enlistedNodeAndConsistencyToken(new TablePartitionId(internalTbl.tableId(), part));
+        PendingTxPartitionEnlistment enlistment =
+                tx.enlistedPartition(targetReplicationGroupId(zoneId, part));
 
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithConsistencyToken.get1(), leaderWithConsistencyToken.get2());
+        PrimaryReplica recipient = new PrimaryReplica(
+                clusterNodeResolver.getByConsistentId(enlistment.primaryNodeConsistentId()),
+                enlistment.consistencyToken()
+        );
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -71,9 +80,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
     @Override
     protected InternalTransaction startTx() {
-        InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
+        InternalTransaction tx = internalTbl.txManager().beginExplicitRw(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
 
-        TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
+        int partId = ((PartitionGroupId) internalTbl.groupId()).partitionId();
+        ReplicationGroupId tblPartId = targetReplicationGroupId(zoneId, partId);
 
         long term = 1L;
 
@@ -81,8 +91,13 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
 
-        tx.enlist(tblPartId, new IgniteBiTuple<>(primaryReplicaNode, term));
+        tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode.name(), term);
 
         return tx;
+    }
+
+    // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.
+    ReplicationGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
+        return new TablePartitionId(tableOrZoneId, partId);
     }
 }

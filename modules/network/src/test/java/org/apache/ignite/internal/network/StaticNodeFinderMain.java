@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.network.NetworkAddress;
 
@@ -46,7 +47,7 @@ public class StaticNodeFinderMain {
                 .collect(toList());
         NodeFinder finder = new StaticNodeFinder(originalAddresses);
 
-        List<NetworkAddress> result = finder.findNodes();
+        Collection<NetworkAddress> result = finder.findNodes();
 
         System.out.print(result.stream().map(NetworkAddress::toString).collect(joining(",")));
     }

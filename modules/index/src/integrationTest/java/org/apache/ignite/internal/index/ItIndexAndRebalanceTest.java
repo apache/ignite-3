@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -31,8 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +87,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
     }
 
     private static void changeZoneReplicas(String zoneName, int replicas) {
-        sql(format("ALTER ZONE {} SET REPLICAS={}", zoneName, replicas));
+        sql(format("ALTER ZONE {} SET (REPLICAS {})", zoneName, replicas));
     }
 
     private static void waitForStableAssignmentsChangeInMetastore(
@@ -102,7 +102,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         Set<Assignment>[] actualAssignmentsHolder = new Set[]{Set.of()};
 
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Set<Assignment>> partitionAssignmentsFuture = partitionAssignments(
+            CompletableFuture<Set<Assignment>> partitionAssignmentsFuture = stablePartitionAssignments(
                     node.metaStorageManager(),
                     tableId,
                     partitionId

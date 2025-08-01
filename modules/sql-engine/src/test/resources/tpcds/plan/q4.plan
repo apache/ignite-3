@@ -1,0 +1,371 @@
+Limit
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY]
+      projection: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY]
+      est: (rows=2398140360703685200000000000)
+    HashJoin
+        predicate: AND(CASE(>(YEAR_TOTAL$0$0$0$0, 0E-13), CASE(>(YEAR_TOTAL$0, 0E-13), >(/(YEAR_TOTAL$0$0, YEAR_TOTAL$0), /(YEAR_TOTAL, YEAR_TOTAL$0$0$0$0)), false), false), =(CUSTOMER_ID, CUSTOMER_ID$0$0$0$0))
+        fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0, CUSTOMER_ID$0$0$0$0, DYEAR$0$0$0$0, YEAR_TOTAL$0$0$0$0, SALE_TYPE$0$0$0$0, CUSTOMER_ID$0$0$0$0$0, DYEAR$0$0$0$0$0, YEAR_TOTAL$0$0$0$0$0, SALE_TYPE$0$0$0$0$0]
+        type: inner
+        est: (rows=2398140360703685200000000000)
+      Sort
+          collation: [CUSTOMER_ID ASC, CUSTOMER_FIRST_NAME ASC, CUSTOMER_LAST_NAME ASC, CUSTOMER_BIRTH_COUNTRY ASC]
+          est: (rows=798254)
+        UnionAll
+            est: (rows=798254)
+          Project
+              fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              projection: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, _UTF-8's']
+              est: (rows=798252)
+            ColocatedHashAggregate
+                fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                aggregation: [SUM($f8)]
+                est: (rows=798252)
+              Project
+                  fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                  projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(SS_EXT_LIST_PRICE, SS_EXT_WHOLESALE_COST), SS_EXT_DISCOUNT_AMT), SS_EXT_SALES_PRICE), 2)]
+                  est: (rows=959175)
+                HashJoin
+                    predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
+                    type: inner
+                    est: (rows=959175)
+                  HashJoin
+                      predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                      type: inner
+                      est: (rows=959175)
+                    Exchange
+                        distribution: single
+                        est: (rows=2880404)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_EXT_DISCOUNT_AMT, SS_EXT_SALES_PRICE, SS_EXT_WHOLESALE_COST, SS_EXT_LIST_PRICE]
+                          est: (rows=2880404)
+                    Exchange
+                        distribution: single
+                        est: (rows=24325)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          predicate: =(D_YEAR, 2000)
+                          fieldNames: [D_DATE_SK, D_YEAR]
+                          est: (rows=24325)
+                  Exchange
+                      distribution: single
+                      est: (rows=100000)
+                    TableScan
+                        table: PUBLIC.CUSTOMER
+                        fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                        est: (rows=100000)
+          Values
+              fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              tuples: []
+              est: (rows=1)
+          Values
+              fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              tuples: []
+              est: (rows=1)
+      HashJoin
+          predicate: AND(CASE(>(YEAR_TOTAL$0$0, 0E-13), CASE(>(YEAR_TOTAL, 0E-13), >(/(YEAR_TOTAL$0, YEAR_TOTAL), /(YEAR_TOTAL$0$0$0$0, YEAR_TOTAL$0$0)), false), false), =(CUSTOMER_ID$0$0$0, CUSTOMER_ID))
+          fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0, CUSTOMER_ID$0$0$0$0, DYEAR$0$0$0$0, YEAR_TOTAL$0$0$0$0, SALE_TYPE$0$0$0$0]
+          type: inner
+          est: (rows=80112883532252590000000)
+        UnionAll
+            est: (rows=199751)
+          Values
+              fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              tuples: []
+              est: (rows=1)
+          Project
+              fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'c']
+              est: (rows=199749)
+            Filter
+                predicate: >(YEAR_TOTAL, 0E-13)
+                est: (rows=199749)
+              ColocatedHashAggregate
+                  fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                  group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                  aggregation: [SUM($f8)]
+                  est: (rows=399499)
+                Project
+                    fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                    projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(CS_EXT_LIST_PRICE, CS_EXT_WHOLESALE_COST), CS_EXT_DISCOUNT_AMT), CS_EXT_SALES_PRICE), 2)]
+                    est: (rows=480035)
+                  HashJoin
+                      predicate: =(C_CUSTOMER_SK, CS_BILL_CUSTOMER_SK)
+                      type: inner
+                      est: (rows=480035)
+                    HashJoin
+                        predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                        type: inner
+                        est: (rows=480035)
+                      Exchange
+                          distribution: single
+                          est: (rows=1441548)
+                        TableScan
+                            table: PUBLIC.CATALOG_SALES
+                            fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_EXT_DISCOUNT_AMT, CS_EXT_SALES_PRICE, CS_EXT_WHOLESALE_COST, CS_EXT_LIST_PRICE]
+                            est: (rows=1441548)
+                      Exchange
+                          distribution: single
+                          est: (rows=24325)
+                        TableScan
+                            table: PUBLIC.DATE_DIM
+                            predicate: =(D_YEAR, 1999)
+                            fieldNames: [D_DATE_SK, D_YEAR]
+                            est: (rows=24325)
+                    Exchange
+                        distribution: single
+                        est: (rows=100000)
+                      TableScan
+                          table: PUBLIC.CUSTOMER
+                          fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                          est: (rows=100000)
+          Values
+              fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+              tuples: []
+              est: (rows=1)
+        MergeJoin
+            predicate: =(CUSTOMER_ID$0$0, CUSTOMER_ID)
+            fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0]
+            type: inner
+            est: (rows=10695009188124641000)
+          Sort
+              collation: [CUSTOMER_ID ASC]
+              est: (rows=399501)
+            UnionAll
+                est: (rows=399501)
+              Values
+                  fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                  tuples: []
+                  est: (rows=1)
+              Project
+                  fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                  projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'c']
+                  est: (rows=399499)
+                ColocatedHashAggregate
+                    fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                    group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                    aggregation: [SUM($f8)]
+                    est: (rows=399499)
+                  Project
+                      fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                      projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(CS_EXT_LIST_PRICE, CS_EXT_WHOLESALE_COST), CS_EXT_DISCOUNT_AMT), CS_EXT_SALES_PRICE), 2)]
+                      est: (rows=480035)
+                    HashJoin
+                        predicate: =(C_CUSTOMER_SK, CS_BILL_CUSTOMER_SK)
+                        type: inner
+                        est: (rows=480035)
+                      HashJoin
+                          predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
+                          type: inner
+                          est: (rows=480035)
+                        Exchange
+                            distribution: single
+                            est: (rows=1441548)
+                          TableScan
+                              table: PUBLIC.CATALOG_SALES
+                              fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_EXT_DISCOUNT_AMT, CS_EXT_SALES_PRICE, CS_EXT_WHOLESALE_COST, CS_EXT_LIST_PRICE]
+                              est: (rows=1441548)
+                        Exchange
+                            distribution: single
+                            est: (rows=24325)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              predicate: =(D_YEAR, 2000)
+                              fieldNames: [D_DATE_SK, D_YEAR]
+                              est: (rows=24325)
+                      Exchange
+                          distribution: single
+                          est: (rows=100000)
+                        TableScan
+                            table: PUBLIC.CUSTOMER
+                            fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                            est: (rows=100000)
+              Values
+                  fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                  tuples: []
+                  est: (rows=1)
+          MergeJoin
+              predicate: =(CUSTOMER_ID$0, CUSTOMER_ID)
+              fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0]
+              type: inner
+              est: (rows=178472845317440)
+            Sort
+                collation: [CUSTOMER_ID ASC]
+                est: (rows=99684)
+              UnionAll
+                  est: (rows=99684)
+                Values
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    tuples: []
+                    est: (rows=1)
+                Values
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    tuples: []
+                    est: (rows=1)
+                Project
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'w']
+                    est: (rows=99682)
+                  Filter
+                      predicate: >(YEAR_TOTAL, 0E-13)
+                      est: (rows=99682)
+                    ColocatedHashAggregate
+                        fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                        group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                        aggregation: [SUM($f8)]
+                        est: (rows=199364)
+                      Project
+                          fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                          projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(WS_EXT_LIST_PRICE, WS_EXT_WHOLESALE_COST), WS_EXT_DISCOUNT_AMT), WS_EXT_SALES_PRICE), 2)]
+                          est: (rows=239555)
+                        HashJoin
+                            predicate: =(C_CUSTOMER_SK, WS_BILL_CUSTOMER_SK)
+                            type: inner
+                            est: (rows=239555)
+                          HashJoin
+                              predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                              type: inner
+                              est: (rows=239555)
+                            Exchange
+                                distribution: single
+                                est: (rows=719384)
+                              TableScan
+                                  table: PUBLIC.WEB_SALES
+                                  fieldNames: [WS_SOLD_DATE_SK, WS_BILL_CUSTOMER_SK, WS_EXT_DISCOUNT_AMT, WS_EXT_SALES_PRICE, WS_EXT_WHOLESALE_COST, WS_EXT_LIST_PRICE]
+                                  est: (rows=719384)
+                            Exchange
+                                distribution: single
+                                est: (rows=24325)
+                              TableScan
+                                  table: PUBLIC.DATE_DIM
+                                  predicate: =(D_YEAR, 1999)
+                                  fieldNames: [D_DATE_SK, D_YEAR]
+                                  est: (rows=24325)
+                          Exchange
+                              distribution: single
+                              est: (rows=100000)
+                            TableScan
+                                table: PUBLIC.CUSTOMER
+                                fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                                est: (rows=100000)
+            HashJoin
+                predicate: =(CUSTOMER_ID, CUSTOMER_ID$0)
+                fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0]
+                type: inner
+                est: (rows=11935893164)
+              Sort
+                  collation: [CUSTOMER_ID ASC]
+                  est: (rows=399128)
+                UnionAll
+                    est: (rows=399128)
+                  Project
+                      fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                      projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8's']
+                      est: (rows=399126)
+                    Filter
+                        predicate: >(YEAR_TOTAL, 0E-13)
+                        est: (rows=399126)
+                      ColocatedHashAggregate
+                          fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                          group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                          aggregation: [SUM($f8)]
+                          est: (rows=798252)
+                        Project
+                            fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                            projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(SS_EXT_LIST_PRICE, SS_EXT_WHOLESALE_COST), SS_EXT_DISCOUNT_AMT), SS_EXT_SALES_PRICE), 2)]
+                            est: (rows=959175)
+                          HashJoin
+                              predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
+                              type: inner
+                              est: (rows=959175)
+                            HashJoin
+                                predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                                type: inner
+                                est: (rows=959175)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=2880404)
+                                TableScan
+                                    table: PUBLIC.STORE_SALES
+                                    fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_EXT_DISCOUNT_AMT, SS_EXT_SALES_PRICE, SS_EXT_WHOLESALE_COST, SS_EXT_LIST_PRICE]
+                                    est: (rows=2880404)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=24325)
+                                TableScan
+                                    table: PUBLIC.DATE_DIM
+                                    predicate: =(D_YEAR, 1999)
+                                    fieldNames: [D_DATE_SK, D_YEAR]
+                                    est: (rows=24325)
+                            Exchange
+                                distribution: single
+                                est: (rows=100000)
+                              TableScan
+                                  table: PUBLIC.CUSTOMER
+                                  fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                                  est: (rows=100000)
+                  Values
+                      fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                      tuples: []
+                      est: (rows=1)
+                  Values
+                      fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                      tuples: []
+                      est: (rows=1)
+              UnionAll
+                  est: (rows=199366)
+                Values
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    tuples: []
+                    est: (rows=1)
+                Values
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    tuples: []
+                    est: (rows=1)
+                Project
+                    fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
+                    projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'w']
+                    est: (rows=199364)
+                  ColocatedHashAggregate
+                      fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, YEAR_TOTAL]
+                      group: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR]
+                      aggregation: [SUM($f8)]
+                      est: (rows=199364)
+                    Project
+                        fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
+                        projection: [C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS, D_YEAR, /(+(-(-(WS_EXT_LIST_PRICE, WS_EXT_WHOLESALE_COST), WS_EXT_DISCOUNT_AMT), WS_EXT_SALES_PRICE), 2)]
+                        est: (rows=239555)
+                      HashJoin
+                          predicate: =(C_CUSTOMER_SK, WS_BILL_CUSTOMER_SK)
+                          type: inner
+                          est: (rows=239555)
+                        HashJoin
+                            predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=239555)
+                          Exchange
+                              distribution: single
+                              est: (rows=719384)
+                            TableScan
+                                table: PUBLIC.WEB_SALES
+                                fieldNames: [WS_SOLD_DATE_SK, WS_BILL_CUSTOMER_SK, WS_EXT_DISCOUNT_AMT, WS_EXT_SALES_PRICE, WS_EXT_WHOLESALE_COST, WS_EXT_LIST_PRICE]
+                                est: (rows=719384)
+                          Exchange
+                              distribution: single
+                              est: (rows=24325)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: =(D_YEAR, 2000)
+                                fieldNames: [D_DATE_SK, D_YEAR]
+                                est: (rows=24325)
+                        Exchange
+                            distribution: single
+                            est: (rows=100000)
+                          TableScan
+                              table: PUBLIC.CUSTOMER
+                              fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
+                              est: (rows=100000)

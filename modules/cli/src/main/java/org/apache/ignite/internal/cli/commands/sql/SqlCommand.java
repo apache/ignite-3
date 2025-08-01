@@ -84,11 +84,12 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
             return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
+                    .exceptionHandler(SqlExceptionHandler.INSTANCE)
                     .decorator(new SqlQueryResultDecorator(plain))
             );
         } catch (SQLException e) {
             ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
-            return new SqlExceptionHandler().handle(exceptionWriter, e);
+            return SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
         }
     }
 }

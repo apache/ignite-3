@@ -49,6 +49,7 @@ dependencies {
 
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-root')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
@@ -58,9 +59,10 @@ dependencies {
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-metastorage-cache')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-client-handler')
     implementation project(':ignite-compute')
@@ -73,6 +75,8 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-metrics')
+    implementation project(':ignite-metrics-exporter-otlp')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
@@ -91,6 +95,7 @@ dependencies {
     implementation project(':ignite-catalog-compaction')
     implementation project(':ignite-system-disaster-recovery')
     implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-configuration-storage')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -115,11 +120,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-jdbc'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.hamcrest.path
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation(libs.jsonpath.assert) {
         //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -129,7 +129,7 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
-    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
@@ -145,6 +145,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation(project(':ignite-sql-engine')) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -168,8 +169,11 @@ dependencies {
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
-    integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation project(':ignite-eventlog')
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
@@ -189,7 +193,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-replicator'))
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
@@ -217,19 +221,20 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation project(':ignite-configuration-storage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.typesafe.config
 }
 
-tasks.register("runnerPlatformTest", JavaExec) {
-    mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+tasks.register('runnerPlatformTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
+    mainClass = 'org.apache.ignite.internal.runner.app.PlatformTestNodeRunner'
 
     jvmArgs += defaultJvmArgs
 
@@ -238,8 +243,8 @@ tasks.register("runnerPlatformTest", JavaExec) {
     enableAssertions = true
 }
 
-tasks.register("runnerPlatformBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
+tasks.register('runnerPlatformBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner'
 
     jvmArgs += defaultJvmArgs
 
@@ -248,10 +253,30 @@ tasks.register("runnerPlatformBenchmark", JavaExec) {
     enableAssertions = true
 }
 
-tasks.register("runUpsertBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.benchmark.UpsertKvBenchmark"
+tasks.register('runUpsertBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.UpsertKvBenchmark'
 
-    jvmArgs += defaultJvmArgs
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientPutBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvPutBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientGetBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 
@@ -271,7 +296,7 @@ tasks.register("runInsertBenchmark", JavaExec) {
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
+                'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
 }
@@ -279,7 +304,7 @@ jar {
 
 tasks.register('defaultsJar', Jar) {
     from sourceSets.defaultsGenerator.output
-    archiveAppendix = "generator"
+    archiveAppendix = 'generator'
 }
 
 artifacts {

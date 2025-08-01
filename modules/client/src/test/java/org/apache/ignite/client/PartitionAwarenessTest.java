@@ -17,10 +17,15 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,22 +37,30 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -216,8 +229,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCustomColocationKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
-        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 4L)));
-        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8L)));
+        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 4L)));
+        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 8L)));
     }
 
     @Test
@@ -449,8 +462,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t1), job, null), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t2), job, null), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t1), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t2), job, null), willBe(nodeKey2));
     }
 
     @Test
@@ -459,8 +472,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Table table = defaultTable();
         JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 1L, mapper), job, null), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 2L, mapper), job, null), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 1L, mapper), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 2L, mapper), job, null), willBe(nodeKey2));
     }
 
     @ParameterizedTest
@@ -608,6 +621,79 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         fut.join();
     }
 
+    @Test
+    public void testAssignmentUnavailablePutGet() {
+        initPrimaryReplicas(nullReplicas());
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        recordView.upsert(null, Tuple.create().set("ID", 123L));
+        Tuple res = recordView.get(null, Tuple.create().set("ID", 123L));
+
+        assertNotNull(res);
+    }
+
+    @Test
+    public void testAssignmentUnavailableStreamer() {
+        initPrimaryReplicas(nullReplicas());
+
+        DataStreamerOptions options = DataStreamerOptions.builder()
+                .pageSize(1)
+                .perPartitionParallelOperations(1)
+                .autoFlushInterval(50)
+                .build();
+
+        CompletableFuture<Void> fut;
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            fut = recordView.streamData(publisher, options);
+
+            for (long i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", i)));
+            }
+        }
+
+        assertDoesNotThrow(fut::join);
+    }
+
+    @Test
+    public void testSqlRoutesRequestToPrimaryNode() throws InterruptedException {
+        int tableId = 100500;
+        String name = "DUMMY";
+
+        prepareServer(server, tableId, name);
+        prepareServer(server2, tableId, name);
+
+        executeSql(null, 0);
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            executeSql(null, 0);
+
+            return ((ClientSql) client2.sql()).partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready);
+        }, 2_000));
+
+        assertOpOnNode(nodeKey0, null, tx -> executeSql(tx, 0L));
+        assertOpOnNode(nodeKey1, null, tx -> executeSql(tx, 1L));
+        assertOpOnNode(nodeKey2, null, tx -> executeSql(tx, 2L));
+        assertOpOnNode(nodeKey3, null, tx -> executeSql(tx, 3L));
+    }
+
+    private void prepareServer(FakeIgnite server, int tableId, String name) {
+        long leaseStartTime = new HybridClockImpl().nowLong();
+        initPrimaryReplicas(server.placementDriver(), null, leaseStartTime, tableId);
+
+        createTable(server, tableId, name);
+
+        ((FakeIgniteQueryProcessor) server.queryEngine()).setDataAccessListener((nodeName) -> lastOpServerName = nodeName);
+    }
+
+    private void executeSql(@Nullable Transaction tx, long id) {
+        try (ResultSet<?> ignored = client2.sql().execute(tx, format("SELECT SINGLE COLUMN PA", DEFAULT_TABLE), id)) {
+            // no-op
+        }
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
         assertOpOnNodeNoTx(expectedNode, expectedOp, op);
         assertOpOnNodeWithTx(expectedNode, expectedOp, op);
@@ -671,11 +757,31 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
+        initPrimaryReplicas(placementDriver, replicas, leaseStartTime, nextTableId.get() - 1);
+    }
+
+    private static void initPrimaryReplicas(
+            FakePlacementDriver placementDriver,
+            @Nullable List<String> replicas,
+            long leaseStartTime,
+            int tableId
+    ) {
         if (replicas == null) {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+        placementDriver.returnError(false);
+        placementDriver.setReplicas(replicas, tableId, zoneId(tableId), leaseStartTime);
+    }
+
+    private static int zoneId(int tableId) {
+        Catalog catalog = testServer.catalogService().activeCatalog(Long.MAX_VALUE);
+        assertThat(catalog, is(notNullValue()));
+
+        CatalogTableDescriptor table = catalog.table(tableId);
+        assertThat(table, is(notNullValue()));
+
+        return table.zoneId();
     }
 
     private static List<String> defaultReplicas() {
@@ -684,6 +790,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static List<String> reversedReplicas() {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
+    }
+
+    private static List<String> nullReplicas() {
+        return IntStream.range(0, 4).mapToObj(i -> (String) null).collect(Collectors.toList());
     }
 
     private static <A> ReceiverDescriptor<A> receiver() {
@@ -695,7 +805,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

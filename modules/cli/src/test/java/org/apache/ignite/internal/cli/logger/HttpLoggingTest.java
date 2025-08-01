@@ -38,6 +38,8 @@ class HttpLoggingTest {
 
     private HttpLogging logger;
 
+    private final boolean[] verbose = {true};
+
     @BeforeEach
     void setUp() {
         client = new ApiClient();
@@ -48,7 +50,7 @@ class HttpLoggingTest {
     void startAndStopLogging() {
         assertThat(client.getHttpClient().interceptors(), empty());
 
-        logger.startHttpLogging(WRITER);
+        logger.startHttpLogging(WRITER, verbose);
         assertThat(client.getHttpClient().interceptors(), not(empty()));
 
         logger.stopHttpLogging();
@@ -59,13 +61,13 @@ class HttpLoggingTest {
     void restartLogging() {
         assertThat(client.getHttpClient().interceptors(), empty());
 
-        logger.startHttpLogging(WRITER);
+        logger.startHttpLogging(WRITER, verbose);
         assertThat(client.getHttpClient().interceptors(), not(empty()));
 
         logger.stopHttpLogging();
         assertThat(client.getHttpClient().interceptors(), empty());
 
-        logger.startHttpLogging(WRITER);
+        logger.startHttpLogging(WRITER, verbose);
         assertThat(client.getHttpClient().interceptors(), not(empty()));
     }
 
@@ -76,7 +78,7 @@ class HttpLoggingTest {
         builder.interceptors().add(interceptor);
         client.setHttpClient(builder.build());
 
-        logger.startHttpLogging(WRITER);
+        logger.startHttpLogging(WRITER, verbose);
         logger.stopHttpLogging();
 
         assertThat(client.getHttpClient().interceptors(), contains(interceptor));

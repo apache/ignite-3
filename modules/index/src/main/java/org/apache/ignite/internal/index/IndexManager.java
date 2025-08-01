@@ -22,21 +22,21 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -44,7 +44,9 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -61,11 +63,9 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes' lifecycle.
+ * An Ignite component that is responsible for handling index-related commands like CREATE or DROP as well as managing indexes' lifecycle.
  *
  * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
  * start of the tables.</p>
@@ -114,7 +114,7 @@ public class IndexManager implements IgniteComponent {
             TableManager tableManager,
             CatalogService catalogService,
             ExecutorService ioExecutor,
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            RevisionListenerRegistry registry,
             LowWatermark lowWatermark
     ) {
         this.schemaManager = schemaManager;
@@ -123,7 +123,7 @@ public class IndexManager implements IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.lowWatermark = lowWatermark;
 
-        handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
+        handleMetastoreEventVv = new IncrementalVersionedValue<>("IndexManager#handleMetastoreEvent", registry);
     }
 
     @Override
@@ -169,11 +169,30 @@ public class IndexManager implements IgniteComponent {
      *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
-     * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
-     *      parameters.
+     * @return Future with multi-version table storage, completes with an exception if the table or storage does not exist according to the
+     *         passed parameters.
      */
-    CompletableFuture<@Nullable MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
+    CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return tableManager
+                .tableAsync(causalityToken, tableId)
+                .thenApply(table -> {
+                    if (table == null) {
+                        throw new IgniteInternalException(
+                                INTERNAL_ERR,
+                                "Table does not exist [tableId = {}]",
+                                tableId);
+                    }
+
+                    MvTableStorage storage = table.internalTable().storage();
+                    if (storage == null) {
+                        throw new IgniteInternalException(
+                                INTERNAL_ERR,
+                                "Table storage for the specified table cannot be null [tableId = {}]",
+                                tableId);
+                    }
+
+                    return storage;
+                });
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
@@ -186,7 +205,7 @@ public class IndexManager implements IgniteComponent {
             long causalityToken = parameters.causalityToken();
             int catalogVersion = parameters.catalogVersion();
 
-            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
+            CatalogTableDescriptor table = catalogService.catalog(catalogVersion).table(tableId);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
@@ -208,12 +227,12 @@ public class IndexManager implements IgniteComponent {
             int previousCatalogVersion = catalogVersion - 1;
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, previousCatalogVersion);
+            CatalogIndexDescriptor indexDescriptor = catalogService.catalog(previousCatalogVersion).index(indexId);
             assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + previousCatalogVersion;
 
             int tableId = indexDescriptor.tableId();
 
-            if (catalogService.table(tableId, catalogVersion) == null) {
+            if (catalogService.catalog(catalogVersion).table(tableId) == null) {
                 // Nothing to do. Index will be destroyed along with the table.
                 return;
             }
@@ -223,16 +242,28 @@ public class IndexManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+        if (!busyLock.enterBusy()) {
+            return falseCompletedFuture();
+        }
+
+        try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
-            return runAsync(
-                    () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
-                    ioExecutor
-            ).thenApply(unused -> false);
-        });
+            runAsync(() -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())), ioExecutor)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to destroy indices", e);
+                        }
+                    });
+
+            return falseCompletedFuture();
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private void destroyIndex(int indexId, int tableId) {
@@ -300,14 +331,34 @@ public class IndexManager implements IgniteComponent {
         // LWM starts updating only after the node is restored.
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+        int earliestCatalogVersion = lwm == null
+                ? catalogService.earliestCatalogVersion()
+                : catalogService.activeCatalogVersion(lwm.longValue());
+
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
+        Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);
+
+        assert nextCatalog != null : "catalogVersion=" + latestCatalogVersion;
+
         for (int catalogVersion = latestCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            int nextVersion = catalogVersion + 1;
-            catalogService.indexes(catalogVersion).stream()
-                    .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
-                    .forEach(idx -> destructionEventsQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            assert catalog != null : "catalogVersion=" + catalogVersion;
+
+            for (CatalogIndexDescriptor index : catalog.indexes()) {
+                int indexId = index.id();
+
+                int tableId = index.tableId();
+
+                // Check if the index was removed in the next version of the catalog and, if yes, whether it was removed with the whole
+                // table. If the whole table was removed, it will remove its index by itself.
+                if (nextCatalog.index(indexId) == null && nextCatalog.table(tableId) != null) {
+                    destructionEventsQueue.enqueue(new DestroyIndexEvent(nextCatalog.version(), indexId, tableId));
+                }
+            }
+
+            nextCatalog = catalog;
         }
     }
 
@@ -323,15 +374,15 @@ public class IndexManager implements IgniteComponent {
             this.tableId = tableId;
         }
 
-        public int catalogVersion() {
+        int catalogVersion() {
             return catalogVersion;
         }
 
-        public int indexId() {
+        int indexId() {
             return indexId;
         }
 
-        public int tableId() {
+        int tableId() {
             return tableId;
         }
     }

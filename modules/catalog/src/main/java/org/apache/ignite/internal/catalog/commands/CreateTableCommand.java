@@ -22,9 +22,8 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -35,6 +34,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -80,6 +80,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *      Should be subset of the primary key columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
+     * @param validateSystemSchemas Flag indicating whether system schemas should be validated.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(
@@ -90,9 +91,10 @@ public class CreateTableCommand extends AbstractTableCommand {
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
-            String storageProfile
+            String storageProfile,
+            boolean validateSystemSchemas
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifNotExists);
+        super(schemaName, tableName, ifNotExists, validateSystemSchemas);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -104,8 +106,13 @@ public class CreateTableCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+
+        if (ifTableExists && schema.table(tableName) != null) {
+            return List.of();
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
@@ -117,7 +124,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
             zone = catalog.defaultZone();
         } else {
-            zone = zoneOrThrow(catalog, zoneName);
+            zone = zone(catalog, zoneName, true);
         }
 
         if (storageProfile == null) {
@@ -163,7 +170,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
         }
 
@@ -192,11 +199,11 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (String name : colocationColumns) {
             if (!primaryKey.columns().contains(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' is not part of PK.", name));
+                throw new CatalogValidationException("Colocation column '{}' is not part of PK.", name);
             }
 
             if (!colocationColumnsSet.add(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' specified more that once", name));
+                throw new CatalogValidationException("Colocation column '{}' specified more that once", name);
             }
         }
     }
@@ -262,6 +269,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String storageProfile;
 
+        private boolean validateSystemSchemas = true;
+
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -319,6 +328,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public CreateTableCommandBuilder validateSystemSchemas(boolean validateSystemSchemas) {
+            this.validateSystemSchemas = validateSystemSchemas;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             List<String> colocationColumns;
 
@@ -340,7 +356,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     colocationColumns,
                     columns,
                     zoneName,
-                    storageProfile
+                    storageProfile,
+                    validateSystemSchemas
             );
         }
     }

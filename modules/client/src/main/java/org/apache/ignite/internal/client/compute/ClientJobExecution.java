@@ -36,6 +36,7 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -49,28 +50,33 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final ReliableChannel ch;
 
-    private final CompletableFuture<UUID> jobIdFuture;
+    private final UUID jobId;
+
+    private final ClusterNode node;
 
     private final CompletableFuture<R> resultAsync;
 
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, @Nullable Marshaller<R, byte[]> marshaller) {
+    ClientJobExecution(
+            ReliableChannel ch,
+            SubmitResult submitResult,
+            @Nullable Marshaller<R, byte[]> marshaller,
+            @Nullable Class<R> resultClass
+    ) {
         this.ch = ch;
+        this.jobId = submitResult.jobId();
+        node = submitResult.clusterNode();
 
-        jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
-
-        resultAsync = reqFuture
-                .thenCompose(SubmitResult::notificationFuture)
-                .thenApply(r -> {
-                    // Notifications require explicit input close.
-                    try (r) {
-                        Object result = ClientComputeJobUnpacker.unpackJobResult(marshaller, r.in());
-                        stateFuture.complete(unpackJobState(r));
-                        return (R) result;
-                    }
-                });
+        resultAsync = submitResult.notificationFuture().thenApply(r -> {
+            // Notifications require explicit input close.
+            try (r) {
+                Object result = ClientComputeJobUnpacker.unpackJobResult(r.in(), marshaller, resultClass);
+                stateFuture.complete(unpackJobState(r));
+                return (R) result;
+            }
+        });
     }
 
     @Override
@@ -83,15 +89,14 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (stateFuture.isDone()) {
             return stateFuture;
         }
-        return jobIdFuture.thenCompose(jobId -> getJobState(ch, jobId));
+        return getJobState(ch, jobId);
     }
 
-    @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(jobId -> cancelJob(ch, jobId));
+        return cancelJob(ch, jobId);
     }
 
     @Override
@@ -99,7 +104,12 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
+        return changePriority(ch, jobId, newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return node;
     }
 
     static CompletableFuture<@Nullable JobState> getJobState(ReliableChannel ch, UUID jobId) {
@@ -109,7 +119,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_GET_STATE,
                 w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackJobState,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -122,7 +132,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_GET_STATE,
                 w -> w.out().packUuid(taskId),
                 ClientJobExecution::unpackTaskState,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -135,7 +145,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackBooleanResult,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -151,7 +161,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                     w.out().packInt(newPriority);
                 },
                 ClientJobExecution::unpackBooleanResult,
-                null,
+                (String) null,
                 null,
                 false
         );

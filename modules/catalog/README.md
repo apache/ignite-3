@@ -32,7 +32,7 @@ For modify operation (invocation of `CatalogManager.execute()`), a resulting fut
 as soon as version in which results of the command take place becomes available on every node of the
 cluster. This "availability" is determined as "version activation time plus some duration to make
 sure changes are propagated and applied within the cluster", where `some duration` defined by 
-`schemaSync.delayDuration` configuration property. This implies, that consequent read access to 
+`schemaSync.delayDurationMillis` configuration property. This implies, that consequent read access to 
 catalog service with latest timestamp (`HybridClock.now()`) from any node will return the catalog of
 version that incorporates results of the command (assuming there were no concurrent updates overwriting
 modifications made by initial command). This also implies, that concurrent access to the catalog service
@@ -81,8 +81,65 @@ version stored by `catalog.version` key, and apply those updates entries once ag
 
 #### Update log entries serialization
 
-Update log entries are serialized by custom marshallers (see 
+Update log entry contains an hierarchical structure of objects.
+
+For example, `NewSchemaEntry` contains `CatalogSchemaDescriptor` which
+contains `CatalogTableDescriptor` which contains
+`CatalogTableColumnDescriptor` and so on.
+
+<details>
+  <summary>NewSchemaEntry hierarchy example</summary>
+
+* NewSchemaEntry
+  * CatalogSchemaDescriptor
+    * CatalogTableDescriptor[]
+      * CatalogTableSchemaVersions
+        * CatalogTableColumnDescriptor
+      * CatalogTableColumnDescriptor\[\]
+      *  ...
+  * ...
+  * CatalogIndexDescriptor\[\]
+</details>
+
+To simplify versioning of catalog objects, each serializable catalog object must implement  
+[MarshallableEntry](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/MarshallableEntry.java)
+which allows the serializer to understand what type is being (de)serialized.
+
+For each serializable object, there must be an external serializer that implements the 
+[CatalogObjectSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogObjectSerializer.java)
+interface and is marked with the 
+[CatalogSerializer](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogSerializer.java) annotation.
+This annotation specifies the serializer version and is used to dynamically build a registry of all existing serializers
+(see [CatalogEntrySerializerProvider](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/CatalogEntrySerializerProvider.java)).
+
+When serializing an object, a header is written for it consisting of the  object type (2 bytes) and the serializer version (1-3 bytes).
+
 [UpdateLogMarshaller](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/UpdateLogMarshaller.java)
-and [MarshallableEntry](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/MarshallableEntry.java)
-for details). At the moment, backward compatibility is preserved by increasing the version of the protocol,
-but more sophisticated approach may be introduced later.
+is the entry point for catalog object serialization.
+
+Overall serialization format looks as follow
+
+| Field description                   | type   |
+|-------------------------------------|--------|
+| PROTOCOL VERSION<sup>[1]</sup>      | short  | 
+| Object type                         | short  |
+| Object serialization format version | varint |
+| Object payload                      | ...    |
+
+<sup>[1]</sup> The current description corresponds to protocol version 2.
+
+##### Serialization versioning rules
+
+-   The serializer version is incremented by 1.
+
+-   Each serializer must be annotated with
+    `@CatalogSerializer(version=N, since="X.X.X")`. This
+    annotation is used to build registry of all serializers. The
+    version in `since` field is used to understand which
+    serializers are already in use in the "released version" and whose
+    data format should not change. For example, all currently existing
+    catalog serializers is marked as `since="3.0.0"`.
+
+##### Limitations of serialization protocol version 2
+
+-   No forward compatibility support (but it may be added in future versions if needed)

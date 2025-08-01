@@ -155,7 +155,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                     new ClusterManagementApi(clientFactory.getClient(url)).clusterState();
                 }
 
-                new SqlExceptionHandler().handle(exceptionWriter, e);
+                SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
             } catch (ApiException apiE) {
                 new ClusterNotInitializedExceptionHandler("Failed to start sql repl mode", "cluster init")
                         .handle(exceptionWriter, new IgniteCliApiException(apiE, url));
@@ -218,6 +218,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new SqlQueryResultDecorator(plain))
                 .verbose(verbose)
+                .exceptionHandler(SqlExceptionHandler.INSTANCE)
                 .build();
     }
 

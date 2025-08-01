@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -28,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientClusterNode implements ClusterNode {
     /** Local ID assigned to the node instance. The ID changes between restarts. */
-    private final String id;
+    private final UUID id;
 
     /** Unique name of a cluster member. Consistent between restarts. */
     private final String name;
@@ -48,7 +49,7 @@ public class ClientClusterNode implements ClusterNode {
      * @param address Node address.
      * @param nodeMetadata Node metadata.
      */
-    public ClientClusterNode(String id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+    public ClientClusterNode(UUID id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -62,12 +63,12 @@ public class ClientClusterNode implements ClusterNode {
      * @param name    Unique name of a cluster member.
      * @param address Node address.
      */
-    public ClientClusterNode(String id, String name, NetworkAddress address) {
+    public ClientClusterNode(UUID id, String name, NetworkAddress address) {
         this(id, name, address, null);
     }
 
     @Override
-    public String id() {
+    public UUID id() {
         return id;
     }
 

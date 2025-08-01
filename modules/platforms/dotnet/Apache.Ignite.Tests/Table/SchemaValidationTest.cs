@@ -39,6 +39,7 @@ public class SchemaValidationTest : IgniteTestsBase
     public async Task CreateTable()
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TableNameRequiredVal} (KEY BIGINT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
         TableRequiredVal = (await Client.Tables.GetTableAsync(TableNameRequiredVal))!;
     }
 
@@ -106,8 +107,8 @@ public class SchemaValidationTest : IgniteTestsBase
             [ValCol] = "v"
         };
 
-        var ex = Assert.ThrowsAsync<MarshallerException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
-        Assert.AreEqual("Missed key column: KEY", ex!.Message);
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
+        Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { VAL = v }'", ex!.Message);
     }
 
     [Test]
@@ -160,7 +161,7 @@ public class SchemaValidationTest : IgniteTestsBase
         };
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
-        Assert.AreEqual("Can't map 'IgniteTuple { ABC = v }' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
+        Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { ABC = v }'", ex!.Message);
     }
 
     [Test]

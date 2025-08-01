@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
@@ -34,19 +35,21 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 10800;
 
-    /** Address (IP or hostname) to listen on. Will listen on all interfaces if empty. */
+    /** Addresses (IPs or hostnames) to listen on. Will listen on all interfaces if empty. */
     @Value(hasDefault = true)
-    public String listenAddress = "";
+    public String[] listenAddresses = new String[0];
 
     /** Connect timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final int connectTimeout = 5000;
+    @PublicName(legacyNames = "connectTimeout")
+    public final int connectTimeoutMillis = 5000;
 
     /** Idle timeout. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long idleTimeout = 0;
+    @PublicName(legacyNames = "idleTimeout")
+    public final long idleTimeoutMillis = 0;
 
     /** Server exception stack trace visibility. */
     @Value(hasDefault = true)

@@ -18,43 +18,70 @@ In most scenarios, you would use Ignite CLI tool to start and manage your Ignite
 
 This tutorial covers how you can start Ignite 3 from your Java project.
 
-NOTE: Unlike in Ignite 2, nodes in Ignite 3 are not separated into client and server nodes. Nodes started from embedded mode will be used to store data by default. To avoid this,
+NOTE: Unlike in Ignite 2, nodes in Ignite 3 are not separated into client and server nodes. Nodes started from embedded mode will be used to store data by default.
 
 == Prerequisites
-
-Ignite 3 was tested on:
 
 include::includes/prereqs.adoc[]
 
 == Add Ignite to Your Project
 
-//TODO: Replace this with real maven later
 
 First, you need to add Ignite to your project. The easiest way to do this is add Ignite to your project is by using Maven:
 
-[source, xml]
+[source, xml, subs="attributes,specialchars"]
 ----
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+                <source>11</source>
+                <target>11</target>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
 
-<dependency>
-    <groupId>org.apache.ignite</groupId>
-    <artifactId>ignite-api</artifactId>
-    <version>3.0.0-beta2</version>
-    <scope>system</scope>
-    <systemPath>{path_to_jar}</systemPath>
-</dependency>
+<dependencies>
+    <dependency>
+        <groupId>org.apache.ignite</groupId>
+        <artifactId>ignite-api</artifactId>
+        <version>3.0.0</version>
+    </dependency>
 
-<dependency>
-    <groupId>org.apache.ignite</groupId>
-    <artifactId>ignite-runner</artifactId>
-    <version>3.0.0-beta2</version>
-    <scope>system</scope>
-    <systemPath>{path_to_jar}</systemPath>
-</dependency>
+    <dependency>
+        <groupId>org.apache.ignite</groupId>
+        <artifactId>ignite-runner</artifactId>
+        <version>3.0.0</version>
+    </dependency>
+</dependencies>
 ----
 
 == Prepare Ignite Configuration
 
-To start a Ignite node, you will need a Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite-db-{version}/etc/ignite-config.conf` file.
+To start a Ignite node, you will need a Ignite configuration file that specifies all configuration properties of the node. For this tutorial, we recommend link:installation/installing-using-zip[installing] Ignite 3 and using a default configuration file from it. This file is stored in the `ignite3-db-3.0.0/etc/ignite-config.conf` file.
+
+== Pass JVM Parameters
+
+The following JVM parameters need to be passed to your application to make proprietary SDK APIs available:
+
+
+----
+--add-opens java.base/java.lang=ALL-UNNAMED
+--add-opens java.base/java.lang.invoke=ALL-UNNAMED
+--add-opens java.base/java.lang.reflect=ALL-UNNAMED
+--add-opens java.base/java.io=ALL-UNNAMED
+--add-opens java.base/java.nio=ALL-UNNAMED
+--add-opens java.base/java.math=ALL-UNNAMED
+--add-opens java.base/java.util=ALL-UNNAMED
+--add-opens java.base/java.time=ALL-UNNAMED
+--add-opens java.base/jdk.internal.misc=ALL-UNNAMED
+--add-opens java.base/jdk.internal.access=ALL-UNNAMED
+--add-opens java.base/sun.nio.ch=ALL-UNNAMED
+-Dio.netty.tryReflectionSetAccessible=true
+----
 
 == Start Ignite Server Nodes
 
@@ -62,14 +89,10 @@ To start a Ignite node, use the following code snippet:
 
 [source, java]
 ----
-CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
-    "node1",
-    "{config_path}",
-    "{workdir_path}"
-);
+IgniteServer node = IgniteServer.start("node", configFilePath, workDir);
 ----
 
-This code snippet starts a Ignite node with the name `node1`, that uses the configuration from the file specified in the `{config_path}` path parameter and uses the folder specified in the `{workdir_path}` path parameter to store data. When the node is started, this method returns an instance of `Ignite` class that can be used to work with the node.
+This code snippet starts a Ignite node with the name `node1`, that uses the configuration from the file specified in the `configFilePath` path parameter and uses the folder specified in the `workDir` path parameter to store data. When the node is started, this method returns an instance of `IgniteServer` class that can be used to work with the node.
 
 == Initiate a Cluster
 
@@ -80,13 +103,15 @@ Use the code snippet below to initiate a cluster:
 [source, java]
 ----
 InitParameters initParameters = InitParameters.builder()
-    .destinationNodeName("node1")
-    .metaStorageNodeNames(List.of("node1"))
+    .metaStorageNodeNames("node")
     .clusterName("cluster")
+    .clusterConfiguration({config-with-license})
     .build();
 
-IgnitionManager.init(initParameters);
+node.initCluster(initParameters);
 ----
+
+NOTE: To start a Ignite 3 cluster, you need to provide a license together with the cluster configuration in the `clusterConfiguration` parameter.
 
 == Get an Ignite Instance
 
@@ -94,21 +119,28 @@ Now that the cluster is started, you can get an instance of the `Ignite` class:
 
 [source, java]
 ----
-Ignite ignite = igniteFuture.get();
+Ignite ignite = node.api();
 ----
 
 This instance can be used to start working with the cluster. The future will be returned once the cluster is active.
 
-For example, here is how you can create a new table by using an SQL API:
+In the following example, you interact with the cluster using the SQL API:
 
 [source, java]
 ----
-try (ResultSet rs = ignite.sql().execute(null,
-        "CREATE TABLE CREATE TABLE IF NOT EXISTS Person (id int primary key,city_id int,name varchar,age int,company varchar)")
-) {
-    // no-op
+ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+ignite.sql().execute(null, "insert into Person (id, name, age) values ('1', 'Person Man', '501'");
+try (ResultSet<SqlRow> rs = ignite.sql().execute(null, "SELECT id, name, age from Person")) {
+    while (rs.hasNext()) {
+        SqlRow row = rs.next();
+        System.out.println("    "
+                + row.value(1) + ", "
+                + row.value(2));
+    }
 }
 ----
+
+NOTE: Session is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep cursor open.
 
 More examples of working with Ignite can be found in the link:https://github.com/apache/ignite-3/tree/main/examples[examples] repository.
 

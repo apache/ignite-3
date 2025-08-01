@@ -14,20 +14,19 @@
 // limitations under the License.
 = C++ Client
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
 == Getting Started
+
 === Prerequisites
 
 To run C\++ client, you need a C++ build environment to run the `cmake` command:
 
 - C\++ compiler supporting C++ 17;
 - CMake 3.10+;
-- One of build systems: make, ninja, MS Visual Studio, or other;
-- Conan C/C++ package manager 1.X (optional).
-
+- One of build systems: make, ninja, MS Visual Studio, or other.
 
 === [[build-ref]]Installation
 
@@ -41,7 +40,6 @@ tab:Windows[]
 ----
 mkdir cmake-build-release
 cd cmake-build-release
-conan install .. --build=missing -s build_type=Release
 cmake ..
 cmake --build . -j8
 ----
@@ -51,7 +49,6 @@ tab:Linux[]
 ----
 mkdir cmake-build-release
 cd cmake-build-release
-conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ----
@@ -61,11 +58,9 @@ tab:MacOS[]
 ----
 mkdir cmake-build-release
 cd cmake-build-release
-conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ----
-
 --
 
 === Building C++ Client on CentOS 7 and RHEL 7
@@ -91,13 +86,6 @@ yum update
 [source,bash]
 ----
 yum install devtoolset-11-gcc devtoolset-11-gcc-c++ cmake3 git java-11-openjdk-devel gtest-devel gmock-devel
-----
-+
-. Install `conan` version 1.56.0 or more recent but older than 2.00:
-+
-[source,bash]
-----
-pip3 install -v "conan>=1.56.0,<2.0.0" --force-reinstall
 ----
 +
 . Create and update alternatives for `cmake` to force the use of `cmake3`:
@@ -137,34 +125,37 @@ sudo alternatives --config cmake
 scl enable devtoolset-11 bash
 ----
 +
-. Start the link:clients/overview#build-ref[build] in the shell you have established.
+. Start the link:developers-guide/clients/overview#build-ref[build] in the shell you have established.
 
 == Client Connector Configuration
 
 Client connection parameters are controlled by the client connector configuration. By default, Ignite accepts client connections on port 10800. You can change the configuration for the node by using the link:ignite-cli-tool[CLI tool] at any time.
 
-Here is how the client connector configuration looks like:
+Here is how the client connector configuration looks like in the JSON format.
+
+NOTE: In Ignite 3, you can create and maintain the configuration in either JSON or HOCON format.
 
 [source, json]
 ----
-"clientConnector": {
-  "port": 10800,
-  "idleTimeout":3000,
-  "sendServerExceptionStackTraceToClient":true,
-  "ssl": {
-    enabled: true,
-    clientAuth: "require",
-    keyStore: {
-      path: "KEYSTORE_PATH",
-      password: "SSL_STORE_PASS"
+"ignite" : {
+  "clientConnector" : {
+    "port" : 10800,
+    "idleTimeoutMillis" :3000,
+    "sendServerExceptionStackTraceToClient" : true,
+    "ssl" : {
+      "enabled" : true,
+      "clientAuth" : "require",
+      "keyStore" : {
+        "path" : "KEYSTORE_PATH",
+        "password" : "SSL_STORE_PASS"
+      },
+      "trustStore" : {
+        "path" : "TRUSTSTORE_PATH",
+        "password" : "SSL_STORE_PASS"
+      },
     },
-    trustStore: {
-      path: "TRUSTSTORE_PATH",
-      password: "SSL_STORE_PASS"
-    }
-  }
+  },
 }
-
 ----
 
 //NOTE: Replace with link to javadoc once it is published.
@@ -175,13 +166,13 @@ The table below covers the configuration for client connector:
 |======
 |Property|Default|Description
 
-|connectTimeout|5000| Connection attempt timeout, in milliseconds.
-|idleTimeout|0|How long the client can be idle before the connection is dropped,in milliseconds. By default, there is no limit.
+|connectTimeoutMillis|5000| Connection attempt timeout, in milliseconds.
+|idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit.
 |metricsEnabled|`false`|Defines if client metrics are collected.
 |port|10800|The port the client connector will be listening to.
 |sendServerExceptionStackTraceToClient|`false`|Defines if cluster exceptions are sent to the client.
 |ssl.ciphers||The cipher used for SSL communication.
-|ssl.clientAuth||Type of client authentication used by clients. For more information, see link:security/ssl-tls[SSL/TLS].
+|ssl.clientAuth||Type of client authentication used by clients. For more information, see link:administrators-guide/security/ssl-tls[SSL/TLS].
 |ssl.enabled||Defines if SSL is enabled.
 |ssl.keyStore.password||SSL keystore password.
 |ssl.keyStore.path||Path to the SSL keystore.
@@ -215,14 +206,44 @@ auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 ----
 --
 
+=== Using Dependency Injection
+
+Ignite client provides support for using link:https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection[Dependency Injection] when initializing a client instance.
+
+This approach can be used to simplify initializing the client in DI containers:
+
+- Register the `IgniteClientGroup` in your DI container:
++
+[source, cpp]
+----
+builder.Services.AddSingleton<IgniteClientGroup>(_ => new IgniteClientGroup(
+    new IgniteClientGroupConfiguration
+    {
+        Size = 3,
+        ClientConfiguration = new("localhost"),
+    }));
+----
++
+- Use an instance of the group you created in your methods:
++
+[source, cpp]
+----
+public async Task<IActionResult> Index([FromServices] IgniteClientGroup igniteGroup)
+{
+    IIgnite ignite = await igniteGroup.GetIgniteAsync();
+    var tables = await ignite.Tables.GetTablesAsync();
+    return Ok(tables);
+}
+----
+
 == Authentication
 
 To pass authentication information, pass it to `IgniteClient` builder:
 
 [tabs]
 --
-tab:Java[]
-[source, java]
+tab:C++]
+[source, cpp]
 ----
 auto authenticator = std::make_shared<ignite::basic_authenticator>("myUser", "myPassword");
 
@@ -486,6 +507,7 @@ assert(res->name == "John Doe");
 ----
 --
 
+////
 == Streaming Data
 
 To stream a large amount of data, use the data streamer. Data streaming provides a quicker and more efficient way to load, organize and optimally distribute your data. Data streamer accepts a stream of data and distributes data entries across the cluster, where the processing takes place. Data streaming is available in all table views.
@@ -510,3 +532,4 @@ public async Task TestBasicStreamingRecordBinaryView()
 }
 ----
 --
+////

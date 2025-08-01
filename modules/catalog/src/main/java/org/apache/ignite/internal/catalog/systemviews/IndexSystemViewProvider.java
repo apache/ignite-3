@@ -64,10 +64,17 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("TABLE_NAME", STRING, entry -> getTableDescriptor(entry).name())
                 .addColumn("SCHEMA_ID", INT32, IndexSystemViewProvider::getSchemaId)
                 .addColumn("SCHEMA_NAME", STRING, entry -> entry.catalog.schema(getSchemaId(entry)).name())
+                .addColumn("INDEX_TYPE", STRING, entry -> entry.descriptor.indexType().name())
+                .addColumn("IS_UNIQUE_INDEX", BOOLEAN, entry -> entry.descriptor.unique())
+                .addColumn("INDEX_COLUMNS", STRING, IndexSystemViewProvider::getColumnsString)
+                .addColumn("INDEX_STATE", STRING, entry -> entry.descriptor.status().name())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("TYPE", STRING, entry -> entry.descriptor.indexType().name())
                 .addColumn("IS_UNIQUE", BOOLEAN, entry -> entry.descriptor.unique())
                 .addColumn("COLUMNS", STRING, IndexSystemViewProvider::getColumnsString)
                 .addColumn("STATUS", STRING, entry -> entry.descriptor.status().name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(SubscriptionUtils.fromIterable(viewData))
                 .build();
 

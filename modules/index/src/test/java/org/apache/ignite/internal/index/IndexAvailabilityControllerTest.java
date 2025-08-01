@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -51,6 +50,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -87,26 +88,32 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
-            mock(ReplicaService.class, invocation -> nullCompletedFuture())
+            mock(ReplicaService.class, invocation -> nullCompletedFuture()),
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
             catalogManager,
             metaStorageManager,
+            new NoOpFailureManager(),
             indexBuilder
     );
 
     @BeforeEach
     void setUp() {
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
 
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join());
+        assertThat(startAsync(context, catalogManager), willCompleteSuccessfully());
+
+        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join().revision());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
@@ -359,6 +366,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         return TableTestUtils.getTableIdStrict(catalogManager, tableName, clock.nowLong());
     }
 
+    private int zoneIdByTableName(String tableName) {
+        return TableTestUtils.getZoneIdByTableNameStrict(catalogManager, tableName, clock.nowLong());
+    }
+
     private boolean isIndexAvailable(String indexName) {
         return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).status() == AVAILABLE;
     }
@@ -384,17 +395,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 .thenReturn(new RowId(partitionId))
                 .thenReturn(null);
 
-        indexBuilder.scheduleBuildIndex(
-                tableId(TABLE_NAME),
-                partitionId,
-                indexId,
-                indexStorage,
-                mock(MvPartitionStorage.class),
-                mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN
-        );
-
-        CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
+        var finishBuildIndexFuture = new CompletableFuture<Void>();
 
         indexBuilder.listen(new IndexBuildCompletionListener() {
             @Override
@@ -404,6 +405,18 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 }
             }
         });
+
+        indexBuilder.scheduleBuildIndex(
+                zoneIdByTableName(TABLE_NAME),
+                tableId(TABLE_NAME),
+                partitionId,
+                indexId,
+                indexStorage,
+                mock(MvPartitionStorage.class),
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                clock.current()
+        );
 
         assertThat(finishBuildIndexFuture, willCompleteSuccessfully());
     }

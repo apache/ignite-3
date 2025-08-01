@@ -33,7 +33,6 @@ set(SOURCES
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
-    meta/column_meta.cpp
     meta/table_meta.cpp
     query/column_metadata_query.cpp
     query/data_query.cpp
@@ -53,12 +52,20 @@ set(SOURCES
     log.cpp
 )
 
+set(EXTRA_FILES)
+
+if (WIN32)
+    string(REPLACE "." "," CMAKE_PROJECT_VERSION_COMMAS ${CMAKE_PROJECT_VERSION})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+    set(EXTRA_FILES ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+endif()
+
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ODBC_INCLUDE_DIRS})
 
-add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
+add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def ${EXTRA_FILES})
 
 set(LIBRARIES
     ignite-common
@@ -82,7 +89,7 @@ foreach(_target_lib IN LISTS _target_libs)
         if (MSVC_VERSION GREATER_EQUAL 1900)
             list(APPEND LIBRARIES legacy_stdio_definitions)
         endif()
-    else()
+    elseif(NOT APPLE)
         list(APPEND LIBRARIES odbcinst)
     endif()
 
@@ -93,14 +100,13 @@ unset(_target_libs)
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION lib
-            )
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
 endif()
 
 ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(config_tools_test DISCOVER SOURCES config/config_tools_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
-ignite_test(string_utils_test DISCOVER SOURCES string_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(application_data_buffer_test DISCOVER SOURCES app/application_data_buffer_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 

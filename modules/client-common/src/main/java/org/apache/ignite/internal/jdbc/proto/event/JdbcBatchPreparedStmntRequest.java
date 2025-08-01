@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC prepared statement query batch execute request.
  */
-public class JdbcBatchPreparedStmntRequest implements ClientMessage {
+public class JdbcBatchPreparedStmntRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -46,6 +46,12 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     private long queryTimeoutMillis;
 
     /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
+
+    /**
      * Default constructor.
      */
     public JdbcBatchPreparedStmntRequest() {
@@ -59,13 +65,15 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param args Sql query arguments.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
     public JdbcBatchPreparedStmntRequest(
             String schemaName, 
             String query, 
             List<Object[]> args, 
             boolean autoCommit, 
-            long queryTimeoutMillis
+            long queryTimeoutMillis,
+            long correlationToken
     ) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
@@ -75,6 +83,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         this.schemaName = schemaName;
         this.autoCommit = autoCommit;
         this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
     }
 
     /**
@@ -122,6 +131,10 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         return queryTimeoutMillis;
     }
 
+    public long correlationToken() {
+        return correlationToken;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -136,6 +149,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         }
 
         packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
     }
 
     /** {@inheritDoc} */
@@ -155,6 +169,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         }
 
         queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

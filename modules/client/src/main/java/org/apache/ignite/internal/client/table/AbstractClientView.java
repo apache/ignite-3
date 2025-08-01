@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -38,6 +35,7 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -83,26 +81,6 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     }
 
     /**
-     * Construct SQL query and arguments for prepare statement.
-     *
-     * @param tableName Table name.
-     * @param columns Table columns.
-     * @param criteria The predicate to filter entries or {@code null} to return all entries from the underlying table.
-     * @return SQL query and it's arguments.
-     */
-    protected static SqlSerializer createSqlSerializer(String tableName, ClientColumn[] columns, @Nullable Criteria criteria) {
-        Set<String> columnNames = Arrays.stream(columns)
-                .map(ClientColumn::name)
-                .collect(toSet());
-
-        return new SqlSerializer.Builder()
-                .tableName(parseSimpleName(tableName))
-                .columns(columnNames)
-                .where(criteria)
-                .build();
-    }
-
-    /**
      * Create conversion function for objects contained by result set to criteria query objects.
      *
      * @param meta Result set columns' metadata.
@@ -117,7 +95,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     @Override
     public Cursor<T> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, null, opts)));
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */
@@ -132,7 +110,12 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
 
         return tbl.getLatestSchema()
                 .thenCompose((schema) -> {
-                    SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
+                    SqlSerializer ser = new SqlSerializer.Builder()
+                            .columns(Arrays.asList(columnNames(schema.columns())))
+                            .tableName(tbl.qualifiedName())
+                            .indexName(indexName != null ? QualifiedName.parse(indexName).objectName() : null)
+                            .where(criteria)
+                            .build();
 
                     Statement statement = new StatementBuilderImpl().query(ser.toString()).pageSize(opts0.pageSize()).build();
 

@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include <ignite/odbc/meta/column_meta.h>
-#include <ignite/odbc/query/result_page.h>
+#include "ignite/odbc/query/result_page.h"
+#include "ignite/protocol/sql/column_meta.h"
 
 #include <memory>
 
 #include <cstdint>
+
 
 namespace ignite {
 
@@ -43,11 +44,11 @@ public:
         : m_current_page(std::move(page)) {}
 
     /**
-     * Move cursor to the next row.
+     * Move the cursor to the next row.
      *
      * @return False if data update required or no more data.
      */
-    bool next(const column_meta_vector &columns) {
+    bool next(const protocol::column_meta_vector &columns) {
         if (!has_data())
             return false;
 
@@ -93,16 +94,16 @@ public:
     }
 
     /**
-     * Get current row.
+     * Get the current row.
      *
      * @return  Row.
      */
     [[nodiscard]] const std::vector<primitive> &get_row() const { return m_row; }
 
     /**
-     * Get current position in result set.
+     * Get the current position in the result set.
      *
-     * @return Current position in result set.
+     * @return Current position in the result set.
      */
     [[nodiscard]] std::int32_t get_result_set_pos() const { return m_result_set_pos; }
 
@@ -113,7 +114,7 @@ private:
     /** Row position in current page. */
     std::int32_t m_page_pos{-1};
 
-    /** Row position in result set. */
+    /** Row position in the result set. */
     std::int32_t m_result_set_pos{0};
 
     /** Current row. */

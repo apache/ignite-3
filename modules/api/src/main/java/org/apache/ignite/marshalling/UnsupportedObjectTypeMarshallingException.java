@@ -38,10 +38,17 @@ public class UnsupportedObjectTypeMarshallingException extends IgniteException {
     }
 
     /**
-     * Creates an exception with the given unsupported type.
+     * Creates an exception with the given message.
      */
     public UnsupportedObjectTypeMarshallingException(String msg) {
         super(Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR, msg);
+    }
+
+    /**
+     * Creates an exception with the given message and cause.
+     */
+    public UnsupportedObjectTypeMarshallingException(String msg, Throwable cause) {
+        super(Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR, msg, cause);
     }
 
     /**

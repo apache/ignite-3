@@ -18,9 +18,10 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 
 /**
@@ -31,21 +32,23 @@ public class ClientJdbcExecuteRequest {
      * Processes remote {@code JdbcQueryExecuteRequest}.
      *
      * @param in      Client message unpacker.
-     * @param out     Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> execute(
+    public static CompletableFuture<ResponseWriter> execute(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcQueryEventHandlerImpl handler,
+            HybridTimestampTracker tsTracker
     ) {
         var req = new JdbcQueryExecuteRequest();
-
         long connectionId = in.unpackLong();
 
         req.readBinary(in);
 
-        return handler.queryAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
+        // Passing the tracker only to the server-side handler.
+        tsTracker.update(req.observableTime());
+        req.timestampTracker(tsTracker);
+
+        return handler.queryAsync(connectionId, req).thenApply(res -> res::writeBinary);
     }
 }

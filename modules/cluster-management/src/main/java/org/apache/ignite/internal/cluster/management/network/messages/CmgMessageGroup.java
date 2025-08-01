@@ -19,16 +19,17 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetastorageNodesCommand;
+import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
@@ -65,6 +66,26 @@ public class CmgMessageGroup {
      * Message type for {@link SuccessResponseMessage}.
      */
     public static final short SUCCESS_RESPONSE = 6;
+
+    /**
+     * Message type for {@link MetaStorageInfo}.
+     */
+    public static final short METASTORAGE_INFO = 7;
+
+    /**
+     * Message type for {@link RefuseJoinMessage}.
+     */
+    public static final short REFUSE_JOIN = 8;
+
+    /**
+     * Message type for {@link CmgPrepareInitMessage}.
+     */
+    public static final short CMG_PREPARE_INIT = 9;
+
+    /**
+     * Message type for {@link PrepareInitCompleteMessage}.
+     */
+    public static final short PREPARE_INIT_COMPLETE = 10;
 
     /**
      * Message types for RAFT commands.
@@ -106,9 +127,9 @@ public class CmgMessageGroup {
         int READ_VALIDATED_NODES = 46;
 
         /**
-         * Message type for {@link ChangeMetastorageNodesCommand}.
+         * Message type for {@link ChangeMetaStorageInfoCommand}.
          */
-        int CHANGE_METASTORAGE_NODES = 47;
+        int CHANGE_METASTORAGE_INFO = 47;
 
         /**
          * Message type for {@link ClusterNodeMessage}.
@@ -126,8 +147,13 @@ public class CmgMessageGroup {
         int CLUSTER_TAG = 62;
 
         /**
-         * Message type of {@link UpdateClusterStateCommand}.
+         * Do not delete this code for compatibility.
          */
         int UPDATE_CMG_STATE = 65;
+
+        /**
+         * Message type of {@link ReadMetaStorageInfoCommand}.
+         */
+        int READ_METASTORAGE_INFO = 66;
     }
 }

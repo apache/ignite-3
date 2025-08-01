@@ -21,9 +21,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.rel.RelDistribution.Type;
@@ -55,7 +55,7 @@ public class IdentityDistributionFunctionSelfTest {
             .addField(NativeTypes.STRING)
             .build();
 
-    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3),
+    private final ColocationGroup colocationGroup = new ColocationGroup(LongList.of(1L), List.of(NODE_1, NODE_2, NODE_3),
             Int2ObjectMaps.emptyMap());
     private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null);
 
@@ -64,7 +64,6 @@ public class IdentityDistributionFunctionSelfTest {
         IdentityDistribution function = new IdentityDistribution();
 
         assertThat(function.type(), equalTo(Type.HASH_DISTRIBUTED));
-        assertThat(function.affinity(), is(false));
         assertThat(function.name(), equalTo("identity"));
     }
 

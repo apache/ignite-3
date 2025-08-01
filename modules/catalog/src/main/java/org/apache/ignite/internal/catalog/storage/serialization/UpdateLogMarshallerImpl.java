@@ -19,11 +19,7 @@ package org.apache.ignite.internal.catalog.storage.serialization;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
-import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -34,64 +30,63 @@ import org.jetbrains.annotations.TestOnly;
  * <li>Minimize the size of the serialized update log entry.</li>
  * <li>Backward compatibility support when changing existing or adding new entry.</li>
  * </ul>
- * At the moment, the serialization format is specified manually.
  *
- *<p>While backward compatibility is not required, entities can change arbitrarily without changing the data format version.
- * However, every change to an entry's fields requires a change to the serializer that serializes that entry.
+ * <p>Implementation notes:
+ * <ul>
+ * <li>Each serializable object must implement the {@link MarshallableEntry} interface,
+ *     which defines the type of object being serialized.</li>
+ * <li>All serializable object types used in production must be listed in the {@link MarshallableEntryType} enumeration.</li>
+ * <li>For each serializable object, there must be an external serializer that implements the {@link CatalogObjectSerializer}
+ *     interface and is marked with the {@link CatalogSerializer} annotation.
+ *     This annotation specifies the serializer version and is used to dynamically
+ *     build a registry of all existing serializers.</li>
+ * <li>When serializing an object, a header is written for it consisting of the
+ *     object type (2 bytes) and the serializer version (1-3 bytes).</li>
+ * </ul>
  *
  *<p>Basic format description:
  *<pre>
  * (size) | description
  * ------------------------------
  *     2  | data format version ({@link #PROTOCOL_VERSION})
- *     2  | entry type ({@link VersionedUpdate} or {@link SnapshotEntry})
- * &lt;list&gt; | fields of the corresponding event follow (for example, {@link VersionedUpdate}
- * </pre>
- *
- *<p>Versioned Update format description:
- *<pre>
- *     4  | version
- *     8  | delayDurationMs
- * &lt;list&gt; | list of {@link MarshallableEntry}
- *</pre>
- *
- *<p>MarshallableEntry format:
- * <pre>
- *     4  | entries size
- *     2  | entry type (see {@link MarshallableEntryType#id()})
- *        | other entry fields
- *
- *     ...
+ *     2  | entry type ({@link MarshallableEntryType})
+ *   1-3  | entry serializer version ({@link CatalogSerializer#version()})
+ *      ... (entry payload)
  * </pre>
  */
 public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
     /** Current data format version. */
-    private static final int PROTOCOL_VERSION = 1;
-
-    /** Initial capacity (in bytes) of the buffer used for data output. */
-    private static final int INITIAL_BUFFER_CAPACITY = 256;
+    private static final int PROTOCOL_VERSION = 2;
 
     /** Serializers provider. */
     private final CatalogEntrySerializerProvider serializers;
 
-    public UpdateLogMarshallerImpl() {
-        this.serializers = CatalogEntrySerializerProvider.DEFAULT_PROVIDER;
-    }
+    private final int protocolVersion;
 
     @TestOnly
     public UpdateLogMarshallerImpl(CatalogEntrySerializerProvider serializers) {
+        this(serializers, PROTOCOL_VERSION);
+    }
+
+    public UpdateLogMarshallerImpl(int protocolVersion) {
+        this(CatalogEntrySerializerProvider.DEFAULT_PROVIDER, protocolVersion);
+    }
+
+    public UpdateLogMarshallerImpl(CatalogEntrySerializerProvider serializers, int protocolVersion) {
         this.serializers = serializers;
+        this.protocolVersion = protocolVersion;
     }
 
     @Override
     public byte[] marshall(UpdateLogEvent update) {
-        try (IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
-            output.writeShort(PROTOCOL_VERSION);
-
-            output.writeShort(update.typeId());
-
-            serializers.get(update.typeId()).writeTo(update, output);
-
+        try (CatalogObjectDataOutput output = new CatalogObjectDataOutput(serializers)) {
+            output.writeShort(protocolVersion);
+            if (protocolVersion == 1) {
+                output.writeShort(update.typeId());
+                serializers.get(1, update.typeId()).writeTo(update, output);
+            } else {
+                output.writeEntry(update);
+            }
             return output.array();
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);
@@ -100,17 +95,21 @@ public class UpdateLogMarshallerImpl implements UpdateLogMarshaller {
 
     @Override
     public UpdateLogEvent unmarshall(byte[] bytes) {
-        try (IgniteUnsafeDataInput input = new IgniteUnsafeDataInput(bytes)) {
-            int version = input.readShort();
+        try (CatalogObjectDataInput input = new CatalogObjectDataInput(serializers, bytes)) {
+            int protoVersion = input.readShort();
 
-            if (version > PROTOCOL_VERSION) {
-                throw new IllegalStateException(format("An object could not be deserialized because it was using "
-                        + "a newer version of the serialization protocol [objectVersion={}, supported={}]", version, PROTOCOL_VERSION));
+            switch (protoVersion) {
+                case 1: {
+                    int typeId = input.readShort();
+                    return (UpdateLogEvent) serializers.get(1, typeId).readFrom(input);
+                }
+                case 2: {
+                    return (UpdateLogEvent) input.readEntry();
+                }
+                default:
+                    throw new IllegalStateException(format("An object could not be deserialized because it was using a newer"
+                            + " version of the serialization protocol [supported={}, actual={}].", protocolVersion, protoVersion));
             }
-
-            int typeId = input.readShort();
-
-            return (UpdateLogEvent) serializers.get(typeId).readFrom(input);
         } catch (Throwable t) {
             throw new CatalogMarshallerException(t);
         }

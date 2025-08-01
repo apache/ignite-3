@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R> {
+class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private final TaskExecution<R> delegate;
 
     TaskExecutionWrapper(TaskExecution<R> delegate) {
@@ -56,11 +56,6 @@ class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }
@@ -72,5 +67,15 @@ class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>
         }
 
         return null;
+    }
+
+    @Override
+    public boolean marshalResult() {
+        return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        return ((HybridTimestampProvider) delegate).hybridTimestamp();
     }
 }

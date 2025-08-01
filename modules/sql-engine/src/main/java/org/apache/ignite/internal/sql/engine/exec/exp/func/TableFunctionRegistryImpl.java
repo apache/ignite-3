@@ -22,6 +22,7 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,12 +33,12 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
     @Override
     public <RowT> TableFunction<RowT> getTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall) {
         if (rexCall.getOperator() == IgniteSqlOperatorTable.SYSTEM_RANGE) {
-            Supplier<Long> start = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(0));
-            Supplier<Long> end = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(1));
+            Supplier<Long> start = implementGetLongExpr(ctx, ctx.expressionFactory(), rexCall.operands.get(0));
+            Supplier<Long> end = implementGetLongExpr(ctx, ctx.expressionFactory(), rexCall.operands.get(1));
             Supplier<Long> increment;
 
             if (rexCall.operands.size() > 2) {
-                increment = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(2));
+                increment = implementGetLongExpr(ctx, ctx.expressionFactory(), rexCall.operands.get(2));
             } else {
                 increment = null;
             }
@@ -48,14 +49,16 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
         }
     }
 
-    private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(ExpressionFactory<RowT> expressionFactory, RexNode expr) {
+    private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(
+            ExecutionContext<RowT> context, ExpressionFactory<RowT> expressionFactory, RexNode expr
+    ) {
         if (expr == null) {
             return null;
         }
 
-        Supplier<Object> value = expressionFactory.execute(expr);
+        SqlScalar<RowT, Object> value = expressionFactory.scalar(expr);
         return () -> {
-            Number num = (Number) value.get();
+            Number num = (Number) value.get(context);
             if (num == null) {
                 return null;
             }

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +41,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-/** Jobs and marhallers definitions that are used in tests. */
+/** Jobs and marshallers definitions that are used in tests. */
 public class Jobs {
     /** Marshal string argument and adds ":marshalledOnClient" to it. */
     public static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
@@ -49,8 +51,17 @@ public class Jobs {
         }
     }
 
+    /** Marshal list of strings argument and adds ":marshalledOnClient" to each string. */
+    public static class ArgumentStringListMarshaller implements ByteArrayMarshaller<List<String>> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable List<String> object) {
+            List<String> strings = object.stream().map(str -> str + ":listMarshalledOnClient").collect(toList());
+            return ByteArrayMarshaller.super.marshal(strings);
+        }
+    }
+
     /**
-     * Job that unmarhsals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
+     * Job that unmarshals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
      * adds ":processedOnServer" to it.
      */
     public static class ArgMarshallingJob implements ComputeJob<String, String> {
@@ -75,6 +86,21 @@ public class Jobs {
         @Override
         public @Nullable String unmarshal(byte @Nullable [] raw) {
             return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnClient";
+        }
+    }
+
+    /** Unmarshals result bytes to a list of strings and adds ":unmarshalledOnClient" to each string. */
+    public static class ResultStringListUnMarshaller implements ByteArrayMarshaller<List<String>> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable List<String> object) {
+            List<String> strings = object.stream().map(str -> str + ":listMarshalledOnServer").collect(toList());
+            return ByteArrayMarshaller.super.marshal(strings);
+        }
+
+        @Override
+        public @Nullable List<String> unmarshal(byte @Nullable [] raw) {
+            List<String> strings = ByteArrayMarshaller.super.unmarshal(raw);
+            return strings.stream().map(str -> str + ":listUnmarshalledOnClient").collect(toList());
         }
     }
 
@@ -169,8 +195,8 @@ public class Jobs {
         }
     }
 
-    /** Job that accepts and returns user-defined POJOs. */
-    public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
+    /** Job that accepts and returns user-defined POJOs with custom marshaller. */
+    public static class PojoJobWithCustomMarshallers implements ComputeJob<PojoArg, PojoResult> {
         @Override
         public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
             var numberFromStr = Integer.parseInt(arg.strValue);
@@ -188,10 +214,37 @@ public class Jobs {
         }
     }
 
-    /** POJO argument for {@link PojoJob}. */
+    /** Job that accepts and returns user-defined POJOs. */
+    public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
+        @Override
+        public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
+            return completedFuture(new PojoResult().setLongValue(getSum(arg)));
+        }
+
+        private static long getSum(@Nullable PojoArg arg) {
+            var numberFromStr = Integer.parseInt(arg.strValue);
+            var sum = arg.intValue + numberFromStr;
+            if (arg.childPojo != null) {
+                return sum + getSum(arg.getChildPojo());
+            } else {
+                return sum;
+            }
+        }
+    }
+
+    /** Job that accepts POJO and returns a string value. */
+    public static class PojoArgNativeResult implements ComputeJob<PojoArg, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
+            return completedFuture(arg.strValue);
+        }
+    }
+
+    /** POJO argument for {@link PojoJobWithCustomMarshallers} and {@link PojoJob}. */
     public static class PojoArg {
         String strValue;
         int intValue;
+        PojoArg childPojo;
 
         public PojoArg() {
         }
@@ -211,6 +264,15 @@ public class Jobs {
 
         public PojoArg setIntValue(int intValue) {
             this.intValue = intValue;
+            return this;
+        }
+
+        public PojoArg getChildPojo() {
+            return childPojo;
+        }
+
+        public PojoArg setChildPojo(PojoArg value) {
+            this.childPojo = value;
             return this;
         }
 
@@ -237,7 +299,7 @@ public class Jobs {
         }
     }
 
-    /** POJO result for {@link PojoJob}. */
+    /** POJO result for {@link PojoJobWithCustomMarshallers} and {@link PojoJob}. */
     public static class PojoResult {
         long longValue;
 
@@ -283,7 +345,8 @@ public class Jobs {
                 TaskExecutionContext taskContext,
                 @Nullable List<String> input) {
 
-            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
+            nodes.sort(comparing(ClusterNode::name));
 
             var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                     .argumentMarshaller(new ArgumentStringMarshaller())
@@ -311,12 +374,12 @@ public class Jobs {
 
         @Override
         public @Nullable Marshaller<List<String>, byte[]> splitJobInputMarshaller() {
-            return ByteArrayMarshaller.create();
+            return new ArgumentStringListMarshaller();
         }
 
         @Override
         public @Nullable Marshaller<List<String>, byte[]> reduceJobResultMarshaller() {
-            return ByteArrayMarshaller.create();
+            return new ResultStringListUnMarshaller();
         }
     }
 
@@ -324,7 +387,7 @@ public class Jobs {
     public static class MapReduceTuples implements MapReduceTask<Tuple, Tuple, Tuple, Tuple> {
         @Override
         public CompletableFuture<List<MapReduceJob<Tuple, Tuple>>> splitAsync(TaskExecutionContext taskContext, @Nullable Tuple input) {
-            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
             Tuple jobsInput = Tuple.copy(input);
             jobsInput.set("split", "call");
 
@@ -360,6 +423,56 @@ public class Jobs {
             tuple.set("echo", "echo");
 
             return completedFuture(tuple);
+        }
+    }
+
+    /** MapReduce task that takes two strings from the input pojo, sends them to different nodes then combines results into pojo. */
+    public static class MapReducePojo implements MapReduceTask<TwoStringPojo, String, String, TwoStringPojo> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(
+                TaskExecutionContext taskContext,
+                @Nullable TwoStringPojo input
+        ) {
+
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().cluster().nodes());
+
+            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                    .argumentMarshaller(new ArgumentStringMarshaller())
+                    .resultMarshaller(new ResultStringUnMarshaller())
+                    .build();
+
+            return completedFuture(List.of(
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(0))
+                            .args(input.firstString)
+                            .build(),
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(1))
+                            .args(input.secondString)
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<TwoStringPojo> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            List<String> res = new ArrayList<>(results.values());
+            return completedFuture(new TwoStringPojo(res.get(0), res.get(1)));
+        }
+    }
+
+    /** Simple two string pojo. */
+    public static class TwoStringPojo {
+        public String firstString;
+        public String secondString;
+
+        public TwoStringPojo() {
+        }
+
+        public TwoStringPojo(String firstString, String secondString) {
+            this.firstString = firstString;
+            this.secondString = secondString;
         }
     }
 }

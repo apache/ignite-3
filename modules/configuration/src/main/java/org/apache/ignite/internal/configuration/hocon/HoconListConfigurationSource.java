@@ -32,6 +32,7 @@ import com.typesafe.config.ConfigValueType;
 import java.lang.reflect.Array;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -46,6 +47,9 @@ class HoconListConfigurationSource implements ConfigurationSource {
      */
     private final List<String> path;
 
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
     /**
      * HOCON list that this source has been created from.
      */
@@ -54,11 +58,13 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON list.
      *
-     * @param path         Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
-     *                     object.
+     * @param keyIgnorer Determines if key should be ignored.
+     * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
+     *         object.
      * @param hoconCfgList HOCON list.
      */
-    HoconListConfigurationSource(List<String> path, ConfigList hoconCfgList) {
+    HoconListConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigList hoconCfgList) {
+        this.keyIgnorer = keyIgnorer;
         this.path = path;
         this.hoconCfgList = hoconCfgList;
     }
@@ -105,37 +111,45 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
         String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
 
-        int idx = 0;
-        for (Iterator<ConfigValue> iterator = hoconCfgList.iterator(); iterator.hasNext(); idx++) {
-            ConfigValue next = iterator.next();
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, syntheticKeyName)))) {
+            return;
+        }
+
+        for (int idx = 0; idx < hoconCfgList.size(); idx++) {
+            ConfigValue next = hoconCfgList.get(idx);
 
             if (next.valueType() != ConfigValueType.OBJECT) {
-                throw new IllegalArgumentException(
-                        format(
-                                "'%s' is expected to be a composite configuration node, not a single value",
-                                formatArrayPath(path, idx)
-                        )
-                );
+                throw new IllegalArgumentException(format(
+                        "'%s' is expected to be a composite configuration node, not a single value",
+                        formatArrayPath(path, idx)
+                ));
             }
 
             ConfigObject hoconCfg = (ConfigObject) next;
 
+            String key;
+
+            List<String> path;
+
             ConfigValue keyValue = hoconCfg.get(syntheticKeyName);
 
-            if (keyValue == null || keyValue.valueType() != ConfigValueType.STRING) {
-                throw new IllegalArgumentException(
-                        format(
-                                "'%s' configuration value is mandatory and must be a String",
-                                formatArrayPath(path, idx) + KEY_SEPARATOR + syntheticKeyName
-                        )
-                );
+            if (keyValue != null && keyValue.valueType() == ConfigValueType.STRING) {
+                // If the synthetic key is present, check that it has the correct type and use it as the key.
+                key = (String) keyValue.unwrapped();
+                path = appendKey(this.path, key);
+            } else if (keyValue == null && hoconCfg.size() == 1) {
+                // If the synthetic key is not present explicitly, we need to handle the case when a configuration uses InjectedValue.
+                // This means that this object must only have one key.
+                key = hoconCfg.entrySet().iterator().next().getKey();
+                path = this.path;
+            } else {
+                throw new IllegalArgumentException(format(
+                        "'%s' configuration value is mandatory and must be a String",
+                        formatArrayPath(this.path, idx) + KEY_SEPARATOR + syntheticKeyName
+                ));
             }
 
-            String key = (String) keyValue.unwrapped();
-
-            List<String> path = appendKey(this.path, syntheticKeyName);
-
-            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), false);
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, keyIgnorer, path, hoconCfg), false);
         }
     }
 

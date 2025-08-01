@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -41,11 +42,11 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -92,7 +93,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
     private IndexUpdateHandler indexUpdateHandler;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     @BeforeEach
     void setUp() {
@@ -124,8 +125,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
                         List.of(
-                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true, false),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true, false)
                         ),
                         false
                 )
@@ -171,7 +172,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
     }
 
@@ -224,7 +225,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Those writes resulted in three commits.
-        verify(storage, times(3)).commitWrite(any(), any());
+        verify(storage, times(3)).commitWrite(any(), any(), eq(txUuid));
 
         // Now reset the invocation counter.
         clearInvocations(storage);
@@ -233,7 +234,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // And no invocation after, meaning idempotence of the cleanup.
-        verify(storage, never()).commitWrite(any(), any());
+        verify(storage, never()).commitWrite(any(), any(), any());
     }
 
     @Test
@@ -269,7 +270,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Those writes resulted in three commits.
-        verify(storage, times(3)).commitWrite(any(), any());
+        verify(storage, times(3)).commitWrite(any(), any(), eq(txUuid));
 
         // Now reset the invocation counter.
         clearInvocations(storage);
@@ -278,7 +279,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // And no invocation after, meaning idempotence of the cleanup.
-        verify(storage, never()).commitWrite(any(), any());
+        verify(storage, never()).commitWrite(any(), any(), any());
 
         ReadResult result1 = storage.read(new RowId(partitionId.partitionId(), id1), HybridTimestamp.MAX_VALUE);
         assertEquals(row1, result1.binaryRow());
@@ -340,7 +341,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // But the loss of the state results in no cleanup, and the entries are still write intents.
-        verify(storage, never()).commitWrite(any(), any());
+        verify(storage, never()).commitWrite(any(), any(), any());
 
         // Now imagine we have another transaction that resolves the row, does the cleanup and commits its own data.
 
@@ -351,7 +352,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Only the discovered write intent was committed, the other two are still write intents.
-        verify(storage, times(1)).commitWrite(any(), any());
+        verify(storage, times(1)).commitWrite(any(), any(), eq(txUuid));
 
         BinaryRow row4 = binaryRow(new TestKey(1, "foo1"), new TestValue(20, "bar20"));
 
@@ -371,7 +372,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Only those two entries will be affected.
-        verify(storage, times(2)).commitWrite(any(), any());
+        verify(storage, times(2)).commitWrite(any(), any(), eq(txUuid));
     }
 
     @Test
@@ -407,7 +408,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // But the loss of the state results in no cleanup, and the entries are still write intents.
-        verify(storage, never()).commitWrite(any(), any());
+        verify(storage, never()).commitWrite(any(), any(), any());
 
         // Now imagine we have another transaction that resolves the row, does the cleanup and commits its own data.
 
@@ -418,7 +419,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Only the discovered write intent was committed, the other two are still write intents.
-        verify(storage, times(1)).commitWrite(any(), any());
+        verify(storage, times(1)).commitWrite(any(), any(), eq(txUuid));
 
         BinaryRow row4 = binaryRow(new TestKey(1, "foo1"), new TestValue(20, "bar20"));
 
@@ -443,7 +444,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Only those two entries will be affected.
-        verify(storage, times(2)).commitWrite(any(), any());
+        verify(storage, times(2)).commitWrite(any(), any(), eq(txUuid));
     }
 
     @Test
@@ -460,8 +461,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, false, null, null, commitTs, null);
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -495,8 +496,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row2, true, null, null, commitTs, null);
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -537,8 +538,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         );
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate2, partitionId, true, null, null, null);
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -570,8 +571,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -611,8 +612,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -647,8 +648,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, times(1)).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -691,8 +692,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, times(1)).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -739,8 +740,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, times(1)).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, times(1)).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -799,8 +800,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, times(1)).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, times(1)).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -850,14 +851,14 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, times(1)).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
     void testCleanupBeforeUpdateCommitWriteIntentBatch() {
-        UUID committed1 = UUID.randomUUID();
+        UUID commitedTxId1 = UUID.randomUUID();
 
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
@@ -873,9 +874,9 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 rowId, new TimedBinaryRow(row1, null)
         );
 
-        storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null, null);
+        storageUpdateHandler.handleUpdateAll(commitedTxId1, rowsToUpdate, partitionId, true, null, null, null);
 
-        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
+        storageUpdateHandler.switchWriteIntents(commitedTxId1, true, commitTs, null);
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -912,8 +913,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, times(1)).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -964,8 +965,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, never()).commitWrite(any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).commitWrite(any(), any(), any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 

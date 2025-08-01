@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.io.Serializable;
 import java.net.Inet6Address;
 import java.net.UnknownHostException;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -107,7 +108,7 @@ public class HostAndPort implements Serializable {
      * @return Parsed port.
      * @throws IgniteException If failed.
      */
-    private static int parsePort(String portStr, String addrStr, String errMsgPrefix) throws IgniteException {
+    private static int parsePort(String portStr, String addrStr, String errMsgPrefix) {
         try {
             int port = Integer.parseInt(portStr);
 
@@ -129,8 +130,8 @@ public class HostAndPort implements Serializable {
      * @param errMsg       Error message.
      * @return Exception.
      */
-    private static IgniteException createParseError(String addrStr, String errMsgPrefix, String errMsg) {
-        return new IgniteException(errMsgPrefix + " (" + errMsg + "): " + addrStr);
+    private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg) {
+        return new IgniteException(Client.CONFIGURATION_ERR, errMsgPrefix + " (" + errMsg + "): " + addrStr);
     }
 
     /**
@@ -142,8 +143,8 @@ public class HostAndPort implements Serializable {
      * @param cause        Cause exception.
      * @return Exception.
      */
-    private static IgniteException createParseError(String addrStr, String errMsgPrefix, String errMsg, Throwable cause) {
-        return new IgniteException(errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
+    private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg, Throwable cause) {
+        return new IgniteException(Client.CONFIGURATION_ERR, errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
     }
 
     /**

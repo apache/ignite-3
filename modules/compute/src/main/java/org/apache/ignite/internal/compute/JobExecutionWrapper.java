@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,13 +50,13 @@ public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvid
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
+    public ClusterNode node() {
+        return delegate.node();
     }
 
     @Override
@@ -65,5 +66,10 @@ public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvid
         }
 
         return null;
+    }
+
+    @Override
+    public boolean marshalResult() {
+        return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
     }
 }

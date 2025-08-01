@@ -25,4 +25,10 @@ namespace Apache.Ignite.Transactions;
 /// Read-only transactions provide a snapshot view of data at a certain point in time.
 /// They are lock-free and perform better than normal transactions, but do not permit data modifications.
 /// </param>
-public readonly record struct TransactionOptions(bool ReadOnly);
+/// <param name="TimeoutMillis">
+/// Transaction timeout. 0 means 'use default timeout'.
+/// For RO transactions, the default timeout is data availability time configured via ignite.gc.lowWatermark.dataAvailabilityTimeMillis
+/// configuration setting.
+/// For RW transactions, timeouts are not supported yet. TODO: IGNITE-15936.
+/// </param>
+public readonly record struct TransactionOptions(bool ReadOnly, long TimeoutMillis = 0);

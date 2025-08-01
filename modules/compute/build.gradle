@@ -33,6 +33,8 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
+    implementation project(':ignite-sql-engine-api')
+    implementation project(':ignite-system-view-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -42,16 +44,11 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.awaitility
 
-    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-network')
@@ -60,6 +57,8 @@ dependencies {
     integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-client-common')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
 }

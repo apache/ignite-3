@@ -20,6 +20,7 @@ package org.apache.ignite.marshalling;
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception thrown when an object type is not supported by the marshaller.
@@ -28,12 +29,22 @@ public class MarshallingException extends IgniteException {
     private static final long serialVersionUID = -4170221560474770629L;
 
     /**
-     * Creates an exception with the given unsupported type.
+     * Creates an exception with the given cause.
      *
      * @param exception The exception that caused the error.
      */
     MarshallingException(Exception exception) {
         super(Marshalling.COMMON_ERR, exception);
+    }
+
+    /**
+     * Creates an exception with the given message and cause.
+     *
+     * @param msg Message.
+     * @param cause The exception that caused the error.
+     */
+    public MarshallingException(String msg, @Nullable Throwable cause) {
+        super(Marshalling.COMMON_ERR, msg, cause);
     }
 
     /**

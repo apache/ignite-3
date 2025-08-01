@@ -57,6 +57,10 @@ public final class RaftOutter {
 
         long lastIncludedTerm();
 
+        long cfgIndex();
+
+        long cfgTerm();
+
         @Nullable Collection<String> peersList();
 
         @Nullable Collection<String> oldPeersList();
@@ -64,11 +68,5 @@ public final class RaftOutter {
         @Nullable Collection<String> learnersList();
 
         @Nullable Collection<String> oldLearnersList();
-
-        /** Minimum catalog version that is required for the snapshot to be accepted by a follower. */
-        int requiredCatalogVersion();
-
-        /** Returns the row ID for which the index needs to be built per building index ID at the time the snapshot meta was created. */
-        @Nullable Map<Integer, UUID> nextRowIdToBuildByIndexId();
     }
 }

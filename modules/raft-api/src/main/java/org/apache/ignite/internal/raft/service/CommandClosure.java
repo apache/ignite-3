@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.service;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,6 +43,14 @@ public interface CommandClosure<R extends Command> {
      */
     default long term() {
         return 0;
+    }
+
+    /**
+     * Safe timestamp (replication begin time) of a command. {@code Null} if a command doesn't carry safe timestamp.
+     * Returns the safe time.
+     */
+    default @Nullable HybridTimestamp safeTimestamp() {
+        return null;
     }
 
     /**

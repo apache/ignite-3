@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.cli.core.exception.handler;
 
-import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
+import static org.apache.ignite.lang.ErrorGroups.extractCauseMessage;
 
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import javax.net.ssl.SSLHandshakeException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
@@ -37,11 +38,15 @@ import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception handler for {@link SQLException}.
  */
 public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
+    public static final SqlExceptionHandler INSTANCE = new SqlExceptionHandler();
+
     private static final IgniteLogger LOG = Loggers.forClass(SqlExceptionHandler.class);
 
     public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error";
@@ -57,7 +62,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     private final Map<Integer, Function<IgniteException, ErrorComponentBuilder>> sqlExceptionMappers = new HashMap<>();
 
     /** Default constructor. */
-    public SqlExceptionHandler() {
+    private SqlExceptionHandler() {
         sqlExceptionMappers.put(Client.CONNECTION_ERR, SqlExceptionHandler::connectionErrUiComponent);
         sqlExceptionMappers.put(Sql.STMT_PARSE_ERR, SqlExceptionHandler::sqlParseErrUiComponent);
     }
@@ -73,10 +78,38 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     private static ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
             IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
+
+            InvalidCredentialsException invalidCredentialsException = findCause(cause, InvalidCredentialsException.class);
+            if (invalidCredentialsException != null) {
+                return ErrorUiComponent.builder()
+                        .header("Could not connect to node. Check authentication configuration")
+                        .details(invalidCredentialsException.getMessage())
+                        .verbose(extractCauseMessage(cause.getMessage()));
+            }
+
+            SSLHandshakeException sslHandshakeException = findCause(cause, SSLHandshakeException.class);
+            if (sslHandshakeException != null) {
+                return ErrorUiComponent.builder()
+                        .header("Could not connect to node. Check SSL configuration")
+                        .details(sslHandshakeException.getMessage())
+                        .verbose(extractCauseMessage(cause.getMessage()));
+            }
+
             return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.code(), cause.traceId(), cause.getMessage());
         }
 
         return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.code(), e.traceId(), e.getMessage());
+    }
+
+    @Nullable
+    private static <T extends Throwable> T findCause(Throwable e, Class<T> type) {
+        while (e != null) {
+            if (type.isInstance(e)) {
+                return (T) e;
+            }
+            e = e.getCause();
+        }
+        return null;
     }
 
     private static ErrorComponentBuilder fromExWithHeader(String header, int errorCode, UUID traceId, String message) {

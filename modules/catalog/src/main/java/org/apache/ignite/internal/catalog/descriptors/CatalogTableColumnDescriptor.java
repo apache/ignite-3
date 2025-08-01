@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column descriptor.
  */
-public class CatalogTableColumnDescriptor {
-    public static final CatalogObjectSerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
-
+public class CatalogTableColumnDescriptor implements MarshallableEntry {
     private final String name;
     private final ColumnType type;
     private final boolean nullable;
@@ -90,6 +86,11 @@ public class CatalogTableColumnDescriptor {
     }
 
     @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_TABLE_COLUMN.id();
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -137,40 +138,5 @@ public class CatalogTableColumnDescriptor {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link CatalogTableColumnDescriptor}.
-     */
-    private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
-        @Override
-        public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
-            String name = input.readUTF();
-            int typeId = input.readInt();
-            ColumnType type = ColumnType.getById(typeId);
-
-            assert type != null : "Unknown column type: " + typeId;
-
-            boolean nullable = input.readBoolean();
-            int precision = input.readInt();
-            int scale = input.readInt();
-            int length = input.readInt();
-
-            DefaultValue defaultValue = DefaultValue.readFrom(input);
-
-            return new CatalogTableColumnDescriptor(name, type, nullable, precision, scale, length, defaultValue);
-        }
-
-        @Override
-        public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeUTF(descriptor.name());
-            output.writeInt(descriptor.type().id());
-            output.writeBoolean(descriptor.nullable());
-            output.writeInt(descriptor.precision());
-            output.writeInt(descriptor.scale());
-            output.writeInt(descriptor.length());
-
-            DefaultValue.writeTo(descriptor.defaultValue(), output);
-        }
     }
 }

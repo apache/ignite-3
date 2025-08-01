@@ -25,6 +25,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,7 +60,7 @@ class RestartProofIgniteTables implements IgniteTables, Wrapper {
     }
 
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return attachmentLock.attached(ignite -> {
             Table table = ignite.tables().table(name);
             return wrapTable(table, ignite);
@@ -67,14 +68,14 @@ class RestartProofIgniteTables implements IgniteTables, Wrapper {
     }
 
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         return attachmentLock.attachedAsync(ignite ->
                 ignite.tables().tableAsync(name)
                         .thenApply(table -> wrapTable(table, ignite))
         );
     }
 
-    private @Nullable Table wrapTable(Table table, Ignite ignite) {
+    private @Nullable Table wrapTable(@Nullable Table table, Ignite ignite) {
         if (table == null) {
             return null;
         }

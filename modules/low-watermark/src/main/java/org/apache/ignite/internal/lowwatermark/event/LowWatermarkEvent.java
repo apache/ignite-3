@@ -22,13 +22,6 @@ import org.apache.ignite.internal.event.Event;
 /** Low watermark events. */
 public enum LowWatermarkEvent implements Event {
     /**
-     * This event is fired before the low watermark changes.
-     *
-     * @see ChangeLowWatermarkEventParameters
-     */
-    LOW_WATERMARK_BEFORE_CHANGE,
-
-    /**
      * This event is fired on a low watermark change.
      *
      * @see ChangeLowWatermarkEventParameters

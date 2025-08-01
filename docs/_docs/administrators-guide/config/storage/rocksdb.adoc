@@ -17,37 +17,40 @@
 
 RocksDB is a persistent storage engine based on LSM tree. It is best used in environments with a large number of write requests.
 
-When the link:config/data-region[data region] is configured to use it, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
+== Profile Configuration
 
-
-== Configuration Properties
-
-
-Below is the list of properties for link:https://rocksdb.org/[RocksDB,window=_blank] data regions:
+Each Ignite storage engine can have several storage profiles. Each profile has the following properties:
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
 |Property|Default|Description
 
-|name|| The name of the data region.
-|size| `256 * 1024 * 1024` | Size of the offheap cache.
-|writeBufferSize | `64 * 1024 * 1024` | Size of the write buffer.
-|cache| `lru` | The type of the cache to use. Currently only lru is supported. Using `clock` cache is not recommended.
-|flushDelayMillis |100| The delay before handling RocksDB flush events.
+|engine|| The name of the storage engine.
+|sizeBytes|`256 * 1024 * 1024`| Sets the space allocated to the storage profile, in bytes.
+|writeBufferSizeBytes|`64 * 1024 * 1024`| Size of rocksdb write buffer.
+|numShardBits|`-1`| The cache is sharded to 2^numShardBits shards, by hash of the key.
 |===
 
 
 == Configuration Example
 
-The example below shows how to configure a data region with RocksDB storage:
+In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. The example below shows how to configure a storage profile with RocksDB storage:
 
+[source, json]
 ----
-ignite config set --type cluster \
-"{
-    rocksdb.regions: [{
-        name: lsm_region,
-        size: 256000000,
-        cache: lru
-    }]
-}"
+{
+  "ignite" : {
+    "storage" : {
+      "profiles" : [
+        {
+          "name" : "rocks_profile",
+          "engine" : "rocksDb",
+          "size" : 2560000                
+        }
+      ]
+    }
+  }
+}
 ----
+
+You can then use the profile (in this case, `rocks_profile`) in your distribution zone configuration.

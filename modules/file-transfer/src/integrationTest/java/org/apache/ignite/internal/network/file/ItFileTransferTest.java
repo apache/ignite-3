@@ -72,7 +72,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration("mock.chunkSize=1024")
+    @InjectConfiguration("mock.chunkSizeBytes=1024")
     private FileTransferConfiguration configuration;
 
     private TestCluster cluster;
@@ -99,7 +99,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, chunkSize);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);
@@ -138,7 +138,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, chunkSize);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);
@@ -195,7 +195,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, chunkSize - 1);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);
@@ -254,7 +254,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, 0);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);
@@ -317,7 +317,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, chunkSize);
         Path file2 = randomFile(sourceDir, chunkSize - 1);
         Path file3 = randomFile(sourceDir, chunkSize + 1);
@@ -391,7 +391,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, chunkSize - 1);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);
@@ -475,7 +475,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
 
-        int chunkSize = configuration.value().chunkSize();
+        int chunkSize = configuration.value().chunkSizeBytes();
         Path file1 = randomFile(sourceDir, 0);
         Path file2 = randomFile(sourceDir, chunkSize + 1);
         Path file3 = randomFile(sourceDir, chunkSize * 2);

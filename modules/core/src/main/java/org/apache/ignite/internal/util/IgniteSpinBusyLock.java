@@ -62,7 +62,7 @@ public class IgniteSpinBusyLock {
     }
 
     /**
-     * Blocks current thread till all activities left "busy" state and prevents them from further entering to "busy" state.
+     * Blocks current thread till all activities left "busy" state and prevents them from further entering the "busy" state.
      */
     public void block() {
         lock.writeLock();

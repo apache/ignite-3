@@ -25,10 +25,11 @@ import static org.hamcrest.Matchers.hasSize;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
@@ -69,10 +70,10 @@ class LogSinkTest extends BaseIgniteAbstractTest {
             logSinkChange.changeFormat("json");
         })).get();
         // And log sink.
-        Sink logSink = new LogSinkFactory(new EventSerializerFactory().createEventSerializer())
+        Sink logSink = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default")
                 .createSink(cfg.sinks().get("logSink").value());
         // And event.
-        Event event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(
+        Event event = IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(
                 EventUser.of("user1", "basicProvider")
         );
 
@@ -92,7 +93,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         assertThat(Files.readAllLines(eventlogPath), hasItem(expectedEventJson));
 
         // When write one more event.
-        Event event2 = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(
+        Event event2 = IgniteEventType.CLIENT_CONNECTION_CLOSED.create(
                 EventUser.of("user2", "basicProvider")
         );
 

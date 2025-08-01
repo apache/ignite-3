@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -33,6 +38,9 @@ import org.jetbrains.annotations.Nullable;
  * Client transactions implementation.
  */
 public class ClientTransactions implements IgniteTransactions {
+    /** 0 timeout is used as a flag to use the configured timeout. */
+    public static final int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -54,38 +62,50 @@ public class ClientTransactions implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return CompletableFuture.completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
+        return completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
     }
 
+    /**
+     * Begins the transaction on any node.
+     *
+     * @param ch Reliable channel.
+     * @param options The options.
+     * @param observableTimestamp The timestamp.
+     * @param channelResolver Client channel resolver.
+     *
+     * @return The future.
+     */
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
-            @Nullable String preferredNodeName,
             @Nullable TransactionOptions options,
-            long observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0) {
-            // TODO: IGNITE-16193
-            throw new UnsupportedOperationException("Timeouts are not supported yet");
-        }
-
+            HybridTimestampTracker observableTimestamp,
+            Supplier<CompletableFuture<ClientChannel>> channelResolver
+    ) {
         boolean readOnly = options != null && options.readOnly();
+        long timeout = options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
                 w -> {
                     w.out().packBoolean(readOnly);
-                    w.out().packLong(observableTimestamp);
+                    w.out().packLong(timeout);
+                    w.out().packLong(observableTimestamp.get().longValue());
                 },
-                r -> readTx(r, readOnly),
-                preferredNodeName,
+                r -> readTx(r, readOnly, timeout),
+                channelResolver,
                 null,
                 false);
     }
 
-    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
+    private static ClientTransaction readTx(
+            PayloadInputChannel r,
+            boolean isReadOnly,
+            long timeout
+    ) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
     }
 }

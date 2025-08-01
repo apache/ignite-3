@@ -30,11 +30,4 @@ public interface WatchListener {
      * @return Future that will be completed when the event is processed.
      */
     CompletableFuture<Void> onUpdate(WatchEvent event);
-
-    /**
-     * The method will be called in case of an error occurred. The listener and corresponding watch will be unregistered.
-     *
-     * @param e Exception.
-     */
-    void onError(Throwable e);
 }

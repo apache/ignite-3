@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.lang.reflect.Type;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -30,27 +30,30 @@ import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -66,9 +69,11 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     private static final Locale LOCALE = Locale.ENGLISH;
 
+    private final int inBufSize;
+
     private final QueryTaskExecutor executor;
 
-    private final UUID qryId;
+    private final ExecutionId executionId;
 
     private final FragmentDescription description;
 
@@ -77,6 +82,7 @@ public class ExecutionContext<RowT> implements DataContext {
     private final ClusterNode localNode;
 
     private final String originatingNodeName;
+    private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
 
@@ -85,10 +91,16 @@ public class ExecutionContext<RowT> implements DataContext {
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
     /**
-     * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
-     * query.
+     * Current timestamp. Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value
+     * throughout the query.
      */
     private final long startTs;
+
+    /**
+     * Current timestamp that includes offset an offset of {@code timeZoneId}. Need to store timestamp, since SQL standard says that
+     * functions such as CURRENT_TIMESTAMP return the same value throughout the query.
+     */
+    private final long startTsWithTzOffset;
 
     private final TxAttributes txAttributes;
 
@@ -96,13 +108,12 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
-    private final @Nullable CompletableFuture<Void> timeoutFut;
-
     /**
      * Constructor.
      *
+     * @param expressionFactory Expression factory.
      * @param executor Task executor.
-     * @param qryId Query ID.
+     * @param executionId Execution ID.
      * @param localNode Local node.
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
@@ -110,42 +121,46 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
-     * @param timeoutFut Timeout future.
+     * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
+     * @param clock The clock to use to get the system time.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
+            ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
-            UUID qryId,
+            ExecutionId executionId,
             ClusterNode localNode,
             String originatingNodeName,
+            UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
-            @Nullable CompletableFuture<Void> timeoutFut
+            int inBufSize,
+            Clock clock
     ) {
+        this.expressionFactory = expressionFactory;
         this.executor = executor;
-        this.qryId = qryId;
+        this.executionId = executionId;
         this.description = description;
         this.handler = handler;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
+        this.originatingNodeId = originatingNodeId;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
-        this.timeoutFut = timeoutFut;
+        this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
 
-        expressionFactory = new ExpressionFactoryImpl<>(
-                this,
-                FRAMEWORK_CONFIG.getParserConfig().conformance()
-        );
+        assert this.inBufSize > 0 : this.inBufSize;
 
-        Instant nowUtc = Instant.now();
-        startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
+        Instant nowUtc = Instant.now(clock);
+        startTs = nowUtc.toEpochMilli();
+        startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
+            LOG.trace("Context created [executionId={}, fragmentId={}]", executionId, fragmentId());
         }
     }
 
@@ -153,7 +168,15 @@ public class ExecutionContext<RowT> implements DataContext {
      * Get query ID.
      */
     public UUID queryId() {
-        return qryId;
+        return executionId.queryId();
+    }
+
+    public int executionToken() {
+        return executionId.executionToken();
+    }
+
+    public ExecutionId executionId() {
+        return executionId;
     }
 
     /**
@@ -217,10 +240,24 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
+     * Get originating node volatile ID.
+     */
+    public UUID originatingNodeId() {
+        return originatingNodeId;
+    }
+
+    /**
      * Get local node.
      */
     public ClusterNode localNode() {
         return localNode;
+    }
+
+    /**
+     * Gets buffer size that is used by execution nodes, which supports buffering.
+     */
+    public int bufferSize() {
+        return inBufSize;
     }
 
     /** {@inheritDoc} */
@@ -243,7 +280,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     /** {@inheritDoc} */
     @Override
-    public Object get(String name) {
+    public @Nullable Object get(String name) {
         if (Variable.CANCEL_FLAG.camelName.equals(name)) {
             return cancelFlag;
         }
@@ -251,7 +288,7 @@ public class ExecutionContext<RowT> implements DataContext {
             return startTs;
         }
         if (Variable.LOCAL_TIMESTAMP.camelName.equals(name)) {
-            return startTs;
+            return startTsWithTzOffset;
         }
 
         if (Variable.LOCALE.camelName.equals(name)) {
@@ -263,19 +300,37 @@ public class ExecutionContext<RowT> implements DataContext {
         }
 
         if (name.startsWith("?")) {
-            Object val = params.get(name);
-            return val != null ? TypeUtils.toInternal(val, val.getClass()) : null;
+            return getParameter(name);
         } else {
             return params.get(name);
         }
-
     }
 
     /** Gets dynamic parameters by name. */
-    public Object getParameter(String name, Type storageType) {
+    private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
 
-        return TypeUtils.toInternal(params.get(name), storageType);
+        Object param = params.get(name);
+
+        if (param == null) {
+            if (!params.containsKey(name)) {
+                throw new IllegalStateException("Missing dynamic parameter: " + name);
+            }
+
+            return null;
+        }
+
+        NativeType nativeType = NativeTypes.fromObject(param);
+
+        if (nativeType == null) {
+            throw new IllegalArgumentException(format(
+                    "Dynamic parameter of unsupported type: parameterName={}, type={}",
+                    name,
+                    param.getClass()
+            ));
+        }
+
+        return TypeUtils.toInternal(param, nativeType.spec());
     }
 
     /**
@@ -317,7 +372,7 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Executes a query task.
+     * Executes a query task. To execute a task from a {@link Node} use {@link Node#execute(RunnableX)} instead.
      *
      * @param task Query task.
      */
@@ -326,7 +381,7 @@ public class ExecutionContext<RowT> implements DataContext {
             return;
         }
 
-        executor.execute(qryId, fragmentId(), () -> {
+        executor.execute(queryId(), fragmentId(), () -> {
             try {
                 if (!isCancelled()) {
                     task.run();
@@ -335,7 +390,11 @@ public class ExecutionContext<RowT> implements DataContext {
                 Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
                 onError.accept(unwrappedException);
 
-                if (unwrappedException instanceof IgniteException) {
+                if (unwrappedException instanceof IgniteException 
+                        || unwrappedException instanceof IgniteInternalException
+                        || unwrappedException instanceof IgniteCheckedException
+                        || unwrappedException instanceof IgniteInternalCheckedException
+                ) {
                     return;
                 }
 
@@ -354,7 +413,7 @@ public class ExecutionContext<RowT> implements DataContext {
     public CompletableFuture<?> submit(RunnableX task, Consumer<Throwable> onError) {
         assert !isCancelled() : "Call submit after execution was cancelled.";
 
-        return executor.submit(qryId, fragmentId(), () -> {
+        return executor.submit(queryId(), fragmentId(), () -> {
             try {
                 task.run();
             } catch (Throwable e) {
@@ -379,7 +438,7 @@ public class ExecutionContext<RowT> implements DataContext {
         boolean res = !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
 
         if (res && LOG.isTraceEnabled()) {
-            LOG.trace("Context cancelled [qryId={}, fragmentId={}]", qryId, fragmentId());
+            LOG.trace("Context cancelled [executionId={}, fragmentId={}]", executionId, fragmentId());
         }
 
         return res;
@@ -387,23 +446,6 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
-    }
-
-    /**
-     * Schedules a timeout task that is going to complete the given future exceptionally with a {@link QueryCancelledException},
-     * if timeout is set of this context.
-     */
-    public void scheduleTimeout(CompletableFuture<?> fut) {
-        if (timeoutFut == null) {
-            return;
-        }
-
-        Executor executor = task -> execute(task::run, (err) -> {});
-
-        timeoutFut.thenAcceptAsync(
-                (r) -> fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG)),
-                executor
-        );
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */
@@ -431,12 +473,12 @@ public class ExecutionContext<RowT> implements DataContext {
 
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
-        return qryId.equals(context.qryId) && description.fragmentId() == context.description.fragmentId();
+        return executionId.equals(context.executionId) && description.fragmentId() == context.description.fragmentId();
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(qryId, description.fragmentId());
+        return Objects.hash(executionId, description.fragmentId());
     }
 }

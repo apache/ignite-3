@@ -32,12 +32,18 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -45,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -54,6 +61,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A test class that defines basic test scenarios to verify the execution of each type of aggregate.
@@ -63,7 +71,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
     @ParameterizedTest
     @EnumSource
     public void count(TestAggregateType testAgg) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
@@ -73,22 +81,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, 1000)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.COUNT,
-                false,
-                false,
-                false,
                 ImmutableList.of(),
-                ImmutableIntList.of(),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -96,8 +95,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -115,7 +112,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
     @ParameterizedTest
     @EnumSource
     public void countDistinct(TestAggregateType testAgg) {
-        ExecutionContext<Object[]> ctx = executionContext(false);
+        ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
@@ -126,22 +123,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(2)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.COUNT,
-                true,
-                false,
-                false,
                 ImmutableList.of(),
-                ImmutableIntList.of(),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        ).withDistinct(true);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -149,8 +137,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan,
                 false
         );
@@ -178,22 +164,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, 1000)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.MIN,
-                false,
-                false,
-                false,
-                List.of(),
                 ImmutableIntList.of(1),
-                -1,
-                 null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -201,8 +178,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -230,22 +205,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, 1000)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.MAX,
-                false,
-                false,
-                false,
-                List.of(),
                 ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -253,8 +219,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -285,22 +249,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, 1000)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.AVG,
-                false,
-                false,
-                false,
-                List.of(),
                 ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -308,8 +263,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -368,8 +321,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
      * Checks single aggregate and appropriate {@link Accumulators.SingleVal} implementation.
      *
      * @param scanInput Input data.
-     * @param output    Expectation result.
-     * @param mustFail  {@code true} If expression must throw exception.
+     * @param output Expectation result.
+     * @param mustFail {@code true} If expression must throw exception.
      **/
     @SuppressWarnings("ThrowableNotThrown")
     public void singleAggr(
@@ -383,22 +336,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, scanInput);
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.SINGLE_VALUE,
-                false,
-                false,
-                false,
-                List.of(),
                 ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(Integer.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -406,8 +350,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -450,22 +392,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, 200)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.SUM,
-                true,
-                false,
-                false,
-                List.of(),
                 ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null);
+                tf.createSqlType(SqlTypeName.INTEGER)
+        ).withDistinct(true);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -473,8 +406,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -516,22 +447,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                         )
                 );
 
-                AggregateCall call = AggregateCall.create(
+                AggregateCall call = createAggregateCall(
                         SqlStdOperatorTable.SUM,
-                        false,
-                        false,
-                        false,
-                        List.of(),
                         ImmutableIntList.of(1),
-                        -1,
-                        null,
-                        RelCollations.EMPTY,
-                        tf.createJavaType(int.class),
-                        null);
+                        tf.createSqlType(SqlTypeName.INTEGER)
+                );
 
                 List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-                RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
                 SingleNode<Object[]> aggChain = createAggregateNodesChain(
                         testAgg,
@@ -539,8 +461,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                         grpSets,
                         call,
                         rowType,
-                        aggRowType,
-                        rowFactory(),
                         scan
                 );
 
@@ -573,22 +493,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, Integer.MAX_VALUE / 2 + 11)
         ));
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.SUM,
-                false,
-                false,
-                false,
-                ImmutableList.of(),
                 ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(Long.class),
-                null);
+                tf.createSqlType(SqlTypeName.BIGINT)
+        );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -596,8 +507,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -622,22 +531,9 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 row(0, Long.MAX_VALUE / 2 + 11)
         ));
 
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.SUM,
-                false,
-                false,
-                false,
-                List.of(),
-                ImmutableIntList.of(1),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(BigDecimal.class),
-                null);
+        AggregateCall call = createAggregateCall(SqlStdOperatorTable.SUM, List.of(1), tf.createSqlType(SqlTypeName.DECIMAL));
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -645,8 +541,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
@@ -671,23 +565,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Collections.emptyList());
 
-        AggregateCall call = AggregateCall.create(
+        AggregateCall call = createAggregateCall(
                 SqlStdOperatorTable.COUNT,
-                false,
-                false,
-                false,
-                ImmutableList.of(),
-                ImmutableIntList.of(),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null
+                List.of(),
+                tf.createSqlType(SqlTypeName.INTEGER)
         );
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -695,15 +579,14 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 grpSets,
                 call,
                 rowType,
-                aggRowType,
-                rowFactory(),
                 scan
         );
 
         for (int i = 0; i < 2; i++) {
             RootNode<Object[]> root = new RootNode<>(ctx) {
                 /** {@inheritDoc} */
-                @Override public void close() {
+                @Override
+                public void close() {
                     // NO-OP
                 }
             };
@@ -718,17 +601,85 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         }
     }
 
-    protected SingleNode<Object[]> createAggregateNodesChain(
-            TestAggregateType testAgg,
-            ExecutionContext<Object[]> ctx,
-            List<ImmutableBitSet> grpSets,
-            AggregateCall aggCall,
-            RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void aggregateNodeWithDifferentBufferSize(boolean singleGroup) {
+        int buffSize = 1;
+
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, 1, singleGroup);
+        aggregateNodeWith(buffSize, 10, singleGroup);
+
+        buffSize = 10;
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, buffSize - 1, singleGroup);
+        aggregateNodeWith(buffSize, buffSize, singleGroup);
+        aggregateNodeWith(buffSize, buffSize + 1, singleGroup);
+        aggregateNodeWith(buffSize, 2 * buffSize, singleGroup);
+
+        buffSize = Commons.IN_BUFFER_SIZE;
+        aggregateNodeWith(buffSize, 0, singleGroup);
+        aggregateNodeWith(buffSize, buffSize - 1, singleGroup);
+        aggregateNodeWith(buffSize, buffSize, singleGroup);
+        aggregateNodeWith(buffSize, buffSize + 1, singleGroup);
+    }
+
+    void aggregateNodeWith(int bufferSize, int dataSize, boolean singleGroup) {
+        ExecutionContext<Object[]> ctx = executionContext(bufferSize);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, () -> IntStream.range(0, dataSize).mapToObj(this::row).iterator());
+
+        AggregateCall call = createAggregateCall(
+                SqlStdOperatorTable.COUNT,
+                ImmutableList.of(),
+                tf.createSqlType(SqlTypeName.INTEGER)
+        );
+
+        List<ImmutableBitSet> grpSets = singleGroup ? List.of(ImmutableBitSet.of()) : List.of(ImmutableBitSet.of(0));
+
+        SingleNode<Object[]> aggChain = createAggregateNodesChain(
+                TestAggregateType.COLOCATED,
+                ctx,
+                grpSets,
+                call,
+                rowType,
+                scan,
+                !singleGroup
+        );
+
+        RootNode<Object[]> root = new RootNode<>(ctx);
+        root.register(aggChain);
+
+        if (singleGroup) {
+            assertTrue(root.hasNext());
+            assertArrayEquals(row(dataSize), root.next());
+            assertFalse(root.hasNext());
+        } else {
+            long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(root, Spliterator.ORDERED), false).count();
+
+            assertEquals(dataSize, count);
+        }
+    }
+
+    private static AggregateCall createAggregateCall(
+            SqlAggFunction func,
+            List<Integer> args,
+            RelDataType resultType
     ) {
-        return createAggregateNodesChain(testAgg, ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan, true);
+        return AggregateCall.create(
+                func,
+                false,
+                false,
+                false,
+                List.of(),
+                args,
+                -1,
+                null,
+                RelCollations.EMPTY,
+                resultType,
+                null
+        );
     }
 
     protected SingleNode<Object[]> createAggregateNodesChain(
@@ -737,17 +688,26 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             List<ImmutableBitSet> grpSets,
             AggregateCall aggCall,
             RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
+            ScanNode<Object[]> scan
+    ) {
+        return createAggregateNodesChain(testAgg, ctx, grpSets, aggCall, inRowType, scan, true);
+    }
+
+    protected SingleNode<Object[]> createAggregateNodesChain(
+            TestAggregateType testAgg,
+            ExecutionContext<Object[]> ctx,
+            List<ImmutableBitSet> grpSets,
+            AggregateCall aggCall,
+            RelDataType inRowType,
             ScanNode<Object[]> scan,
             boolean group
     ) {
         switch (testAgg) {
             case COLOCATED:
-                return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, rowFactory, scan, group);
+                return createColocatedAggregateNodesChain(ctx, grpSets, aggCall, inRowType, scan, group);
 
             case MAP_REDUCE:
-                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, aggRowType, rowFactory, scan, group);
+                return createMapReduceAggregateNodesChain(ctx, grpSets, aggCall, inRowType, scan, group);
 
             default:
                 assert false;
@@ -763,7 +723,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
      * @param grpSets Grouping fields
      * @param aggCall Aggregate representation.
      * @param inRowType Input row type.
-     * @param rowFactory Row factory.
      * @param scan Scan node.
      * @param group Append grouping operation.
      * @return Aggregation nodes chain.
@@ -773,7 +732,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             List<ImmutableBitSet> grpSets,
             AggregateCall aggCall,
             RelDataType inRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     );
@@ -785,7 +743,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
      * @param grpSets Grouping fields
      * @param call Aggregate representation.
      * @param inRowType Input row type.
-     * @param rowFactory Row factory.
      * @param scan Scan node.
      * @param group Append grouping operation.
      * @return Aggregation nodes chain.
@@ -795,19 +752,38 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     );
 
-    protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
+    protected List<AccumulatorWrapper<Object[]>> accFactory(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
             AggregateType type,
-            RelDataType rowType
+            RelDataType inRowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), rowType);
+        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), inRowType).get(ctx);
+    }
+
+    protected static RowSchema createOutputSchema(
+            ExecutionContext<Object[]> ctx,
+            AggregateCall call,
+            RelDataType inRowType,
+            ImmutableBitSet grpSet
+    ) {
+        RelDataTypeFactory.Builder outputType = new RelDataTypeFactory.Builder(ctx.getTypeFactory());
+
+        // Add keys
+        for (int i = 0; i < grpSet.length(); i++) {
+            if (grpSet.get(i)) {
+                outputType.add("F" + i, inRowType.getFieldList().get(i).getType());
+            }
+        }
+
+        // Add aggregation result
+        outputType.add("R0", call.getType());
+
+        return TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outputType.build()));
     }
 
     enum TestAggregateType {

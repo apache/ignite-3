@@ -27,8 +27,8 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
  */
 abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, Integer> {
     private final ClientTable tbl;
-    private int partitions = -1;
-    private ClientSchema schema;
+    private volatile int partitions = -1;
+    private volatile ClientSchema schema;
 
     AbstractClientStreamerPartitionAwarenessProvider(ClientTable tbl) {
         this.tbl = tbl;
@@ -36,12 +36,19 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     @Override
     public Integer partition(T item) {
-        if (schema == null || partitions < 0) {
-            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
+        ClientSchema schema0 = schema;
+        int partitions0 = partitions;
+
+        if (schema0 == null || partitions0 < 0) {
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider.refreshAsync() was not called or awaited.");
         }
 
-        int hash = colocationHash(schema, item);
-        return Math.abs(hash % partitions);
+        if (partitions0 == 0) {
+            throw new IllegalStateException("StreamerPartitionAwarenessProvider has zero partitions.");
+        }
+
+        int hash = colocationHash(schema0, item);
+        return Math.abs(hash % partitions0);
     }
 
     abstract int colocationHash(ClientSchema schema, T item);
@@ -49,6 +56,10 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
     @Override
     public CompletableFuture<Void> refreshAsync() {
         var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
+
+        if (partitions < 0) {
+            partitions = tbl.tryGetPartitionCount();
+        }
 
         if (partitions > 0) {
             // Partition count can't change.

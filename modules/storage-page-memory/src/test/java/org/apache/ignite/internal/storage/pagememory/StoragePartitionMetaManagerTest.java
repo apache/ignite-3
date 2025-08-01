@@ -106,7 +106,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 filePageStore.allocatePage();
 
-                filePageStore.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
+                filePageStore.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind());
 
                 filePageStore.sync();
             }
@@ -129,7 +129,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(4, 100, 10, 34, 1000, 11, 12, 900, 300, 200, 400, 200)
+                        new StoragePartitionMeta(4, 100, 10, 34, 1000, new UUID(1, 1), 12, 900, 300, 200, 400, 200)
                                 .init(null)
                                 .metaSnapshot(null),
                         buffer.rewind()
@@ -140,7 +140,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                         () -> new int[]{0}
                 ).get(1, SECONDS);
 
-                deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
+                deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind());
 
                 deltaFilePageStoreIo.sync();
 

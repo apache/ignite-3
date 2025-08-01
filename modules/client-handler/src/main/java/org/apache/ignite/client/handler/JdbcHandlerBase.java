@@ -18,9 +18,14 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.DDL;
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.KILL;
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.TX_CONTROL;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
@@ -31,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -43,6 +49,15 @@ import org.jetbrains.annotations.Nullable;
  * Contains common methods used to process jdbc requests.
  */
 abstract class JdbcHandlerBase {
+    /** {@link SqlQueryType}s allowed in JDBC select statements. **/
+    public static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = EnumSet.of(
+            SqlQueryType.QUERY,
+            SqlQueryType.EXPLAIN
+    );
+
+    /** {@link SqlQueryType}s types that return 0 in executeUpdate and execute / getUpdateCount. **/
+    public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = EnumSet.of(DDL, KILL, TX_CONTROL);
+
     /** Logger. */
     private final IgniteLogger log;
 
@@ -65,7 +80,7 @@ abstract class JdbcHandlerBase {
         return cur.requestNextAsync(pageSize).thenApply(batch -> {
             Long cursorId = null;
             if (cur.hasNextResult()) {
-                // in case of multi statement we need to save cursor in resources, so later we can derive it and 
+                // in case of multi statement we need to save cursor in resources, so later we can derive it and
                 // move to the next result
                 try {
                     cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
@@ -77,42 +92,38 @@ abstract class JdbcHandlerBase {
                 }
             }
 
-            switch (cur.queryType()) {
-                case EXPLAIN:
-                case QUERY: {
-                    if (cursorId == null && batch.hasMore()) {
-                        // more fetches are expected, so let's keep the cursor in resources
-                        try {
-                            cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-                        } catch (IgniteInternalCheckedException e) {
-                            cur.closeAsync();
+            SqlQueryType queryType = cur.queryType();
+            if (queryType.hasRowSet()) {
+                if (cursorId == null && batch.hasMore()) {
+                    // more fetches are expected, so let's keep the cursor in resources
+                    try {
+                        cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                    } catch (IgniteInternalCheckedException e) {
+                        cur.closeAsync();
 
-                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                    "Unable to store query cursor.");
-                        }
+                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                "Unable to store query cursor.");
                     }
-
-                    List<ColumnMetadata> columns = cur.metadata().columns();
-
-                    return buildSingleRequest(batch, columns, cursorId, cur.hasNextResult());
                 }
-                case DML: {
-                    boolean hasMoreData = batch.hasMore();
 
-                    if (!validateDmlResult(cur.metadata(), hasMoreData)) {
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED, "Unexpected result for DML query");
-                    }
+                List<ColumnMetadata> columns = cur.metadata().columns();
 
-                    long updCount = (long) batch.items().get(0).get(0);
+                return buildSingleRequest(batch, columns, cursorId, cur.hasNextResult());
+            } else if (queryType.returnsAffectedRows()) {
+                boolean hasMoreData = batch.hasMore();
 
-                    return new JdbcQuerySingleResult(cursorId, updCount, cur.hasNextResult());
+                if (!validateDmlResult(cur.metadata(), hasMoreData)) {
+                    return new JdbcQuerySingleResult(Response.STATUS_FAILED, "Unexpected result for DML query");
                 }
-                case DDL:
-                case TX_CONTROL:
-                    return new JdbcQuerySingleResult(cursorId, 0, cur.hasNextResult());
-                default:
-                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
-                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
+
+                long updCount = (long) batch.items().get(0).get(0);
+
+                return new JdbcQuerySingleResult(cursorId, updCount, cur.hasNextResult());
+            } else if (ZERO_UPDATE_COUNT_QUERIES.contains(queryType)) {
+                return new JdbcQuerySingleResult(cursorId, 0, cur.hasNextResult());
+            } else {
+                return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
+                        "Query type is not supported yet [queryType=" + queryType + ']');
             }
         });
     }

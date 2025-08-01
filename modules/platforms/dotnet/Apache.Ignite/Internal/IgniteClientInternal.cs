@@ -47,14 +47,14 @@ namespace Apache.Ignite.Internal
             var tables = new Tables(socket, sql);
 
             Tables = tables;
-            Transactions = new Transactions.Transactions();
+            Transactions = new Transactions.Transactions(socket);
             Compute = new Compute.Compute(socket, tables);
             Sql = sql;
         }
 
         /// <inheritdoc/>
         public IgniteClientConfiguration Configuration =>
-            new(Socket.Configuration); // Defensive copy.
+            new(Socket.Configuration.Configuration); // Defensive copy.
 
         /// <inheritdoc/>
         public ITables Tables { get; }
@@ -67,6 +67,11 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public ISql Sql { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the client is disposed.
+        /// </summary>
+        public bool IsDisposed => Socket.IsDisposed;
 
         /// <summary>
         /// Gets the underlying socket.

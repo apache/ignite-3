@@ -29,6 +29,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -74,6 +76,15 @@ public interface IgniteDataOutput extends DataOutput {
      * Makes the data output ready for reuse.
      */
     void cleanup();
+
+    /**
+     * Writes a long value as a varint. Non-negative values and -1 are encoded efficiently with respect to compactness.
+     * Negative values (like -2) take a lot more space.
+     *
+     * @param val Value to write.
+     * @throws IOException If something goes wrong.
+     */
+    void writeVarInt(long val) throws IOException;
 
     /**
      * Writes array of {@code byte}s.
@@ -225,4 +236,42 @@ public interface IgniteDataOutput extends DataOutput {
      * @throws IOException  if something went wrong
      */
     void flush() throws IOException;
+
+    /**
+     * Writes a collection.
+     *
+     * @param collection Collection.
+     * @param elementWriter Element writer.
+     */
+    default <T> void writeCollection(Collection<T> collection, ObjectWriter<T> elementWriter) throws IOException {
+        writeVarInt(collection.size());
+
+        for (T e : collection) {
+            elementWriter.write(e, this);
+        }
+    }
+
+    /**
+     * Writes a map.
+     *
+     * @param map Map.
+     * @param keyWriter Key writer.
+     * @param valWriter Value writer.
+     */
+    default <K, V> void writeMap(Map<K, V> map, ObjectWriter<K> keyWriter, ObjectWriter<V> valWriter) throws IOException {
+        writeVarInt(map.size());
+
+        for (Map.Entry<K, V> e : map.entrySet()) {
+            keyWriter.write(e.getKey(), this);
+            valWriter.write(e.getValue(), this);
+        }
+    }
+
+    /**
+     * Object writer interface.
+     */
+    @FunctionalInterface
+    interface ObjectWriter<T> {
+        void write(T obj, IgniteDataOutput out) throws IOException;
+    }
 }

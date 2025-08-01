@@ -27,7 +27,7 @@ import org.apache.ignite.table.Tuple;
 /**
  * Client SQL row.
  */
-public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
+class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlRow {
     /** Meta. */
     private final ResultSetMetadata metadata;
 

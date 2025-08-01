@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message that represents an error condition that has occurred during cluster initialization.
@@ -28,7 +29,7 @@ public interface InitErrorMessage extends NetworkMessage {
     /**
      * Text representation of the occurred error.
      */
-    String cause();
+    @Nullable String cause();
 
     /**
      * Flag declaring that the cause of this error is an internal message, in which case the init procedure should be cancelled.

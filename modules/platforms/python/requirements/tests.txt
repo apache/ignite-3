@@ -5,3 +5,4 @@ pytest-cov==2.11.1
 teamcity-messages==1.28
 psutil==5.8.0
 flake8==3.8.4
+dbapi-compliance==1.15.0

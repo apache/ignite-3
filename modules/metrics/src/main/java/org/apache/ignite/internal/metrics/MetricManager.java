@@ -19,12 +19,12 @@ package org.apache.ignite.internal.metrics;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.manager.ComponentContext;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -35,13 +35,12 @@ public interface MetricManager extends IgniteComponent {
      * Method to configure {@link MetricManager} with distributed configuration.
      *
      * @param metricConfiguration Distributed metric configuration.
+     * @param clusterIdSupplier Cluster ID supplier.
+     * @param nodeName Node name.
      */
     // TODO: IGNITE-17718 when we design the system to configure metrics itself
     // TODO: this method should be revisited, but now it is supposed to use only to set distributed configuration for exporters.
-    void configure(MetricConfiguration metricConfiguration);
-
-    @Override
-    CompletableFuture<Void> startAsync(ComponentContext componentContext);
+    void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName);
 
     /**
      * Start component.
@@ -56,10 +55,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @param exporters Exporters.
      */
-    void start(Iterable<MetricExporter<?>> exporters);
-
-    @Override
-    CompletableFuture<Void> stopAsync(ComponentContext componentContext);
+    void start(Iterable<MetricExporter> exporters);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.
@@ -88,7 +84,7 @@ public interface MetricManager extends IgniteComponent {
      * @param src Metric source.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(MetricSource src);
+    @Nullable MetricSet enable(MetricSource src);
 
     /**
      * Enable metric source by name. See {@link MetricRegistry#enable(String)}.
@@ -96,7 +92,7 @@ public interface MetricManager extends IgniteComponent {
      * @param srcName Source name.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(String srcName);
+    @Nullable MetricSet enable(String srcName);
 
     /**
      * Disable metric source. See {@link MetricRegistry#disable(MetricSource)}.
@@ -118,7 +114,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot();
+    MetricSnapshot metricSnapshot();
 
     /**
      * Gets a collection of metric sources.
@@ -126,4 +122,9 @@ public interface MetricManager extends IgniteComponent {
      * @return collection of metric sources
      */
     Collection<MetricSource> metricSources();
+
+    /**
+     * Returns a collection of currently enabled metric exporters.
+     */
+    Collection<MetricExporter> enabledExporters();
 }

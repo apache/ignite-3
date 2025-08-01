@@ -25,7 +25,7 @@ description = 'ignite-cluster-management'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.auto.service
 
@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-security')
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -49,13 +50,12 @@ dependencies {
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-network')
+    testImplementation project(':ignite-system-disaster-recovery')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-network'))
-    testImplementation project(':ignite-system-disaster-recovery')
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
@@ -72,8 +72,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-rest')
@@ -89,6 +87,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.jetbrains.annotations
 }

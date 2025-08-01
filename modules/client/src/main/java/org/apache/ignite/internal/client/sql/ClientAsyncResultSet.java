@@ -63,7 +63,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     private final long affectedRows;
 
     /** Metadata. */
-    private final ResultSetMetadata metadata;
+    private final @Nullable ResultSetMetadata metadata;
+
+    private final @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata;
 
     /** Marshaller. Not null when object mapping is used. */
     @Nullable
@@ -86,10 +88,20 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Used to create marshaller in case result is for query and {@code mapper} is provided.
      * @param in Unpacker.
      * @param mapper Mapper.
+     * @param partitionAwarenessEnabled Whether partitions awareness is enabled, hence response may contain related metadata.
+     * @param sqlDirectMappingSupported Whether direct mapping is supported, hence response may contain additional metadata.
      */
-    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
+    ClientAsyncResultSet(
+            ClientChannel ch,
+            MarshallersProvider marshallers,
+            ClientMessageUnpacker in,
+            @Nullable Mapper<T> mapper,
+            boolean partitionAwarenessEnabled,
+            boolean sqlDirectMappingSupported
+    ) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -97,7 +109,13 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
+        metadata = ClientResultSetMetadata.read(in);
+
+        if (partitionAwarenessEnabled && !in.tryUnpackNil()) {
+            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in, sqlDirectMappingSupported);
+        } else {
+            partitionAwarenessMetadata = null;
+        }
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
@@ -191,6 +209,10 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         closed = true;
 
         return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
+    }
+
+    @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     private void requireResultSet() {

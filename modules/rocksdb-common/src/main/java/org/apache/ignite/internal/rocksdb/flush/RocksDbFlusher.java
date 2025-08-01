@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -24,11 +25,14 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -39,14 +43,16 @@ import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.Status.Code;
 
 /**
  * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
  * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
-    /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlusher.class);
+
+    private final FailureProcessor failureProcessor;
 
     /** Rocks DB instance. */
     private volatile RocksDB db;
@@ -60,8 +66,8 @@ public class RocksDbFlusher {
     /** Scheduled pool to schedule flushes. */
     private final ScheduledExecutorService scheduledPool;
 
-    /** Thread pool to complete flush completion futures. */
-    final ExecutorService threadPool;
+    /** Thread pool to execute flush and complete flush completion futures. */
+    final Executor threadPool;
 
     /** Supplier of delay values to batch independent flush requests. */
     private final IntSupplier delaySupplier;
@@ -100,9 +106,10 @@ public class RocksDbFlusher {
      * Constructor.
      *
      * @param name RocksDB instance name, for logging purposes.
+     * @param nodeName nodeName Node name.
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
-     * @param threadPool Thread pool to run flush completion closure, provided by {@code onFlushCompleted} parameter.
+     * @param threadPool Thread pool to execute flush and to run flush completion closure, provided by {@code onFlushCompleted} parameter.
      * @param delaySupplier Supplier of delay values to batch independent flush requests. When {@link #awaitFlush(boolean)} is called with
      *      {@code true} parameter, the flusher waits given number of milliseconds (using {@code scheduledPool}) and then executes flush
      *      only if there were no other {@code awaitFlush(true)} calls. Otherwise, it does nothing after the timeout. This guarantees that
@@ -114,11 +121,13 @@ public class RocksDbFlusher {
      */
     public RocksDbFlusher(
             String name,
+            String nodeName,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
-            ExecutorService threadPool,
+            Executor threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
+            FailureProcessor failureProcessor,
             Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
@@ -126,7 +135,8 @@ public class RocksDbFlusher {
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
-        this.flushListener = new RocksDbFlushListener(name, this, logSyncer);
+        this.failureProcessor = failureProcessor;
+        this.flushListener = new RocksDbFlushListener(name, nodeName, this, logSyncer, failureProcessor);
     }
 
     /**
@@ -181,9 +191,7 @@ public class RocksDbFlusher {
      * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
      * enabled.
      *
-     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
-     *      LogSyncer, Runnable)} parameters description to see what's really happening in this case.
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
      *
      * @see #scheduleFlush()
      */
@@ -229,7 +237,13 @@ public class RocksDbFlusher {
                         db.flush(flushOptions, columnFamilyHandles);
                     }
                 } catch (RocksDBException e) {
-                    LOG.error("Error occurred during the explicit flush", e);
+                    if (e.getStatus().getCode() == Code.TryAgain) {
+                        LOG.warn("Unable to perform explicit flush, will try again.", e);
+
+                        scheduleFlush();
+                    } else {
+                        failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush."));
+                    }
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -238,7 +252,7 @@ public class RocksDbFlusher {
 
         latestFlushClosure = newClosure;
 
-        scheduledPool.schedule(newClosure, delaySupplier.getAsInt(), TimeUnit.MILLISECONDS);
+        scheduledPool.schedule(() -> runAsync(newClosure, threadPool), delaySupplier.getAsInt(), TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -279,6 +293,18 @@ public class RocksDbFlusher {
      * @return Future that completes when the {@code onFlushCompleted} callback finishes.
      */
     CompletableFuture<Void> onFlushCompleted() {
-        return CompletableFuture.runAsync(onFlushCompleted, threadPool);
+        return inBusyLockSafeAsync(() -> runAsync(onFlushCompleted, threadPool));
+    }
+
+    private CompletableFuture<Void> inBusyLockSafeAsync(Supplier<CompletableFuture<Void>> supplier) {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

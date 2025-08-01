@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
+
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.TableAware;
@@ -26,4 +28,8 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  */
 @Transferable(PartitionReplicationMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST)
 public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest, TableAware {
+    @Override
+    default boolean isWrite() {
+        return requestType() != RW_GET;
+    }
 }

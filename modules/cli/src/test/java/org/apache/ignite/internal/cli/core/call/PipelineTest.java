@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
+import static java.lang.System.lineSeparator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.is;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -41,20 +42,35 @@ class PipelineTest {
     }
 
     @Test
-    void verboseTest() {
+    void verbose() {
         // When start pipeline with verbose
         CallExecutionPipeline.builder(new ThrowingStrCall())
                 .inputProvider(StringCallInput::new)
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
-                .verbose(true)
+                .verbose(new boolean[]{true})
                 .build().runPipeline();
 
         // Then error output starts with the message from exception and contains verbose output
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), startsWith("Ooops!" + System.lineSeparator()));
-        assertThat(errOut.toString(), containsString("verbose output"));
+        assertThat(errOut.toString(), is("Ooops!" + lineSeparator() + "verbose output" + lineSeparator()));
+    }
+
+    @Test
+    void noVerbose() {
+        // When start pipeline without verbose
+        CallExecutionPipeline.builder(new ThrowingStrCall())
+                .inputProvider(StringCallInput::new)
+                .exceptionHandler(new TestExceptionHandler())
+                .output(new PrintWriter(out))
+                .errOutput(new PrintWriter(errOut))
+                .verbose(new boolean[0])
+                .build().runPipeline();
+
+        // Then error output starts with the message from exception and contains verbose output
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), is("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -68,11 +84,11 @@ class PipelineTest {
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
-                .verbose(true)
+                .verbose(new boolean[]{true})
                 .build().runPipeline();
 
         // Then error output contains the message from exception and contains verbose output
-        assertThat(errOut.toString(), containsString("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), containsString("Ooops!" + lineSeparator()));
         assertThat(errOut.toString(), containsString("verbose output"));
     }
 
@@ -89,11 +105,11 @@ class PipelineTest {
                 .exceptionHandler(new TestExceptionHandler())
                 .output(new PrintWriter(out))
                 .errOutput(new PrintWriter(errOut))
-                .verbose(true)
+                .verbose(new boolean[]{true})
                 .build().runPipeline();
 
         // Then error output contains the message from exception and contains verbose output
-        assertThat(errOut.toString(), containsString("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), containsString("Ooops!" + lineSeparator()));
         assertThat(errOut.toString(), containsString("verbose output"));
     }
 }

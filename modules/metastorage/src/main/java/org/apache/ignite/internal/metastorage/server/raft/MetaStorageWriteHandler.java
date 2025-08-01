@@ -21,20 +21,25 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
@@ -43,6 +48,7 @@ import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
+import org.apache.ignite.internal.metastorage.command.RemoveByPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
@@ -57,6 +63,7 @@ import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.Statement;
@@ -66,7 +73,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,7 +80,6 @@ import org.jetbrains.annotations.Nullable;
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 public class MetaStorageWriteHandler {
-    /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
     public static final String IDEMPOTENT_COMMAND_PREFIX = "icp.";
@@ -84,16 +89,23 @@ public class MetaStorageWriteHandler {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     private final KeyValueStorage storage;
+    private final HybridClock clock;
     private final ClusterTimeImpl clusterTime;
 
-    private final Map<CommandId, @Nullable Serializable> idempotentCommandCache = new ConcurrentHashMap<>();
+    private final IntConsumer idempotentCacheSizeListener;
+
+    private final Map<CommandId, CommandResultAndTimestamp> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime
+            HybridClock clock,
+            ClusterTimeImpl clusterTime,
+            IntConsumer idempotentCacheSizeListener
     ) {
         this.storage = storage;
+        this.clock = clock;
         this.clusterTime = clusterTime;
+        this.idempotentCacheSizeListener = idempotentCacheSizeListener;
     }
 
     /**
@@ -108,10 +120,10 @@ public class MetaStorageWriteHandler {
             IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
             CommandId commandId = idempotentCommand.id();
 
-            Serializable cachedResult = idempotentCommandCache.get(commandId);
+            CommandResultAndTimestamp cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult);
+                clo.result(cachedResult.commandResult);
 
                 return;
             } else {
@@ -127,6 +139,9 @@ public class MetaStorageWriteHandler {
     private void handleNonCachedWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
+        long commandIndex = clo.index();
+        long commandTerm = clo.term();
+
         try {
             if (command instanceof MetaStorageWriteCommand) {
                 var cmdWithTime = (MetaStorageWriteCommand) command;
@@ -135,29 +150,34 @@ public class MetaStorageWriteHandler {
                     var syncTimeCommand = (SyncTimeCommand) command;
 
                     // Ignore the command if it has been sent by a stale leader.
-                    if (clo.term() != syncTimeCommand.initiatorTerm()) {
+                    if (commandTerm != syncTimeCommand.initiatorTerm()) {
+                        LOG.info("Sync time command closure term {}, initiator term {}, ignoring the command",
+                                commandTerm, syncTimeCommand.initiatorTerm()
+                        );
+
+                        storage.setIndexAndTerm(commandIndex, commandTerm);
+
                         clo.result(null);
 
                         return;
                     }
                 }
 
-                handleWriteWithTime(clo, cmdWithTime);
+                handleWriteWithTime(clo, cmdWithTime, commandIndex, commandTerm);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
-        } catch (IgniteInternalException e) {
-            clo.result(e);
-        } catch (CompletionException e) {
-            clo.result(e.getCause());
-        } catch (Throwable t) {
+        } catch (Throwable e) {
             LOG.error(
                     "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                    t,
-                    clo.index(), clo.index(), command
+                    e,
+                    commandIndex, commandTerm, command
             );
 
-            throw t;
+            clo.result(e);
+
+            // Rethrowing to let JRaft know that the state machine might be broken.
+            throw e;
         }
     }
 
@@ -166,51 +186,69 @@ public class MetaStorageWriteHandler {
      *
      * @param clo Command closure.
      * @param command Command.
+     * @param index Command index.
+     * @param term Command term.
      */
-    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, long index, long term) {
         HybridTimestamp opTime = command.safeTime();
+
+        var context = new KeyValueUpdateContext(index, term, opTime);
 
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
-            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), opTime);
+            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), context);
 
             clo.result(null);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
-            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), opTime);
+            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), context);
 
             clo.result(null);
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
-            storage.remove(toByteArray(rmvCmd.key()), opTime);
+            storage.remove(toByteArray(rmvCmd.key()), context);
 
             clo.result(null);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
-            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), opTime);
+            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), context);
+
+            clo.result(null);
+        } else if (command instanceof RemoveByPrefixCommand) {
+            RemoveByPrefixCommand rmvByPrefixCmd = (RemoveByPrefixCommand) command;
+
+            storage.removeByPrefix(toByteArray((rmvByPrefixCmd.prefix())), context);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), context, cmd.id()));
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
+            clo.result(storage.invoke(toIf(cmd.iif()), context, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
-            storage.advanceSafeTime(command.safeTime());
+            storage.advanceSafeTime(context);
 
             clo.result(null);
         } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
             EvictIdempotentCommandsCacheCommand cmd = (EvictIdempotentCommandsCacheCommand) command;
-            evictIdempotentCommandsCache(cmd.evictionTimestamp(), opTime);
+            evictIdempotentCommandsCache(cmd.evictionTimestamp(), context);
 
             clo.result(null);
+        } else if (command instanceof CompactionCommand) {
+            CompactionCommand cmd = (CompactionCommand) command;
+
+            storage.updateCompactionRevision(cmd.compactionRevision(), context);
+
+            clo.result(null);
+        } else {
+            throw new AssertionError(String.format("Unsupported command: [context=%s, command=%s]", context, command));
         }
     }
 
@@ -329,9 +367,9 @@ public class MetaStorageWriteHandler {
             // Alter command by setting safe time based on the adjusted clock.
             MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
 
-            clusterTime.adjust(writeCommand.initiatorTime());
+            clusterTime.adjustClock(writeCommand.initiatorTime());
 
-            writeCommand.safeTime(clusterTime.now());
+            writeCommand.safeTime(clock.now());
 
             return true;
         }
@@ -346,13 +384,12 @@ public class MetaStorageWriteHandler {
         byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
         byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
-        Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
-
-        try (cursor) {
+        try (Cursor<Entry> cursor = storage.range(keyFrom, keyTo)) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
-                    CommandId commandId = CommandId.fromString(
-                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
+                    String commandIdString = toStringWithoutPrefix(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length);
+
+                    CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
                     if (entry.value().length == 1) {
@@ -361,9 +398,11 @@ public class MetaStorageWriteHandler {
                         result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
                     }
 
-                    idempotentCommandCache.put(commandId, result);
+                    idempotentCommandCache.put(commandId, new CommandResultAndTimestamp(result, entry.timestamp()));
                 }
             }
+
+            idempotentCacheSizeListener.accept(idempotentCommandCache.size());
         }
     }
 
@@ -371,49 +410,25 @@ public class MetaStorageWriteHandler {
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      *
      * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
-     * @param operationTimestamp Command operation timestamp.
+     * @param context Command operation context.
      */
-    void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
-        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
+    private void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, KeyValueUpdateContext context) {
+        List<CommandId> evictedCommandIds = evictCommandsFromCache(evictionTimestamp);
 
-        long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
-
-        if (obsoleteRevision != -1) {
-            byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
-            byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
-
-            List<byte[]> evictionCandidateKeys = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
-                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
-                    .filter(entry -> !entry.tombstone() && !entry.empty())
-                    .map(Entry::key)
-                    .collect(toList());
-
-            evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
-                CommandId commandId = CommandId.fromString(
-                        ByteUtils.stringFromBytes(evictionCandidateKeyBytes).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
-
-                idempotentCommandCache.remove(commandId);
-            });
-
-            storage.removeAll(evictionCandidateKeys, operationTimestamp);
-
-            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-                            + " removedEntriesCount={}, cacheSize={}].",
-                    evictionTimestamp,
-                    clusterTime.now(),
-                    evictionCandidateKeys.size(),
-                    idempotentCommandCache.size()
-            );
+        if (evictedCommandIds.isEmpty()) {
+            return;
         }
+
+        storage.removeAll(toIdempotentCommandKeyBytes(evictedCommandIds), context);
     }
 
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
-        CommandClosure<WriteCommand> closure;
+        final CommandClosure<WriteCommand> closure;
 
         ResultCachingClosure(CommandClosure<WriteCommand> closure) {
-            this.closure = closure;
-
             assert closure.command() instanceof IdempotentCommand;
+
+            this.closure = closure;
         }
 
         @Override
@@ -437,10 +452,44 @@ public class MetaStorageWriteHandler {
 
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
-                idempotentCommandCache.put(command.id(), res);
+                idempotentCommandCache.put(command.id(), new CommandResultAndTimestamp(res, command.safeTime()));
+
+                idempotentCacheSizeListener.accept(idempotentCommandCache.size());
             }
 
             closure.result(res);
         }
+    }
+
+    private List<CommandId> evictCommandsFromCache(HybridTimestamp evictionTimestamp) {
+        Iterator<Map.Entry<CommandId, CommandResultAndTimestamp>> iterator = idempotentCommandCache.entrySet().iterator();
+
+        var result = new ArrayList<CommandId>();
+
+        while (iterator.hasNext()) {
+            Map.Entry<CommandId, CommandResultAndTimestamp> entry = iterator.next();
+
+            if (evictionTimestamp.compareTo(entry.getValue().commandTimestamp) >= 0) {
+                iterator.remove();
+
+                result.add(entry.getKey());
+            }
+        }
+
+        idempotentCacheSizeListener.accept(idempotentCommandCache.size());
+
+        return result;
+    }
+
+    private static List<byte[]> toIdempotentCommandKeyBytes(List<CommandId> commandIds) {
+        return commandIds.stream()
+                .map(MetaStorageWriteHandler::toIdempotentCommandKey)
+                .map(ByteArray::bytes)
+                .collect(toList());
+    }
+
+    /** Converts to independent command key. */
+    public static ByteArray toIdempotentCommandKey(CommandId commandId) {
+        return new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString());
     }
 }

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
@@ -71,6 +71,14 @@ public final class RpcRequests {
          */
         @Nullable
         String leaderId();
+
+         /**
+          * Violated maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          *
+          * @return maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          */
+        @Nullable
+        Long maxObservableSafeTimeViolatedValue();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE)
@@ -113,6 +121,8 @@ public final class RpcRequests {
         String peerId();
 
         long term();
+
+        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.TIMEOUT_NOW_RESPONSE)
@@ -222,6 +232,7 @@ public final class RpcRequests {
         @Nullable
         String serverId();
 
+        @IgniteStringifier(name = "entriesList.size", value = SizeOnlyStringifier.class)
         @Nullable List<ByteBuffer> entriesList();
 
         @Nullable
@@ -233,5 +244,15 @@ public final class RpcRequests {
         long index();
 
         boolean success();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_REQUEST)
+    public interface CoalescedHeartbeatRequest extends Message {
+        Collection<AppendEntriesRequest> messages();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_RESPONSE)
+    public interface CoalescedHeartbeatResponse extends Message {
+        Collection<Message> messages();
     }
 }

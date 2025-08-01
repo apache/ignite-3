@@ -18,7 +18,10 @@
 package org.apache.ignite.table;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -97,7 +100,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public Tuple set(String columnName, @Nullable Object val) {
-        String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
+        String columnName0 = IgniteNameUtils.parseIdentifier(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
 
@@ -125,7 +128,7 @@ class TupleImpl implements Tuple, Serializable {
     public int columnIndex(String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colMapping.get(IgniteNameUtils.parseSimpleName(columnName));
+        Integer idx = colMapping.get(IgniteNameUtils.parseIdentifier(columnName));
 
         return idx == null ? -1 : idx;
     }
@@ -250,6 +253,18 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return value(columnName);
     }
@@ -257,6 +272,18 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String stringValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
         return value(columnIndex);
     }
 
@@ -347,7 +374,7 @@ class TupleImpl implements Tuple, Serializable {
      * @throws IOException            If failed.
      * @throws ClassNotFoundException If failed.
      */
-    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
 
         // Recover column name->index mapping.
@@ -356,6 +383,18 @@ class TupleImpl implements Tuple, Serializable {
         for (int i = 0; i < colNames.size(); i++) {
             colMapping.put(colNames.get(i), i);
         }
+    }
+
+    /**
+     * Serializes an object. Required to be implemented in pair with the {@link #readObject(ObjectInputStream)} so that the
+     * {@code StructuredObjectMarshaller#fillStructuredObjectLayerFrom} will actually call the {@link #readObject(ObjectInputStream)}.
+     * TODO https://issues.apache.org/jira/browse/IGNITE-23868
+     *
+     * @param out Output object stream.
+     * @throws IOException If failed.
+     */
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        out.defaultWriteObject();
     }
 
     <T> @Nullable T valueOrDefaultSkipNormalization(String columnName, @Nullable T def) {
@@ -369,14 +408,15 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
+        // Keep the same as IgniteToStringBuilder.toString().
         StringBuilder b = new StringBuilder();
 
-        b.append(Tuple.class.getSimpleName()).append(" [");
-        for (int i = 0; i < colNames.size(); i++) {
+        b.append(getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < columnCount(); i++) {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+            b.append(columnName(i)).append('=').append((Object) value(i));
         }
         b.append(']');
 

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +45,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @BeforeAll
     static void createTable() {
         sql("CREATE TABLE test (val SMALLINT)");
@@ -66,6 +72,8 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("literalsWithExpectedResult")
     void implicitCastOfLiteralsOnInsert(String literal, Object expectedResult) {
+        Assumptions.assumeFalse(literal.startsWith("'"), "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         assertQuery(format("INSERT INTO test VALUES ({})", literal)).check();
 
         assertQuery("SELECT * FROM test")
@@ -77,6 +85,8 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("literalsWithOverflow")
     void implicitCastOfLiteralsOnInsertWithOverflow(String literal) {
+        Assumptions.assumeFalse(literal.startsWith("'"), "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "SMALLINT out of range",
@@ -157,6 +167,8 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("valuesWithExpectedResult")
     void implicitCastOfDynParamsOnInsert(Object param, Object expectedResult) {
+        Assumptions.assumeFalse(param instanceof String, "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         assertQuery("INSERT INTO test VALUES (?)")
                 .withParam(param)
                 .check();
@@ -170,6 +182,8 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("valuesWithOverflow")
     void implicitCastOfDynParamsOnInsertWithOverflow(Object param) {
+        Assumptions.assumeFalse(param instanceof String, "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "SMALLINT out of range",
@@ -291,7 +305,6 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT dec FROM src").check();
         assertQuery("INSERT INTO test SELECT r FROM src").check();
         assertQuery("INSERT INTO test SELECT d FROM src").check();
-        assertQuery("INSERT INTO test SELECT s FROM src").check();
 
         assertQuery("SELECT * FROM test")
                 .returns(NULL_AS_VARARG)
@@ -302,14 +315,6 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -128)
                 .returns((short) -128)
                 .returns((short) -128)
-                .returns(NULL_AS_VARARG)
-                .returns((short) 42)
-                .returns((short) 32767)
-                .returns((short) 32767)
-                .returns((short) 32767)
-                .returns((short) -32768)
-                .returns((short) -32768)
-                .returns((short) -32768)
                 .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
@@ -366,7 +371,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         );
 
         for (int idx : new int[] {1, 2, 3, 4, 5, 6}) {
-            for (String column : new String[] {"i", "bi", "dec", "r", "d", "s"}) {
+            for (String column : new String[] {"i", "bi", "dec", "r", "d"}) {
                 SqlTestUtils.assertThrowsSqlException(
                         Sql.RUNTIME_ERR,
                         "SMALLINT out of range",

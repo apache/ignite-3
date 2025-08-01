@@ -20,24 +20,26 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -51,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryMvPartitionStorage> {
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -60,6 +62,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     private final ExecutorService destructionExecutor;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -67,19 +71,22 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param indexDescriptorSupplier Index descriptor supplier.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
+     * @param failureProcessor Failure processor.
      */
     PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -100,6 +107,12 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     protected void finishDestruction() {
         dataRegion.pageMemory().onGroupDestroyed(getTableId());
+
+        try {
+            dataRegion.filePageStoreManager().destroyGroupIfExists(getTableId());
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Could not destroy table directory", e);
+        }
     }
 
     @Override
@@ -127,7 +140,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     versionChainTree,
                     indexMetaTree,
                     gcQueue,
-                    destructionExecutor
+                    destructionExecutor,
+                    failureProcessor
             );
         });
     }
@@ -170,11 +184,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     meta.freeListRootPageId(),
                     initNew,
-                    dataRegion.pageListCacheLimit(),
-                    IoStatisticsHolderNoOp.INSTANCE
+                    dataRegion.pageListCacheLimit()
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating free list: [tableId={}, partitionId={}]", e, getTableId(), partId);
@@ -212,7 +224,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.versionChainTreeRootPageId(),
                     reuseList,
@@ -254,7 +265,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.indexTreeMetaPageId(),
                     reuseList,
@@ -296,7 +306,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     Integer.toString(getTableId()),
                     partitionId,
                     dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
                     engine.generateGlobalRemoveId(),
                     meta.gcQueueMetaPageId(),
                     reuseList,
@@ -465,5 +474,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(), groupPartitionId.getPartitionId()
             );
         }
+    }
+
+    @Override
+    protected void beforeCloseOrDestroy() {
+        dataRegion.removeTableStorage(this);
     }
 }

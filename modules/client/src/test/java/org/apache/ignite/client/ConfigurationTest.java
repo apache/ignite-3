@@ -84,16 +84,12 @@ public class ConfigurationTest extends AbstractClientTest {
         IgniteClient client = builder
                 .addresses(addr)
                 .connectTimeout(1234)
-                .reconnectThrottlingPeriod(123)
-                .reconnectThrottlingRetries(8)
                 .addressFinder(() -> new String[]{addr})
                 .build();
 
         // Builder can be reused, and it won't affect already created clients.
         IgniteClient client2 = builder
                 .connectTimeout(2345)
-                .reconnectThrottlingPeriod(1234)
-                .reconnectThrottlingRetries(88)
                 .build();
 
         try (client) {
@@ -103,8 +99,6 @@ public class ConfigurationTest extends AbstractClientTest {
             // Check config values.
             assertEquals("thin-client", client.name());
             assertEquals(1234, client.configuration().connectTimeout());
-            assertEquals(123, client.configuration().reconnectThrottlingPeriod());
-            assertEquals(8, client.configuration().reconnectThrottlingRetries());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
@@ -115,8 +109,6 @@ public class ConfigurationTest extends AbstractClientTest {
 
             // Check config values.
             assertEquals(2345, client2.configuration().connectTimeout());
-            assertEquals(1234, client2.configuration().reconnectThrottlingPeriod());
-            assertEquals(88, client2.configuration().reconnectThrottlingRetries());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }

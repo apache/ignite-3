@@ -57,7 +57,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals(1, tables.size());
 
                 Table table = tables.get(0);
-                assertEquals(TABLE_NAME, table.name());
+                assertEquals(TABLE_NAME, table.qualifiedName().objectName());
 
                 var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
                 var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
@@ -114,6 +114,32 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
             channel.heartbeatAsync(null).join();
             channel.heartbeatAsync(w -> w.out().packString("foo-bar")).join();
             channel.heartbeatAsync(w -> w.out().writePayload(new byte[]{1, 2, 3})).join();
+        }
+    }
+
+    @Test
+    void testExceptionHasHint() {
+        var client = IgniteClient.builder().addresses(getClientAddresses().get(0)).build();
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> client.sql().execute(null, "select x from bad"));
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
+                ex.getCause().getCause().getCause().getCause().getMessage());
+    }
+
+    @Test
+    void testServerReturnsActualTableName() {
+        // Quoting is not necessary.
+        Table table = client().tables().table("tbl1");
+        assertEquals("TBL1", table.qualifiedName().objectName());
+
+        // Quoting is necessary.
+        client().sql().execute(null, "CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
+
+        try {
+            Table table2 = client().tables().table("\"tbl-2\"");
+            assertEquals("tbl-2", table2.qualifiedName().objectName());
+        } finally {
+            client().sql().execute(null, "DROP TABLE \"tbl-2\"");
         }
     }
 }

@@ -56,17 +56,17 @@ public class FieldDeserializingProjectedTuple extends AbstractProjectedTuple {
 
     @Override
     protected void normalize() {
-        var builder = new BinaryTupleBuilder(projection.length);
+        var builder = new BinaryTupleBuilder(projection.length, 32, false);
         var newProjection = new int[projection.length];
 
         for (int i = 0; i < projection.length; i++) {
             int col = projection[i];
 
-            newProjection[i] = i;
-
             Element element = schema.element(col);
 
-            BinaryRowConverter.appendValue(builder, element, schema.value(delegate, col));
+            BinaryRowConverter.copyColumnValue(delegate, builder, element, col);
+
+            newProjection[i] = i;
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());

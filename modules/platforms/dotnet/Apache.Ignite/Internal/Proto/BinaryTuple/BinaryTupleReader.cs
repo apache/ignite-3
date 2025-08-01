@@ -253,7 +253,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="index">Index.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <returns>Value.</returns>
-        public decimal GetDecimal(int index, int scale) => GetDecimalNullable(index, scale) ?? ThrowNullElementException<decimal>(index);
+        public BigDecimal GetBigDecimal(int index, int scale) => GetBigDecimalNullable(index, scale) ?? ThrowNullElementException<BigDecimal>(index);
+
+        /// <summary>
+        /// Gets a big decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public BigDecimal? GetBigDecimalNullable(int index, int scale) => ReadDecimal(Seek(index), scale);
+
+        /// <summary>
+        /// Gets a big decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public decimal GetDecimal(int index, int scale) => GetBigDecimal(index, scale).ToDecimal();
 
         /// <summary>
         /// Gets a decimal value.
@@ -261,7 +277,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="index">Index.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <returns>Value.</returns>
-        public decimal? GetDecimalNullable(int index, int scale) => ReadDecimal(Seek(index), scale);
+        public decimal? GetDecimalNullable(int index, int scale) => GetBigDecimalNullable(index, scale)?.ToDecimal();
 
         /// <summary>
         /// Gets a local date value.
@@ -439,7 +455,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Double => GetDoubleNullable(index),
                 ColumnType.Uuid => GetGuidNullable(index),
                 ColumnType.String => GetStringNullable(index),
-                ColumnType.Decimal => GetDecimalNullable(index, scale),
+                ColumnType.Decimal => GetBigDecimalNullable(index, scale),
                 ColumnType.ByteArray => GetBytesNullable(index),
                 ColumnType.Date => GetDateNullable(index),
                 ColumnType.Time => GetTimeNullable(index),
@@ -552,7 +568,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for deserialization.")]
-        private static decimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
+        private static BigDecimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             if (span.IsEmpty)
             {
@@ -560,24 +576,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
-            return ReadDecimalUnscaled(span[2..], valScale);
-        }
+            var unscaled = new BigInteger(span[2..], isBigEndian: true);
 
-        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
-        {
-            var unscaled = new BigInteger(span, isBigEndian: true);
-            var res = (decimal)unscaled;
-
-            if (scale > 0)
-            {
-                res /= (decimal)BigInteger.Pow(10, scale);
-            }
-            else if (scale < 0)
-            {
-                res *= (decimal)BigInteger.Pow(10, -scale);
-            }
-
-            return res;
+            return new BigDecimal(unscaled, valScale);
         }
 
         private static T ThrowNullElementException<T>(int index) => throw GetNullElementException(index);

@@ -26,29 +26,36 @@ import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -305,6 +312,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
                 {3, "Arch"},
                 {4, "QA"},
                 {4, "OLD_QA"},
+                {5, "Tx&PME"},
         };
 
         verifyJoin(left, right, INNER, new Object[][]{
@@ -340,7 +348,8 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
                 {5, "Ivan", "QA"},
                 {5, "Ivan", "OLD_QA"},
                 {6, "Andrey", "QA"},
-                {6, "Andrey", "OLD_QA"}
+                {6, "Andrey", "OLD_QA"},
+                {null, null, "Tx&PME"}
         }, equalNulls);
         verifyJoin(left, right, FULL, new Object[][]{
                 {1, "Roman", null},
@@ -353,7 +362,8 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
                 {5, "Ivan", "QA"},
                 {5, "Ivan", "OLD_QA"},
                 {6, "Andrey", "QA"},
-                {6, "Andrey", "OLD_QA"}
+                {6, "Andrey", "OLD_QA"},
+                {null, null, "Tx&PME"}
         }, equalNulls);
         verifyJoin(left, right, SEMI, new Object[][]{
                 {2, "Igor"},
@@ -464,34 +474,166 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
                 equalNulls);
     }
 
+    @ParameterizedTest
+    @EnumSource(JoinRelType.class)
+    void equiJoinWithDifferentBufferSize(JoinRelType joinType) {
+        int buffSize = 1;
+        validateJoin(executionContext(buffSize), joinType, 0, 0);
+        validateJoin(executionContext(buffSize), joinType, 0, 1);
+        validateJoin(executionContext(buffSize), joinType, 0, 10);
+        validateJoin(executionContext(buffSize), joinType, 1, 0);
+        validateJoin(executionContext(buffSize), joinType, 1, 1);
+        validateJoin(executionContext(buffSize), joinType, 1, 10);
+        validateJoin(executionContext(buffSize), joinType, 10, 0);
+        validateJoin(executionContext(buffSize), joinType, 10, 1);
+        validateJoin(executionContext(buffSize), joinType, 10, 10);
+
+        buffSize = Commons.IN_BUFFER_SIZE;
+        validateJoin(executionContext(buffSize), joinType, 0, 0);
+        validateJoin(executionContext(buffSize), joinType, 0, buffSize - 1);
+        validateJoin(executionContext(buffSize), joinType, 0, buffSize);
+        validateJoin(executionContext(buffSize), joinType, 0, buffSize + 1);
+
+        validateJoin(executionContext(buffSize), joinType, buffSize - 1, 0);
+        validateJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize - 1);
+        validateJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize);
+        validateJoin(executionContext(buffSize), joinType, buffSize - 1, buffSize + 1);
+
+        validateJoin(executionContext(buffSize), joinType, buffSize, 0);
+        validateJoin(executionContext(buffSize), joinType, buffSize, buffSize - 1);
+        validateJoin(executionContext(buffSize), joinType, buffSize, buffSize);
+        validateJoin(executionContext(buffSize), joinType, buffSize, buffSize + 1);
+
+        validateJoin(executionContext(buffSize), joinType, buffSize + 1, 0);
+        validateJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize - 1);
+        validateJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize);
+        validateJoin(executionContext(buffSize), joinType, buffSize + 1, buffSize + 1);
+
+        validateJoin(executionContext(buffSize), joinType, 2 * buffSize, 0);
+        validateJoin(executionContext(buffSize), joinType, 0, 2 * buffSize);
+        validateJoin(executionContext(buffSize), joinType, 2 * buffSize, 2 * buffSize);
+    }
+
+    private void validateJoin(
+            ExecutionContext<Object[]> ctx,
+            JoinRelType joinType,
+            int leftSize,
+            int rightSize
+    ) {
+        { // Distinct inputs
+            Object[] person = {1, "name", 2};
+            Object[] department = {1, "department"};
+            int resultSize = estimateResultSizeForDistinctInputs(joinType, leftSize, rightSize);
+
+            validate(
+                    ctx,
+                    joinType,
+                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
+                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    resultSize
+            );
+        }
+
+        { // Matching inputs
+            Object[] person = {1, "name", 2};
+            Object[] department = {2, "department"};
+            int resultSize = estimateResultSizeForEqualInputs(joinType, leftSize, rightSize);
+
+            validate(
+                    ctx,
+                    joinType,
+                    IntStream.range(0, leftSize).mapToObj(i -> person)::iterator,
+                    IntStream.range(0, rightSize).mapToObj(i -> department)::iterator,
+                    resultSize
+            );
+        }
+    }
+
+    private static int estimateResultSizeForDistinctInputs(
+            JoinRelType joinType,
+            int leftSize,
+            int rightSize
+    ) {
+        switch (joinType) {
+            case SEMI: // Fallthrough
+            case INNER:
+                return 0;
+            case ANTI: // Fallthrough
+            case LEFT:
+                return leftSize;
+            case RIGHT:
+                return rightSize;
+            case FULL:
+                return leftSize + rightSize;
+            case ASOF:
+            case LEFT_ASOF:
+                return Assumptions.abort("Unsupported join type: " + joinType);
+            default:
+                throw new IllegalArgumentException("Unsupported join type: " + joinType);
+        }
+    }
+
+    private static int estimateResultSizeForEqualInputs(
+            JoinRelType joinType,
+            int leftSize,
+            int rightSize
+    ) {
+        switch (joinType) {
+            case SEMI:
+                return rightSize == 0 ? 0 : leftSize;
+            case ANTI:
+                return rightSize == 0 ? leftSize : 0;
+            case LEFT:
+                return rightSize == 0 ? leftSize : leftSize * rightSize;
+            case RIGHT:
+                return leftSize == 0 ? rightSize : leftSize * rightSize;
+            case FULL:
+                return leftSize == 0 ? rightSize : rightSize == 0 ? leftSize : leftSize * rightSize;
+            case INNER:
+                return leftSize * rightSize;
+            case ASOF:
+            case LEFT_ASOF:
+                return Assumptions.abort("Unsupported join type: " + joinType);
+            default:
+                throw new IllegalArgumentException("Unsupported join type: " + joinType);
+        }
+    }
+
+    private void validate(
+            ExecutionContext<Object[]> ctx,
+            JoinRelType joinType,
+            Iterable<Object[]> leftSource,
+            Iterable<Object[]> rightSource,
+            int resultSize
+    ) {
+        ScanNode<Object[]> left = new ScanNode<>(ctx, leftSource);
+        ScanNode<Object[]> right = new ScanNode<>(ctx, rightSource);
+
+        MergeJoinNode<Object[]> join = createJoinNode(ctx, joinType, ImmutableBitSet.of());
+
+        join.register(asList(left, right));
+
+        RootNode<Object[]> node = new RootNode<>(ctx);
+        node.register(join);
+
+        long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(node, Spliterator.ORDERED), false).count();
+
+        assertEquals(resultSize, count);
+    }
+
     /**
      * Creates execution tree and executes it. Then compares the result of the execution with the given one.
      *
-     * @param left     Data for left table.
-     * @param right    Data for right table.
+     * @param left Data for left table.
+     * @param right Data for right table.
      * @param joinType Join type.
-     * @param expRes   Expected result.
+     * @param expRes Expected result.
      */
     private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes, boolean equalNulls) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
 
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
-
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
-
-        ExecutionContext<Object[]> ectx =
-                new ExecutionContext<>(null, null, null, null, null,
-                        ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID, null);
-
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
-
-        RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
-        RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
 
         ImmutableBitSet.Builder nullComparison = ImmutableBitSet.builder();
 
@@ -499,9 +641,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
             nullComparison.set(0, left[0].length);
         }
 
-        Comparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nullComparison.build());
-
-        MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
+        MergeJoinNode<Object[]> join = createJoinNode(ctx, joinType, nullComparison.build());
 
         join.register(asList(leftNode, rightNode));
 
@@ -524,6 +664,28 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
 
             assertThat(rows.toArray(EMPTY), equalTo(expRes));
         }
+    }
+
+    private static MergeJoinNode<Object[]> createJoinNode(ExecutionContext<Object[]> ctx, JoinRelType joinType, ImmutableBitSet nulls) {
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
+
+        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(
+                Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+        );
+
+        RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
+        RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
+
+        SqlComparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nulls);
+
+        return MergeJoinNode.create(
+                ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2), createIdentityProjectionIfNeeded(joinType)
+        );
     }
 
     /**

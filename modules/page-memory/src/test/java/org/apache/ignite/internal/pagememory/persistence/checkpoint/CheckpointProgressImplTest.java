@@ -374,43 +374,43 @@ public class CheckpointProgressImplTest {
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
+        assertNull(progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId));
 
-        progressImpl.onStartPartitionProcessing(groupPartitionId);
+        progressImpl.blockPartitionDestruction(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture0 = progressImpl.getProcessedPartitionFuture(groupPartitionId);
+        CompletableFuture<Void> processedPartitionFuture0 = progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture0);
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onStartPartitionProcessing(groupPartitionId);
+        progressImpl.blockPartitionDestruction(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupPartitionId));
+        assertSame(processedPartitionFuture0, progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onFinishPartitionProcessing(groupPartitionId);
+        progressImpl.unblockPartitionDestruction(groupPartitionId);
 
-        assertSame(processedPartitionFuture0, progressImpl.getProcessedPartitionFuture(groupPartitionId));
+        assertSame(processedPartitionFuture0, progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId));
         assertFalse(processedPartitionFuture0.isDone());
 
-        progressImpl.onFinishPartitionProcessing(groupPartitionId);
+        progressImpl.unblockPartitionDestruction(groupPartitionId);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
+        assertNull(progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture0.isDone());
 
         // Let's check the reprocessing of the partition.
 
-        progressImpl.onStartPartitionProcessing(groupPartitionId);
+        progressImpl.blockPartitionDestruction(groupPartitionId);
 
-        CompletableFuture<Void> processedPartitionFuture1 = progressImpl.getProcessedPartitionFuture(groupPartitionId);
+        CompletableFuture<Void> processedPartitionFuture1 = progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId);
 
         assertNotNull(processedPartitionFuture1);
         assertFalse(processedPartitionFuture1.isDone());
         assertNotSame(processedPartitionFuture0, processedPartitionFuture1);
 
-        progressImpl.onFinishPartitionProcessing(groupPartitionId);
+        progressImpl.unblockPartitionDestruction(groupPartitionId);
 
-        assertNull(progressImpl.getProcessedPartitionFuture(groupPartitionId));
+        assertNull(progressImpl.getUnblockPartitionDestructionFuture(groupPartitionId));
         assertTrue(processedPartitionFuture1.isDone());
     }
 }

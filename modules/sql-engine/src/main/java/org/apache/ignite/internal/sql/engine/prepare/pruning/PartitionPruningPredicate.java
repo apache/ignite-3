@@ -40,6 +40,7 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -49,7 +50,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,7 +71,6 @@ public final class PartitionPruningPredicate {
      * @param pruningColumns Partition pruning metadata.
      * @param dynamicParameters Values dynamic parameters.
      * @param colocationGroup Colocation group.
-     *
      * @return New colocation group.
      */
     public static ColocationGroup prunePartitions(
@@ -130,15 +131,16 @@ public final class PartitionPruningPredicate {
     /**
      * Applies partition pruning to the list of given assignments and returns a list of partitions belonging to the given node.
      *
+     * @param context Execution context.
      * @param pruningColumns Partition pruning metadata.
      * @param table Table.
      * @param expressionFactory Expression factory.
      * @param assignments Assignments.
      * @param nodeName Node name.
-     *
      * @return List of partitions that belong to the provided node.
      */
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
+            ExecutionContext<RowT> context,
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
             ExpressionFactory<RowT> expressionFactory,
@@ -155,9 +157,8 @@ public final class PartitionPruningPredicate {
                 ColumnDescriptor descriptor = table.descriptor().columnDescriptor(key);
                 NativeType physicalType = descriptor.physicalType();
 
-                Object valueInInternalForm = expressionFactory.execute(node).get();
-                Class<?> storageType = NativeTypeSpec.toClass(physicalType.spec(), descriptor.nullable());
-                Object value = TypeUtils.fromInternal(valueInInternalForm, storageType);
+                Object valueInInternalForm = expressionFactory.scalar(node).get(context);
+                Object value = valueInInternalForm == null ? null : TypeUtils.fromInternal(valueInInternalForm, physicalType.spec());
 
                 partitionCalculator.append(value);
             }
@@ -186,14 +187,18 @@ public final class PartitionPruningPredicate {
             for (int key : keys) {
                 RexNode node = columns.get(key);
                 NativeType physicalType = table.descriptor().columnDescriptor(key).physicalType();
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
-                //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == NativeTypeSpec.UUID && !(node instanceof RexDynamicParam)) {
-                    return null;
-                }
-
+                ColumnType columnType = physicalType.spec();
                 Object val = getNodeValue(physicalType, node, dynamicParameters);
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+                if (columnType == ColumnType.TIME
+                        || columnType == ColumnType.DATETIME
+                        || columnType == ColumnType.TIMESTAMP) {
+                    TemporalNativeType temporalNativeType = (TemporalNativeType) physicalType;
+                    if (temporalNativeType.precision() > 3) {
+                        return null;
+                    }
+                }
 
                 partitionCalculator.append(val);
             }
@@ -221,28 +226,28 @@ public final class PartitionPruningPredicate {
     }
 
     private static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        if (physicalType.spec() == NativeTypeSpec.DATE) {
+        if (physicalType.spec() == ColumnType.DATE) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
             return LocalDate.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIME) {
+        } else if (physicalType.spec() == ColumnType.TIME) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
 
             return LocalTime.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIMESTAMP) {
+        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-        } else if (physicalType.spec() == NativeTypeSpec.DATETIME) {
+        } else if (physicalType.spec() == ColumnType.DATETIME) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
             return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
         } else {
-            Class<?> javaClass = NativeTypeSpec.toClass(physicalType.spec(), true);
+            Class<?> javaClass = physicalType.spec().javaClass();
             return lit.getValueAs(javaClass);
         }
     }

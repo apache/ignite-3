@@ -16,7 +16,7 @@
 
 == Overview
 
-While link:SQL-reference/ddl[SQL DDL] supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from POJO using a simple Java API. This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating link:developers-guide/table-api[keyValueView and recordView].
+While link:sql-reference/ddl[SQL DDL] supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from POJO using a simple Java API. This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating link:developers-guide/table-api[keyValueView and recordView].
 
 The Java API lets you perform the following operations:
 
@@ -33,14 +33,10 @@ You use the `@Table` and other annotations that are located in the `org.apache.i
 
 === KV POJO Compatible with keyValueView
 
+The example below created a table called `kv_pojo` from java code:
+
 [source, java]
 ----
-// annotate
-@Zone(
-        value = "zone_test",
-        partitions = 2,
-        engine = ZoneEngine.ROCKSDB
-)
 class ZoneTest {}
 
 class PojoKey {
@@ -53,12 +49,16 @@ class PojoKey {
 }
 
 @Table(
-    value = "kv_pojo_test",
-    zone = ZoneTest.class,
-    colocateBy = { @ColumnRef("f_name"), @ColumnRef("l_name") },
-    indexes = { @Index(value = "ix_test", columns = {
+    value = "kv_pojo",
+    zone = @Zone(
+		value = "zone_test",
+		replicas = 2,
+		storageProfiles = "default"
+   ),
+    colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
+    indexes = { @Index(value = "ix", columns = {
                     @ColumnRef(value = "f_name"), 
-                    @ColumnRef(value = "l_name", sort = DESC_NULLS_LAST) })	
+                    @ColumnRef(value = "l_name") })
     }
 )
 class PojoValue {
@@ -71,52 +71,50 @@ class PojoValue {
     String str;
 }
 
-// execute
-ignite.catalog().create(PojoKey.class, PojoValue.class);
+Table myTable = ignite.catalog().create(PojoKey.class, PojoValue.class);
 
-// access
-ignite.tables().table("kv_pojo_test").keyValueView(PojoKey.class, PojoValue.class)
+ignite.tables().table(myTable).keyValueView(PojoKey.class, PojoValue.class);
 ----
+
+NOTE: You need to create a storage profile in node configuration by using the CLI tool.
 
 The result is equivalent to the following SQL multi-statement:
 
 [source, sql]
 ----
-CREATE ZONE IF NOT EXISTS zone_test ENGINE ROCKSDB WITH PARTITIONS=2;
+CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=2, STORAGE_PROFILES='default';
 
-CREATE TABLE IF NOT EXISTS kv_pojo_test (
+CREATE TABLE IF NOT EXISTS kv_pojo (
 	id int,
 	id_str varchar(20),
 	f_name varchar,
 	l_name varchar,
 	str varchar,
-	PRIMARY KEY (id, id_str desc)
+	PRIMARY KEY (id, id_str)
 )
-COLOCATE BY (f_name, l_name)
-WITH PRIMARY_ZONE='ZONE_TEST';
+COLOCATE BY (id, id_str)
+WITH PRIMARY_ZONE='ZONE';
 
-CREATE INDEX ix_test (f_name, l_name desc nulls last);
-----
-
-You can get the SQL string like this:
-
-[source, java]
-----
-ignite.catalog().create(...).toSqlString()
+CREATE INDEX ix (f_name, l_name desc nulls last);
 ----
 
 === Single POJO Compatible with recordView
 
+The example below creates the `pojo_sample` table by using the pojo compatible with recordView:
+
 [source, java]
 ----
-// annotate
 @Table(
-    value = "pojo_test",
-    zone = ZoneTest.class,
-    colocateBy = { @ColumnRef("f_name"), @ColumnRef("l_name") },
-    indexes = { @Index(value = "ix_test", columns = {
+    value = "pojo_sample",
+    zone = zone = @Zone(
+		value = "zone_test",
+		replicas = 2,
+		storageProfiles = "default"
+   ),
+    colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
+    indexes = { @Index(value = "ix_sample", columns = {
                       @ColumnRef(value = "f_name"), 
-                      @ColumnRef(value = "l_name", sort = DESC_NULLS_LAST)}
+                      @ColumnRef(value = "l_name")}
     }
 )
 class Pojo {
@@ -136,16 +134,16 @@ class Pojo {
     String str;
 }
 
-// execute
-ignite.catalog().create(Pojo.class);
+Table myTable = ignite.catalog().create(Pojo.class);
 
-// access
-ignite.tables().table("pojo_test").recordView(Pojo.class)
+ignite.tables().table(myTable).recordView(Pojo.class)
 ----
 
 === The Builder Alternative to the @Table Annotation
 
-NOTE: With builders, only `@Id` and `@Column` annotations on fields are considered.
+The example below uses a builder to create a table:
+
+NOTE: When using builders, only `@Id` and `@Column` annotations on fields are supported.
 
 [source, java]
 ----
@@ -168,7 +166,8 @@ class Pojo {
 
 ignite.catalog()
   .create(ZoneDefinition.builder("zone_test")
-    .partitions(2));
+    .partitions(2))
+  .execute();
 
 ignite.catalog()
   .create(TableDefinition.builder("pojo_test")
@@ -176,9 +175,9 @@ ignite.catalog()
   	.colocateBy("id", "id_str")
   	.zone("zone_test")
     .record(Pojo.class) // .key(Key.class).value(Value.class)
-    .build());
+    .build())
 ----
 
 == Next Steps
 
-Once you have created a table using the Java API, you can manipulate it using the link:SQL-reference/ddl[SQL commands].
+Once you have created a table using the Java API, you can manipulate it using the link:sql-reference/ddl[SQL commands].

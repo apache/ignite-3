@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -54,7 +55,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
     public void testMemoryUsageMetric() {
         MetricManager metricManager = new MetricManagerImpl();
 
-        metricManager.configure(simpleConfiguration);
+        metricManager.configure(simpleConfiguration, UUID::randomUUID, "test-node");
 
         Map<String, MetricExporter> exporters = new HashMap<>();
 

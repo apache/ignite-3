@@ -105,10 +105,23 @@ public final class ViewUtils {
      * @throws NullPointerException In case if the collection null either any key is null.
      */
     public static <K> void checkKeysForNulls(Collection<K> keys) {
-        Objects.requireNonNull(keys, "keys");
+        checkCollectionForNulls(keys, "keys", "key");
+    }
 
-        for (K key : keys) {
-            Objects.requireNonNull(key, "key");
+    /**
+     * Checks that given collection isn't null and there is no a null-value element.
+     *
+     * @param coll Given collection.
+     * @param collectionName Collection name.
+     * @param elementName Element name.
+     * @param <K> Keys type.
+     * @throws NullPointerException In case if the collection null either any key is null.
+     */
+    public static <K> void checkCollectionForNulls(Collection<K> coll, String collectionName, String elementName) {
+        Objects.requireNonNull(coll, collectionName);
+
+        for (K key : coll) {
+            Objects.requireNonNull(key, elementName);
         }
     }
 

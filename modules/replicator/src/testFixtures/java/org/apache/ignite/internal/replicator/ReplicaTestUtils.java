@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,29 +39,31 @@ public final class ReplicaTestUtils {
      * Returns raft-client if exists.
      *
      * @param node Ignite node that hosts the raft-client.
-     * @param tableId Desired table's ID.
+     * @param tableOrZoneId Desired table or zone ID.
      * @param partId Desired partition's ID.
      *
      * @return Optional with raft-client if exists on the node by given identifiers.
      */
     @TestOnly
-    public static Optional<RaftGroupService> getRaftClient(Ignite node, int tableId, int partId) {
-        return getRaftClient(getReplicaManager(node), tableId, partId);
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
+    public static Optional<RaftGroupService> getRaftClient(Ignite node, int tableOrZoneId, int partId) {
+        return getRaftClient(getReplicaManager(node), tableOrZoneId, partId);
     }
 
     /**
      * Returns raft-client if exists.
      *
      * @param replicaManager Ignite node's replica manager with replica that should contains a raft client.
-     * @param tableId Desired table's ID.
+     * @param tableOrZoneId Desired table or zone ID.
      * @param partId Desired partition's ID.
      *
      * @return Optional with raft-client if exists on the node by given identifiers.
      */
     @TestOnly
-    public static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableId, int partId) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
+    public static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableOrZoneId, int partId) {
         CompletableFuture<Replica> replicaFut = replicaManager
-                .replica(new TablePartitionId(tableId, partId));
+                .replica(colocationEnabled() ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId));
 
         if  (replicaFut == null) {
             return Optional.empty();
@@ -101,14 +105,15 @@ public final class ReplicaTestUtils {
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if it cannot be found.
      *
      * @param node Ignite node with raft client.
-     * @param tableId Table identifier.
+     * @param tableOrZoneId Table or zone identifier.
      * @param partId Partition number.
      *
      * @return Leader node of the partition group corresponding to the partition
      */
     @TestOnly
-    public static ClusterNode leaderAssignment(Ignite node, int tableId, int partId) {
-        return leaderAssignment(getReplicaManager(node), getTopologyService(node), tableId, partId);
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
+    public static ClusterNode leaderAssignment(Ignite node, int tableOrZoneId, int partId) {
+        return leaderAssignment(getReplicaManager(node), getTopologyService(node), tableOrZoneId, partId);
     }
 
     /**
@@ -116,21 +121,28 @@ public final class ReplicaTestUtils {
      *
      * @param replicaManager Ignite node's replica manager with replica that should contains a raft client.
      * @param topologyService Ignite node's topology service that should find and return leader cluster node.
-     * @param tableId Table identifier.
+     * @param tableOrZoneId Table or zone identifier.
      * @param partId Partition number.
      *
      * @return Leader node of the partition group corresponding to the partition
      */
     @TestOnly
-    public static ClusterNode leaderAssignment(ReplicaManager replicaManager, TopologyService topologyService, int tableId, int partId) {
-        RaftGroupService raftClient = getRaftClient(replicaManager, tableId, partId)
-                .orElseThrow(() -> new IgniteInternalException("No such partition " + partId + " in table " + tableId));
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
+    public static ClusterNode leaderAssignment(
+            ReplicaManager replicaManager,
+            TopologyService topologyService,
+            int tableOrZoneId,
+            int partId
+    ) {
+        RaftGroupService raftClient = getRaftClient(replicaManager, tableOrZoneId, partId)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Pay attention to " in table or zone "
+                .orElseThrow(() -> new IgniteInternalException("No such partition " + partId + " in table or zone " + tableOrZoneId));
 
         if (raftClient.leader() == null) {
             try {
                 raftClient.refreshLeader().get(15, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                throw new IgniteInternalException("Couldn't get a leader for partition " + partId + " in table " + tableId, e);
+                throw new IgniteInternalException("Couldn't get a leader for partition " + partId + " in table " + tableOrZoneId, e);
             }
         }
 

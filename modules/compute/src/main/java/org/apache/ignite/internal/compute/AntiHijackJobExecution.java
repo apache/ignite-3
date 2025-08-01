@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,13 +51,13 @@ public class AntiHijackJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return preventThreadHijack(execution.cancelAsync());
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        return preventThreadHijack(execution.changePriorityAsync(newPriority));
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return preventThreadHijack(execution.changePriorityAsync(newPriority));
+    public ClusterNode node() {
+        return execution.node();
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {

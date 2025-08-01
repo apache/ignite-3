@@ -22,41 +22,32 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Test push metrics exporter.
  */
 @AutoService(MetricExporter.class)
-public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
+public class TestPushMetricExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "testPush";
 
     private static OutputStream outputStream;
-
-    private long period;
-
-    @Override
-    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
-        period = configuration.period();
-
-        super.start(metricsProvider, configuration);
-    }
 
     public static void setOutputStream(OutputStream outputStream) {
         TestPushMetricExporter.outputStream = outputStream;
     }
 
     @Override
-    protected long period() {
-        return period;
+    protected long period(ExporterView exporterView) {
+        return ((TestPushMetricsExporterView) exporterView).period();
     }
 
     @Override
     public void report() {
         var report = new StringBuilder();
 
-        for (MetricSet metricSet : metrics().get1().values()) {
+        for (MetricSet metricSet : snapshot().metrics().values()) {
             report.append(metricSet.name()).append(":\n");
 
             for (Metric metric : metricSet) {
@@ -85,13 +76,5 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     @Override
     public String name() {
         return EXPORTER_NAME;
-    }
-
-    @Override
-    public void addMetricSet(MetricSet metricSet) {
-    }
-
-    @Override
-    public void removeMetricSet(String metricSetName) {
     }
 }

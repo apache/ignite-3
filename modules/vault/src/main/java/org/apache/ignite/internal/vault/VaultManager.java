@@ -19,6 +19,7 @@ package org.apache.ignite.internal.vault;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
-    private static final ByteArray NODE_NAME = new ByteArray("node_name");
+    public static final ByteArray NODE_NAME = new ByteArray("node_name");
 
     /** Instance of vault. */
     private final VaultService vaultSvc;
@@ -56,7 +57,7 @@ public class VaultManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        // TODO: IGNITE-15161 Implement component's stop.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-23144
         vaultSvc.close();
 
         return nullCompletedFuture();
@@ -100,6 +101,16 @@ public class VaultManager implements IgniteComponent {
      */
     public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
         return vaultSvc.range(fromKey, toKey);
+    }
+
+    /**
+     * Returns a view of the portion of the vault whose keys start with the given prefix.
+     *
+     * @param prefix Prefix to get entries by. Cannot be {@code null}.
+     * @return Iterator built upon entries corresponding starting with the given prefix.
+     */
+    public Cursor<VaultEntry> prefix(ByteArray prefix) {
+        return vaultSvc.range(prefix, ByteArray.fromString(incrementLastChar(prefix.toString())));
     }
 
     /**

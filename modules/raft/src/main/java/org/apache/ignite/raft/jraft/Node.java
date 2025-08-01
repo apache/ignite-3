@@ -241,6 +241,15 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void snapshot(final Closure done);
 
     /**
+     * Start a snapshot immediately if possible. done.run() would be invoked when the snapshot finishes, describing the
+     * detailed result.
+     *
+     * @param done callback
+     * @param forced {@code True} to force snapshot and log truncation.
+     */
+    void snapshot(final Closure done, boolean forced);
+
+    /**
      * Reset the election_timeout for the every node.
      *
      * @param electionTimeoutMs the timeout millis of election

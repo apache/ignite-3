@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.validation;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.publicName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.dropNulls;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,7 +62,9 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
             new ExceptKeysValidator(),
             new PowerOfTwoValidator(),
             new RangeValidator(),
-            new NotBlankValidator()
+            new NotBlankValidator(),
+            new CamelCaseKeysValidator(),
+            new EndpointValidator()
     );
 
     /** Lazy annotations cache for configuration schema fields. */
@@ -173,24 +175,19 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
                 MemberKey memberKey = new MemberKey(lastInnerNode.schemaType(), fieldName);
 
                 Map<Annotation, Set<Validator<?, ?>>> fieldAnnotations = cachedAnnotations.computeIfAbsent(memberKey, k -> {
-                    try {
-                        Field field = findSchemaField(lastInnerNode, fieldName);
+                    Field field = findSchemaField(lastInnerNode, fieldName);
 
-                        assert field != null : memberKey;
+                    assert field != null : "Field " + fieldName + " not found for " + lastInnerNode.schemaType().getSimpleName();
 
-                        return Stream.of(field.getDeclaredAnnotations()).collect(toMap(identity(), annotation ->
-                                validators.stream()
-                                        .filter(validator -> validator.canValidate(
-                                                annotation.annotationType(),
-                                                field.getType(),
-                                                field.isAnnotationPresent(NamedConfigValue.class)
-                                        ))
-                                        .collect(Collectors.toSet()))
-                        );
-                    } catch (Exception e) {
-                        // Should be impossible.
-                        throw new IgniteInternalException(e);
-                    }
+                    return Stream.of(field.getDeclaredAnnotations()).collect(toMap(identity(), annotation ->
+                            validators.stream()
+                                    .filter(validator -> validator.canValidate(
+                                            annotation.annotationType(),
+                                            field.getType(),
+                                            field.isAnnotationPresent(NamedConfigValue.class)
+                                    ))
+                                    .collect(Collectors.toSet()))
+                    );
                 });
 
                 if (fieldAnnotations.isEmpty()) {
@@ -222,31 +219,39 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
         return issues;
     }
 
-    private @Nullable Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
+    private static @Nullable Field findSchemaField(InnerNode innerNode, String publicName) {
         Class<?> schemaType = innerNode.schemaType();
 
         if (innerNode.isPolymorphic() || innerNode.extendsAbstractConfiguration()) {
-            // Linear search to not fight with NoSuchFieldException.
-            for (Field field : schemaType.getDeclaredFields()) {
-                if (field.getName().equals(schemaFieldName)) {
-                    return field;
-                }
+            Field field = findSchemaField(schemaType, publicName);
+
+            if (field != null) {
+                return field;
             }
 
-            // Get parent schema.
+            // Check parent schema.
             schemaType = schemaType.getSuperclass();
         } else if (innerNode.extensionSchemaTypes() != null) {
-            // Linear search to not fight with NoSuchFieldException.
             for (Class<?> extensionSchemaType : innerNode.extensionSchemaTypes()) {
-                for (Field field : extensionSchemaType.getDeclaredFields()) {
-                    if (field.getName().equals(schemaFieldName)) {
-                        return field;
-                    }
+                Field field = findSchemaField(extensionSchemaType, publicName);
+
+                if (field != null) {
+                    return field;
                 }
             }
         }
 
-        return schemaType.getDeclaredField(schemaFieldName);
+        return findSchemaField(schemaType, publicName);
+    }
+
+    private static @Nullable Field findSchemaField(Class<?> schemaType, String publicName) {
+        for (Field field : schemaType.getDeclaredFields()) {
+            if (publicName(field).equals(publicName)) {
+                return field;
+            }
+        }
+
+        return null;
     }
 
     private SuperRoot emptySuperRoot() {

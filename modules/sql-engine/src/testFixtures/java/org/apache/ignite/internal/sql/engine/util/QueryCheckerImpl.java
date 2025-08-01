@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -43,25 +44,26 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.StringDescription;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,6 +71,8 @@ import org.jetbrains.annotations.Nullable;
  */
 abstract class QueryCheckerImpl implements QueryChecker {
     private static final IgniteLogger LOG = Loggers.forClass(QueryCheckerImpl.class);
+
+    private static final int MAX_QUERY_DISPLAY_LENGTH = 5000;
 
     private final QueryTemplate queryTemplate;
 
@@ -85,6 +89,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
     private ZoneId timeZoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+
+    private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     private final @Nullable InternalTransaction tx;
 
@@ -153,6 +159,19 @@ abstract class QueryCheckerImpl implements QueryChecker {
     }
 
     /**
+     * Set schema name.
+     *
+     * @param schema Schema name.
+     * @return This.
+     */
+    @Override
+    public QueryChecker withDefaultSchema(String schema) {
+        this.defaultSchema = schema;
+
+        return this;
+    }
+
+    /**
      * Disables rules.
      *
      * @param rules Rules to disable.
@@ -192,6 +211,17 @@ abstract class QueryCheckerImpl implements QueryChecker {
         }
 
         rowByRowResultChecker.expectedResult.add(Arrays.asList(res));
+
+        return this;
+    }
+
+    @Override
+    public QueryChecker results(Matcher<List<List<?>>> matcher) {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        Objects.requireNonNull(matcher, "matcher");
+
+        resultChecker = new ResultSetMatcher(matcher);
 
         return this;
     }
@@ -297,20 +327,31 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        SqlProperties newProperties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
-                .build();
-
-        SqlProperties properties = SqlPropertiesHelper.merge(newProperties, SqlQueryProcessor.DEFAULT_PROPERTIES);
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .timeZoneId(timeZoneId)
+                .defaultSchema(defaultSchema);
 
         String qry = queryTemplate.createQuery();
+        boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));
+        String queryToLog;
+        if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
+            queryToLog = qry;
+        } else {
+            queryToLog = format("{}<Query is too long to display. Length={}>", qry.substring(0, MAX_QUERY_DISPLAY_LENGTH), qry.length());
+        }
 
-        LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), qry);
+        LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), queryToLog);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
-                    properties, observableTimeTracker(), tx, "EXPLAIN PLAN FOR " + qry, params);
+                    properties,
+                    observableTimeTracker(),
+                    tx,
+                    null,
+                    containExplain ? qry : "EXPLAIN PLAN FOR " + qry,
+                    params
+            );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
@@ -336,7 +377,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, qry, params));
+                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, null, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
@@ -501,6 +542,30 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class ResultSetMatcher implements ResultChecker {
+        private final Matcher<List<List<?>>> matcher;
+
+        ResultSetMatcher(Matcher<List<List<?>>> matcher) {
+            this.matcher = matcher;
+        }
+
+        @Override
+        public void check(List<List<Object>> rows, boolean ordered) {
+            if (!matcher.matches(rows)) {
+                Description desc = new StringDescription();
+                desc.appendText("Result set does not match ")
+                        .appendText(System.lineSeparator())
+                        .appendText("Expected: ")
+                        .appendDescriptionOf(matcher)
+                        .appendText(System.lineSeparator())
+                        .appendText("     but: ");
+                matcher.describeMismatch(rows, desc);
+
+                throw new AssertionError(desc.toString());
+            }
         }
     }
 

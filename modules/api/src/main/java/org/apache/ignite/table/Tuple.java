@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -397,6 +398,26 @@ public interface Tuple extends Iterable<Object> {
     double doubleValue(int columnIndex);
 
     /**
+     * Gets a {@code BigDecimal} column value.
+     *
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
+     * @return Column value.
+     * @throws IllegalArgumentException If no column with the given name exists.
+     */
+    BigDecimal decimalValue(String columnName);
+
+    /**
+     * Gets a {@code BigDecimal} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
+     */
+    BigDecimal decimalValue(int columnIndex);
+
+    /**
      * Gets a {@code String} column value.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
@@ -415,6 +436,26 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     String stringValue(int columnIndex);
+
+    /**
+     * Gets a {@code byte[]} column value.
+     *
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
+     * @return Column value.
+     * @throws IllegalArgumentException If no column with the given name exists.
+     */
+    byte[] bytesValue(String columnName);
+
+    /**
+     * Gets a {@code byte[]} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
+     */
+    byte[] bytesValue(int columnIndex);
 
     /**
      * Gets a {@code UUID} column value.

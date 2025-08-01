@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -94,9 +95,7 @@ public class FutureTimeoutBenchmark {
                     "test-node",
                     "FutureTimeoutBenchmark-timeout-worker",
                     requestsMap,
-                    // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
-                    // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                    true
+                    null
             );
 
 
@@ -126,7 +125,7 @@ public class FutureTimeoutBenchmark {
             futs.clear();
             futs = null;
         } else {
-            assert waitForCondition(requestsMap::isEmpty, 10_000);
+            assertTrue(waitForCondition(requestsMap::isEmpty, 10_000));
 
             awaitForWorkersStop(List.of(timeoutWorker), true, null);
         }

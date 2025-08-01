@@ -45,9 +45,11 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.TABLES_GET:
+            case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientOperationType.TABLES_GET;
 
             case ClientOp.TABLE_GET:
+            case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientOperationType.TABLE_GET;
 
             case ClientOp.SCHEMAS_GET:
@@ -109,6 +111,9 @@ public class ClientUtils {
             case ClientOp.JDBC_EXEC:
                 return null;
 
+            case ClientOp.JDBC_CANCEL:
+                return null;
+
             case ClientOp.JDBC_NEXT:
                 return null;
 
@@ -143,6 +148,7 @@ public class ClientUtils {
 
             case ClientOp.COMPUTE_EXECUTE:
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+            case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
@@ -192,6 +198,14 @@ public class ClientUtils {
 
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientOperationType.PRIMARY_REPLICAS_GET;
+
+            case ClientOp.OPERATION_CANCEL:
+                // The request is used to cancel queries initiated with a particular connection,
+                // and these requests are terminated when the connection is lost.
+                return null;
+
+            case ClientOp.SERVER_OP_RESPONSE:
+                return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

@@ -95,9 +95,9 @@ class Unit {
     Path getNodeUnitDirectory(IgniteImpl ignite) {
         String deploymentFolder = ignite.nodeConfiguration()
                 .getConfiguration(DeploymentExtensionConfiguration.KEY).deployment()
-                .deploymentLocation().value();
-        return workDir
-                .resolve(ignite.name())
+                .location().value();
+
+        return ignite.workDir()
                 .resolve(deploymentFolder)
                 .resolve(id)
                 .resolve(version.render());

@@ -34,12 +34,16 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -83,7 +87,10 @@ public class IndexBuildingManager implements IgniteComponent {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            ClockService clockService
+            ClockService clockService,
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -100,9 +107,9 @@ public class IndexBuildingManager implements IgniteComponent {
 
         executor.allowCoreThreadTimeOut(true);
 
-        indexBuilder = new IndexBuilder(executor, replicaService);
+        indexBuilder = new IndexBuilder(executor, replicaService, failureProcessor, nodeProperties);
 
-        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
+        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -110,7 +117,9 @@ public class IndexBuildingManager implements IgniteComponent {
                 catalogManager,
                 clusterService,
                 placementDriver,
-                clockService
+                clockService,
+                failureProcessor,
+                nodeProperties
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -120,6 +129,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 clockService,
                 placementDriver,
                 indexMetaStorage,
+                failureProcessor,
+                nodeProperties,
                 executor
         );
 
@@ -127,6 +138,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 catalogManager,
                 placementDriver,
                 clusterService,
+                lowWatermark,
+                nodeProperties,
                 indexTaskScheduler
         );
     }
@@ -134,11 +147,11 @@ public class IndexBuildingManager implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
             assert recoveryFinishedFuture.isDone();
 
-            long recoveryRevision = recoveryFinishedFuture.join();
+            long recoveryRevision = recoveryFinishedFuture.join().revision();
 
             indexAvailabilityController.start(recoveryRevision);
 

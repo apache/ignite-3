@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -53,21 +54,19 @@ class CatalogStorageIndexDescriptorSupplier implements StorageIndexDescriptorSup
                 : catalogService.activeCatalogVersion(lowWatermarkTimestamp.longValue());
 
         for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            CatalogIndexDescriptor index = catalogService.index(indexId, catalogVersion);
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            CatalogIndexDescriptor index = catalog.index(indexId);
 
             if (index != null) {
-                return createStorageIndexDescriptor(index, catalogVersion);
+                CatalogTableDescriptor table = catalog.table(index.tableId());
+
+                assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+
+                return StorageIndexDescriptor.create(table, index);
             }
         }
 
         return null;
-    }
-
-    private StorageIndexDescriptor createStorageIndexDescriptor(CatalogIndexDescriptor indexDescriptor, int catalogVersion) {
-        CatalogTableDescriptor table = catalogService.table(indexDescriptor.tableId(), catalogVersion);
-
-        assert table != null : "tableId=" + indexDescriptor.tableId() + ", indexId=" + indexDescriptor.id();
-
-        return StorageIndexDescriptor.create(table, indexDescriptor);
     }
 }

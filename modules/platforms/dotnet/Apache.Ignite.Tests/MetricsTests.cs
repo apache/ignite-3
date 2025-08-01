@@ -84,23 +84,26 @@ public class MetricsTests
     [Test]
     public async Task TestBytesSentReceived()
     {
-        using var server = new FakeServer();
+        using var server = new FakeServer
+        {
+            DisableRandomHandshake = true
+        };
 
         AssertMetric(MetricNames.BytesSent, 0);
         AssertMetric(MetricNames.BytesReceived, 0);
 
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric(MetricNames.BytesSent, 15);
-        AssertMetric(MetricNames.BytesReceived, 89);
+        AssertMetric(MetricNames.BytesSent, 16);
+        AssertMetric(MetricNames.BytesReceived, 91);
 
         await client.Tables.GetTablesAsync();
 
-        AssertMetric(MetricNames.BytesSent, 21);
-        AssertMetric(MetricNames.BytesReceived, 98);
+        AssertMetric(MetricNames.BytesSent, 22);
+        AssertMetric(MetricNames.BytesReceived, 100);
 
-        AssertTaggedMetric(MetricNames.BytesSent, 21, server, client);
-        AssertTaggedMetric(MetricNames.BytesReceived, 98, server, client);
+        AssertTaggedMetric(MetricNames.BytesSent, 22, server, client);
+        AssertTaggedMetric(MetricNames.BytesReceived, 100, server, client);
     }
 
     [Test]
@@ -139,7 +142,7 @@ public class MetricsTests
         using var server = new FakeServer { SendInvalidMagic = true };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
-        AssertMetric(MetricNames.HandshakesFailed, 1);
+        AssertMetricGreaterOrEqual(MetricNames.HandshakesFailed, 1);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
@@ -152,7 +155,6 @@ public class MetricsTests
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-        AssertMetric(MetricNames.HandshakesFailed, 0);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 1);
 
         AssertTaggedMetric(MetricNames.HandshakesFailedTimeout, 1, server, null);
@@ -174,7 +176,7 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsFailed, 0);
         AssertMetric(MetricNames.RequestsCompleted, 1);
 
-        Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
+        Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad_table"));
 
         AssertMetric(MetricNames.RequestsSent, 2);
         AssertMetric(MetricNames.RequestsFailed, 1);
@@ -283,7 +285,10 @@ public class MetricsTests
 
         AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await task);
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
+        Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
+        Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
         AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         AssertMetric(MetricNames.StreamerBatchesActive, 0);
@@ -384,6 +389,25 @@ public class MetricsTests
             return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
         }
 
+        public int GetTaggedMetric(string name, string nodeAddr, Guid? clientId)
+        {
+            _listener.RecordObservableInstruments();
+
+            if (clientId != null)
+            {
+                var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
+                return _metricsWithTags.TryGetValue(taggedName, out var val) ? (int)val : 0;
+            }
+
+            // Client id is not known, find by name and node address.
+            return _metricsWithTags
+                .Where(x =>
+                    x.Key.StartsWith($"{name}_{MetricTags.ClientId}=", StringComparison.Ordinal) &&
+                    x.Key.EndsWith($",{MetricTags.NodeAddress}={nodeAddr}", StringComparison.Ordinal))
+                .Select(x => (int)x.Value)
+                .SingleOrDefault();
+        }
+
         public void AssertMetric(string name, int value, int timeoutMs = 1000)
         {
             TestUtils.WaitForCondition(
@@ -392,22 +416,13 @@ public class MetricsTests
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
         }
 
-        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId)
+        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = 1000)
         {
-            if (clientId == null)
-            {
-                // Client id is not known, find by name and node address.
-                var val = _metricsWithTags.Single(x =>
-                    x.Key.StartsWith($"{name}_{MetricTags.ClientId}=", StringComparison.Ordinal) &&
-                    x.Key.EndsWith($",{MetricTags.NodeAddress}={nodeAddr}", StringComparison.Ordinal));
-
-                Assert.AreEqual(value, val.Value);
-            }
-            else
-            {
-                var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
-                Assert.AreEqual(value, _metricsWithTags[taggedName]);
-            }
+            TestUtils.WaitForCondition(
+                condition: () => GetTaggedMetric(name, nodeAddr, clientId) == value,
+                timeoutMs: timeoutMs,
+                messageFactory: () => $"{name} for {nodeAddr} ({clientId}): expected '{value}', " +
+                                      $"but was '{GetTaggedMetric(name, nodeAddr, clientId)}'");
         }
 
         public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>

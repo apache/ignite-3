@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static java.util.UUID.randomUUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,9 +138,9 @@ public class MappingTestRunnerSelfTest extends BaseIgniteAbstractTest {
 
         IllegalStateException err = assertThrows(IllegalStateException.class,
                 () -> runner.runTest(() -> {
-                    ExecutionTargetProvider targetProvider = Mockito.mock(ExecutionTargetProvider.class);
+                    ExecutionDistributionProvider targetProvider = Mockito.mock(ExecutionDistributionProvider.class);
                     IgniteSchema schema = new IgniteSchema("T", 1, List.of());
-                    LogicalNode node = new LogicalNode("N1", "N1", new NetworkAddress("addr", 1000));
+                    LogicalNode node = new LogicalNode(randomUUID(), "N1", new NetworkAddress("addr", 1000));
                     LogicalTopologySnapshot topologySnapshot = new LogicalTopologySnapshot(1, List.of(node));
 
                     return new TestSetup(targetProvider, schema, topologySnapshot);

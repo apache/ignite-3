@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
+import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -52,6 +53,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Process action request.
@@ -109,15 +111,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 command = commandsMarshaller.unmarshall(writeRequest.command());
             }
 
-            if (fsm.getListener() instanceof BeforeApplyHandler) {
+            if (listener instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    try {
-                        writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
-                    } catch (SafeTimeReorderException e) {
-                        rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
-
-                        return;
-                    }
+                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
 
                     applyWrite(node, writeRequest, command, rpcCtx);
                 }
@@ -147,7 +143,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             BeforeApplyHandler beforeApplyHandler,
             Command command,
             Marshaller commandsMarshaller
-    ) throws SafeTimeReorderException {
+    ) {
         if (!beforeApplyHandler.onBeforeApply(command)) {
             return request;
         }
@@ -179,21 +175,42 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param command The command.
      * @param rpcCtx The context.
      */
-    private void applyWrite(Node node, WriteActionRequest request, Command command, RpcContext rpcCtx) {
-        node.apply(new Task(ByteBuffer.wrap(request.command()),
-                new CommandClosureImpl<>(command) {
-                    @Override
-                    public void result(Serializable res) {
-                        sendResponse(res, rpcCtx);
-                    }
+    private void applyWrite(Node node, WriteActionRequest request, WriteCommand command, RpcContext rpcCtx) {
+        ByteBuffer wrapper = ByteBuffer.wrap(request.command());
+        node.apply(new Task(wrapper, new LocalAwareWriteCommandClosure() {
+            private HybridTimestamp safeTs;
 
-                    @Override
-                    public void run(Status status) {
-                        assert !status.isOk() : status;
+            @Override
+            public void result(Serializable res) {
+                sendResponse(res, rpcCtx);
+            }
 
-                        sendRaftError(rpcCtx, status, node);
-                    }
-                }));
+            @Override
+            public WriteCommand command() {
+                return command;
+            }
+
+            @Override
+            public @Nullable HybridTimestamp safeTimestamp() {
+                return safeTs;
+            }
+
+            @Override
+            public void run(Status status) {
+                assert !status.isOk() : status;
+
+                sendRaftError(rpcCtx, status, node);
+            }
+
+            @Override
+            public void safeTimestamp(HybridTimestamp safeTs) {
+                assert this.safeTs == null : "Safe time can be set only once";
+                // Apply binary patch.
+                node.getOptions().getCommandsMarshaller().patch(wrapper, safeTs);
+                // Avoid modifying WriteCommand object, because it's shared between raft pipeline threads.
+                this.safeTs = safeTs;
+            }
+        }));
     }
 
     /**
@@ -329,20 +346,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         ctx.sendResponse(response);
     }
 
-    /** The implementation. */
-    private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
-        private final T command;
-
-        /**
-         * @param command The command.
-         */
-        public CommandClosureImpl(T command) {
-            this.command = command;
-        }
-
-        /** {@inheritDoc} */
-        @Override public T command() {
-            return command;
-        }
+    /**
+     * The command closure which is used to propagate replication state to local FSM.
+     */
+    private interface LocalAwareWriteCommandClosure extends Closure, SafeTimeAwareCommandClosure {
     }
 }

@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -35,13 +39,13 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
  */
 public class LeaseNegotiator {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
-
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
+    /** The logger. */
+    private final IgniteThrottledLogger log = toThrottledLogger(Loggers.forClass(LeaseNegotiator.class), Runnable::run);
+
     /** Lease agreements which are in progress of negotiation. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -50,36 +54,35 @@ public class LeaseNegotiator {
      * The constructor.
      *
      * @param clusterService Cluster service.
+     * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      */
-    public LeaseNegotiator(ClusterService clusterService) {
+    public LeaseNegotiator(
+            ClusterService clusterService,
+            Executor throttledLogExecutor
+    ) {
         this.clusterService = clusterService;
-
-        this.leaseToNegotiate = new ConcurrentHashMap<>();
     }
 
     /**
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
-     * @param lease Lease to negotiate.
-     * @param force If the flag is true, the process tries to insist of apply the lease.
+     * @param agreement Lease agreement to negotiate.
      */
-    public void negotiate(Lease lease, boolean force) {
-        ReplicationGroupId groupId = lease.replicationGroupId();
-
-        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
-
-        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
+    public void negotiate(LeaseAgreement agreement) {
+        Lease lease = agreement.getLease();
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+
+        leaseToNegotiate.put(agreement.groupId(), agreement);
 
         clusterService.messagingService().invoke(
                         lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
-                                .groupId(groupId)
+                                .groupId(agreement.groupId())
                                 .leaseStartTime(lease.getStartTime())
                                 .leaseExpirationTime(lease.getExpirationTime())
-                                .force(force)
+                                .force(agreement.forced())
                                 .build(),
                         leaseInterval)
                 .whenComplete((msg, throwable) -> {
@@ -91,9 +94,15 @@ public class LeaseNegotiator {
 
                         agreement.onResponse(response);
                     } else {
-                        if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                            LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
+                        if (!hasCause(throwable, NodeStoppingException.class, ComponentStoppingException.class)) {
+                            log.warn(
+                                    "Lease was not negotiated due to exception",
+                                    () -> format("Lease was not negotiated due to exception [lease={}]", lease),
+                                    throwable
+                            );
                         }
+
+                        leaseToNegotiate.remove(agreement.groupId(), agreement);
 
                         agreement.cancel();
                     }
@@ -117,16 +126,6 @@ public class LeaseNegotiator {
         });
 
         return res[0] == null ? UNDEFINED_AGREEMENT : res[0];
-    }
-
-    /**
-     * Creates an agreement.
-     *
-     * @param groupId Group id.
-     * @param lease Lease to negotiate.
-     */
-    public void createAgreement(ReplicationGroupId groupId, Lease lease) {
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease));
     }
 
     /**

@@ -32,7 +32,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -129,6 +129,8 @@ public class AuthenticationManagerImpl
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
         basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
 
+        refreshProviders(securityConfiguration.value());
+
         return nullCompletedFuture();
     }
 
@@ -205,9 +207,11 @@ public class AuthenticationManagerImpl
     }
 
     private void logAuthenticationFailure(AuthenticationRequest<?, ?> authenticationRequest) {
-        eventLog.log(() ->
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+        eventLog.log(
+                IgniteEventType.USER_AUTHENTICATION_FAILURE.name(),
+                () -> IgniteEventType.USER_AUTHENTICATION_FAILURE.builder()
                         .user(EventUser.system())
+                        .timestamp(System.currentTimeMillis())
                         .fields(Map.of("identity", tryGetUsernameOrUnknown(authenticationRequest)))
                         .build()
         );
@@ -221,10 +225,12 @@ public class AuthenticationManagerImpl
     }
 
     private void logUserAuthenticated(UserDetails userDetails) {
-        eventLog.log(() ->
-                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
+        eventLog.log(
+                IgniteEventType.USER_AUTHENTICATION_SUCCESS.name(),
+                () -> IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
                         userDetails.username(), userDetails.providerName()
-                )));
+                ))
+        );
     }
 
     private void refreshProviders(@Nullable SecurityView view) {

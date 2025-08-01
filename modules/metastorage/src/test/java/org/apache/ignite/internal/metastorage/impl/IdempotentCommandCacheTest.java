@@ -75,12 +75,12 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
     @Nullable
     private Serializable lastCommandResult;
 
-    private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+    private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
     @BeforeEach
     public void setUp() {
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
-        metaStorageListener = new MetaStorageListener(storage, new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock));
+        metaStorageListener = new MetaStorageListener(storage, clock, new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock));
     }
 
     @Test

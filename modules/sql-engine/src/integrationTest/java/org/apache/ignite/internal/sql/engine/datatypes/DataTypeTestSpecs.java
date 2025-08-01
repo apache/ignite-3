@@ -27,7 +27,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.apache.ignite.sql.ColumnType;
 
@@ -37,24 +36,24 @@ import org.apache.ignite.sql.ColumnType;
 public final class DataTypeTestSpecs {
 
     /**
-     * Test type spec for {@link UuidType UUID} data type.
+     * Test type spec for {@link SqlTypeName#UUID} data type.
      */
     public static final DataTypeTestSpec<UUID> UUID_TYPE = new DataTypeTestSpec<>(
-            ColumnType.UUID, UuidType.NAME, UUID.class) {
+            ColumnType.UUID, ColumnType.UUID.name(), UUID.class) {
 
         @Override
         public boolean hasLiterals() {
-            return false;
+            return true;
         }
 
         @Override
         public String toLiteral(UUID value) {
-            throw new UnsupportedOperationException();
+            return "uuid '" + value + "'";
         }
 
         @Override
         public String toValueExpr(UUID value) {
-            return format("'{}'::UUID", value);
+            return toLiteral(value);
         }
 
         @Override
@@ -72,7 +71,7 @@ public final class DataTypeTestSpecs {
             List<UUID> values = List.of(new UUID(1, 1), new UUID(2, 1), new UUID(3, 1));
             TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
+            samples.add(values);
 
             return samples.build();
         }
@@ -133,7 +132,7 @@ public final class DataTypeTestSpecs {
 
             TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.BINARY, b -> b.asString(StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.VARBINARY, b -> b.asString(StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8));
 
             return samples.build();
         }

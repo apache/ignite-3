@@ -37,9 +37,9 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 public interface NodeManagementApi {
 
     @Get("state")
-    @Operation(operationId = "nodeState", description = "Gets current network status.")
+    @Operation(operationId = "nodeState", summary = "Get node state", description = "Gets node state.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Current node status.",
+            @ApiResponse(responseCode = "200", description = "Node state.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeState.class))),
             @ApiResponse(responseCode = "500", description = "Internal error.",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -47,7 +47,7 @@ public interface NodeManagementApi {
     NodeState state();
 
     @Get("info")
-    @Operation(operationId = "nodeInfo", description = "Gets node info.")
+    @Operation(operationId = "nodeInfo", summary = "Get node information", description = "Gets information about the node.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Node info.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeInfo.class))),
@@ -57,11 +57,15 @@ public interface NodeManagementApi {
     NodeInfo info();
 
     @Get("version")
-    @Operation(operationId = "nodeVersion", description = "Gets the version of Apache Ignite the node uses.")
+    @Operation(
+            operationId = "nodeVersion",
+            summary = "Get application version on node",
+            description = "Gets the version of Apache Ignite the node uses."
+    )
     @ApiResponse(responseCode = "200", description = "Node version.",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeVersion.class)))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.PROBLEM_JSON)
-    String version();
+    NodeVersion version();
 }

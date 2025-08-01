@@ -45,7 +45,6 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
-import org.apache.ignite.raft.jraft.util.CountDownEvent;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -72,7 +71,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private LogManager logManager;
     private final AtomicReference<DownloadingSnapshot> downloadingSnapshot = new AtomicReference<>(null);
     private SnapshotMeta loadingSnapshotMeta;
-    private final CountDownEvent runningJobs = new CountDownEvent();
+    private final SnapshotCountDownEvent runningJobs = new SnapshotCountDownEvent();
     private RaftMessagesFactory msgFactory;
 
     /**
@@ -112,15 +111,17 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         SnapshotWriter writer;
         Closure done;
+        boolean forced;
         SnapshotMeta meta;
         Executor executor;
 
-        SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta,
+        SaveSnapshotDone(final SnapshotWriter writer, final Closure done, final SnapshotMeta meta, boolean forced,
             Executor executor) {
             super();
             this.writer = writer;
             this.done = done;
             this.meta = meta;
+            this.forced = forced;
             this.executor = executor;
         }
 
@@ -130,7 +131,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
 
         void continueRun(final Status st) {
-            final int ret = onSnapshotSaveDone(st, this.meta, this.writer);
+            final int ret = onSnapshotSaveDone(st, this.meta, this.writer, forced);
             if (ret != 0 && st.isOk()) {
                 st.setError(ret, "node call onSnapshotSaveDone failed");
             }
@@ -243,7 +244,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         LOG.info("Loading snapshot, meta={}.", this.loadingSnapshotMeta);
         this.loadingSnapshot = true;
-        this.runningJobs.incrementAndGet();
+        this.runningJobs.incrementAndGet(SnapshotCountDownEvent.INIT_SNAPSHOT_OP);
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
         Requires.requireTrue(this.fsmCaller.onSnapshotLoad(done));
         try {
@@ -285,6 +286,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     @Override
     public void doSnapshot(final Closure done) {
+        doSnapshot(done, false);
+    }
+
+    @Override
+    public void doSnapshot(final Closure done, boolean forced) {
         boolean doUnlock = true;
         this.lock.lock();
         try {
@@ -309,12 +315,16 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 doUnlock = false;
                 this.lock.unlock();
                 this.logManager.clearBufferedLogs();
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done);
+                // Client should retry request if it needs snapshot to be done, but log was not updated yet.
+                Status status = forced
+                    ? new Status(RaftError.EAGAIN, "No new logs since last snapshot.")
+                    : Status.OK();
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, status);
                 return;
             }
 
             final long distance = this.fsmCaller.getLastAppliedIndex() - this.lastSnapshotIndex;
-            if (distance < this.node.getOptions().getSnapshotLogIndexMargin()) {
+            if (!forced && distance < this.node.getOptions().getSnapshotLogIndexMargin()) {
                 // If state machine's lastAppliedIndex value minus lastSnapshotIndex value is
                 // less than snapshotLogIndexMargin value, then directly return.
                 if (this.node != null) {
@@ -335,12 +345,12 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 return;
             }
             this.savingSnapshot = true;
-            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null, this.node.getOptions().getCommonExecutor());
+            final SaveSnapshotDone saveSnapshotDone = new SaveSnapshotDone(writer, done, null, forced, this.node.getOptions().getCommonExecutor());
             if (!this.fsmCaller.onSnapshotSave(saveSnapshotDone)) {
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EHOSTDOWN, "The raft node is down."));
                 return;
             }
-            this.runningJobs.incrementAndGet();
+            this.runningJobs.incrementAndGet(SnapshotCountDownEvent.DO_SNAPSHOT_OP);
         }
         finally {
             if (doUnlock) {
@@ -350,7 +360,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
     }
 
-    int onSnapshotSaveDone(final Status st, final SnapshotMeta meta, final SnapshotWriter writer) {
+    int onSnapshotSaveDone(final Status st, final SnapshotMeta meta, final SnapshotWriter writer, boolean forced) {
         int ret;
         this.lock.lock();
         try {
@@ -366,6 +376,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                     }
                     writer.setError(RaftError.ESTALE, "Installing snapshot is older than local snapshot");
                 }
+            } else {
+                LOG.error("Fail to save snapshot: {}.", st);
             }
         }
         finally {
@@ -374,7 +386,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         if (ret == 0) {
             if (!writer.saveMeta(meta)) {
-                LOG.warn("Fail to save snapshot {}.", writer.getPath());
+                LOG.error("Fail to save snapshot {}: {}.", writer.getPath(), writer.getErrorMsg());
                 ret = RaftError.EIO.getNumber();
             }
         }
@@ -398,7 +410,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lastSnapshotTerm = meta.lastIncludedTerm();
                 doUnlock = false;
                 this.lock.unlock();
-                this.logManager.setSnapshot(meta); // should be out of lock
+                this.logManager.setSnapshot(meta, forced); // should be out of lock
                 doUnlock = true;
                 this.lock.lock();
             }
@@ -429,7 +441,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.lastSnapshotTerm = this.loadingSnapshotMeta.lastIncludedTerm();
                 doUnlock = false;
                 this.lock.unlock();
-                this.logManager.setSnapshot(this.loadingSnapshotMeta); // should be out of lock
+                this.logManager.setSnapshot(this.loadingSnapshotMeta, false); // should be out of lock
                 doUnlock = true;
                 this.lock.lock();
             }
@@ -487,7 +499,6 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             LOG.warn("Install snapshot copy job was canceled.");
-            return;
         }
 
         loadDownloadingSnapshot(ds, meta);
@@ -588,7 +599,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                         .newResponse(msgFactory, RaftError.EINVAL, "Fail to copy from: %s", ds.request.uri()));
                     return false;
                 }
-                this.runningJobs.incrementAndGet();
+                this.runningJobs.incrementAndGet(SnapshotCountDownEvent.REGISTER_DOWNLOADING_SNAPSHOT_OP);
                 return true;
             }
 

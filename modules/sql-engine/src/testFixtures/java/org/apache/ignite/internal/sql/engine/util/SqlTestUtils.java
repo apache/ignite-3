@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.QueryCancelledException.CANCEL_MSG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
@@ -29,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,10 +41,16 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -52,32 +60,33 @@ import java.util.stream.StreamSupport;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
+import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
+import org.hamcrest.Matcher;
 import org.hamcrest.StringDescription;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
@@ -89,6 +98,15 @@ public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
+
+    private static final Map<Integer, DateTimeFormatter> SQL_TIME_FORMATTERS = new HashMap<>();
+
+    public static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(ISO_LOCAL_DATE)
+                .appendLiteral(' ')
+                .append(ISO_LOCAL_TIME)
+                .toFormatter();
 
     static {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BOOLEAN, SqlTypeName.BOOLEAN);
@@ -106,12 +124,20 @@ public class SqlTestUtils {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.STRING, SqlTypeName.VARCHAR);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BYTE_ARRAY, SqlTypeName.VARBINARY);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.NULL, SqlTypeName.NULL);
-        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.ANY);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.UUID);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.PERIOD, null);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DURATION, null);
 
         for (ColumnType value : ColumnType.values()) {
             assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;
+        }
+
+        for (int i = 0; i <= 9; i++) {
+            if (i == 0) {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss"));
+            } else {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss." + "S".repeat(i)));
+            }
         }
     }
 
@@ -122,10 +148,9 @@ public class SqlTestUtils {
      * @param expectedCode Expected error code of {@link SqlException}.
      * @param expectedMessage Expected error message of {@link SqlException}.
      * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SqlException}.
      */
-    public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
-        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    public static void assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
+        assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
     }
 
     /**
@@ -198,15 +223,6 @@ public class SqlTestUtils {
     public static String toSqlType(ColumnType columnType) {
         SqlTypeName type = COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.get(columnType);
 
-        if (type == SqlTypeName.ANY) {
-            switch (columnType) {
-                case UUID:
-                    return UuidType.NAME;
-                default:
-                    throw new IllegalArgumentException("Unsupported type " + columnType);
-            }
-        }
-
         if (type == null) {
             throw new IllegalArgumentException("Unsupported type " + columnType);
         }
@@ -232,7 +248,7 @@ public class SqlTestUtils {
             precision = ((VarlenNativeType) type).length();
         }
 
-        return generateValueByType(type.spec().asColumnType(), precision, scale);
+        return generateValueByType(type.spec(), precision, scale);
     }
 
     /**
@@ -312,7 +328,7 @@ public class SqlTestUtils {
 
     /**
      * Generate random value for given {@link ColumnType}. For precision and scale will be used maximums precisions and scale in SQL type
-     * system, except for byte arrays and decimals, to decrease generated values.
+     * system, except for strings, byte arrays and decimals, to decrease generated values.
      *
      * @param type SQL type to generate value related to the type.
      * @return Generated value for given SQL type.
@@ -323,7 +339,7 @@ public class SqlTestUtils {
         int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
 
         // To prevent generate too big values.
-        if (type == ColumnType.BYTE_ARRAY || type == ColumnType.DECIMAL) {
+        if (type == ColumnType.STRING || type == ColumnType.BYTE_ARRAY || type == ColumnType.DECIMAL) {
             precision = 7_000;
             scale = precision / 2;
         }
@@ -332,14 +348,14 @@ public class SqlTestUtils {
     }
 
     /**
-     * Generate value for given {@link NativeTypeSpec} based on given base number. Result of invocation always will be the same
+     * Generate value for given {@link ColumnType} based on given base number. Result of invocation always will be the same
      * for the same pair of arguments.
      *
      * @param base Base value to generate result value.
      * @param type Type to generate value.
      * @return Generated value for given type.
      */
-    public static Object generateStableValueByType(int base, NativeTypeSpec type) {
+    public static Object generateStableValueByType(int base, ColumnType type) {
         switch (type) {
             case BOOLEAN:
                 return base % 2 == 0;
@@ -361,7 +377,7 @@ public class SqlTestUtils {
                 return new UUID(base, base);
             case STRING:
                 return "str_" + base;
-            case BYTES:
+            case BYTE_ARRAY:
                 return new byte[]{(byte) base, (byte) (base + 1), (byte) (base + 2)};
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(base);
@@ -369,11 +385,11 @@ public class SqlTestUtils {
                 return LocalTime.of(0, 00, 00).plusSeconds(base);
             case DATETIME:
                 return LocalDateTime.of(
-                        (LocalDate) generateStableValueByType(base, NativeTypeSpec.DATE),
-                        (LocalTime) generateStableValueByType(base, NativeTypeSpec.TIME)
+                        (LocalDate) generateStableValueByType(base, ColumnType.DATE),
+                        (LocalTime) generateStableValueByType(base, ColumnType.TIME)
                 );
             case TIMESTAMP:
-                return ((LocalDateTime) generateStableValueByType(base, NativeTypeSpec.DATETIME))
+                return ((LocalDateTime) generateStableValueByType(base, ColumnType.DATETIME))
                         .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
@@ -388,33 +404,40 @@ public class SqlTestUtils {
      * @param type Type of value to generate literal.
      * @return String representation of value as a SQL literal.
      */
-    public static String makeLiteral(String value, ColumnType type) {
+    public static String makeLiteral(Object value, NativeType type) {
         if (value == null) {
             return "NULL";
         }
 
-        switch (type) {
+        switch (type.spec()) {
             case DECIMAL:
                 return "DECIMAL '" + value + "'";
             case TIME:
-                return "TIME '" + value + "'";
+                LocalTime localTime = (LocalTime) value;
+                TemporalNativeType timeType = (TemporalNativeType) type;
+                return "TIME '" + SQL_TIME_FORMATTERS.get(timeType.precision()).format(localTime) + "'";
             case DATE:
                 return "DATE '" + value + "'";
             case TIMESTAMP:
-                return "TIMESTAMP WITH LOCAL TIME ZONE '" + value + "'";
+                return "TIMESTAMP WITH LOCAL TIME ZONE '" + LocalDateTime.ofInstant(
+                        ((Instant) value),
+                        ZoneId.systemDefault()
+                ).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case STRING:
-                return "'" + value + "'";
+                return "'" + value.toString().replace("'", "''") + "'";
             case DATETIME:
-                return "TIMESTAMP '" + value + "'";
+                return "TIMESTAMP '" + ((LocalDateTime) value).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'";
             case BYTE_ARRAY:
-                return "X'" + StringUtils.toHexString(value.getBytes(StandardCharsets.UTF_8)) + "'";
-            case NULL:
+                assert value instanceof byte[];
+                return "X'" + StringUtils.toHexString((byte[]) value) + "'";
             case UUID:
+                return "UUID '" + value + "'";
+            case NULL:
             case PERIOD:
             case DURATION:
                 throw new IllegalArgumentException("The type " + type + " isn't supported right now");
             default:
-                return value;
+                return value.toString();
         }
     }
 
@@ -442,8 +465,8 @@ public class SqlTestUtils {
         return result;
     }
 
-    /** Generates literal or value expression using specified column type and value. */
-    public static RexNode generateLiteralOrValueExpr(ColumnType type, @Nullable Object value) {
+    /** Generates literal using specified column type and value. */
+    public static RexNode generateLiteral(ColumnType type, @Nullable Object value) {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory typeFactory = Commons.typeFactory();
 
@@ -466,8 +489,12 @@ public class SqlTestUtils {
             case DOUBLE:
                 BigDecimal doubleValue = new BigDecimal(requireNonNull(value).toString());
                 return rexBuilder.makeLiteral(doubleValue, typeFactory.createSqlType(SqlTypeName.DOUBLE));
-            case DECIMAL:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
+            case DECIMAL: {
+                int precision = typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL);
+                int scale = ((BigDecimal) value).scale();
+
+                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale));
+            }
             case DATE:
                 LocalDate localDate = (LocalDate) value;
                 int epochDay = (int) requireNonNull(localDate).toEpochDay();
@@ -489,11 +516,7 @@ public class SqlTestUtils {
 
                 return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(requireNonNull(instant).toEpochMilli()), 6);
             case UUID:
-                RexLiteral uuidStr = rexBuilder.makeLiteral(requireNonNull(value).toString(),
-                        typeFactory.createSqlType(SqlTypeName.VARCHAR));
-                IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
-
-                return rexBuilder.makeCast(uuidType, uuidStr);
+                return rexBuilder.makeUuidLiteral((UUID) value);
             case STRING:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
             case BYTE_ARRAY:
@@ -540,5 +563,87 @@ public class SqlTestUtils {
      */
     public static void executeUpdate(String query, IgniteSql sql) {
         executeUpdate(query, sql, null);
+    }
+
+    /** The action is expected to throw a {@link SqlException} with code {@link Sql#EXECUTION_CANCELLED_ERR}. */
+    public static void expectQueryCancelled(Executable action) {
+        assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                CANCEL_MSG,
+                action
+        );
+    }
+
+    /** The action is expected to throw a {@link QueryCancelledException}. */
+    public static void expectQueryCancelledInternalException(Executable action) {
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrows(
+                QueryCancelledException.class,
+                action,
+                CANCEL_MSG
+        );
+    }
+
+    /**
+     * Waits until the number of running queries matches the specified matcher.
+     *
+     * @param queryProcessor Query processor.
+     * @param matcher Matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    }
+
+    /**
+     * Trims milliseconds of a source temporal-type object to the target precision.
+     *
+     * @param type Source type.
+     * @param source Source temporal object.
+     * @param precision Target precision.
+     * @return Temporal object with the adjusted number of nanoseconds.
+     */
+    public static Temporal adjustTemporalPrecision(ColumnType type, Temporal source, int precision) {
+        switch (type) {
+            case TIME: {
+                LocalTime time = (LocalTime) source;
+
+                return time.withNano(adjustNanos(time.getNano(), precision));
+            }
+
+            case DATETIME: {
+                LocalDateTime dt = (LocalDateTime) source;
+
+                return dt.withNano(adjustNanos(dt.getNano(), precision));
+            }
+
+            case TIMESTAMP: {
+                Instant dt = (Instant) source;
+
+                return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
+            }
+
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
+    }
+
+    /**
+     * Trims number of nanoseconds according to the specified precision.
+     *
+     * <p>Note: the maximum supported precision is 3.
+     *
+     * @param nanos Number of nanoseconds.
+     * @param precision Desired precision.
+     * @return Adjusted number of nanoseconds.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int adjustNanos(int nanos, int precision) {
+        long millis = TimeUnit.NANOSECONDS.toMillis(nanos);
+
+        int d = 3 - Math.min(3, precision);
+        long adjustedMillis = (millis / (long) Math.pow(10, d)) * (long) Math.pow(10, d);
+
+        return (int) TimeUnit.MILLISECONDS.toNanos(adjustedMillis);
     }
 }

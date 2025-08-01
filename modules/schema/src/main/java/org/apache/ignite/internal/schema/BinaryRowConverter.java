@@ -28,6 +28,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -130,7 +131,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID:
                 return builder.appendUuidNotNull((UUID) value);
-            case BYTES:
+            case BYTE_ARRAY:
                 return builder.appendBytesNotNull((byte[]) value);
             case STRING:
                 return builder.appendStringNotNull((String) value);
@@ -142,6 +143,74 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendDateTimeNotNull((LocalDateTime) value);
             case TIMESTAMP:
                 return builder.appendTimestampNotNull((Instant) value);
+            default:
+                break;
+        }
+
+        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec());
+    }
+
+    /**
+     * Helper method that copy column value from given tuple to the binary tuple builder.
+     *
+     * @param delegate Source tuple to copy value from.
+     * @param builder Binary tuple builder to copy value to.
+     * @param element Binary schema element of the source tuple.
+     * @param col Column index in the delegate tuple.
+     */
+    public static void copyColumnValue(InternalTuple delegate, BinaryTupleBuilder builder, Element element, int col) {
+        if (delegate.hasNullValue(col)) {
+            builder.appendNull();
+
+            return;
+        }
+
+        switch (element.typeSpec()) {
+            case BOOLEAN:
+                builder.appendBoolean(delegate.booleanValue(col));
+                return;
+            case INT8:
+                builder.appendByte(delegate.byteValue(col));
+                return;
+            case INT16:
+                builder.appendShort(delegate.shortValue(col));
+                return;
+            case INT32:
+                builder.appendInt(delegate.intValue(col));
+                return;
+            case INT64:
+                builder.appendLong(delegate.longValue(col));
+                return;
+            case FLOAT:
+                builder.appendFloat(delegate.floatValue(col));
+                return;
+            case DOUBLE:
+                builder.appendDouble(delegate.doubleValue(col));
+                return;
+            case DECIMAL:
+                builder.appendDecimalNotNull(delegate.decimalValue(col, element.decimalScale()), element.decimalScale());
+                return;
+            case UUID:
+                builder.appendUuidNotNull(delegate.uuidValue(col));
+                return;
+            case BYTE_ARRAY:
+                builder.appendBytesNotNull(delegate.bytesValue(col));
+                return;
+            case STRING:
+                builder.appendStringNotNull(delegate.stringValue(col));
+                return;
+            case DATE:
+                builder.appendDateNotNull(delegate.dateValue(col));
+                return;
+            case TIME:
+                builder.appendTimeNotNull(delegate.timeValue(col));
+                return;
+            case DATETIME:
+                builder.appendDateTimeNotNull(delegate.dateTimeValue(col));
+                return;
+            case TIMESTAMP:
+                builder.appendTimestampNotNull(delegate.timestampValue(col));
+                return;
             default:
                 break;
         }

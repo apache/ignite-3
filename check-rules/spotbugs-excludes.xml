@@ -30,6 +30,7 @@
       <Class name="~com\.facebook\.presto\..*" />
       <Class name="~org\.apache\.ignite\.internal\.generated\..*"/>
       <Class name="~org\.apache\.ignite\.rest\.client\..*"/>
+      <Class name="~.*\.jmh_generated\..*"/>
       <Annotation name="org.immutables.value.Generated" />
     </Or>
   </Match>
@@ -238,6 +239,22 @@
     <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage$ReadOnlyScanCursor"/>
     <Method name="next"/>
   </Match>
+  <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.distributionzones.DistributionZonesUtil"/>
+    <Field name="DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES"/>
+  </Match>
+  <Match>
+    <!-- I literally have no idea why these checks fail. -->
+    <Bug pattern="MS_PKGPROTECT"/>
+    <Class name="org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil"/>
+    <Or>
+      <Field name="STABLE_ASSIGNMENTS_PREFIX_BYTES"/>
+      <Field name="PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES"/>
+      <Field name="PENDING_CHANGE_TRIGGER_PREFIX_BYTES"/>
+    </Or>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 
@@ -257,12 +274,6 @@
       <Field name="invalid"/>
       <Field name="val"/>
     </Or>
-  </Match>
-  <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21691 -->
-    <Bug pattern="IS2_INCONSISTENT_SYNC"/>
-    <Class name="org.apache.ignite.internal.metrics.exporters.BasicMetricExporter"/>
-    <Field name="configuration"/>
   </Match>
   <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->

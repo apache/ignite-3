@@ -25,8 +25,6 @@
 
 #include "ignite/network/data_buffer.h"
 #include "ignite/network/socket_client.h"
-#include "ignite/network/tcp_range.h"
-#include "ignite/protocol/buffer_adapter.h"
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/writer.h"
 
@@ -347,7 +345,7 @@ private:
      *
      * @return Operation result.
      */
-    void init_socket();
+    [[nodiscard]] sql_result init_socket();
 
     /**
      * Establish connection to ODBC server.

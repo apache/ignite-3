@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,9 +35,11 @@ import org.junit.jupiter.api.Test;
  * Check LIMIT and\or OFFSET commands.
  */
 public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
+    private static final String TABLE_NAME = "test";
+
     @BeforeEach
     void beforeEach() {
-        sql("CREATE TABLE test (pk INT PRIMARY KEY, col0 INT)");
+        sql("CREATE TABLE " + TABLE_NAME + " (pk INT PRIMARY KEY, col0 INT)");
     }
 
     @AfterEach
@@ -46,17 +49,43 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
 
     /** Tests correctness of fetch / offset params. */
     @Test
-    public void testInvalidLimitOffset() {
-        String bigInt = BigDecimal.valueOf(10000000000L).toString();
+    public void testInvalidLimitOffset() throws InterruptedException {
+        BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25283 Remove
+        // In case of empty assignments, SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this, assignments stabilization is needed, otherwise test may fail. Not related to colocation.
+        awaitAssignmentsStabilization(CLUSTER.aliveNode(), TABLE_NAME);
+
+        // cache the plan with concrete type param
+        igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(Long.MAX_VALUE));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + bigInt + " ROWS"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(-1)));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (Object) null));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", moreThanUpperLong));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (double) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (float) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + moreThanUpperLong + " ROWS"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + bigInt + " ROWS ONLY"));
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + moreThanUpperLong + " ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + bigInt));
+                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + moreThanUpperLong));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
@@ -66,19 +95,12 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
                 "Failed to parse query: Encountered \"-\"",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
 
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query: Encountered \"-\"",
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST -1 ROWS ONLY"));
+
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"+\"",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
-
-        // Check with parameters
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1));
-
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
-
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
     }
 
     /**

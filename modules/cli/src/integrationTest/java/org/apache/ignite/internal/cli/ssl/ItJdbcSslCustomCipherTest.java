@@ -22,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Tests for JDBC SSL. */
@@ -36,13 +36,13 @@ public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
         return clientConnectorSslBootstrapConfig(CIPHER1);
     }
 
-    @BeforeEach
-    public void createTable() {
+    @BeforeAll
+    public static void createTable() {
         createAndPopulateTable();
     }
 
-    @AfterEach
-    public void dropTables() {
+    @AfterAll
+    public static void dropTables() {
         dropAllTables();
     }
 
@@ -92,8 +92,8 @@ public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Connection failed"),
-                () -> assertErrOutputContains("Handshake error")
+                () -> assertErrOutputIs("Could not connect to node. Check SSL configuration" + System.lineSeparator()
+                        + "Received fatal alert: protocol_version" + System.lineSeparator())
         );
     }
 }

@@ -20,7 +20,8 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -32,32 +33,34 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +69,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /** Base class for {@link DistributionZoneManager} unit tests. */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    private static final int DELAY_DURATION_MS = 100;
+
     protected static final String ZONE_NAME = "zone1";
 
     protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
@@ -74,7 +79,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected DistributionZoneManager distributionZoneManager;
 
-    SimpleInMemoryKeyValueStorage keyValueStorage;
+    protected SimpleInMemoryKeyValueStorage keyValueStorage;
 
     protected LogicalTopology topology;
 
@@ -82,40 +87,45 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected MetaStorageManager metaStorageManager;
 
-    private final HybridClock clock = new HybridClockImpl();
+    protected final HybridClock clock = new HybridClockImpl();
 
     protected CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
+    @InjectConfiguration("mock.properties." + PARTITION_DISTRIBUTION_RESET_TIMEOUT + " = \"" + IMMEDIATE_TIMER_VALUE + "\"")
+    SystemDistributedConfiguration systemDistributedConfiguration;
+
     @BeforeEach
     void setUp() throws Exception {
         String nodeName = "test";
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage));
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker));
 
-        components.add(metaStorageManager);
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        clusterStateStorage = new TestClusterStateStorage();
+        clusterStateStorage = TestClusterStateStorage.initializedClusterStateStorage();
 
         components.add(clusterStateStorage);
 
-        topology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+        topology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
-        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
-                metaStorageManager.registerRevisionUpdateListener(function::apply);
+        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
-        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager, () -> DELAY_DURATION_MS);
         components.add(catalogManager);
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                IgniteThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
+        );
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
@@ -123,7 +133,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
-                rebalanceScheduler
+                systemDistributedConfiguration,
+                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService))
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
@@ -138,13 +149,20 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         reverse(components);
 
-        closeAll(Stream.concat(
-                components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
-        ));
+        var toCloseList = new ArrayList<AutoCloseable>();
+
+        components.forEach(component -> toCloseList.add(component::beforeNodeStop));
+        toCloseList.add(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()));
+
+        toCloseList.add(() -> metaStorageManager.beforeNodeStop());
+        toCloseList.add(() -> assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
+
+        toCloseList.add(keyValueStorage::close);
+
+        closeAll(toCloseList);
     }
 
-    void startDistributionZoneManager() {
+    protected void startDistributionZoneManager() {
         assertThat(
                 distributionZoneManager.startAsync(new ComponentContext())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
@@ -172,6 +190,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
+            @Nullable ConsistencyMode consistencyMode,
             String storageProfiles
     ) {
         DistributionZonesTestUtil.createZone(
@@ -180,6 +199,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                consistencyMode,
                 storageProfiles
         );
     }
@@ -208,7 +228,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
-        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }

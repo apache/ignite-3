@@ -17,17 +17,19 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startExplicitTx;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.TxManager;
 
 /**
  * Client transaction begin request.
@@ -36,46 +38,46 @@ public class ClientTransactionBeginRequest {
     /**
      * Processes the request.
      *
-     * @param in           Unpacker.
-     * @param out          Packer.
-     * @param transactions Transactions.
-     * @param resources    Resources.
-     * @param metrics      Metrics.
+     * @param in Unpacker.
+     * @param txManager Transactions.
+     * @param resources Resources.
+     * @param metrics Metrics.
      * @return Future.
      */
-    public static @Nullable CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            IgniteTransactionsImpl transactions,
+            TxManager txManager,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics) throws IgniteInternalCheckedException {
-        TransactionOptions options = null;
-        HybridTimestamp observableTs = null;
-
+            ClientHandlerMetricSource metrics,
+            HybridTimestampTracker tsTracker
+    ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
-        if (readOnly) {
-            options = new TransactionOptions().readOnly(true);
+        long timeoutMillis = in.unpackLong();
 
+        HybridTimestamp observableTs = null;
+        if (readOnly) {
             // Timestamp makes sense only for read-only transactions.
             observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         }
 
-        // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = transactions.begin(options, observableTs);
+        InternalTxOptions txOptions = InternalTxOptions.builder()
+                .timeoutMillis(timeoutMillis)
+                .build();
+
+        var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);
 
         if (readOnly) {
-            // For read-only tx, override observable timestamp that we send to the client:
-            // use readTimestamp() instead of now().
-            out.meta(tx.readTimestamp());
+            // Propagate assigned read timestamp to client to enforce serializability on subsequent reads from another node.
+            tsTracker.update(tx.readTimestamp());
         }
 
         try {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
-            out.packLong(resourceId);
-
             metrics.transactionsActiveIncrement();
 
-            return null;
+            return CompletableFuture.completedFuture(out -> {
+                out.packLong(resourceId);
+            });
         } catch (IgniteInternalCheckedException e) {
             tx.rollback();
             throw e;

@@ -14,7 +14,7 @@
 // limitations under the License.
 = Ignite Clients
 
-Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike in Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
 
 Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
 
@@ -22,93 +22,106 @@ Clients do not become a part of the cluster topology, never hold any data, and a
 
 Client connection parameters are controlled by the client connector configuration. By default, Ignite accepts client connections on port 10800. You can change the configuration for the node by using the link:ignite-cli-tool[CLI tool] at any time.
 
-Here is how the client connector configuration looks like:
+In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. Here is what the client connector configuration looks like:
 
 [source, json]
 ----
-"clientConnector": {
-  "port": 10800,
-  "idleTimeout":3000,
-  "sendServerExceptionStackTraceToClient":true,
-  "ssl": {
-    enabled: true,
-    clientAuth: "require",
-    keyStore: {
-      path: "KEYSTORE_PATH",
-      password: "SSL_STORE_PASS"
-    },
-    trustStore: {
-      path: "TRUSTSTORE_PATH",
-      password: "SSL_STORE_PASS"
+{
+  "ignite" : {
+    "clientConnector" : {
+      "connectTimeoutMillis" : 5000,
+      "idleTimeoutMillis" : 0,
+      "listenAddresses" : "",
+      "metricsEnabled" : false,
+      "port" : 10800,
+      "sendServerExceptionStackTraceToClient" : false,
+      "ssl" : {
+        "ciphers" : "",
+        "clientAuth" : "none",
+        "enabled" : false,
+          "keyStore" : {
+            "password" : "********",
+            "path" : "",
+            "type" : "PKCS12"
+        },
+        "trustStore" : {
+          "password" : "********",
+          "path" : "",
+          "type" : "PKCS12"
+        }
+      }
     }
   }
 }
-
 ----
 
-//NOTE: Replace with link to javadoc once it is published.
-
-The table below covers the configuration for client connector:
-
-[cols="1,1,3",opts="header", stripes=none]
+[cols="10%,10%,50%,10%,10%,10%",opts="header", stripes=none]
 |======
-|Property|Default|Description
-
-|connectTimeout|5000| Connection attempt timeout, in milliseconds.
-|idleTimeout|0|How long the client can be idle before the connection is dropped,in milliseconds. By default, there is no limit.
-|metricsEnabled|`false`|Defines if client metrics are collected.
-|port|10800|The port the client connector will be listening to.
-|sendServerExceptionStackTraceToClient|`false` a| 
+|Property|Default|Description|Changeable|Requires Restart|Acceptable Values
+|connectTimeoutMillis|5000| Connection attempt timeout, in milliseconds.| Yes | Yes | 0 - inf
+|idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit (0).| Yes | Yes | 0-2147483647
+|listenAddresses| "" | Address (IP or hostname) to listen on. Listens on all interfaces if empty. | Yes | Yes | Valid IP address or host name
+|metricsEnabled|false|Defines if client metrics are collected. | Yes | Yes | true, false
+|port|10800|The port the client connector will be listening to. | Yes | Yes | 1024-65535
+|sendServerExceptionStackTraceToClient|false a| 
 By default, only the exception message and code are sent back to the client. 
 
-Set this property to `true` to include the full stack trace, which will appear as part of the client-side exception. 
+Set this property to true to include the full stack trace, which will appear as part of the client-side exception. 
 
-NOTE: Not recommended for production: stack trace disclosure is a link:https://owasp.org/www-community/Improper_Error_Handling[security weakness].  
-|ssl.ciphers||The cipher used for SSL communication.
-|ssl.clientAuth||Type of client authentication used by clients. For more information, see link:security/ssl-tls[SSL/TLS].
-|ssl.enabled||Defines if SSL is enabled.
-|ssl.keyStore.password||SSL keystore password.
-|ssl.keyStore.path||Path to the SSL keystore.
-|ssl.keyStore.type|`PKCS12`|The type of SSL keystore used.
-|ssl.trustStore.password||SSL keystore password.
-|ssl.trustStore.path||Path to the SSL keystore.
-|ssl.trustStore.type|`PKCS12`|The type of SSL keystore used.
+NOTE: Not recommended for production: stack trace disclosure is a link:https://owasp.org/www-community/Improper_Error_Handling[security weakness].| Yes | Yes | true, false  
+|ssl.ciphers| "" |List of ciphers to enable, comma-separated. Empty for automatic cipher selection.| Yes | Yes | TLS_AES_256_GCM_SHA384, etc. (standard cipher ids)
+|ssl.clientAuth|none|Whether the SSL client authentication is enabled and whether it is mandatory.| Yes | Yes | none, optional, require
+|ssl.enabled|false|Defines if SSL is enabled.| Yes | Yes | true, false
+|ssl.keyStore.password|********|SSL keystore password.| Yes | Yes | A valid password
+|ssl.keyStore.path| |Path to the SSL keystore.| Yes | Yes | A valid path
+|ssl.keyStore.type|PKCS12|Keystore type.| Yes | Yes | PKCS12, JKS
+|ssl.trustStore.password|********|Truststore password.| Yes | Yes | A valid password
+|ssl.trustStore.path| |Path to the truststore.| Yes | Yes | A valid path
+|ssl.trustStore.type|PKCS12|Truststore type.| Yes | Yes | PKCS12, JKS
 |======
 
 Here is how you can change the parameters:
-
 
 ----
 node config update clientConnector.port=10469
 ----
 
-=== Limitations
+== Client Connection
 
-There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
+When Ignite client is starting (when the `build()` or `buildAsync()` method is called), it tries to connect to all configured endpoints one by one in the specified order, and returns as soon as one connection is established. If the client fails to connect to any nodes, the initialization fails.
 
-- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
-- Fields should be mapped to Ignite types;
-- All fields in user type should either be mapped to Table column or explicitly excluded;
-- All columns from Table should be mapped to some field in the user type;
-- *Java only*: Users should implement Mapper classes for user types for more flexibility;
+Once the client connects to the cluster, it keeps attempting to connect to all other specified nodes in the background, and uses them as failover in case the connection to the primary node is interrupted. Client does not directly connect to nodes not specified in its configuration, but is aware of them through cluster topology and can send indirect write or read requests.
+
+An inactive client sends periodic heartbeat messages to the cluster to confirm that it is still active and running. If no heartbeat messages are received for the duration specified in the `idleTimeoutMillis` configuration, the client will be disconnected. By default, the heartbeat interval is equal to half the idle timeout or 30 seconds, whichever is shorter.
+
 
 == Partition Awareness
 
-In Ignite 3, partition awareness is enabled automatically for all clients.
+As data in the cluster is distributed between the nodes, the client can improve throughput by immediately sending updates and read requests to target nodes holding the data.
 
-Data in the cluster is distributed between the nodes in a balanced manner for scalability and performance reasons. Each cluster node maintains a subset of the data, and the partition distribution map, which is used to determine the node that keeps the primary/backup copy of requested entries.
+image::images/partitionawareness02.png[Partition Awareness]
 
-Partition awareness allows the client to send query requests directly to the node that owns the queried data.
+For each key that needs updating, the client will get the name of the node holding its primary partition and then send an update directly to this node. If there is an active connection to this node, the update will be sent directly to it. Otherwise, the update will be sent to a random node on the list to be redirected to the target node. As such, it is recommended to list all cluster nodes in client configuration to reduce unnecessary network load.
 
-Without partition awareness, an application that is connected to the cluster via a client would execute all queries and operations via a single server node that acts as a proxy for the incoming requests.
-These operations would then be re-routed to the node that stores the data that is being requested.
-This would result in a bottleneck that could prevent the application from scaling linearly.
+NOTE: Partition awareness assumes that the cluster is stable. Client receives information about cluster data assignments in the background, and it may be outdated by the time an update is sent. If it is, nodes will automatically redirect requests to correct nodes until data on the client is updated.
 
-image::images/partitionawareness01.png[Without Partition Awareness]
+== Client Features
+The following table outlines features supported by each client.
 
-Notice how queries must pass through the proxy server node, where they are routed to the correct node.
+:yes: pass:quotes[[.checkmark]#yes#]
 
-With partition awareness in place, the client can directly route queries and operations to the primary nodes that own the data required for the queries.
-This eliminates the bottleneck, allowing the application to scale more easily.
-
-image::images/partitionawareness02.png[With Partition Awareness]
+[%header,format=csv,cols="2,1,1,1"]
+|===
+Feature,Java,.NET,C++
+Record Binary View,{yes},{yes},{yes}
+Key-Value Binary View,{yes},{yes},{yes}
+Record View,{yes},{yes},{yes}
+Key-Value View,{yes},{yes},{yes}
+SQL API,{yes},{yes},{yes}
+Partition Awareness,{yes},{yes},No
+Transactions,{yes},{yes},{yes}
+Compute API,{yes},{yes},{yes}
+Retry Policy,{yes},{yes},No
+Heartbeats,{yes},{yes},No
+Data Streamer,{yes},{yes},No
+|===

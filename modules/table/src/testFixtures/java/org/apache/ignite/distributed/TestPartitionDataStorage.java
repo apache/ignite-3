@@ -20,18 +20,22 @@ package org.apache.ignite.distributed;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
-import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -109,24 +113,38 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
-            int commitPartitionId) throws TxIdMismatchException, StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return configurationConverter.fromBytes(partitionStorage.committedGroupConfiguration());
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        return partitionStorage.abortWrite(rowId);
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        partitionStorage.commitWrite(rowId, timestamp);
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
+        return partitionStorage.abortWrite(rowId, txId);
+    }
+
+    @Override
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
     @Override
@@ -159,26 +177,12 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void updateLease(
-            long leaseStartTime,
-            String primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
-        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+    public void updateLease(LeaseInfo leaseInfo) {
+        partitionStorage.updateLease(leaseInfo);
     }
 
     @Override
-    public long leaseStartTime() {
-        return partitionStorage.leaseStartTime();
-    }
-
-    @Override
-    public String primaryReplicaNodeId() {
-        return partitionStorage.primaryReplicaNodeId();
-    }
-
-    @Override
-    public String primaryReplicaNodeName() {
-        return partitionStorage.primaryReplicaNodeName();
+    public @Nullable LeaseInfo leaseInfo() {
+        return partitionStorage.leaseInfo();
     }
 }

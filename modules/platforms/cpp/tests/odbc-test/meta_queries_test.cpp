@@ -18,7 +18,7 @@
 #include "odbc_connection.h"
 #include "odbc_suite.h"
 
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <gtest/gtest.h>
 
@@ -312,7 +312,7 @@ TEST_F(meta_queries_test, test_get_type_info_all_types) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    constexpr auto TYPES_NUM = 16;
+    constexpr auto TYPES_NUM = 15;
     for (int i = 0; i < TYPES_NUM; ++i) {
         ret = SQLFetch(m_statement);
         EXPECT_EQ(ret, SQL_SUCCESS) << "Index " << i;
@@ -637,7 +637,7 @@ TEST_F(meta_queries_test, get_data_with_select_query) {
     check_single_row_result_set_with_get_data(m_statement);
 }
 
-TEST_F(meta_queries_test, insert_too_long_value_ok) {
+TEST_F(meta_queries_test, insert_too_long_value_fails) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "insert into META_QUERIES_TEST(id, str) "
@@ -690,7 +690,7 @@ TEST_F(meta_queries_test, ddl_tables_meta) {
 TEST_F(meta_queries_test, ddl_tables_meta_table_type_list) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR *type_lists[] = {(SQLCHAR *) "'TABLE'", (SQLCHAR *) "TABLE,VIEW"};
+    SQLCHAR *type_lists[] = {(SQLCHAR *) "TABLE", (SQLCHAR *) "TABLE,VIEW"};
     for (auto &type_list : type_lists) {
         SQLCHAR any[] = "%";
         SQLCHAR table[] = "META_QUERIES_TEST";

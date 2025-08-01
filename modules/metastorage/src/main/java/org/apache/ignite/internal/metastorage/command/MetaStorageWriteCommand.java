@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {
     /** Time on the initiator node. */
+    @Override
     HybridTimestamp initiatorTime();
 
     /**
@@ -37,6 +38,7 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * command is saved into the Raft log (see {@link BeforeApplyHandler#onBeforeApply(Command)}.
      */
     @WithSetter
+    @Override
     @Nullable HybridTimestamp safeTime();
 
     /**

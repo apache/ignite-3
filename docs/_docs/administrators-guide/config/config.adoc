@@ -14,9 +14,9 @@
 // limitations under the License.
 = Cluster and Node Configuration
 
-//NOTE:UPDATE WITH SPECIFIC PARAMS FOR PUBLIC RELEASE
-
 In Ignite 3, configuration is performed by using the link:ignite-cli-tool[CLI utility]. Ignite 3 configuration is stored in HOCON format. You can manage and configure parameters at any point during cluster runtime and during cluster startup.
+
+In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
 
 == Updating Configuration from CLI
 
@@ -33,7 +33,7 @@ You can update the configuration by using the `cluster config update` and `node 
 Updating a single parameter is done by specifying the parameter and assigning it a new value:
 
 ----
-node config update network.shutdownTimeout=20000
+node config update ignite.network.shutdownTimeoutMillis=20000
 ----
 
 ==== Updating Multiple Parameters
@@ -41,7 +41,7 @@ node config update network.shutdownTimeout=20000
 When updating multiple parameters at once, pass the valid HOCON configuration to Ignite. The CLI tool will then parse it and apply all required change at the same time.
 
 ----
-cluster config update "{security.authentication.providers:[{name:basic,password:admin_password,type:basic,username:admin_user,roles:[admin]}],security.authentication.enabled:true}"
+cluster config update "{ignite{security.authentication.providers:[{name:basic,password:admin_password,type:basic,username:admin_user,roles:[admin]}],security.authentication.enabled:true}}"
 ----
 
 == Configuration Files

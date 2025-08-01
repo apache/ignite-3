@@ -18,14 +18,29 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-/** {@link ItMetaStorageMultipleNodesAbstractTest} with {@link RocksDbKeyValueStorage} implementation. */
-public class ItMetaStorageMultipleNodesRocksDbTest extends ItMetaStorageMultipleNodesAbstractTest {
+/** {@link ItMetaStorageMultipleNodesVsStorageTest} with {@link RocksDbKeyValueStorage} implementation. */
+@ExtendWith(ExecutorServiceExtension.class)
+public class ItMetaStorageMultipleNodesRocksDbTest extends ItMetaStorageMultipleNodesVsStorageTest {
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @Override
-    public KeyValueStorage createStorage(String nodeName, Path path) {
-        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"), new NoOpFailureProcessor());
+    public KeyValueStorage createStorage(String nodeName, Path path, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
+        return new RocksDbKeyValueStorage(
+                nodeName,
+                path.resolve("ms"),
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
     }
 }

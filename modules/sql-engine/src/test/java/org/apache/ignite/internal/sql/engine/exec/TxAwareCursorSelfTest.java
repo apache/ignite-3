@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
@@ -58,7 +57,9 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run),
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture(),
+                ex -> {}
         );
 
         int requestRows = 2;
@@ -84,7 +85,9 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run),
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture(),
+                ex -> {}
         );
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
@@ -104,7 +107,9 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 data,
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture(),
+                ex -> {}
         );
         cursor.closeAsync().join();
 
@@ -120,6 +125,8 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit, Mockito.mock(TransactionInflights.class));
+        return new QueryTransactionWrapperImpl(
+                NoOpTransaction.readOnly("TX", false), implicit, Mockito.mock(TransactionalOperationTracker.class)
+        );
     }
 }

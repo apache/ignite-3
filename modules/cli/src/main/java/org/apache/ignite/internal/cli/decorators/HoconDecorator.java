@@ -30,6 +30,8 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
  * Pretty hocon decorator.
  */
 public class HoconDecorator implements Decorator<JsonString, TerminalOutput> {
+    /** Fake root key to circumvent the typesafe.config inability of parsing lists. */
+    private static final String FAKE_ROOT = "fakeRoot";
 
     private final boolean highlight;
 
@@ -42,8 +44,7 @@ public class HoconDecorator implements Decorator<JsonString, TerminalOutput> {
     public TerminalOutput decorate(JsonString json) {
         return () -> {
             try {
-                Config config = ConfigFactory.parseString(json.getValue());
-                String text = config.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
+                String text = prettyPrint(json.getValue());
                 if (text.endsWith("\n")) {
                     // Config renders with the trailing line separator, but we also add a separator in the handleResult.
                     text = text.substring(0, text.length() - 1);
@@ -55,5 +56,22 @@ public class HoconDecorator implements Decorator<JsonString, TerminalOutput> {
                 return json.getValue(); // no-op
             }
         };
+    }
+
+    /**
+     * Parses the JSON or HOCON input string and prints it with HOCON formatting enabled.
+     *
+     * @param jsonString JSON or HOCON input.
+     * @return Formatted HOCON.
+     */
+    static String prettyPrint(String jsonString) {
+        try {
+            Config config = ConfigFactory.parseString(jsonString);
+            return config.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
+        } catch (ConfigException.WrongType e) {
+            // This happens when input is a top-level list. Use fake root object to parse the input and print the value of that object.
+            Config config = ConfigFactory.parseString(FAKE_ROOT + "=" + jsonString);
+            return config.getValue(FAKE_ROOT).render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
+        }
     }
 }

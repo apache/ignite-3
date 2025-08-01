@@ -46,7 +46,11 @@ public interface NodeConfigurationApi {
      *
      * @return the whole node configuration in HOCON format.
      */
-    @Operation(operationId = "getNodeConfiguration", description = "Gets node configuration in HOCON format.")
+    @Operation(
+            operationId = "getNodeConfiguration",
+            summary = "Get node configuration",
+            description = "Gets node configuration in HOCON format."
+    )
     @ApiResponse(responseCode = "200", description = "Full node configuration.",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
     @ApiResponse(responseCode = "500", description = "Internal error.",
@@ -63,8 +67,11 @@ public interface NodeConfigurationApi {
      * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getNodeConfigurationByPath",
-            description = "Gets a configuration of a specific node, in HOCON format.")
+    @Operation(
+            operationId = "getNodeConfigurationByPath",
+            summary = "Get configuration represented by path",
+            description = "Gets a configuration of a specific node, in HOCON format."
+    )
     @ApiResponse(responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
             description = "Returned node configuration.")
@@ -82,12 +89,19 @@ public interface NodeConfigurationApi {
      *
      * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
      */
-    @Operation(operationId = "updateNodeConfiguration", description = "Updates node configuration. "
-            + "New configuration should be provided in HOCON format.")
+    @Operation(
+            operationId = "updateNodeConfiguration",
+            summary = "Update node configuration",
+            description = "Updates node configuration. New configuration should be provided in HOCON format."
+    )
     @ApiResponse(responseCode = "200", description = "Configuration successfully updated.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "405", description = "Configuration is read-only.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "422", description = "Configuration parse/apply error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)

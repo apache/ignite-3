@@ -18,70 +18,31 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Captures the context of a remote job execution. Also provides methods to access the job execution object
- * that is returned to the user. The access is thread safe.
- *
- * @param <T> type of the input of the job.
- * @param <R> type of the result of the job.
+ * Captures the context of a remote job execution.
  */
-class RemoteExecutionContext<T, R> {
-
+class RemoteExecutionContext {
     private final ExecutionOptions executionOptions;
 
     private final List<DeploymentUnit> units;
 
     private final String jobClassName;
 
-    private final T arg;
+    private final ComputeJobDataHolder arg;
 
-    private final AtomicReference<FailSafeJobExecution<R>> jobExecution;
-
-    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, T arg) {
+    RemoteExecutionContext(
+            List<DeploymentUnit> units,
+            String jobClassName,
+            ExecutionOptions executionOptions,
+            @Nullable ComputeJobDataHolder arg
+    ) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
         this.arg = arg;
-        this.jobExecution = new AtomicReference<>(null);
-    }
-
-    /**
-     * Initializes the job execution object that is supposed to be returned to the client. This method can be called only once.
-     *
-     * @param jobExecution the instance of job execution that should be returned to the client.
-     */
-    void initJobExecution(FailSafeJobExecution<R> jobExecution) {
-        if (!this.jobExecution.compareAndSet(null, jobExecution)) {
-            throw new IllegalStateException("Job execution is already initialized.");
-        }
-    }
-
-    /**
-     * Getter to the job execution object that is supposed to be returned to the client.
-     *
-     * @return fail-safe job execution object.
-     */
-    FailSafeJobExecution<R> failSafeJobExecution() {
-        FailSafeJobExecution<R> jobExecution = this.jobExecution.get();
-        if (jobExecution == null) {
-            throw new IllegalStateException("Job execution is not initialized. Call initJobExecution() first.");
-        }
-
-        return jobExecution;
-    }
-
-    /**
-     * Updates the state of the job execution object but does not change the link to the object.
-     * The context holds exactly one link that is returned to the user and mutates its internal state only.
-     *
-     * @param jobExecution the new job execution object (supposed to be a restarted job but in another worker node).
-     */
-    void updateJobExecution(JobExecution<R> jobExecution) {
-        failSafeJobExecution().updateJobExecution(jobExecution);
     }
 
     ExecutionOptions executionOptions() {
@@ -96,7 +57,7 @@ class RemoteExecutionContext<T, R> {
         return jobClassName;
     }
 
-    T arg() {
+    @Nullable ComputeJobDataHolder arg() {
         return arg;
     }
 }

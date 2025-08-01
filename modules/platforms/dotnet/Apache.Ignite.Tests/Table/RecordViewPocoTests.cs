@@ -572,7 +572,7 @@ namespace Apache.Ignite.Tests.Table
             using var deferDropTable = new DisposeAction(
                 () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
-            var table = await Client.Tables.GetTableAsync("TestBigPoco");
+            var table = await Client.Tables.GetTableAsync("TestBigPoco".ToUpperInvariant());
             var pocoView = table!.GetRecordView<Poco2>();
 
             var poco = new Poco2
@@ -622,6 +622,38 @@ namespace Apache.Ignite.Tests.Table
                 Double: 64.64,
                 Uuid: Guid.NewGuid(),
                 Decimal: 123.456m);
+
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = (await pocoView.GetAsync(null, poco)).Value;
+
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+        }
+
+        [Test]
+        public async Task TestAllColumnsPocoBigDecimal()
+        {
+            var pocoView = PocoAllColumnsBigDecimalView;
+
+            var poco = new PocoAllColumnsBigDecimal(
+                Key: 123,
+                Str: "str",
+                Int8: 8,
+                Int16: 16,
+                Int32: 32,
+                Int64: 64,
+                Float: 32.32f,
+                Double: 64.64,
+                Uuid: Guid.NewGuid(),
+                Decimal: new BigDecimal(123456789, 2));
 
             await pocoView.UpsertAsync(null, poco);
 
@@ -836,7 +868,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestToString()
         {
-            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
+            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = PUBLIC.TBL1, Id =", PocoView.ToString());
         }
 
         // ReSharper disable NotAccessedPositionalProperty.Local

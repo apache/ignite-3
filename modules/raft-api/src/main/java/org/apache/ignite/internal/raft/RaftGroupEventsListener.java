@@ -25,15 +25,25 @@ public interface RaftGroupEventsListener {
      * Invoked, when this node is elected as a new leader (if it is the first leader of group ever - will be invoked too).
      *
      * @param term Raft term of the current leader.
+     * @param configurationTerm Term on which the current configuration was applied.
+     * @param configurationIndex Index on which the current configuration was applied.
+     * @param configuration Raft configuration on the moment of leader election.
      */
-    void onLeaderElected(long term);
+    void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration
+    );
 
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
      *
      * @param configuration New Raft group configuration.
+     * @param term Term on which the new configuration was applied.
+     * @param index Index on which the new configuration was applied.
      */
-    default void onNewPeersConfigurationApplied(PeersAndLearners configuration) {}
+    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {}
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.
@@ -47,5 +57,5 @@ public interface RaftGroupEventsListener {
     /**
      * No-op raft group events listener.
      */
-    RaftGroupEventsListener noopLsnr = term -> {};
+    RaftGroupEventsListener noopLsnr = (term, configurationTerm, configurationIndex, configuration) -> {};
 }

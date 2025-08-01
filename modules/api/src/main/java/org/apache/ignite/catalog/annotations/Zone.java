@@ -57,11 +57,18 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
-     * Affinity function.
+     * Quorum size.
      *
-     * @return Affinity function.
+     * @return Quorum size.
      */
-    String affinityFunction() default "";
+    int quorumSize() default -1;
+
+    /**
+     * Distribution algorithm.
+     *
+     * @return Distribution algorithm.
+     */
+    String distributionAlgorithm() default "";
 
     /**
      * Timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -90,4 +97,11 @@ public @interface Zone {
      * @return Nodes filter.
      */
     String filter() default "";
+
+    /**
+     * Consistency mode.
+     *
+     * @return Consistency mode.
+     */
+    String consistencyMode() default "";
 }

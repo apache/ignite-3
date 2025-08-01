@@ -32,10 +32,14 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetTables()
         {
             var tables = (await Client.Tables.GetTablesAsync()).OrderBy(x => x.Name).ToList();
+            var tableNames = tables.Select(x => x.QualifiedName.ObjectName).ToArray();
 
             Assert.GreaterOrEqual(tables.Count, 2);
-            CollectionAssert.Contains(tables.Select(x => x.Name), TableName);
-            CollectionAssert.Contains(tables.Select(x => x.Name), TableAllColumnsName);
+
+            CollectionAssert.Contains(tableNames, TableName);
+            CollectionAssert.Contains(tableNames, TableAllColumnsName);
+
+            Assert.AreEqual(QualifiedName.DefaultSchemaName, tables[0].QualifiedName.SchemaName);
         }
 
         [Test]
@@ -44,7 +48,39 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableName);
 
             Assert.IsNotNull(table);
-            Assert.AreEqual(TableName, table!.Name);
+            Assert.AreEqual(TableName, table!.QualifiedName.ObjectName);
+            Assert.AreEqual(QualifiedName.DefaultSchemaName, table.QualifiedName.SchemaName);
+            Assert.AreEqual(QualifiedName.Parse(TableName), table.QualifiedName);
+        }
+
+        [Test]
+        public async Task TestGetExistingTableQuoted()
+        {
+            var table = await Client.Tables.GetTableAsync("\"PUBLIC\".\"TBL1\"");
+
+            Assert.IsNotNull(table);
+            Assert.AreEqual(TableName, table!.QualifiedName.ObjectName);
+            Assert.AreEqual(QualifiedName.DefaultSchemaName, table.QualifiedName.SchemaName);
+            Assert.AreEqual(QualifiedName.Parse(TableName), table.QualifiedName);
+        }
+
+        [Test]
+        public async Task TestGetTableReturnsActualName()
+        {
+            var table = await Client.Tables.GetTableAsync("tBl1");
+
+            Assert.IsNotNull(table);
+            Assert.AreEqual("PUBLIC.TBL1", table!.Name);
+        }
+
+        [Test]
+        public async Task TestGetTableByQualifiedNameReturnsActualName()
+        {
+            var table = await Client.Tables.GetTableAsync(QualifiedName.Of("public", "tbL1"));
+
+            Assert.IsNotNull(table);
+            Assert.AreEqual("PUBLIC.TBL1", table!.Name);
+            Assert.AreEqual("TBL1", table.QualifiedName.ObjectName);
         }
 
         [Test]
@@ -52,17 +88,24 @@ namespace Apache.Ignite.Tests.Table
         {
             var table = await Client.Tables.GetTableAsync(TableName);
             var table2 = await Client.Tables.GetTableAsync(TableName);
+            var table3 = await Client.Tables.GetTableAsync(QualifiedName.Parse(TableName));
 
             // Tables and views are cached to avoid extra allocations and serializer handler initializations.
             Assert.AreSame(table, table2);
+            Assert.AreSame(table, table3);
+
             Assert.AreSame(table!.RecordBinaryView, table2!.RecordBinaryView);
+            Assert.AreSame(table!.RecordBinaryView, table3!.RecordBinaryView);
+
             Assert.AreSame(table.GetRecordView<Poco>(), table2.GetRecordView<Poco>());
+            Assert.AreSame(table.GetRecordView<Poco>(), table3.GetRecordView<Poco>());
         }
 
         [Test]
         public async Task TestGetNonExistentTableReturnsNull()
         {
-            var table = await Client.Tables.GetTableAsync(Guid.NewGuid().ToString());
+            var tableName = Guid.NewGuid().ToString();
+            var table = await Client.Tables.GetTableAsync($"\"{tableName}\"");
 
             Assert.IsNull(table);
         }
@@ -73,7 +116,7 @@ namespace Apache.Ignite.Tests.Table
             _ = await Client.Tables.GetTablesAsync();
 
             StringAssert.StartsWith("Tables { CachedTables = [ Table { Name = ", Client.Tables.ToString());
-            StringAssert.Contains("{ Name = TBL_STRING, Id = ", Client.Tables.ToString());
+            StringAssert.Contains("{ Name = PUBLIC.TBL_STRING, Id = ", Client.Tables.ToString());
         }
     }
 }

@@ -25,6 +25,7 @@ plugins {
 }
 
 apply from: "$rootDir/buildscripts/generate-version-file.gradle"
+apply from: "$rootDir/buildscripts/utils.gradle"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -37,6 +38,7 @@ import org.gradle.crypto.checksum.Checksum
 configurations {
     dbArtifacts
     defaultsGenerator.extendsFrom(dbArtifacts)
+    dotNetClient
     dbZip {
         canBeConsumed = true
         canBeResolved = false
@@ -53,6 +55,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     dbArtifacts libs.slf4j.jdk14
 
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
@@ -64,7 +67,8 @@ def tokens = [
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
-        ADD_OPENS           : project.addOpens.join(' ')
+        ADD_OPENS           : project.addOpens.join(' '),
+        CONF_FILE           : 'ignite-config.conf',
 ]
 
 def tokensLin = tokens + [
@@ -85,6 +89,7 @@ def zipStartScriptTokensCommon = [
 ]
 
 def zipStartScriptTokensLin = tokensLin + [
+        WORK_DIR            : '${IGNITE_HOME}/work',
         LOG_DIR             : '${IGNITE_HOME}/log',
         LIB_DIR             : '${IGNITE_HOME}/lib',
         CONF_DIR            : '${IGNITE_HOME}/etc',
@@ -92,21 +97,22 @@ def zipStartScriptTokensLin = tokensLin + [
 ]
 
 def zipStartScriptTokensWin = tokensWin + [
+        WORK_DIR        : '%IGNITE_HOME%\\work',
         LOG_DIR         : '%IGNITE_HOME%\\log',
         LIB_DIR         : '%IGNITE_HOME%\\lib',
         CONF_DIR        : '%IGNITE_HOME%\\etc',
         INSTALL_DIR     : '%IGNITE_HOME%',
 ]
 
-task replaceZipScriptVarsCommon(type: Copy) {
-    from "$rootDir/packaging/db/ignite.java.util.logging.properties"
+def replaceZipScriptVarsCommon = tasks.register('replaceZipScriptVarsCommon', Copy) {
+    from 'zip/ignite.java.util.logging.properties'
 
     filter(ReplaceTokens, tokens: zipStartScriptTokensCommon)
 
     into "$buildDir/zip/"
 }
 
-task replaceZipScriptVarsLin(type: Copy) {
+def replaceZipScriptVarsLin = tasks.register('replaceZipScriptVarsLin', Copy) {
     from "$rootDir/packaging/common/linux"
     from 'zip/linux'
 
@@ -115,7 +121,7 @@ task replaceZipScriptVarsLin(type: Copy) {
     into "$buildDir/zip/"
 }
 
-task replaceZipScriptVarsWin(type: Copy) {
+def replaceZipScriptVarsWin = tasks.register('replaceZipScriptVarsWin', Copy) {
     from "$rootDir/packaging/common/windows"
     from 'zip/windows'
 
@@ -124,7 +130,7 @@ task replaceZipScriptVarsWin(type: Copy) {
     into "$buildDir/zip/"
 }
 
-tasks.register('replaceZipScriptVars') {
+def replaceZipScriptVars = tasks.register('replaceZipScriptVars') {
     dependsOn replaceZipScriptVarsCommon
     dependsOn replaceZipScriptVarsLin
     dependsOn replaceZipScriptVarsWin
@@ -179,6 +185,9 @@ distributions {
                 from "$buildDir/zip/${zipStartScriptTokensLin.SETUP_JAVA_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokensWin.BOOTSTRAP_FILE_NAME}"
             }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
+            }
         }
     }
 }
@@ -187,10 +196,8 @@ distZip.dependsOn replaceZipScriptVars
 distTar.dependsOn replaceZipScriptVars
 installDist.dependsOn replaceZipScriptVars
 
-task createChecksums(type: Checksum) {
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+def createChecksums = tasks.register('createChecksums', Checksum) {
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
@@ -200,7 +207,7 @@ artifacts {
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signDbZip', Sign) {
+def signDbZip = tasks.register('signDbZip', Sign) {
     sign configurations.dbZip
 }
 
@@ -210,17 +217,16 @@ def packageTokens = tokens + tokensLin + [
         USERNAME            : 'ignite',
         GROUPNAME           : 'ignite',
         INSTALL_DIR         : '/usr/lib/ignite3db',
-        CONF_DIR            : '/etc/ignite3db',
+        WORK_DIR            : '/var/lib/ignite3db',
         LOG_DIR             : '/var/log/ignite3db',
+        LIB_DIR             : '/usr/lib/ignite3db/lib',
+        CONF_DIR            : '/etc/ignite3db',
         APP_LOG_DIR         : '/var/log/ignite3db',
         PID_DIR             : '/var/run/ignite3db',
-        LIB_DIR             : '/usr/lib/ignite3db/lib',
-        IGNITE_WORK_DIR     : '/var/lib/ignite3db',
-        IGNITE_CONF_FILE    : 'ignite-config.conf'
 ]
 
 
-task replacePackageScriptVars(type: Copy) {
+def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) {
     from 'linux'
     from 'ignite.java.util.logging.properties'
     from "$rootDir/packaging/common/linux"
@@ -261,16 +267,17 @@ ospackage {
     user packageTokens.USERNAME
     packageDescription "This package will install Apache Ignite"
     os LINUX
+    release getCommitNum()
 
     into(packageTokens.CONF_DIR) {
         from("$buildDir/linux/service/vars.env")
         from "$buildDir/linux/ignite.java.util.logging.properties"
         from generateConfigDefaults
-        from createVersionFile
-        from sourceSets.main.resources
 
         fileMode 0660
+        fileType CONFIG | NOREPLACE
 
+        // TODO https://github.com/nebula-plugins/gradle-ospackage-plugin/issues/463
         eachFile {
             def configFile = "${packageTokens.CONF_DIR}/${it.getName()}"
 
@@ -278,6 +285,14 @@ ospackage {
                 configurationFile(configFile)
             }
         }
+    }
+
+    // These are not config files, don't mark them as such so they are overwritten on upgrade
+    into(packageTokens.CONF_DIR) {
+        from createVersionFile
+        from sourceSets.main.resources
+
+        fileMode 0660
     }
 
     into(packageTokens.INSTALL_DIR) {
@@ -293,6 +308,9 @@ ospackage {
             from configurations.dbArtifacts
             from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
             from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
+        }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
         }
     }
 }
@@ -362,5 +380,23 @@ setupBuilder {
         into('lib') {
             from configurations.dbArtifacts
         }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
+        }
+    }
+}
+
+// Disable these tasks as we're using buildDeb/buildRpm tasks from the nebula plugin
+tasks.named('deb') {
+    onlyIf {
+        logger.error("Don't use 'deb' task, use 'buildDeb' instead")
+        return false
+    }
+}
+
+tasks.named('rpm') {
+    onlyIf {
+        logger.error("Don't use 'rpm' task, use buildRpm instead")
+        return false
     }
 }

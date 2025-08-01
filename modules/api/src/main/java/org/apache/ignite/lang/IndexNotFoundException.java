@@ -17,23 +17,25 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
+import static org.apache.ignite.lang.ErrorGroups.Index.INDEX_NOT_FOUND_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Index;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Exception is thrown when the specified index is not found.
+ *
+ * @deprecated No longer used. Use {@link org.apache.ignite.sql.SqlException} with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR} error code.
  */
+@Deprecated
 public class IndexNotFoundException extends IgniteException {
     /**
      * Creates an exception with the given index name.
      *
-     * @param schemaName Schema name.
      * @param indexName Index name.
      */
-    public IndexNotFoundException(String schemaName, String indexName) {
-        super(Index.INDEX_NOT_FOUND_ERR, "Index does not exist [name=" + canonicalName(schemaName, indexName) + ']');
+    public IndexNotFoundException(QualifiedName indexName) {
+        super(INDEX_NOT_FOUND_ERR, "Index does not exist [name=" + indexName.toCanonicalForm() + ']');
     }
 
     /**
@@ -44,7 +46,7 @@ public class IndexNotFoundException extends IgniteException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IndexNotFoundException(UUID traceId, String message, Throwable cause) {
-        super(traceId, Index.INDEX_NOT_FOUND_ERR, message, cause);
+        super(traceId, INDEX_NOT_FOUND_ERR, message, cause);
     }
 
     /**

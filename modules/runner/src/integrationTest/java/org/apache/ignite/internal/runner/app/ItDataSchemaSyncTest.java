@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -32,14 +37,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -47,19 +60,12 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     public static final String TABLE_NAME = "tbl1";
-
-    @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.replication.rpcTimeout: 3000");
-    }
 
     /**
      * Test correctness of schema updates on lagged node.
@@ -108,9 +114,17 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Check that sql query will wait until appropriate schema is not propagated into all nodes.
      */
     @Test
-    public void queryWaitAppropriateSchema() {
+    public void queryWaitAppropriateSchema() throws Exception {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
+
+        if (colocationEnabled()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
+
+            waitForStableAssignments(ignite1, 0);
+        }
 
         createTable(ignite0, TABLE_NAME);
 
@@ -120,11 +134,16 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         node1Inhibitor.startInhibit();
         try {
+            // Have to wait for a small amount of time DEFAULT_DELAY_DURATION_MS
+            // to ensure that all operation timestamps will be greater than the safeTime of the meta storage
+            // and so the operations will require the schema sync.
+            Thread.sleep(DEFAULT_DELAY_DURATION_MS);
+
             createIndexFuture = runAsync(() -> sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)"));
 
             assertThat(
                     runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
-                    willTimeoutIn(1, TimeUnit.SECONDS)
+                    willTimeoutIn(1, SECONDS)
             );
         } finally {
             node1Inhibitor.stopInhibit();
@@ -193,6 +212,18 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testExpectReplicationTimeout() throws Exception {
         Ignite ignite0 = cluster.node(0);
+
+        // Change replication timeout to 3s that will be a reason for ReplicationTimeoutException will be thrown.
+        assertThat(
+                unwrapIgniteImpl(ignite0)
+                        .clusterConfiguration()
+                        .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                        .replication()
+                        .rpcTimeoutMillis()
+                        .update(3000L),
+                willCompleteSuccessfully()
+        );
+
         Ignite ignite1 = cluster.node(1);
 
         createTable(ignite0, TABLE_NAME);
@@ -243,7 +274,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         assertThat(
                 insertFut,
-                willThrow(IgniteException.class, 30, TimeUnit.SECONDS, "Replication is timed out")
+                willThrow(IgniteException.class, 30, SECONDS, "Replication is timed out")
         );
     }
 
@@ -272,5 +303,57 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         assertThat(tableFuture, willCompleteSuccessfully());
 
         return unwrapTableViewInternal(tableFuture.join());
+    }
+
+    private static void setDefaultZoneAutoAdjustScaleUpToImmediate(Ignite ignite0) {
+        IgniteImpl node = unwrapIgniteImpl(ignite0);
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
+
+        setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZone.name());
+    }
+
+    private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {
+        IgniteImpl nodeImpl = unwrapIgniteImpl(node);
+
+        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
+
+        int numberOfPartitions = catalog.zone(zoneId).partitions();
+
+        boolean res = waitForCondition(() -> {
+            var stableAssignmentsAreReady = new AtomicBoolean(true);
+
+            for (int partId = 0; partId < numberOfPartitions; ++partId) {
+                ByteArray key;
+
+                if (colocationEnabled()) {
+                    key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
+                } else {
+                    key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));
+                }
+
+                try {
+                    nodeImpl
+                            .metaStorageManager()
+                            .get(key)
+                            .thenAccept(entry -> {
+                                if (entry != null && !entry.tombstone() && !entry.empty()) {
+                                    Assignments assignments = Assignments.fromBytes(entry.value());
+
+                                    if (assignments.nodes().isEmpty()) {
+                                        stableAssignmentsAreReady.set(false);
+                                    }
+                                }
+                            })
+                            .get(5, SECONDS);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to read stable assignments for the partition [partId=" + partId + ']', e);
+                }
+            }
+
+            return stableAssignmentsAreReady.get();
+        }, 15_000);
+
+        assertTrue(res, "Node should have stable assignments.");
     }
 }

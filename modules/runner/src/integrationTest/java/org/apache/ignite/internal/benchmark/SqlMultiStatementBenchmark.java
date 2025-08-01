@@ -29,15 +29,13 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -360,13 +358,11 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
     /** Executes SQL query/script using internal API. */
     private static class QueryRunner {
-        private final SqlProperties props = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .build();
+        private final SqlProperties props = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
-        private final SqlProperties scriptProps = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
+        private final SqlProperties scriptProps = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL);
 
         private final QueryProcessor queryProcessor;
         private final HybridTimestampTracker observableTimeTracker;
@@ -380,14 +376,14 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(props, observableTimeTracker, null, sql, args).join();
+                    queryProcessor.queryAsync(props, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
 
         Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, sql, args).join();
+                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }

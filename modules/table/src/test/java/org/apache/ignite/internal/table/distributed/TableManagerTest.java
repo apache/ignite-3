@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -34,6 +36,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -46,12 +49,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -61,88 +64,99 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
+import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -150,16 +164,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
-// TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
-@MockitoSettings(strictness = Strictness.LENIENT)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class, FailureManagerExtension.class})
 public class TableManagerTest extends IgniteAbstractTest {
+    private static final long VERIFICATION_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "T1";
 
@@ -180,15 +191,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Zone name. */
     private static final String ZONE_NAME = "zone1";
-
-    /** Topology service. */
-    // TODO: useless field for now https://issues.apache.org/jira/browse/IGNITE-22388
-    @Mock
-    private TopologyService ts;
-
-    /** Raft manager. */
-    @Mock
-    private Loza rm;
 
     /** Replica manager. */
     @Mock
@@ -212,10 +214,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private volatile MvTableStorage mvTableStorage;
 
-    private volatile TxStateTableStorage txStateTableStorage;
+    private volatile TxStateStorage txStateStorage;
 
     /** Revision updater. */
-    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
+    private RevisionListenerRegistry revisionUpdater;
 
     /** Garbage collector configuration. */
     @InjectConfiguration
@@ -226,10 +228,13 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Storage update configuration. */
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
-    private StorageConfiguration storageConfiguration;
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration("mock.storage = {profiles.default = {engine = \"aipersist\"}}")
+    private NodeConfiguration nodeConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -238,11 +243,12 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private SchemaManager sm;
 
+    @Mock
     private DistributionZoneManager distributionZoneManager;
 
     /** Test node. */
     private final ClusterNode node = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            UUID.randomUUID(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
     );
@@ -259,7 +265,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
+    @InjectExecutorService(threadCount = 5, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
     private ExecutorService partitionOperationsExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     private TestLowWatermark lowWatermark;
 
@@ -270,51 +280,29 @@ public class TableManagerTest extends IgniteAbstractTest {
     private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     @BeforeEach
-    void before() throws NodeStoppingException {
+    void before() {
         lowWatermark = new TestLowWatermark();
-        catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        catalogMetastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, catalogMetastore), willCompleteSuccessfully());
+        assertThat(catalogMetastore.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+
+        revisionUpdater = new MetaStorageRevisionListenerRegistry(catalogMetastore);
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
 
-        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
-
-        TopologyService topologyService = mock(TopologyService.class);
-
-        when(clusterService.topologyService()).thenReturn(topologyService);
-        when(topologyService.localMember()).thenReturn(node);
-
-        distributionZoneManager = mock(DistributionZoneManager.class);
-
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
-
-        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
-                .thenReturn(nullCompletedFuture());
-        when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
-        when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
-            Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
-            return startOperation.get();
-        });
-        when(replicaMgr.weakStopReplica(any(), any(), any())).thenAnswer(inv -> {
-            Supplier<CompletableFuture<Void>> stopOperation = inv.getArgument(2);
-            return stopOperation.get();
-        });
 
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();
-
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                5,
-                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
-        );
     }
 
     @AfterEach
@@ -336,9 +324,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> assertThat(
                         stopAsync(componentContext, dsm, sm, indexMetaStorage, catalogManager, catalogMetastore),
                         willCompleteSuccessfully()
-                ),
-                partitionOperationsExecutor == null ? null
-                        : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
+                )
         );
     }
 
@@ -347,8 +333,15 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        if (colocationEnabled()) {
+            mockZoneLockForRead();
+        } else {
+            when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
+
+            when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
+
+            when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
+        }
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -360,21 +353,37 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertEquals(1, tableManager.tables().size());
 
-        assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
+        Table table = tableManager.table(PRECONFIGURED_TABLE_NAME);
+        assertNotNull(table);
+
+        if (colocationEnabled()) {
+            InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
+            assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
+        }
     }
 
     /**
      * Tests create a table through public API.
      *
-     * @throws Exception If failed.
      */
     @Test
     public void testCreateTable() throws Exception {
+        if (colocationEnabled()) {
+            mockZoneLockForRead();
+        } else {
+            mockReplicaServicesExtended();
+        }
+
         Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
+
+        if (colocationEnabled()) {
+            InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
+            assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
+        }
     }
 
     /**
@@ -382,22 +391,33 @@ public class TableManagerTest extends IgniteAbstractTest {
      * 1. the method was interrupted in outer future before invoke calling completion.
      * 2. the method was interrupted in inner metastore's future when the result of invocation had gotten, but after error happens;
      *
-     * @throws Exception if something goes wrong on mocks creation.
      */
     @Test
+    @MuteFailureManagerLogging
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
+        if (colocationEnabled()) {
+            mockZoneLockForRead();
+        } else {
+            mockReplicaServicesExtended();
+        }
+
+        when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
+
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
-        TableManager tableManager = tblManagerFut.join();
+
+        assertThat(tblManagerFut, willCompleteSuccessfully());
+
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager, new NoOpFailureManager());
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
-        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.id())));
+        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
-        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
-                .writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsService
+                .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
 
@@ -406,8 +426,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Boolean> invokeTimeoutFuture = new CompletableFuture<>();
         var innerExceptionMsg = "Inner future is interrupted";
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
-        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
+        writtenAssignmentsFuture =
+                assignmentsService.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
@@ -419,6 +440,16 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testDropTable() throws Exception {
+        if (colocationEnabled()) {
+            when(partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(any(), anyInt())).thenReturn(nullCompletedFuture());
+
+            mockZoneLockForRead();
+        } else {
+            mockReplicaServicesExtended();
+
+            when(msm.removeAll(any())).thenReturn(nullCompletedFuture());
+        }
+
         mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -428,24 +459,35 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
         assertEquals(0, tableManager.tables().size());
 
-        verify(mvTableStorage, atMost(0)).destroy();
-        verify(txStateTableStorage, atMost(0)).destroy();
-        verify(replicaMgr, atMost(0)).stopReplica(any());
+        verify(mvTableStorage, never()).destroy();
+        verify(txStateStorage, never()).destroy();
+        verify(replicaMgr, never()).stopReplica(any());
 
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
-        verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
+        verify(mvTableStorage, timeout(VERIFICATION_TIMEOUT)).destroy();
+        verify(txStateStorage, timeout(VERIFICATION_TIMEOUT)).destroy();
+
+        if (colocationEnabled()) {
+            verify(replicaMgr, never()).stopReplica(any());
+        } else {
+            verify(replicaMgr, timeout(VERIFICATION_TIMEOUT).times(PARTITIONS)).stopReplica(any());
+        }
     }
 
     /**
      * Tests create a table through public API right after another table with the same name was dropped.
      *
-     * @throws Exception If failed.
      */
     @Test
     public void testReCreateTableWithSameName() throws Exception {
+        if (colocationEnabled()) {
+            when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt()))
+                    .thenReturn(completedFuture(1L));
+        } else {
+            mockReplicaServicesExtended();
+        }
+
         mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -459,7 +501,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         dropTable(DYNAMIC_TABLE_NAME);
         createTable(DYNAMIC_TABLE_NAME);
 
-        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+        table = tableManager.tableView(table.qualifiedName());
 
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());
@@ -473,7 +515,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a work of the public API for Table manager {@see org.apache.ignite.table.manager.IgniteTables} when the manager is stopping.
      */
     @Test
-    public void testApiTableManagerOnStop() throws Exception {
+    public void testApiTableManagerOnStop() {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -493,7 +535,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * stopping.
      */
     @Test
-    public void testInternalApiTableManagerOnStop() throws Exception {
+    public void testInternalApiTableManagerOnStop() {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -513,17 +555,12 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest1() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
-        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
-                () -> {
-                    try {
-                        when(rm.stopRaftNodes(any())).thenThrow(NodeStoppingException.class);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(), () -> {});
     }
 
     /**
@@ -533,6 +570,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest2() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -553,6 +592,9 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @MuteFailureManagerLogging
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -573,6 +615,9 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @MuteFailureManagerLogging
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -581,6 +626,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws Exception {
+        mockReplicaServicesExtended();
+
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -604,7 +651,13 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Instantiates a table and prepares Table manager.
      */
     @Test
-    public void testGetTableDuringCreation() {
+    public void testGetTableDuringCreation() throws Exception {
+        if (colocationEnabled()) {
+            mockZoneLockForRead();
+        } else {
+            mockReplicaServicesExtended();
+        }
+
         Phaser phaser = new Phaser(2);
 
         CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() -> {
@@ -641,11 +694,15 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
@@ -657,27 +714,30 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
      *         partition storage is emulated instead.
      */
-    private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
-        when(rm.startRaftGroupService(any(), any(), any(), any()))
-                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+    private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws Exception {
+        if (!colocationEnabled()) {
+            mockReplicaServicesExtended();
+        }
 
-        createZone(1, 1);
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
+                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        var txStateStorage = mock(TxStateStorage.class);
+        when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
+
+        var txStateStorage = mock(TxStatePartitionStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
 
         if (isTxStorageUnderRebalance) {
             // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStatePartitionStorage.REBALANCE_IN_PROGRESS);
         } else {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
-        doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -685,9 +745,11 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(nullCompletedFuture()).when(mvTableStorage).clearPartition(anyInt());
         }, (txStateTableStorage) -> {
-            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreatePartitionStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getPartitionStorage(anyInt());
         });
+
+        createZone(1, 1);
 
         createTable(PRECONFIGURED_TABLE_NAME);
 
@@ -701,27 +763,42 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tableName Table name.
      * @param tblManagerFut Future for table manager.
      * @return Table.
-     * @throws Exception If something went wrong.
      */
-    private TableViewInternal mockManagersAndCreateTable(String tableName, CompletableFuture<TableManager> tblManagerFut) throws Exception {
+    private TableViewInternal mockManagersAndCreateTable(String tableName, CompletableFuture<TableManager> tblManagerFut) {
         return mockManagersAndCreateTableWithDelay(tableName, tblManagerFut, null);
     }
 
     /** Dummy metastore activity mock. */
     private void mockMetastore() {
-        when(msm.prefix(any())).thenReturn(subscriber -> {
-            subscriber.onSubscribe(mock(Subscription.class));
-
-            subscriber.onComplete();
-        });
-
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
-        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
-        when(msm.get(any())).thenReturn(nullCompletedFuture());
-
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
+    }
+
+    private void mockZoneLockForRead() {
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(1L));
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
+    }
+
+    private void mockReplicaServicesExtended() throws Exception {
+        mockReplicaServices();
+
+        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
+                .thenReturn(nullCompletedFuture());
+
+        when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
+            return startOperation.get();
+        });
+    }
+
+    private void mockReplicaServices() throws Exception {
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(clusterService.topologyService()).thenReturn(topologyService);
+        when(topologyService.localMember()).thenReturn(node);
+
+        when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
     }
 
     /**
@@ -731,29 +808,18 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
-     * @throws Exception If something went wrong.
      */
     private TableViewInternal mockManagersAndCreateTableWithDelay(
             String tableName,
             CompletableFuture<TableManager> tblManagerFut,
             @Nullable Phaser phaser
-    ) throws Exception {
-        String consistentId = "node0";
+    ) {
+        if (!colocationEnabled()) {
+            when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
+                    .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
-                UUID.randomUUID().toString(),
-                consistentId,
-                new NetworkAddress("localhost", 47500)
-        ));
-
-        // TODO: should be removed or reworked https://issues.apache.org/jira/browse/IGNITE-22388
-        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
-                    .thenReturn(mock(SchemaDescriptor.class));
+            when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
         }
-
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
-                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -777,7 +843,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createTable(tableName);
 
-        TableViewInternal tbl2 = tableManager.tableView(tableName);
+        TableViewInternal tbl2 = tableManager.tableView(QualifiedName.fromSimple(tableName));
 
         assertNotNull(tbl2);
 
@@ -802,35 +868,51 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TableManager createTableManager(
             CompletableFuture<TableManager> tblManagerFut,
             Consumer<MvTableStorage> tableStorageDecorator,
-            Consumer<TxStateTableStorage> txStateTableStorageDecorator
+            Consumer<TxStateStorage> txStateTableStorageDecorator
     ) {
+        var failureProcessor = new NoOpFailureManager();
+
+        var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                NODE_NAME,
+                workDir.resolve("tx-state"),
+                scheduledExecutor,
+                partitionOperationsExecutor,
+                logSyncer,
+                failureProcessor
+        );
+
+        dsm = createDataStorageManager(configRegistry, workDir);
+
+        sm = new SchemaManager(revisionUpdater, catalogManager);
+
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
                 txConfig,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
                 replicaMgr,
-                null,
-                null,
+                mock(LockManager.class),
+                mock(ReplicaService.class),
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir),
-                workDir,
+                dsm,
+                sharedTxStateStorage,
                 msm,
-                sm = new SchemaManager(revisionUpdater, catalogManager),
+                sm,
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
-                mock(ScheduledExecutorService.class),
-                clock,
+                scheduledExecutor,
+                scheduledExecutor,
                 new TestClockService(clock),
-                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService(), failureProcessor),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
-                new HybridTimestampTracker(),
+                failureProcessor,
+                HybridTimestampTracker.atomicTracker(null),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
@@ -838,7 +920,10 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TransactionInflights.class),
                 indexMetaStorage,
                 logSyncer,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                new SystemPropertiesNodeProperties(),
+                new MinimumRequiredTimeCollectorServiceImpl(),
+                systemDistributedConfiguration
         ) {
 
             @Override
@@ -851,15 +936,33 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(
+            protected TxStateStorage createTxStateTableStorage(
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
-                txStateTableStorageDecorator.accept(txStateTableStorage);
+                txStateTableStorageDecorator.accept(txStateStorage);
 
-                return txStateTableStorage;
+                return txStateStorage;
+            }
+
+            @Override
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return sharedTxStateStorage.startAsync(componentContext)
+                        .thenCompose(unused -> super.startAsync(componentContext));
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+                sharedTxStateStorage.beforeNodeStop();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return super.stopAsync(componentContext)
+                        .thenCompose(unused -> sharedTxStateStorage.stopAsync(componentContext));
             }
         };
 
@@ -876,25 +979,27 @@ public class TableManagerTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath
     ) {
-        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
-        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(storageConfiguration);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 List.of(new PersistentPageMemoryDataStorageModule())
         );
 
+        Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
+                NODE_NAME,
+                mock(MetricManager.class),
+                mockedRegistry,
+                storagePath,
+                null,
+                mock(FailureManager.class),
+                mock(LogSyncer.class),
+                clock,
+                scheduledExecutor
+        );
+
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(
-                        NODE_NAME,
-                        mockedRegistry,
-                        storagePath,
-                        null,
-                        mock(FailureProcessor.class),
-                        mock(LogSyncer.class),
-                        clock
-                ),
-                storageConfiguration
+                storageEngines,
+                ((StorageExtensionConfiguration) nodeConfiguration).storage()
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -922,10 +1027,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void dropTable(String tableName) {
         TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
-    }
-
-    private Collection<CatalogTableDescriptor> allTableDescriptors() {
-        return catalogManager.tables(catalogManager.latestCatalogVersion());
     }
 
     private CompletableFuture<Void> fireDestroyEvent() {

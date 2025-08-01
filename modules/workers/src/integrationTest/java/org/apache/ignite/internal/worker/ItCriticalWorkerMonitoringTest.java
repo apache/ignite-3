@@ -25,18 +25,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
-    private final LogInspector watchdogLogInspector = LogInspector.create(FailureProcessor.class, true);
+    private final LogInspector watchdogLogInspector = LogInspector.create(FailureManager.class, true);
 
     @Override
     protected int initialNodes() {
@@ -53,13 +52,13 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
         CountDownLatch blockageDetectedLatch = new CountDownLatch(1);
 
         watchdogLogInspector.addHandler(
-                event -> matchesWithDotall(event, criticalThreadDetectedRegex("srv-worker-")),
+                event -> matchesWithDotall(event, criticalThreadDetectedRegex("network-worker-")),
                 blockageDetectedLatch::countDown
         );
 
         CountDownLatch unblockLatch = new CountDownLatch(1);
 
-        unwrapIgniteImpl(cluster.node(0)).nettyBootstrapFactory().serverEventLoopGroup().execute(() -> {
+        unwrapIgniteImpl(cluster.node(0)).nettyBootstrapFactory().workerEventLoopGroup().execute(() -> {
             try {
                 unblockLatch.await(10, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
@@ -121,7 +120,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
     private static SnapshotMetaResponse snapshotMetaResponse() {
         return new PartitionReplicationMessagesFactory().snapshotMetaResponse()
-                .meta(new RaftMessagesFactory().snapshotMeta().build())
+                .meta(new PartitionReplicationMessagesFactory().partitionSnapshotMeta().build())
                 .build();
     }
 }

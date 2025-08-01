@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -28,6 +29,7 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -37,10 +39,10 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
-import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -82,27 +84,33 @@ public class NettyServer {
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped;
 
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
+    private final @Nullable SslContext sslContext;
+
     /**
      * Constructor.
      *
-     * @param configuration         Server configuration.
-     * @param handshakeManager      Handshake manager supplier.
-     * @param messageListener       Message listener.
-     * @param serializationService  Serialization service.
-     * @param bootstrapFactory      Netty bootstrap factory.
+     * @param configuration Server configuration.
+     * @param handshakeManager Handshake manager supplier.
+     * @param messageListener Message listener.
+     * @param serializationService Serialization service.
+     * @param bootstrapFactory Netty bootstrap factory.
+     * @param sslContext Server SSL context, {@code null} if SSL is not {@link SslConfigurationSchema#enabled}.
      */
     public NettyServer(
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<InNetworkObject> messageListener,
             SerializationService serializationService,
-            NettyBootstrapFactory bootstrapFactory
+            NettyBootstrapFactory bootstrapFactory,
+            @Nullable SslContext sslContext
     ) {
         this.configuration = configuration;
         this.handshakeManager = handshakeManager;
         this.messageListener = messageListener;
         this.serializationService = serializationService;
         this.bootstrapFactory = bootstrapFactory;
+        this.sslContext = sslContext;
     }
 
     /**
@@ -113,17 +121,16 @@ public class NettyServer {
     public CompletableFuture<Void> start() {
         synchronized (startStopLock) {
             if (stopped) {
-                throw new IgniteInternalException("Attempted to start an already stopped server");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already stopped server");
             }
 
             if (serverStartFuture != null) {
-                throw new IgniteInternalException("Attempted to start an already started server");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already started server");
             }
 
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
             bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
-                        /** {@inheritDoc} */
                         @Override
                         public void initChannel(SocketChannel ch) {
                             var sessionSerializationService = new PerSessionSerializationService(serializationService);
@@ -131,8 +138,7 @@ public class NettyServer {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
-                            if (configuration.ssl().enabled()) {
-                                SslContext sslContext = SslContextProvider.createServerSslContext(configuration.ssl());
+                            if (sslContext != null) {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener, sslContext);
                             } else {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
@@ -141,11 +147,21 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
-            String address = configuration.listenAddress();
+            String[] addresses = configuration.listenAddresses();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
+            ChannelFuture channelFuture;
+            if (addresses.length == 0) {
+                channelFuture = bootstrap.bind(port);
+            } else {
+                if (addresses.length > 1) {
+                    // TODO: IGNITE-22369 - support more than one listen address.
+                    throw new IgniteException(INTERNAL_ERR, "Only one listen address is allowed for now, but got " + List.of(addresses));
+                }
+
+                channelFuture = bootstrap.bind(addresses[0], port);
+            }
 
             channelFuture.addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
@@ -153,10 +169,9 @@ public class NettyServer {
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    String errorMessage = address.isEmpty()
-                            ? "Port " + port + " is not available."
-                            : String.format("Address %s:%d is not available", address, port);
-                    bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
+                    String address = addresses.length == 0 ? "" : addresses[0];
+                    String errorMessage = "Cannot start server at address=" + address + ", port=" + port;
+                    bindFuture.completeExceptionally(new IgniteException(BIND_ERR, errorMessage, future.cause()));
                 }
             });
 
@@ -185,7 +200,7 @@ public class NettyServer {
     }
 
     /**
-     * Returns gets the local address of the server.
+     * Returns address to which the server is bound (might be an 'any local'/wildcard address if bound to all interfaces).
      *
      * @return Gets the local address of the server.
      */
@@ -210,14 +225,15 @@ public class NettyServer {
                 return nullCompletedFuture();
             }
 
-            var serverCloseFuture0 = serverCloseFuture;
-
             return serverStartFuture.handle((unused, throwable) -> {
-                if (channel != null) {
-                    channel.close();
-                }
+                synchronized (startStopLock) {
+                    ServerChannel localChannel = channel;
+                    if (localChannel != null) {
+                        localChannel.close();
+                    }
 
-                return serverCloseFuture0 == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture0;
+                    return serverCloseFuture == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture;
+                }
             }).thenCompose(Function.identity());
         }
     }

@@ -32,11 +32,27 @@ public interface ClockService {
     HybridTimestamp now();
 
     /**
+     * Gets a current timestamp. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
+     * This timestamp is not unique, and equal to or less than that value is returned by {@link this#now()}.
+     *
+     * @return The hybrid timestamp.
+     */
+    HybridTimestamp current();
+
+    /**
      * Creates a timestamp for new event.
      *
      * @return The hybrid timestamp as long.
      */
     long nowLong();
+
+    /**
+     * Gets a current timestamp as long. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
+     * This timestamp is not unique, and equal to or less than that value is returned by {@link this#nowLong()}.
+     *
+     * @return The hybrid timestamp.
+     */
+    long currentLong();
 
     /**
      * Advances the clock in accordance with the request time. If the request time is ahead of the clock,
@@ -63,7 +79,7 @@ public interface ClockService {
     long maxClockSkewMillis();
 
     /**
-     * Defines whether this timestamp is strictly before the given one, taking the clock skew into account.
+     * Defines whether the first timestamp is strictly before the another one, taking the clock skew into account.
      *
      * @param firstTimestamp First timestamp.
      * @param anotherTimestamp Another timestamp.

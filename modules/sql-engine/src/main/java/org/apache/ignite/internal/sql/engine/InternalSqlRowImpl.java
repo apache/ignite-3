@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.function.BiFunction;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
     private final RowT row;
     private final RowHandler<RowT> rowHandler;
-    private final BiFunction<Integer, Object, Object> internalTypeConverter;
+    private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
     /**
      * Constructor.
@@ -40,7 +39,7 @@ public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
      * @param rowHandler Handler to deserialize given row.
      * @param internalTypeConverter Function to convert internal representation of column value into external type.
      */
-    public InternalSqlRowImpl(RowT row, RowHandler<RowT> rowHandler, BiFunction<Integer, Object, Object> internalTypeConverter) {
+    public InternalSqlRowImpl(RowT row, RowHandler<RowT> rowHandler, SchemaAwareConverter<Object, Object> internalTypeConverter) {
         this.row = row;
         this.rowHandler = rowHandler;
         this.internalTypeConverter = internalTypeConverter;
@@ -50,7 +49,7 @@ public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
     @Override
     public @Nullable Object get(int idx) {
         Object res = rowHandler.get(idx, row);
-        return internalTypeConverter.apply(idx, res);
+        return internalTypeConverter.convert(idx, res);
     }
 
     /** {@inheritDoc} */

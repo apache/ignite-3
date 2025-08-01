@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.service;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -66,7 +67,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -126,7 +127,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, LOG));
 
         initialMemberConf = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
@@ -279,12 +280,12 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         logStorageFactories.remove(stopIdx);
         // Create a snapshot of the raft group
-        service.snapshot(service.leader()).get();
+        service.snapshot(service.leader(), false).get();
 
         afterFollowerStop(service, toStop, stopIdx);
 
         // Create another raft snapshot
-        service.snapshot(service.leader()).get();
+        service.snapshot(service.leader(), false).get();
 
         if (testData.deleteFolder) {
             // Delete a stopped node's raft directory and key-value storage directory
@@ -461,8 +462,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 createListener(service, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
-                        .setLogStorageFactory(logStorageFactories.get(idx))
-                        .serverDataPath(workingDirs.get(idx).metaPath())
+                        .setLogStorageFactory(partitionsLogStorageFactory)
+                        .serverDataPath(componentWorkDir.metaPath())
         );
 
         return server;
@@ -498,13 +499,19 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
-        CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor, commandsMarshaller);
+        RaftGroupService client = RaftGroupServiceImpl.start(
+                groupId,
+                clientNode,
+                FACTORY,
+                raftConfiguration,
+                initialMemberConf,
+                executor,
+                commandsMarshaller,
+                throttlingContextHolder()
+        );
 
-        assertThat(clientFuture, willCompleteSuccessfully());
+        clients.add(client);
 
-        clients.add(clientFuture.join());
-
-        return clientFuture.join();
+        return client;
     }
 }

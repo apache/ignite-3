@@ -46,8 +46,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
-import org.apache.calcite.sql.validate.SqlValidatorImpl;
-import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.sql2rel.InitializerContext;
@@ -235,6 +233,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         int numLevel1Exprs = 0;
         List<RexNode> level1InsertExprs = null;
         List<RexNode> level2InsertExprs = null;
+        boolean needRepairProject = false;
         if (insertCall != null) {
             RelNode insertRel = convertInsert(insertCall);
 
@@ -266,11 +265,19 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
             if (!input.getInputs().isEmpty() && input.getInput(0) instanceof LogicalProject) {
                 level2InsertExprs = ((LogicalProject) input.getInput(0)).getProjects();
             }
+
+            // If source rel contains project, then we expect at least 3 nested projects,
+            // otherwise it means source rel project was merged unexpectedly and project must be repaired.
+            needRepairProject = ((LogicalJoin) mergeSourceRel.getInput(0)).getLeft() instanceof LogicalProject
+                    && (input.getInputs().isEmpty()
+                    || !(input.getInput(0) instanceof LogicalProject)
+                    || input.getInput(0).getInputs().isEmpty()
+                    || !(input.getInput(0).getInput(0) instanceof LogicalProject));
         }
 
         LogicalJoin join = (LogicalJoin) mergeSourceRel.getInput(0);
 
-        final List<RexNode> projects = new ArrayList<>();
+        List<RexNode> projects = new ArrayList<>();
 
         for (int level1Idx = 0; level1Idx < numLevel1Exprs; level1Idx++) {
             requireNonNull(level1InsertExprs, "level1InsertExprs");
@@ -283,6 +290,14 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
                 projects.add(level1InsertExprs.get(level1Idx));
             }
         }
+
+        // It is possible the method `convertInsert` merge projections (e.g. due to RelBuilder.Config.withBloat)
+        // In that case, we should recover project on top of source project (mergeSourceRel left branch) to get correct input refs.
+        // Most likely, we should disable bloat, but the `relBuilder` is out of our control, due parent private field visibility.
+        if (needRepairProject) {
+            projects = repairProject(join, projects);
+        }
+
         if (updateCall != null) {
             final LogicalProject project = (LogicalProject) mergeSourceRel;
             projects.addAll(project.getProjects());
@@ -303,44 +318,31 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
                 targetColumnNameList, null, false);
     }
 
-    // =========================================================
-    // =                  BEGIN OF COPY-PASTE                  =
-    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22755 remove this section
+    /**
+     * This is a dirty hack to fix merged InsertCall projection.
+     */
+    private List<RexNode> repairProject(LogicalJoin join, List<RexNode> actual) {
+        if (!(join.getLeft() instanceof LogicalProject)) {
+            return actual;
+        }
 
-    // Section below is copy-pasted from original SqlToRelConverter.
-    // The only difference is that invocations of requireNonNull()
-    // replaced with similar one but accepting lamda instead of
-    // plain string.
+        List<RexNode> original = ((LogicalProject) join.getLeft()).getProjects();
+
+        ArrayList<RexNode> recovered = new ArrayList<>(actual.size());
+        for (RexNode rexNode : actual) {
+            int index = original.indexOf(rexNode);
+            if (index == -1) {
+                recovered.add(rexNode);
+            } else {
+                recovered.add(rexBuilder.makeInputRef(rexNode.getType(), index));
+            }
+        }
+
+        return recovered;
+    }
+
     @Override
     public RelOptTable getTargetTable(SqlNode call) {
-        final SqlValidatorNamespace targetNs = getNamespace(call);
-        SqlValidatorNamespace namespace;
-        if (targetNs.isWrapperFor(SqlValidatorImpl.DmlNamespace.class)) {
-            namespace = targetNs.unwrap(SqlValidatorImpl.DmlNamespace.class);
-        } else {
-            namespace = targetNs.resolve();
-        }
-        RelOptTable table = SqlValidatorUtil.getRelOptTable(namespace, catalogReader, null, null);
-        return requireNonNull(table, () -> "no table found for " + call);
+        return super.getTargetTable(call);
     }
-
-    private <T extends SqlValidatorNamespace> T getNamespace(SqlNode node) {
-        //noinspection unchecked
-        return (T) requireNonNull(
-                getNamespaceOrNull(node),
-                () -> "Namespace is not found for " + node);
-    }
-
-    private <T extends SqlValidatorNamespace> @Nullable T getNamespaceOrNull(SqlNode node) {
-        return (@Nullable T) validator().getNamespace(node);
-    }
-
-    private SqlValidator validator() {
-        return requireNonNull(validator, "validator");
-    }
-
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    // =                  END OF COPY-PASTE                    =
-    // =========================================================
 }

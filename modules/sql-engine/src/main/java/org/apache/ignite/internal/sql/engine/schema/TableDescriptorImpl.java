@@ -33,12 +33,13 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,6 +58,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     private final RelDataType rowType;
     private final RelDataType rowTypeSansHidden;
 
+    private final boolean hasHiddenColumns;
+    private final boolean hasVirtualColumns;
+
     /**
      * Constructor.
      *
@@ -72,6 +76,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
         RelDataTypeFactory.Builder typeSansHiddenBuilder = new RelDataTypeFactory.Builder(factory);
 
+        boolean hasHiddenColumns = false;
+        boolean hasVirtualColumns = false;
         for (ColumnDescriptor descriptor : columnDescriptors) {
             RelDataType columnType = deriveLogicalType(factory, descriptor);
 
@@ -79,6 +85,12 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
             if (!descriptor.hidden()) {
                 typeSansHiddenBuilder.add(descriptor.name(), columnType);
+            } else {
+                hasHiddenColumns = true;
+            }
+
+            if (descriptor.virtual()) {
+                hasVirtualColumns = true;
             }
 
             descriptorsMap.put(descriptor.name(), descriptor);
@@ -88,6 +100,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         this.descriptorsMap = descriptorsMap;
         this.rowType = typeBuilder.build();
         this.rowTypeSansHidden = typeSansHiddenBuilder.build();
+        this.hasHiddenColumns = hasHiddenColumns;
+        this.hasVirtualColumns = hasVirtualColumns;
     }
 
     @Override
@@ -127,13 +141,14 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeNullLiteral(fieldType);
             }
             case DEFAULT_CONSTANT: {
-                Class<?> storageType = Commons.nativeTypeToClass(descriptor.physicalType());
+                NativeType nativeType = descriptor.physicalType();
                 Object defaultVal = descriptor.defaultValue();
-                Object internalValue = TypeUtils.toInternal(defaultVal, storageType);
+                Object internalValue = defaultVal == null ? defaultVal : TypeUtils.toInternal(defaultVal, nativeType.spec());
                 RelDataType relDataType = deriveLogicalType(rexBuilder.getTypeFactory(), descriptor);
 
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
+
             case DEFAULT_COMPUTED: {
                 if (descriptor.virtual()) {
                     return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);
@@ -150,8 +165,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns) {
-        if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
+    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableIntList usedColumns) {
+        if (usedColumns == null) {
             return rowType;
         } else {
             Builder builder = new Builder(factory);
@@ -186,6 +201,16 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     @Override
     public int columnsCount() {
         return descriptors.length;
+    }
+
+    @Override
+    public boolean hasHiddenColumns() {
+        return hasHiddenColumns;
+    }
+
+    @Override
+    public boolean hasVirtualColumns() {
+        return hasVirtualColumns;
     }
 
     private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {

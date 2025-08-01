@@ -35,6 +35,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -223,6 +224,26 @@ public class ClientMessagePackerUnpackerTest {
 
                 assertEquals(-2, unpacker.tryUnpackInt(-2));
                 assertEquals("s", unpacker.unpackString());
+            }
+        }
+    }
+
+
+    @Test
+    public void testQualifiedName() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packQualifiedName(QualifiedName.of("S", "T"));
+            packer.packQualifiedName(QualifiedName.of("A", "B"));
+
+            var buf = packer.getBuffer();
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValues(4);
+
+                assertEquals(QualifiedName.of("S", "T"), unpacker.unpackQualifiedName());
+                assertEquals(QualifiedName.of("A", "B"), unpacker.unpackQualifiedName());
             }
         }
     }

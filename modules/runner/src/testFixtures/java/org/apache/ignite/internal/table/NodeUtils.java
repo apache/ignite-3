@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -101,23 +103,30 @@ public class NodeUtils {
                 .filter(n -> n.id().equals(currentLeaseholder.getLeaseholderId()))
                 .findFirst().orElseThrow();
 
-        Predicate<String> filter = preferablePrimaryFilter == null ? name -> true : preferablePrimaryFilter::test;
+        Predicate<String> filter = preferablePrimaryFilter == null ? name -> true : preferablePrimaryFilter;
 
-        String finalPreferablePrimary = nodes.stream()
+        String[] candidates = nodes.stream()
                 .map(IgniteImpl::name)
                 .filter(n -> !n.equals(currentLeaseholder.getLeaseholder()) && filter.test(n))
-                .findFirst()
-                .orElseThrow();
+                .toArray(String[]::new);
 
-        LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].", groupId, leaseholderNode.name(),
-                finalPreferablePrimary);
+        assert candidates.length > 0 : "No candidates found for primary replica transfer in group " + groupId;
+
+        AtomicInteger candidateIdx = new AtomicInteger();
+
+        String[] preferablePrimary = new String[1];
 
         ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];
         boolean[] stopLeaseNeeded = { true };
 
         boolean success = waitForCondition(() -> {
             if (stopLeaseNeeded[0]) {
-                stopLeaseProlongation(nodes, leaseholderNode, groupId, finalPreferablePrimary);
+                preferablePrimary[0] = candidates[candidateIdx.getAndIncrement() % candidates.length];
+
+                LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].",
+                        groupId, leaseholderNode.name(), preferablePrimary[0]);
+
+                stopLeaseProlongation(nodes, leaseholderNode, groupId, preferablePrimary[0]);
             }
 
             ReplicaMeta previousPrimary = newPrimaryReplica[0] == null ? currentLeaseholder : newPrimaryReplica[0];
@@ -127,24 +136,37 @@ public class NodeUtils {
             // If the lease is changed to not suitable one, then stopLeaseProlongation will be retried, otherwise the cycle will be stopped.
             stopLeaseNeeded[0] =
                     !previousPrimary.getStartTime().equals(newPrimaryReplica[0].getStartTime())                // if lease changed
-                    || !previousPrimary.getExpirationTime().equals(newPrimaryReplica[0].getExpirationTime());  // if lease prolonged
+                            || !previousPrimary.getExpirationTime().equals(newPrimaryReplica[0].getExpirationTime());  // if lease prolonged
 
-            return newPrimaryReplica[0].getLeaseholder().equals(finalPreferablePrimary);
+            return Arrays.stream(candidates).anyMatch(x -> x.equals(newPrimaryReplica[0].getLeaseholder()));
         }, 30_000);
 
         if (success) {
-            LOG.info("Primary replica moved successfully from [{}] to [{}].", currentLeaseholder.getLeaseholder(), finalPreferablePrimary);
+            LOG.info("Primary replica moved successfully from [{}] to [{}].", currentLeaseholder.getLeaseholder(), preferablePrimary[0]);
         } else {
             LOG.info("Moving the primary replica failed [groupId={}, actualPrimary={}].", groupId, newPrimaryReplica[0]);
         }
 
-        assertTrue(success);
+        assertTrue(success, "Failed to transfer primary replica from " + currentLeaseholder.getLeaseholder()
+                + " to " + preferablePrimary[0] + " in group " + groupId);
 
-        return finalPreferablePrimary;
+        return preferablePrimary[0];
     }
 
-    private static void stopLeaseProlongation(Collection<IgniteImpl> nodes, IgniteImpl leaseholderNode, ReplicationGroupId groupId,
-            String preferablePrimary) {
+    /**
+     * Stops lease prolongation for the given replication group.
+     *
+     * @param nodes Cluster nodes.
+     * @param leaseholderNode Current Lease holder.
+     * @param groupId Replication group id.
+     * @param preferablePrimary Preferable primary.
+     */
+    public static void stopLeaseProlongation(
+            Collection<IgniteImpl> nodes,
+            IgniteImpl leaseholderNode,
+            ReplicationGroupId groupId,
+            @Nullable String preferablePrimary
+    ) {
         StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                 .groupId(groupId)
                 .redirectProposal(preferablePrimary)
@@ -155,7 +177,14 @@ public class NodeUtils {
         );
     }
 
-    private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
+    /**
+     * Returns a replica meta information for the given replication group.
+     *
+     * @param node Ignite node to be used for getting a meta.
+     * @param groupId Replication group id.
+     * @return Replica meta.
+     */
+    public static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
         CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplica(
                 groupId,
                 node.clock().now(),

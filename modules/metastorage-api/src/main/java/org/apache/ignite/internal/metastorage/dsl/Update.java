@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -27,7 +27,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(MetaStorageMessageGroup.UPDATE)
 public interface Update extends NetworkMessage {
     /** Operations. */
-    Collection<Operation> operations();
+    List<Operation> operations();
 
     /** Result. */
     StatementResult result();

@@ -18,15 +18,20 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNodeSerializer;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,6 +43,8 @@ public class ClusterStateStorageManager {
 
     /** Prefix for validation tokens. */
     private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
+
+    private static final byte[] METASTORAGE_REPAIRING_CONFIG_INDEX_KEY = "metastorageRepairingConfigIndex".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
 
@@ -54,7 +61,7 @@ public class ClusterStateStorageManager {
     public ClusterState getClusterState() {
         byte[] value = storage.get(CMG_STATE_KEY);
 
-        return value == null ? null : fromBytes(value);
+        return value == null ? null : VersionedSerialization.fromBytes(value, ClusterStatePersistentSerializer.INSTANCE);
     }
 
     /**
@@ -63,7 +70,7 @@ public class ClusterStateStorageManager {
      * @param state Cluster state.
      */
     public void putClusterState(ClusterState state) {
-        storage.put(CMG_STATE_KEY, toBytes(state));
+        storage.put(CMG_STATE_KEY, VersionedSerialization.toBytes(state, ClusterStatePersistentSerializer.INSTANCE));
     }
 
     /**
@@ -79,7 +86,7 @@ public class ClusterStateStorageManager {
      * Marks the given node as validated.
      */
     void putValidatedNode(LogicalNode node) {
-        storage.put(validatedNodeKey(node.id()), toBytes(node));
+        storage.put(validatedNodeKey(node.id()), VersionedSerialization.toBytes(node, LogicalNodeSerializer.INSTANCE));
     }
 
     /**
@@ -89,8 +96,8 @@ public class ClusterStateStorageManager {
         storage.remove(validatedNodeKey(node.id()));
     }
 
-    private static byte[] validatedNodeKey(String nodeId) {
-        byte[] nodeIdBytes = nodeId.getBytes(UTF_8);
+    private static byte[] validatedNodeKey(UUID nodeId) {
+        byte[] nodeIdBytes = uuidToBytes(nodeId);
 
         return ByteBuffer.allocate(VALIDATED_NODE_PREFIX.length + nodeIdBytes.length)
                 .put(VALIDATED_NODE_PREFIX)
@@ -102,7 +109,25 @@ public class ClusterStateStorageManager {
      * Returns a collection of nodes that passed the validation but have not yet joined the logical topology.
      */
     List<LogicalNode> getValidatedNodes() {
-        return storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
+        return storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> VersionedSerialization.fromBytes(v, LogicalNodeSerializer.INSTANCE));
+    }
+
+    /**
+     * Saves information about Metastorage repair.
+     *
+     * @param repairingConfigIndex Raft index in the Metastorage group under which the forced configuration is (or will be) saved.
+     */
+    void saveMetastorageRepairInfo(long repairingConfigIndex) {
+        storage.put(METASTORAGE_REPAIRING_CONFIG_INDEX_KEY, longToBytes(repairingConfigIndex));
+    }
+
+    /**
+     * Returns Raft index in the Metastorage group under which the forced configuration is (or will be) saved, or {@code null} if no MG
+     * repair happened in the current cluster incarnation.
+     */
+    @Nullable Long getMetastorageRepairingConfigIndex() {
+        byte[] bytes = storage.get(METASTORAGE_REPAIRING_CONFIG_INDEX_KEY);
+        return bytes == null ? null : bytesToLong(bytes);
     }
 
     /**

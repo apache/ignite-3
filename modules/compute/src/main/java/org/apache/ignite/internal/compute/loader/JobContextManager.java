@@ -83,11 +83,13 @@ public class JobContextManager {
      * @return The class loader.
      */
     public CompletableFuture<JobContext> acquireClassLoader(List<DeploymentUnit> units) {
-        return normalizeVersions(units)
+        CompletableFuture<JobContext> loaderFut = normalizeVersions(units)
                 .thenCompose(normalizedUnits -> checkUnitStatuses(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
-                .thenApply(loader -> new JobContext(loader, this::releaseClassLoader))
+                .thenApply(loader -> new JobContext(loader, this::releaseClassLoader));
+
+        CompletableFuture<JobContext> contextFut = loaderFut
                 .whenComplete((context, error) -> {
                     if (error != null) {
                         LOG.error("Failed to acquire class loader for units: " + units, error);
@@ -95,6 +97,16 @@ public class JobContextManager {
                         LOG.debug("Acquired class loader for units: " + units);
                     }
                 });
+
+        // The context future is returned to the caller and can be cancelled. It should be the only reason it fails while the loader future
+        // completes. We need to close the context in any case. The successful path should be handled in the caller. We can't handle it
+        // there because we don't have the access to the context if the future failed.
+        contextFut.exceptionally(e -> {
+            loaderFut.thenAccept(JobContext::close);
+            return null;
+        });
+
+        return contextFut;
     }
 
     /**

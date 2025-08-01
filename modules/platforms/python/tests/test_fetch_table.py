@@ -14,21 +14,10 @@
 # limitations under the License.
 import pytest
 
+from tests.conftest import TEST_PAGE_SIZE
+from tests.util import create_and_populate_test_table, check_row
+
 TEST_ROWS_NUM = 15
-
-
-def create_and_populate_test_table(cursor, rows_num, table_name):
-    cursor.execute(f'drop table if exists {table_name}')
-    cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
-    for i in range(rows_num):
-        cursor.execute(f"insert into {table_name} values ({i}, 'Value-{i * 2}', {i / 2.0})")
-
-
-def check_row(i, row):
-    assert len(row) == 3
-    assert row[0] == i
-    assert row[1] == f'Value-{i * 2}'
-    assert row[2] == pytest.approx(i / 2.0)
 
 
 def test_fetchone_table_empty(table_name, cursor, drop_table_cleanup):
@@ -57,7 +46,8 @@ def test_fetchmany_table_empty(table_name, cursor, drop_table_cleanup):
     cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
     cursor.execute(f"select col1, id from {table_name}")
     end = cursor.fetchmany(size=10)
-    assert end is None
+    assert end is not None
+    assert len(end) == 0
 
 
 def test_fetchmany_table_many_rows(table_name, cursor, drop_table_cleanup):
@@ -90,7 +80,8 @@ def test_fetchall_table_empty(table_name, cursor, drop_table_cleanup):
     cursor.execute(f'create table {table_name}(id int primary key, col1 varchar)')
     cursor.execute(f"select col1, id from {table_name}")
     end = cursor.fetchall()
-    assert end is None
+    assert end is not None
+    assert len(end) == 0
 
 
 def test_fetchall_table_many_rows(table_name, cursor, drop_table_cleanup):
@@ -114,18 +105,26 @@ def test_fetch_mixed_table_many_rows(table_name, cursor, drop_table_cleanup):
     cursor.arraysize = 4
     cursor.execute(f"select id, data, fl from {table_name} order by id")
 
+    assert cursor.rownumber == 0
+
     rows0_3 = cursor.fetchmany()
     assert len(rows0_3) == 4
     for i in range(4):
         check_row(i, rows0_3[i])
 
+    assert cursor.rownumber == 4
+
     row4 = cursor.fetchone()
     check_row(4, row4)
+
+    assert cursor.rownumber == 5
 
     rows_remaining = cursor.fetchall()
     assert len(rows_remaining) == TEST_ROWS_NUM - 5
     for i in range(TEST_ROWS_NUM - 5):
         check_row(i + 5, rows_remaining[i])
+
+    assert cursor.rownumber is None
 
     end = cursor.fetchone()
     assert end is None
@@ -152,6 +151,37 @@ def test_insert_arguments_fetchone(table_name, cursor, drop_table_cleanup):
 
     row = cursor.fetchone()
     check_row(3, row)
+
+    end = cursor.fetchone()
+    assert end is None
+
+
+def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
+    create_and_populate_test_table(cursor, TEST_ROWS_NUM, table_name)
+
+    cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+    for i, row in enumerate(cursor):
+        check_row(i, row)
+
+
+@pytest.mark.parametrize("rows_num", [
+    TEST_PAGE_SIZE - 1,
+    TEST_PAGE_SIZE,
+    TEST_PAGE_SIZE + 1,
+    TEST_PAGE_SIZE * 2,
+    TEST_PAGE_SIZE * 2 + 1,
+    8000,
+])
+def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup, rows_num):
+    create_and_populate_test_table(cursor, rows_num, table_name, 1000)
+
+    cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+    rows_all = cursor.fetchall()
+    assert len(rows_all) == rows_num
+    for i in range(rows_num):
+        check_row(i, rows_all[i])
 
     end = cursor.fetchone()
     assert end is None

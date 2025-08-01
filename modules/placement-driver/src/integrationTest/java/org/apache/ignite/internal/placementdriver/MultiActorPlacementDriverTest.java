@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -32,19 +33,23 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -53,11 +58,12 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -79,7 +85,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -102,7 +109,10 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private MetaStorageConfiguration metaStorageConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private List<String> placementDriverNodeNames;
 
@@ -236,7 +246,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
-            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(new HashSet<>(placementDriverNodeNames)));
+            Set<String> metaStorageNodes = Set.copyOf(placementDriverNodeNames);
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(metaStorageNodes));
+            when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                    new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(metaStorageNodes).build()
+            ));
+            configureCmgManagerToStartMetastorage(cmgManager);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -267,7 +282,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     eventsClientListener
             );
 
-            var storage = new SimpleInMemoryKeyValueStorage(nodeName);
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            var storage = new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
 
             ClockService clockService = new TestClockService(nodeClock);
 
@@ -288,8 +305,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    msRaftConfigurer
+                    systemDistributedConfiguration,
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             if (this.metaStorageManager == null) {
@@ -305,7 +323,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    clockService
+                    clockService,
+                    mock(FailureProcessor.class),
+                    new SystemPropertiesNodeProperties(),
+                    replicationConfiguration,
+                    Runnable::run,
+                    mock(MetricManager.class)
             );
 
             res.add(new Node(
@@ -326,7 +349,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseCreate() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
@@ -343,7 +366,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
@@ -363,7 +386,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -416,7 +439,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             }
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        PartitionGroupId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -439,7 +462,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart = createTableAssignment();
+        PartitionGroupId grpPart = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart, true);
 
@@ -491,7 +514,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitNewLeaseholder(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitNewLeaseholder(PartitionGroupId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -525,7 +548,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitForProlong(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitForProlong(PartitionGroupId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -570,7 +593,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
+    private Lease checkLeaseCreated(PartitionGroupId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
@@ -603,7 +626,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      *
      * @return Replication group id.
      */
-    private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
+    private PartitionGroupId createTableAssignment() {
+        return createAssignments(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
     }
 }

@@ -188,7 +188,7 @@ public class ClientSchema {
      *
      * @return Colocation columns.
      */
-    ClientColumn[] colocationColumns() {
+    public ClientColumn[] colocationColumns() {
         return colocationColumns;
     }
 
@@ -215,11 +215,11 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    @Nullable ClientColumn columnSafe(String name) {
+    public @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
-    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
@@ -235,9 +235,9 @@ public class ClientSchema {
             case KEY:
                 return marshallers.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
             case VAL:
-                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, false, allowUnmappedFields);
             case KEY_AND_VAL:
-                return marshallers.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getRowMarshaller(marshallerSchema(), mapper, false, allowUnmappedFields);
             default:
                 throw new AssertionError("Unexpected tuple part: " + part);
         }

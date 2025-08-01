@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for binary comparison, when operands belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for binary comparison, when operands belongs to the NUMERIC type family.
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which operand.
  */
@@ -557,7 +557,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 < c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -570,7 +570,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 <= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -583,7 +583,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 > c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 < c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c2 > c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -595,7 +595,7 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 <= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 >= c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
         assertPlan("SELECT c2 >= c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 

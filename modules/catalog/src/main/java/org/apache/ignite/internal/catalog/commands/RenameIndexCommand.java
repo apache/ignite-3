@@ -19,13 +19,14 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.index;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.storage.RenameIndexEntry;
@@ -55,20 +56,23 @@ public class RenameIndexCommand extends AbstractIndexCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifIndexExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogIndexDescriptor index = indexOrThrow(schema, indexName);
+        CatalogIndexDescriptor index = index(schema, indexName, !ifIndexExists);
+        if (index == null) {
+            return List.of();
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newIndexName);
 
         return List.of(
                 new RenameIndexEntry(index.id(), newIndexName)
         );
-    }
-
-    public boolean ifIndexExists() {
-        return ifIndexExists;
     }
 
     private static class Builder implements RenameIndexCommandBuilder {

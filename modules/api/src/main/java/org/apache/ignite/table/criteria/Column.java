@@ -17,7 +17,7 @@
 
 package org.apache.ignite.table.criteria;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -33,7 +33,7 @@ public final class Column implements Criteria {
      * @param name A column name.
      */
     Column(String name) {
-        this.name = parseSimpleName(name);
+        this.name = parseIdentifier(name);
     }
 
     /**

@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.hlc.benchmarks;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -43,8 +46,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 @Warmup(iterations = 5, time = 2)
 @Measurement(iterations = 10, time = 2)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.SECONDS)
 public class HybridClockBenchmark {
     /** Clock to benchmark. */
     private HybridClock clock;
@@ -75,9 +78,35 @@ public class HybridClockBenchmark {
         hybridClockNow();
     }
 
+    @Benchmark
+    @Threads(1)
+    public void hybridClockUpdateSingleThread() {
+        hybridClockUpdate();
+    }
+
+    @Benchmark
+    @Threads(5)
+    public void hybridClockUpdateFiveThreads() {
+        hybridClockUpdate();
+    }
+
+    @Benchmark
+    @Threads(10)
+    public void hybridClockUpdateTenThreads() {
+        hybridClockUpdate();
+    }
+
     private void hybridClockNow() {
         for (int i = 0; i < 1000; i++) {
             clock.now();
+        }
+    }
+
+    private void hybridClockUpdate() {
+        for (int i = 0; i < 1000; i++) {
+            long ts = ((System.currentTimeMillis() + (i % 2 == 0 ? 5 : -5)) << LOGICAL_TIME_BITS_SIZE) + (i % 10);
+
+            clock.update(HybridTimestamp.hybridTimestamp(ts));
         }
     }
 

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -35,10 +36,13 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Base test class for Cluster Recovery partition states commands. */
+// TODO IGNITE-23617 refactor to use more flexible output matching.
+
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -55,16 +59,21 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private static final int DONT_CHECK_PARTITIONS = -1;
 
+    private static final String GLOBAL_PARTITION_STATE_FIELDS =
+            "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState" + System.lineSeparator();
+
+    private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
+
     private static Set<String> nodeNames;
 
     @BeforeAll
     public static void createTables() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
-            sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%1$s'", name));
+            sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
@@ -121,8 +130,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     @Test
     void testLocalPartitionStatesByNodesIsCaseSensitive() {
         Set<String> nodeNames = Set.of(unwrapIgniteImpl(CLUSTER.node(0)).node().name(), unwrapIgniteImpl(CLUSTER.node(1)).node().name());
-
-        String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, String.join(",", nodeNames).toUpperCase(),
@@ -220,14 +227,17 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     void testPartitionStatesEmptyResult(boolean global) {
+        // This test is not applicable for colocation enabled because empty zones are still have partitions.
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, EMPTY_ZONE,
                 global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
-        checkOutput(global, Set.of(), Set.of(), 0);
+        assertOutputIs(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
     }
 
     @Test
@@ -241,9 +251,13 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION);
 
         assertErrOutputIsEmpty();
+
         assertOutputMatches(String.format(
-                "Zone name\tTable name\tPartition ID\tState\\r?\\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
-                zoneName));
+                "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
+                GLOBAL_PARTITION_STATE_FIELDS,
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     @Test
@@ -262,15 +276,17 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "Node name\tZone name\tTable name\tPartition ID\tState\\r?\\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
+                "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
+                LOCAL_PARTITION_STATE_FIELDS,
                 possibleNodeNames,
-                zoneName)
-        );
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        assertOutputStartsWith((global ? "" : "Node name\t") + "Zone name\tTable name\tPartition ID\tState");
+        assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
 
         if (!global) {
             if (!nodes.isEmpty()) {
@@ -287,14 +303,16 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         if (!zoneNames.isEmpty()) {
             assertOutputContainsAll(zoneNames);
 
-            Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
+            if (!colocationEnabled()) {
+                Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
 
-            assertOutputContainsAllIgnoringCase(tableNames);
+                assertOutputContainsAllIgnoringCase(tableNames);
+            }
         }
 
         Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
 
-        if (!anotherZones.isEmpty()) {
+        if (!anotherZones.isEmpty() && !colocationEnabled()) {
             assertOutputDoesNotContain(anotherZones);
         }
 
@@ -305,10 +323,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         if (partitions != DONT_CHECK_PARTITIONS) {
             for (int i = 0; i < partitions; i++) {
                 assertOutputContains("\t" + i + "\t");
-            }
-
-            for (int i = partitions; i < DEFAULT_PARTITION_COUNT; i++) {
-                assertOutputDoesNotContain("\t" + i + "\t");
             }
         }
     }

@@ -20,9 +20,6 @@ package org.apache.ignite.internal.util.worker;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
-import static org.apache.ignite.internal.util.worker.IgniteWorkerTest.TestWorkerListener.ON_IDLE;
-import static org.apache.ignite.internal.util.worker.IgniteWorkerTest.TestWorkerListener.ON_STARTED;
-import static org.apache.ignite.internal.util.worker.IgniteWorkerTest.TestWorkerListener.ON_STOPPED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -31,7 +28,6 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,7 +51,7 @@ public class IgniteWorkerTest {
 
     @Test
     void testNewIgniteWorker() {
-        IgniteWorker worker = new NoopWorker(log, null);
+        IgniteWorker worker = new NoopWorker(log);
 
         assertEquals("testNode", worker.igniteInstanceName());
         assertEquals("testWorker", worker.name());
@@ -71,7 +66,7 @@ public class IgniteWorkerTest {
 
     @Test
     void testBlockingSelection() {
-        IgniteWorker worker = new NoopWorker(log, null);
+        IgniteWorker worker = new NoopWorker(log);
 
         long currentTimeMillis = coarseCurrentTimeMillis();
 
@@ -100,7 +95,7 @@ public class IgniteWorkerTest {
 
     @Test
     void testUpdateHeartbeat() throws Exception {
-        IgniteWorker worker = new NoopWorker(log, null);
+        IgniteWorker worker = new NoopWorker(log);
 
         assertEquals(0, worker.heartbeat());
 
@@ -122,47 +117,10 @@ public class IgniteWorkerTest {
     }
 
     @Test
-    void testIdle() {
-        List<String> events = new ArrayList<>();
-
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener);
-
-        worker.onIdle();
-
-        assertThat(events, equalTo(List.of(ON_IDLE)));
-    }
-
-    @Test
     void testRun() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events) {
-            /** {@inheritDoc} */
-            @Override
-            public void onStarted(IgniteWorker worker) {
-                super.onStarted(worker);
-
-                assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
-                assertSame(Thread.currentThread(), worker.runner());
-                assertFalse(worker.isCancelled());
-                assertFalse(worker.isDone());
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public void onStopped(IgniteWorker worker) {
-                super.onStopped(worker);
-
-                assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
-                assertSame(Thread.currentThread(), worker.runner());
-                assertFalse(worker.isCancelled());
-                assertTrue(worker.isDone());
-            }
-        };
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void cleanup() {
@@ -172,7 +130,7 @@ public class IgniteWorkerTest {
 
         worker.run();
 
-        assertThat(events, equalTo(List.of(ON_STARTED, CLEANUP, ON_STOPPED)));
+        assertThat(events, equalTo(List.of(CLEANUP)));
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
         assertNull(worker.runner());
@@ -184,9 +142,7 @@ public class IgniteWorkerTest {
     void testInterruptFromBody() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void body() throws InterruptedException {
@@ -204,7 +160,7 @@ public class IgniteWorkerTest {
 
         worker.run();
 
-        assertThat(listener.events, equalTo(List.of(ON_STARTED, CLEANUP, ON_STOPPED)));
+        assertThat(events, equalTo(List.of(CLEANUP)));
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
         assertNull(worker.runner());
@@ -217,9 +173,7 @@ public class IgniteWorkerTest {
     void testExceptionFromBody() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void body() {
@@ -235,7 +189,7 @@ public class IgniteWorkerTest {
 
         worker.run();
 
-        assertThat(listener.events, equalTo(List.of(ON_STARTED, CLEANUP, ON_STOPPED)));
+        assertThat(events, equalTo(List.of(CLEANUP)));
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
         assertNull(worker.runner());
@@ -247,9 +201,7 @@ public class IgniteWorkerTest {
     void testErrorFromBody() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void body() {
@@ -265,7 +217,7 @@ public class IgniteWorkerTest {
 
         assertThrows(Error.class, worker::run);
 
-        assertThat(listener.events, equalTo(List.of(ON_STARTED, CLEANUP, ON_STOPPED)));
+        assertThat(events, equalTo(List.of(CLEANUP)));
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
         assertNull(worker.runner());
@@ -277,9 +229,7 @@ public class IgniteWorkerTest {
     void testCancelWorker() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void body() {
@@ -309,7 +259,7 @@ public class IgniteWorkerTest {
 
         worker.run();
 
-        assertThat(listener.events, equalTo(List.of(ON_STARTED, "firstCancel=true", "firstCancel=false", CLEANUP, ON_STOPPED)));
+        assertThat(events, equalTo(List.of("firstCancel=true", "firstCancel=false", CLEANUP)));
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
         assertNull(worker.runner());
@@ -322,9 +272,7 @@ public class IgniteWorkerTest {
     void testCancelBeforeStartWorker() {
         List<String> events = new ArrayList<>();
 
-        TestWorkerListener listener = new TestWorkerListener(events);
-
-        IgniteWorker worker = new NoopWorker(log, listener) {
+        IgniteWorker worker = new NoopWorker(log) {
             /** {@inheritDoc} */
             @Override
             protected void cleanup() {
@@ -357,8 +305,8 @@ public class IgniteWorkerTest {
         worker.run();
 
         assertThat(
-                listener.events,
-                equalTo(List.of("firstCancel=true", "onCancelledBeforeWorkerScheduled", ON_STARTED, CLEANUP, ON_STOPPED))
+                events,
+                equalTo(List.of("firstCancel=true", "onCancelledBeforeWorkerScheduled", CLEANUP))
         );
 
         assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
@@ -375,7 +323,7 @@ public class IgniteWorkerTest {
         CountDownLatch startLatch = new CountDownLatch(2);
 
         try {
-            IgniteWorker worker = new NoopWorker(log, null) {
+            IgniteWorker worker = new NoopWorker(log) {
                 /** {@inheritDoc} */
                 @Override
                 protected void body() throws InterruptedException {
@@ -416,55 +364,14 @@ public class IgniteWorkerTest {
          * Constructor.
          *
          * @param log Logger.
-         * @param listener Listener for life-cycle events.
          */
-        protected NoopWorker(IgniteLogger log, @Nullable IgniteWorkerListener listener) {
-            super(log, "testNode", "testWorker", listener);
+        protected NoopWorker(IgniteLogger log) {
+            super(log, "testNode", "testWorker");
         }
 
         /** {@inheritDoc} */
         @Override
         protected void body() throws InterruptedException {
-        }
-    }
-
-    /**
-     * Test listener implementation that simply collects events.
-     */
-    static class TestWorkerListener implements IgniteWorkerListener {
-        static final String ON_STARTED = "onStarted";
-
-        static final String ON_STOPPED = "onStopped";
-
-        static final String ON_IDLE = "onIdle";
-
-        final List<String> events;
-
-        /**
-         * Constructor.
-         *
-         * @param events For recording events.
-         */
-        private TestWorkerListener(List<String> events) {
-            this.events = events;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onStarted(IgniteWorker worker) {
-            events.add(ON_STARTED);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onStopped(IgniteWorker worker) {
-            events.add(ON_STOPPED);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onIdle(IgniteWorker worker) {
-            events.add(ON_IDLE);
         }
     }
 }

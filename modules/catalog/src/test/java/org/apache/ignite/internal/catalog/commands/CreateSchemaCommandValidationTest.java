@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -28,6 +29,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link CreateSchemaCommand}.
  */
+@SuppressWarnings({"ThrowableNotThrown"})
 public class CreateSchemaCommandValidationTest extends AbstractCommandValidationTest {
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
@@ -52,9 +54,11 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' already exists"
         );
+
+        builder.ifNotExists(true).build().get(new UpdateContext(catalog));
     }
 
     private static Catalog catalogWithSchema(String schemaName) {

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.message;
 import static org.apache.ignite.internal.network.NetworkMessageTypes.CLUSTER_NODE_MESSAGE;
 
 import java.io.Serializable;
+import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -32,7 +33,7 @@ import org.apache.ignite.network.NetworkAddress;
 @Transferable(CLUSTER_NODE_MESSAGE)
 public interface ClusterNodeMessage extends NetworkMessage, Serializable {
     /** Node ID. */
-    String id();
+    UUID id();
 
     /** Node name, aka consistent ID. */
     String name();

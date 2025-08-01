@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
 import static org.apache.ignite.table.criteria.Criteria.greaterThan;
@@ -76,7 +76,6 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -89,7 +88,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "tbl";
 
     /** Table with quoted name. */
-    private static final String QUOTED_TABLE_NAME = quote("TaBleName");
+    private static final String QUOTED_TABLE_NAME = quoteIfNeeded("TaBleName");
+
+    private static final String COLUMN_NAME = "colUmn";
+
+    private static final String QUOTED_COLUMN_NAME = quoteIfNeeded(COLUMN_NAME);
 
     private static IgniteClient CLIENT;
 
@@ -101,10 +104,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
     /** {@inheritDoc} */
     @BeforeAll
-    @Override
-    protected void beforeAll(TestInfo testInfo) {
-        super.beforeAll(testInfo);
-
+    void beforeAll() {
         CLIENT = IgniteClient.builder()
                 .addresses("127.0.0.1:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port()).build();
 
@@ -118,11 +118,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 new Object[]{2, "name2", 20.0d, "hash2".getBytes()}
         );
 
-        sql(format("CREATE TABLE {} (id INT PRIMARY KEY, \"colUmn\" VARCHAR)", QUOTED_TABLE_NAME));
+        sql(format("CREATE TABLE {} (id INT PRIMARY KEY, {} VARCHAR)", QUOTED_TABLE_NAME, QUOTED_COLUMN_NAME));
 
         insertData(
                 QUOTED_TABLE_NAME,
-                List.of("id", quote("colUmn")),
+                List.of("id", QUOTED_COLUMN_NAME),
                 new Object[]{0, "name0"},
                 new Object[]{1, "name1"},
                 new Object[]{2, "name2"}
@@ -164,10 +164,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
 
         try (Cursor<T> cur = view.query(null, columnValue("id", equalTo(2)))) {
-            assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
-        }
-
-        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
         }
 
@@ -272,13 +268,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(3),
                     hasEntry(personKey0, person0),
                     hasEntry(personKey1, person1),
-                    hasEntry(personKey2, person2)
-            ));
-        }
-
-        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
-            assertThat(mapToTupleMap(cur, mapper), allOf(
-                    aMapWithSize(1),
                     hasEntry(personKey2, person2)
             ));
         }
@@ -472,11 +461,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         Table clientTable = CLIENT.tables().table(QUOTED_TABLE_NAME);
 
         Mapper<QuotedObject> recMapper = Mapper.builder(QuotedObject.class)
-                .map("colUmn", quote("colUmn"))
+                .map(COLUMN_NAME, QUOTED_COLUMN_NAME)
                 .automap()
                 .build();
 
-        Function<QuotedObject, Tuple> objMapper = (obj) -> Tuple.create(Map.of("id", obj.id, quote("colUmn"), obj.colUmn));
+        Function<QuotedObject, Tuple> objMapper = (obj) -> Tuple.create(Map.of("id", obj.id, QUOTED_COLUMN_NAME, obj.colUmn));
 
         return Stream.of(
                 Arguments.of(table.recordView(), identity()),
@@ -489,9 +478,9 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testRecordViewWithQuotes(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
-        try (Cursor<T> cur = view.query(null, columnValue(quote("colUmn"), equalTo("name1")))) {
+        try (Cursor<T> cur = view.query(null, columnValue(QUOTED_COLUMN_NAME, equalTo("name1")))) {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(
-                    allOf(tupleValue("id", is(1)), tupleValue(quote("colUmn"), is("name1")))
+                    allOf(tupleValue("id", is(1)), tupleValue(QUOTED_COLUMN_NAME, is("name1")))
             ));
         }
     }
@@ -502,11 +491,11 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
         Mapper<QuotedObjectKey> keyMapper = Mapper.of(QuotedObjectKey.class);
         Mapper<QuotedObject> valMapper = Mapper.builder(QuotedObject.class)
-                .map("colUmn", quote("colUmn"))
+                .map(COLUMN_NAME, QUOTED_COLUMN_NAME)
                 .build();
 
         Function<Entry<QuotedObjectKey, QuotedObject>, Entry<Tuple, Tuple>> kvMapper = (entry) ->
-                new IgniteBiTuple<>(Tuple.create(Map.of("id", entry.getKey().id)), Tuple.create(Map.of(quote("colUmn"),
+                new IgniteBiTuple<>(Tuple.create(Map.of("id", entry.getKey().id)), Tuple.create(Map.of(QUOTED_COLUMN_NAME,
                         entry.getValue().colUmn)));
 
         return Stream.of(
@@ -520,10 +509,10 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testKeyViewWithQuotes(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
-        try (Cursor<T> cur = view.query(null, columnValue(quote("colUmn"), equalTo("name1")))) {
+        try (Cursor<T> cur = view.query(null, columnValue(QUOTED_COLUMN_NAME, equalTo("name1")))) {
             assertThat(mapToTupleMap(cur, mapper), allOf(
                     aMapWithSize(1),
-                    hasEntry(tupleValue("id", is(1)), tupleValue(quote("colUmn"), is("name1")))
+                    hasEntry(tupleValue("id", is(1)), tupleValue(QUOTED_COLUMN_NAME, is("name1")))
             ));
         }
     }

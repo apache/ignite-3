@@ -23,11 +23,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collections;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -35,11 +32,11 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
@@ -94,17 +91,17 @@ class DestinationFactory<RowT> {
                     return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
                 }
 
-                if (function.affinity()) {
+                if (distribution.isTableDistribution()) {
                     assert !nullOrEmpty(group.assignments());
 
-                    int tableId = ((AffinityDistribution) function).tableId();
+                    int tableId = distribution.tableId();
                     Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
                     var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
-                    Map<Integer, String> partToNode = group.assignments().int2ObjectEntrySet().stream()
-                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().name()));
+                    Int2ObjectMap<String> partToNode = group.assignments().int2ObjectEntrySet().stream()
+                            .collect(CollectionUtils.toIntMapCollector(Int2ObjectMap.Entry::getIntKey, e -> e.getValue().name()));
 
                     return new Partitioned<>(partToNode, resolver);
                 }

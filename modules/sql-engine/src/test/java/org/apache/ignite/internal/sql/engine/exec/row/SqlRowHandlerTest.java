@@ -42,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -98,46 +97,6 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         }
     }
 
-    @ParameterizedTest(name = "{0} - {1}")
-    @MethodSource("concatTestArguments")
-    public void testConcat(boolean leftTupleRequired, boolean rightTupleRequired) {
-        ConcatTestParameters params = new ConcatTestParameters(leftTupleRequired, rightTupleRequired);
-
-        RowWrapper concatenated = handler.concat(params.left, params.right);
-
-        int leftLen = params.leftData.length;
-        int rightLen = params.rightData.length;
-        int totalElementsCount = leftLen + rightLen;
-
-        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
-
-        // Build combined schema.
-        Builder builder = RowSchema.builder();
-        params.leftSchema.fields().forEach(builder::addField);
-        params.rightSchema.fields().forEach(builder::addField);
-
-        RowSchema concatenatedSchema = builder.build();
-
-        // Serialize.
-        BinaryTuple tuple = handler.toBinaryTuple(concatenated);
-
-        // Wrap into row.
-        RowWrapper result = handler.factory(concatenatedSchema).create(tuple);
-
-        for (int i = 0; i < leftLen; i++) {
-            TypeSpec typeSpec = params.leftSchema.fields().get(i);
-
-            assertThat(handler.get(i, result), equalTo(convertToInternal(typeSpec, params.leftData[i])));
-        }
-
-        for (int i = 0; i < rightLen; i++) {
-            TypeSpec typeSpec = params.rightSchema.fields().get(i);
-
-            assertThat(handler.get(leftLen + i, result), equalTo(convertToInternal(typeSpec, params.rightData[i])));
-        }
-    }
-
-
     @Test
     public void testMap() {
         List<ColumnType> columnTypes = List.of(
@@ -157,13 +116,16 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowFactory<RowWrapper> factory = handler.factory(schema);
 
         RowWrapper srcRow = factory.create(sourceData);
+
         RowWrapper srcBinRow = factory.create(handler.toBinaryTuple(srcRow));
 
-        RowWrapper mappedRow = handler.map(srcRow, mapping);
-        RowWrapper mappedFromBinRow = handler.map(srcBinRow, mapping);
-
         RowSchema mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
-        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toBinaryTuple(mappedFromBinRow));
+        RowFactory<RowWrapper> mappedFactory = handler.factory(mappedSchema);
+
+        RowWrapper mappedRow = mappedFactory.map(srcRow, mapping);
+        RowWrapper mappedFromBinRow = mappedFactory.map(srcBinRow, mapping);
+
+        RowWrapper deserializedMappedBinRow = mappedFactory.create(handler.toBinaryTuple(mappedFromBinRow));
 
         assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
         assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
@@ -175,6 +137,33 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             assertThat(handler.get(i, mappedFromBinRow), equalTo(expected));
             assertThat(handler.get(i, deserializedMappedBinRow), equalTo(expected));
         }
+    }
+
+    @Test
+    public void testUpdateRowSchemaOnMapping() {
+        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .build();
+
+        RowWrapper row1 = handler.factory(rowSchema).rowBuilder()
+                .addField(1).addField("2")
+                .build();
+
+        RowSchema reverseRowSchema = RowSchema.builder()
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .build();
+
+        RowFactory<RowWrapper> factory = handler.factory(reverseRowSchema);
+
+        RowWrapper reverseMapping = factory.map(row1, new int[]{1, 0});
+
+        BinaryTuple mappedBinaryTuple = handler.toBinaryTuple(reverseMapping);
+        assertEquals("2", mappedBinaryTuple.stringValue(0));
+        assertEquals(1, mappedBinaryTuple.intValue(1));
     }
 
     private static Stream<Arguments> concatTestArguments() {
@@ -336,7 +325,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     }
 
     private static Set<ColumnType> columnTypes() {
-        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-17373
         return EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION));
     }
 
@@ -382,8 +371,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         } else {
             BaseTypeSpec baseTypeSpec = (BaseTypeSpec) typeSpec;
             NativeType nativeType = baseTypeSpec.nativeType();
-            Class<?> type = Commons.nativeTypeToClass(nativeType);
-            return TypeUtils.toInternal(value, type);
+            return TypeUtils.toInternal(value, nativeType.spec());
         }
     }
 }

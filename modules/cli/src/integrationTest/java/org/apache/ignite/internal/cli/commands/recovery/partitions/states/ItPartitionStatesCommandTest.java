@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.states;
 
-import org.apache.ignite.internal.util.ArrayUtils;
-
 /** Test class for {@link PartitionStatesCommand}. */
 public class ItPartitionStatesCommandTest extends ItPartitionStatesTest {
     @Override
-    protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partitions", "states"}, args);
-
-        super.execute(fullArgs);
+    protected Class<?> getCommandClass() {
+        return PartitionStatesCommand.class;
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,4 +56,29 @@ public interface CheckpointProgress {
      * written.
      */
     @Nullable CheckpointDirtyPages pagesToWrite();
+
+    /**
+     * Returns a number of fsync-ed checkpoint pages.
+     */
+    AtomicInteger syncedPagesCounter();
+
+    /**
+     * Return a number of evicted pages during current checkpoint.
+     */
+    AtomicInteger evictedPagesCounter();
+
+    /**
+     * Returns time it took from the start of checkpoint to the moment when all pages have been written.
+     */
+    long getPagesWriteTimeMillis();
+
+    /**
+     * Returns time it took to sync all updated pages.
+     */
+    long getFsyncTimeMillis();
+
+    /**
+     * Returns a number of written checkpoint pages.
+     */
+    int writtenPages();
 }

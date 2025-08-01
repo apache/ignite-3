@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -251,7 +251,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
             return new ScanCursor<IndexRow>(lower) {
-                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+                private final Comparator<ByteBuffer> comparator = localTree.getBinaryTupleComparator();
 
                 @Override
                 public IndexRow map(SortedIndexRow value) {

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -30,20 +29,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of a new index.
  */
 public class NewIndexEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<NewIndexEntry> SERIALIZER = new NewIndexEntrySerializer();
-
     private final CatalogIndexDescriptor descriptor;
 
     /**
@@ -76,11 +70,11 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, descriptor.tableId());
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        descriptor.updateToken(causalityToken);
+        descriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -93,7 +87,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         schema.tables(),
                         ArrayUtils.concat(schema.indexes(), descriptor),
                         schema.systemViews(),
-                        causalityToken
+                        timestamp
                 ), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );
@@ -102,22 +96,5 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link NewIndexEntry}.
-     */
-    private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
-        @Override
-        public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogIndexDescriptor descriptor = CatalogSerializationUtils.IDX_SERIALIZER.readFrom(input);
-
-            return new NewIndexEntry(descriptor);
-        }
-
-        @Override
-        public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
-            CatalogSerializationUtils.IDX_SERIALIZER.writeTo(entry.descriptor(), output);
-        }
     }
 }

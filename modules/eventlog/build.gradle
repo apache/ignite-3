@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-eventlog'
 
@@ -31,15 +32,24 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-root')
+    implementation project(':ignite-rest-api')
+    implementation project(':ignite-network')
     implementation libs.jackson.core
+    implementation libs.jetbrains.annotations
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
 
-    testImplementation libs.hamcrest.core
+    testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
+
+    testFixturesImplementation project(':ignite-configuration')
+
     testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
+    testImplementation libs.mock.server.netty
+    testImplementation libs.mock.server.junit
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-eventlog'))
     testImplementation project(':ignite-configuration')
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
@@ -48,6 +58,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-eventlog'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation project(':ignite-configuration-root')
@@ -55,9 +66,9 @@ dependencies {
 }
 
 test {
-    systemProperty "buildDirPath", project.buildDir.path
+    systemProperty 'buildDirPath', project.buildDir.path
 }
 
 integrationTest {
-    systemProperty "buildDirPath", project.buildDir.path
+    systemProperty 'buildDirPath', project.buildDir.path
 }

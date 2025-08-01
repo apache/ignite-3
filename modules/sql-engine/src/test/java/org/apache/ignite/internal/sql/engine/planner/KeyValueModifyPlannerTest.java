@@ -70,7 +70,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
@@ -169,7 +169,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(KeyValueModifyPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.modifyNode().expressions().stream()
+        List<String> keyExpressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

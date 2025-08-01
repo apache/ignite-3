@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * The class is used to identify a zone replication group id for a given partition.
  */
-public class ZonePartitionId implements ReplicationGroupId {
-    private final int zoneId;
+public class ZonePartitionId implements PartitionGroupId {
+    private static final Pattern DELIMITER_PATTERN = Pattern.compile("_part_");
 
-    private final int tableId;
+    private final int zoneId;
 
     private final int partId;
 
@@ -38,22 +38,6 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
-        this.tableId = 0;
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param zoneId Zone id.
-     * @param tableId Table id.
-     * @param partId Partition id.
-     */
-    public ZonePartitionId(int zoneId, int tableId, int partId) {
-        assert tableId != 0 : "Use constructor with two parameters.";
-
-        this.zoneId = zoneId;
-        this.tableId = tableId;
-        this.partId = partId;
     }
 
     /**
@@ -65,13 +49,9 @@ public class ZonePartitionId implements ReplicationGroupId {
         return zoneId;
     }
 
-    /**
-     * Get the table id.
-     *
-     * @return Table id.
-     */
-    public int tableId() {
-        return tableId;
+    @Override
+    public int objectId() {
+        return zoneId;
     }
 
     /**
@@ -79,6 +59,7 @@ public class ZonePartitionId implements ReplicationGroupId {
      *
      * @return Partition id.
      */
+    @Override
     public int partitionId() {
         return partId;
     }
@@ -90,7 +71,7 @@ public class ZonePartitionId implements ReplicationGroupId {
      * @return An zone partition id.
      */
     public static ZonePartitionId fromString(String str) {
-        String[] parts = str.split("_part_");
+        String[] parts = DELIMITER_PATTERN.split(str);
 
         return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
@@ -112,11 +93,16 @@ public class ZonePartitionId implements ReplicationGroupId {
 
         ZonePartitionId that = (ZonePartitionId) o;
 
-        return zoneId == that.zoneId && partId == that.partId && tableId == that.tableId;
+        return zoneId == that.zoneId && partId == that.partId;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(zoneId, partId, tableId);
+        int result = 1;
+
+        result = 31 * result + zoneId;
+        result = 31 * result + partId;
+
+        return result;
     }
 }

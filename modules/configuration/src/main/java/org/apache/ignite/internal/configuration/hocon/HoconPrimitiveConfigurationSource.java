@@ -21,11 +21,13 @@ import static com.typesafe.config.ConfigValueType.BOOLEAN;
 import static com.typesafe.config.ConfigValueType.NUMBER;
 import static com.typesafe.config.ConfigValueType.STRING;
 import static java.lang.String.format;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
 import com.typesafe.config.ConfigValue;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -44,21 +46,25 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      */
     private final ConfigValue hoconCfgValue;
 
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object representing a primitive type.
      *
-     * @param path          current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
-     *                      object
+     * @param keyIgnorer Determines if key should be ignored.
+     * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
+     *         object
      * @param hoconCfgValue HOCON object
      */
-    HoconPrimitiveConfigurationSource(List<String> path, ConfigValue hoconCfgValue) {
+    HoconPrimitiveConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigValue hoconCfgValue) {
         assert !path.isEmpty();
 
         this.path = path;
         this.hoconCfgValue = hoconCfgValue;
+        this.keyIgnorer = keyIgnorer;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isArray()) {
@@ -68,12 +74,21 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         return unwrapPrimitive(hoconCfgValue, clazz, path, -1);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void descend(ConstructableTreeNode node) {
-        throw new IllegalArgumentException(
-                format("'%s' is expected to be a composite configuration node, not a single value", join(path))
-        );
+        String fieldName = node.injectedValueFieldName();
+
+        if (fieldName == null) {
+            throw new IllegalArgumentException(
+                    format("'%s' is expected to be a composite configuration node, not a single value", join(path))
+            );
+        }
+
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, fieldName)))) {
+            return;
+        }
+
+        node.construct(fieldName, this, false);
     }
 
     /**
@@ -121,11 +136,9 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         assert !clazz.isPrimitive();
 
         if (clazz == String.class) {
-            if (hoconCfgValue.valueType() != STRING) {
-                throw wrongTypeException(clazz, path, idx);
-            }
+            String stringValue = unwrapStringValue(hoconCfgValue);
 
-            return clazz.cast(hoconCfgValue.unwrapped());
+            return clazz.cast(stringValue);
         } else if (clazz == Boolean.class) {
             if (hoconCfgValue.valueType() != BOOLEAN) {
                 throw wrongTypeException(clazz, path, idx);
@@ -133,11 +146,13 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
             return clazz.cast(hoconCfgValue.unwrapped());
         } else if (clazz == Character.class) {
-            if (hoconCfgValue.valueType() != STRING || hoconCfgValue.unwrapped().toString().length() != 1) {
+            String stringValue = unwrapStringValue(hoconCfgValue);
+
+            if (stringValue.length() != 1) {
                 throw wrongTypeException(clazz, path, idx);
             }
 
-            return clazz.cast(hoconCfgValue.unwrapped().toString().charAt(0));
+            return clazz.cast(stringValue.charAt(0));
         } else if (Number.class.isAssignableFrom(clazz)) {
             if (hoconCfgValue.valueType() != NUMBER) {
                 throw wrongTypeException(clazz, path, idx);
@@ -173,6 +188,12 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         }
 
         throw new IllegalArgumentException("Unsupported type: " + clazz);
+    }
+
+    private static String unwrapStringValue(ConfigValue hoconCfgValue) {
+        return hoconCfgValue.valueType() == STRING
+                ? hoconCfgValue.unwrapped().toString()
+                : hoconCfgValue.render();
     }
 
     /**

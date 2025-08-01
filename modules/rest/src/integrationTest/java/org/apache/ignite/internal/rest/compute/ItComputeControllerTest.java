@@ -19,24 +19,32 @@ package org.apache.ignite.internal.rest.compute;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.canceled;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.completed;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.executing;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.queued;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.wrapper.Wrappers.unwrap;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,10 +58,12 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.compute.ComputeComponentImpl;
+import org.apache.ignite.internal.compute.ExecutionManager;
+import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
-import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +72,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link ComputeController}.
  */
 @MicronautTest
+@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     private static final String COMPUTE_URL = "/management/v1/compute/";
 
@@ -69,50 +80,20 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Inject
     @Client("http://localhost:10300" + COMPUTE_URL)
-    HttpClient client0;
-
-    @Inject
-    @Client("http://localhost:10301" + COMPUTE_URL)
-    HttpClient client1;
-
-    @Inject
-    @Client("http://localhost:10303" + COMPUTE_URL)
-    HttpClient client2;
-
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port:{} },\n"
-                + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1 \n"
-                + "}";
-    }
+    HttpClient client;
 
     @AfterEach
     void tearDown() {
-        // Cancel all jobs.
-        getJobStates(client0).values().stream()
-                .filter(it -> it.finishTime() == null)
-                .map(JobState::id)
-                .forEach(jobId -> cancelJob(client0, jobId));
-
-        // Wait for all jobs to complete.
-        await().until(() -> {
-            Collection<JobState> states = getJobStates(client0).values();
-
-            for (JobState state : states) {
-                if (state.finishTime() == null) {
-                    return false;
-                }
-            }
-
-            return true;
+        // Cancel all jobs and clear states.
+        CLUSTER.runningNodes().forEach(ignite -> {
+            IgniteComputeImpl compute = unwrap(ignite.compute(), IgniteComputeImpl.class);
+            ExecutionManager executionManager = ((ComputeComponentImpl) compute.computeComponent()).executionManager();
+            executionManager.localStatesAsync().join().stream()
+                    .filter(state -> state.finishTime() == null)
+                    .map(org.apache.ignite.compute.JobState::id)
+                    .forEach(executionManager::cancelAsync);
+            executionManager.localExecutions().clear();
+            executionManager.remoteExecutions().clear();
         });
     }
 
@@ -128,15 +109,14 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         UUID remoteJobId = remoteExecution.idAsync().join();
 
         await().untilAsserted(() -> {
-            Map<UUID, JobState> states = getJobStates(client0);
+            Map<UUID, JobState> states = getJobStates(client);
 
-            assertThat(states.get(localJobId), executing(localJobId));
-            assertThat(states.get(remoteJobId), executing(remoteJobId));
+            assertThat(states, is(aMapWithSize(2)));
+            assertThat(states, hasEntry(equalTo(localJobId), executing(localJobId)));
+
+            // We can't find an id of the underlying job but we can test that it's a different id
+            assertThat(states, hasKey(not(either(equalTo(localJobId)).or(equalTo(remoteJobId)))));
         });
-    }
-
-    private static ClusterNode clusterNode(Ignite ignite) {
-        return unwrapIgniteImpl(ignite).node();
     }
 
     @Test
@@ -147,11 +127,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
     }
 
     @Test
@@ -162,26 +142,21 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
     }
 
     @Test
     void shouldReturnProblemIfStateOfNonExistingJob() {
         UUID jobId = UUID.randomUUID();
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> getJobState(client0, jobId)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+        assertThrowsProblem(
+                () -> getJobState(client, jobId),
+                NOT_FOUND,
+                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -193,11 +168,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
-        cancelJob(client0, jobId);
+        cancelJob(client, jobId);
 
-        await().until(() -> getJobState(client0, jobId), canceled(jobId, true));
+        await().until(() -> getJobState(client, jobId), canceled(jobId, true));
     }
 
     @Test
@@ -208,26 +183,21 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
-        cancelJob(client0, jobId);
+        cancelJob(client, jobId);
 
-        await().until(() -> getJobState(client0, jobId), canceled(jobId, true));
+        await().until(() -> getJobState(client, jobId), canceled(jobId, true));
     }
 
     @Test
     void shouldReturnProblemIfCancelNonExistingJob() {
         UUID jobId = UUID.randomUUID();
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> cancelJob(client0, jobId)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+        assertThrowsProblem(
+                () -> cancelJob(client, jobId),
+                NOT_FOUND,
+                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -239,22 +209,16 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> cancelJob(client0, jobId)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"), Problem.class)
+        assertThrowsProblem(
+                () -> cancelJob(client, jobId),
+                CONFLICT,
+                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
         );
     }
 
@@ -268,15 +232,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId2), queued(jobId2));
+        await().until(() -> getJobState(client, jobId2), queued(jobId2));
 
-        updatePriority(client0, jobId2, 1);
+        updatePriority(client, jobId2, 1);
     }
 
     @Test
@@ -289,30 +253,25 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         JobExecution<String> execution2 = runBlockingJob(entryNode, nodes);
 
         UUID jobId2 = execution2.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId2), queued(jobId2));
+        await().until(() -> getJobState(client, jobId2), queued(jobId2));
 
-        updatePriority(client0, jobId2, 1);
+        updatePriority(client, jobId2, 1);
     }
 
     @Test
     void shouldReturnProblemIfUpdatePriorityOfNonExistingJob() {
         UUID jobId = UUID.randomUUID();
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(404)
-                        .withBody(isProblem().withStatus(404).withDetail("Compute job not found [jobId=" + jobId + "]"), Problem.class)
+        assertThrowsProblem(
+                () -> updatePriority(client, jobId, 1),
+                NOT_FOUND,
+                isProblem().withDetail("Compute job not found [jobId=" + jobId + "]")
         );
     }
 
@@ -326,18 +285,12 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]"), Problem.class)
+        assertThrowsProblem(
+                () -> updatePriority(client, jobId, 1),
+                CONFLICT,
+                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=EXECUTING]")
         );
     }
 
@@ -351,27 +304,24 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join();
 
-        await().until(() -> getJobState(client0, jobId), executing(jobId));
+        await().until(() -> getJobState(client, jobId), executing(jobId));
 
         unblockJob();
 
-        await().until(() -> getJobState(client0, jobId), completed(jobId));
+        await().until(() -> getJobState(client, jobId), completed(jobId));
 
-        HttpClientResponseException httpClientResponseException = assertThrows(
-                HttpClientResponseException.class,
-                () -> updatePriority(client0, jobId, 1)
-        );
-
-        assertThat(
-                httpClientResponseException.getResponse(),
-                MicronautHttpResponseMatcher.<Problem>hasStatusCode(409)
-                        .withBody(isProblem().withStatus(409)
-                                .withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]"), Problem.class)
+        assertThrowsProblem(
+                () -> updatePriority(client, jobId, 1),
+                CONFLICT,
+                isProblem().withDetail("Compute job has an illegal status [jobId=" + jobId + ", status=COMPLETED]")
         );
     }
 
     private static JobExecution<String> runBlockingJob(Ignite entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build(), null);
+        CompletableFuture<JobExecution<String>> executionFut = entryNode.compute()
+                .submitAsync(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build(), null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
     }
 
     private static void unblockJob() {

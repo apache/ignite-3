@@ -17,42 +17,45 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
+import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,19 +70,25 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueGet lookupNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    @Nullable
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
+
+    private volatile Performable<?> operation;
 
     KeyValueGetPlan(
             PlanId id,
             int catalogVersion,
             IgniteKeyValueGet lookupNode,
             ResultSetMetadata meta,
-            ParameterMetadata parameterMetadata
+            ParameterMetadata parameterMetadata,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata
     ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
         this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
     }
 
     /** {@inheritDoc} */
@@ -106,6 +115,12 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
+    }
+
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
@@ -119,95 +134,165 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(lookupNode, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueGet lookupNode() {
-        return lookupNode;
+    private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
+        Performable<RowT> operation = cast(this.operation);
+
+        if (operation != null) {
+            return operation;
+        }
+
+        IgniteTable sqlTable = table();
+        ExecutableTable executableTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
+        ScannableTable scannableTable = executableTable.scannableTable();
+
+        ImmutableIntList requiredColumns = lookupNode.requiredColumns();
+        RexNode filterExpr = lookupNode.condition();
+        List<RexNode> projectionExpr = lookupNode.projects();
+
+        RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
+
+        SqlPredicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
+        SqlProjection<RowT> projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
+
+        RowHandler<RowT> rowHandler = ctx.rowHandler();
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+
+        List<RexNode> keyExpressions = lookupNode.keyExpressions();
+        SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
+
+        RelDataType resultType = lookupNode.getRowType();
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+
+        operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
+                keySupplier, requiredColumns, internalTypeConverter)
+                : new FilterableProjectableLookupExecution<>(scannableTable, rowHandler, rowFactory, keySupplier,
+                        filter, projection, requiredColumns, internalTypeConverter);
+
+        this.operation = operation;
+
+        return operation;
     }
 
     @Override
-    public <RowT> AsyncCursor<InternalSqlRow> execute(
+    public <RowT> AsyncDataCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            @Nullable InternalTransaction tx,
-            ExecutableTableRegistry tableRegistry,
-            @Nullable QueryPrefetchCallback firstPageReadyCallback
+            InternalTransaction tx,
+            ExecutableTableRegistry tableRegistry
     ) {
-        IgniteTable sqlTable = table();
+        Performable<RowT> operation = operation(ctx, tableRegistry);
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
-                .thenCompose(execTable -> {
+        CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
-                    ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
-                    RexNode filterExpr = lookupNode.condition();
-                    List<RexNode> projectionExpr = lookupNode.projects();
-                    List<RexNode> keyExpressions = lookupNode.keyExpressions();
+        return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
 
-                    RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
+    @Override
+    public IgniteKeyValueGet getRel() {
+        return lookupNode;
+    }
 
-                    Supplier<RowT> keySupplier = ctx.expressionFactory()
-                            .rowSource(keyExpressions);
-                    Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
-                            .predicate(filterExpr, rowType);
-                    Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
-                            .project(projectionExpr, rowType);
+    private static class SimpleLookupExecution<RowT> extends Performable<RowT> {
+        private final ScannableTable table;
+        private final RowHandler<RowT> rowHandler;
+        private final RowFactory<RowT> tableRowFactory;
+        private final SqlRowProvider<RowT> keySupplier;
+        private final int @Nullable [] requiredColumns;
+        private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
-                    RowHandler<RowT> rowHandler = ctx.rowHandler();
-                    RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-                    RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
-
-                    RelDataType resultType = lookupNode.getRowType();
-                    BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
-
-                    ScannableTable scannableTable = execTable.scannableTable();
-                    Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
-                        if (row == null) {
-                            return Collections.emptyIterator();
-                        }
-
-                        if (filter != null && !filter.test(row)) {
-                            return Collections.emptyIterator();
-                        }
-
-                        if (projection != null) {
-                            row = projection.apply(row);
-                        }
-
-                        return List.<InternalSqlRow>of(
-                                new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
-                        ).iterator();
-                    };
-
-                    CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
-                            ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
-                    );
-
-                    if (projection == null && filter == null) {
-                        // no arbitrary computations, should be safe to proceed execution on
-                        // thread that completes the future
-                        return lookupResult.thenApply(postProcess);
-                    } else {
-                        Executor executor = task -> ctx.execute(task::run, error -> {
-                            // this executor is used to process future chain, so any unhandled exception
-                            // should be wrapped with CompletionException and returned as a result, implying
-                            // no error handler should be called.
-                            // But just in case there is error in future processing pipeline let's log error
-                            LOG.error("Unexpected error", error);
-                        });
-
-                        return lookupResult.thenApplyAsync(postProcess, executor);
-                    }
-                });
-
-        if (firstPageReadyCallback != null) {
-            Executor executor = task -> ctx.execute(task::run, firstPageReadyCallback::onPrefetchComplete);
-
-            result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
+        private SimpleLookupExecution(
+                ScannableTable table,
+                RowHandler<RowT> rowHandler,
+                RowFactory<RowT> tableRowFactory,
+                SqlRowProvider<RowT> keySupplier,
+                @Nullable ImmutableIntList requiredColumns,
+                SchemaAwareConverter<Object, Object> internalTypeConverter
+        ) {
+            this.table = table;
+            this.rowHandler = rowHandler;
+            this.tableRowFactory = tableRowFactory;
+            this.keySupplier = keySupplier;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
+            this.internalTypeConverter = internalTypeConverter;
         }
 
-        ctx.scheduleTimeout(result);
+        @Override
+        CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, InternalTransaction tx) {
+            RowT key = keySupplier.get(ctx);
+            return table.primaryKeyLookup(ctx, tx, tableRowFactory, key, requiredColumns).thenApply(row -> {
+                if (row == null) {
+                    return Collections.emptyIterator();
+                }
 
-        return new AsyncWrapper<>(result, Runnable::run);
+                return List.<InternalSqlRow>of(new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)).iterator();
+            });
+        }
+    }
+
+    private static class FilterableProjectableLookupExecution<RowT> extends Performable<RowT> {
+        private final ScannableTable table;
+        private final RowHandler<RowT> rowHandler;
+        private final RowFactory<RowT> tableRowFactory;
+        private final SqlRowProvider<RowT> keySupplier;
+        private final @Nullable SqlPredicate<RowT> filter;
+        private final @Nullable SqlProjection<RowT> projection;
+        private final int @Nullable [] requiredColumns;
+        private final SchemaAwareConverter<Object, Object> internalTypeConverter;
+
+        private FilterableProjectableLookupExecution(
+                ScannableTable table,
+                RowHandler<RowT> rowHandler,
+                RowFactory<RowT> tableRowFactory,
+                SqlRowProvider<RowT> keySupplier,
+                @Nullable SqlPredicate<RowT> filter,
+                @Nullable SqlProjection<RowT> projection,
+                @Nullable ImmutableIntList requiredColumns,
+                SchemaAwareConverter<Object, Object> internalTypeConverter
+        ) {
+            this.table = table;
+            this.rowHandler = rowHandler;
+            this.tableRowFactory = tableRowFactory;
+            this.keySupplier = keySupplier;
+            this.filter = filter;
+            this.projection = projection;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
+            this.internalTypeConverter = internalTypeConverter;
+        }
+
+        @Override
+        CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, InternalTransaction tx) {
+            Executor executor = task -> ctx.execute(task::run, error -> {
+                // this executor is used to process future chain, so any unhandled exception
+                // should be wrapped with CompletionException and returned as a result, implying
+                // no error handler should be called.
+                // But just in case there is error in future processing pipeline let's log error
+                LOG.error("Unexpected error", error);
+            });
+
+            RowT key = keySupplier.get(ctx);
+            return table.primaryKeyLookup(ctx, tx, tableRowFactory, key, requiredColumns).thenApplyAsync(row -> {
+                if (row == null) {
+                    return Collections.emptyIterator();
+                }
+
+                if (filter != null && !filter.test(ctx, row)) {
+                    return Collections.emptyIterator();
+                }
+
+                if (projection != null) {
+                    row = projection.project(ctx, row);
+                }
+
+                return List.<InternalSqlRow>of(new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)).iterator();
+            }, executor);
+        }
+    }
+
+    private abstract static class Performable<RowT> {
+        abstract CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, @Nullable InternalTransaction tx);
     }
 
     public int catalogVersion() {

@@ -90,7 +90,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         clientWithAuth = IgniteClient.builder()
                 .authenticator(basicAuthenticator)
-                .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build();
 
@@ -166,7 +165,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         try (IgniteClient client = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
-                .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build()) {
 

@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -42,7 +44,7 @@ public class DataStorageManager implements IgniteComponent {
     private Map<String, String> profilesToEngines;
 
     /** Storage configuration. **/
-    private StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfiguration;
 
     /**
      * Constructor.
@@ -87,9 +89,18 @@ public class DataStorageManager implements IgniteComponent {
     public @Nullable StorageEngine engineByStorageProfile(String storageProfile) {
         String engine = profilesToEngines.get(storageProfile);
 
-        assert engine != null : "Unknown storage profile '" + storageProfile + "'";
+        if (engine == null) {
+            return null;
+        }
 
         return engines.get(engine);
+    }
+
+    /**
+     * Returns all storage engines known to this node.
+     */
+    public Collection<StorageEngine> allStorageEngines() {
+        return List.copyOf(engines.values());
     }
 
     @Override

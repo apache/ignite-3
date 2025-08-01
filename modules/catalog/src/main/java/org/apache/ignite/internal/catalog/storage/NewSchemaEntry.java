@@ -17,52 +17,38 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * New schema entry.
  */
 public class NewSchemaEntry implements UpdateEntry {
-    public static final CatalogObjectSerializer<NewSchemaEntry> SERIALIZER = new Serializer();
-
     private final CatalogSchemaDescriptor descriptor;
 
     public NewSchemaEntry(CatalogSchemaDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
+    public CatalogSchemaDescriptor descriptor() {
+        return descriptor;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = catalog.schema(descriptor.name());
-
-        if (schema != null) {
-            throw new CatalogValidationException(format("Schema with name '{}' already exists", schema.name()));
-        }
-
-        descriptor.updateToken(causalityToken);
-
-        List<CatalogSchemaDescriptor> schemas = new ArrayList<>(catalog.schemas().size() + 1);
-        schemas.addAll(catalog.schemas());
-        schemas.add(descriptor);
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        descriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                schemas,
+                CollectionUtils.concat(catalog.schemas(), List.of(descriptor)),
                 catalog.defaultZone().id()
         );
     }
@@ -71,18 +57,5 @@ public class NewSchemaEntry implements UpdateEntry {
     @Override
     public int typeId() {
         return MarshallableEntryType.NEW_SCHEMA.id();
-    }
-
-    private static class Serializer implements CatalogObjectSerializer<NewSchemaEntry> {
-        @Override
-        public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogSchemaDescriptor schemaDescriptor = CatalogSchemaDescriptor.SERIALIZER.readFrom(input);
-            return new NewSchemaEntry(schemaDescriptor);
-        }
-
-        @Override
-        public void writeTo(NewSchemaEntry value, IgniteDataOutput output) throws IOException {
-            CatalogSchemaDescriptor.SERIALIZER.writeTo(value.descriptor, output);
-        }
     }
 }

@@ -20,6 +20,9 @@ package org.apache.ignite.internal.compute;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link JobExecutionContext}.
@@ -29,7 +32,9 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final AtomicBoolean isInterrupted;
 
-    private final ClassLoader classLoader;
+    private final JobClassLoader classLoader;
+
+    private final @Nullable Partition partition;
 
     /**
      * Constructor.
@@ -37,14 +42,15 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * @param ignite Ignite instance.
      * @param isInterrupted Interrupted flag.
      * @param classLoader Job class loader.
+     * @param partition Partition associated with this job.
      */
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader, @Nullable Partition partition) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
+        this.partition = partition;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Ignite ignite() {
         return ignite;
@@ -55,12 +61,17 @@ public class JobExecutionContextImpl implements JobExecutionContext {
         return isInterrupted.get();
     }
 
+    @Override
+    public @Nullable Partition partition() {
+        return partition;
+    }
+
     /**
      * Gets the job class loader.
      *
      * @return Job class loader.
      */
-    public ClassLoader classLoader() {
+    public JobClassLoader classLoader() {
         return classLoader;
     }
 }

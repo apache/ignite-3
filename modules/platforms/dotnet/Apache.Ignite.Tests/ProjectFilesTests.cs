@@ -80,7 +80,7 @@ namespace Apache.Ignite.Tests
                 {
                     if (!text.Contains("public record struct"))
                     {
-                        Assert.Fail("Public classes must be sealed: " + file);
+                        Assert.Fail("Public types must be sealed: " + file);
                     }
                 }
             }

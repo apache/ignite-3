@@ -35,7 +35,7 @@ namespace Apache.Ignite.Internal.Network
         /// <param name="name">Name.</param>
         /// <param name="endpoint">Endpoint.</param>
         /// <param name="metricsContext">Metrics context.</param>
-        internal ClusterNode(string id, string name, EndPoint endpoint, MetricsContext? metricsContext = null)
+        internal ClusterNode(Guid id, string name, EndPoint endpoint, MetricsContext? metricsContext = null)
         {
             Id = id;
             Name = name;
@@ -44,7 +44,7 @@ namespace Apache.Ignite.Internal.Network
         }
 
         /// <inheritdoc/>
-        public string Id { get; }
+        public Guid Id { get; }
 
         /// <inheritdoc/>
         public string Name { get; }
@@ -87,7 +87,7 @@ namespace Apache.Ignite.Internal.Network
             var fieldCount = r.ReadInt32();
             Debug.Assert(fieldCount == 4, "fieldCount == 4");
 
-            var id = r.ReadString();
+            var id = r.ReadGuid();
             var name = r.ReadString();
             var addr = r.ReadString();
             var port = r.ReadInt32();

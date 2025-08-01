@@ -19,16 +19,19 @@ package org.apache.ignite.raft.server;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.spy;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -43,18 +46,25 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ThrottlingContextHolderImpl;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
+import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,6 +100,8 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
     protected final List<LogStorageFactory> logStorageFactories = new ArrayList<>();
 
+    protected final List<VaultManager> vaultManagers = new ArrayList<>();
+
     protected final List<ComponentWorkingDir> serverWorkingDirs = new ArrayList<>();
 
     protected final List<ClusterService> serverServices = new ArrayList<>();
@@ -107,7 +119,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, logger()));
 
         initialMembersConf = IntStream.range(0, NODES)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
@@ -153,6 +165,11 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
+            if (server == null) {
+                // This means it was already stopped.
+                continue;
+            }
+
             for (RaftNodeId nodeId : server.localNodes()) {
                 server.stopRaftNode(nodeId);
             }
@@ -169,6 +186,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         assertThat(IgniteUtils.stopAsync(new ComponentContext(), logStorageFactories), willCompleteSuccessfully());
         logStorageFactories.clear();
+
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), vaultManagers), willCompleteSuccessfully());
+        vaultManagers.clear();
     }
 
     /**
@@ -188,10 +208,10 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         serverWorkingDirs.add(workingDir);
 
-        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = spy(SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
-        );
+        ));
 
         assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -201,7 +221,29 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = TestJraftServerFactory.create(service, opts);
+        VaultManager vaultManager = new VaultManager(new PersistentVaultService(vaultPath(workingDir.basePath())));
+
+        vaultManagers.add(vaultManager);
+
+        assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(vaultManager);
+
+        String groupName = "testGroupName";
+
+        GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
+                replicationGroupId -> groupName,
+                Map.of(groupName, workingDir.metaPath()),
+                Map.of(groupName, partitionsLogStorageFactory)
+        );
+
+        JraftServerImpl server = TestJraftServerFactory.create(
+                service,
+                opts,
+                new RaftGroupEventsClientListener(),
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
+        );
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -234,9 +276,16 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(clientNode.serializationRegistry());
 
-        RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor, commandsMarshaller)
-                .get(3, TimeUnit.SECONDS);
+        RaftGroupService client = RaftGroupServiceImpl.start(
+                groupId,
+                clientNode,
+                FACTORY,
+                raftConfiguration,
+                configuration,
+                executor,
+                commandsMarshaller,
+                new ThrottlingContextHolderImpl(raftConfiguration)
+        );
 
         clients.add(client);
 

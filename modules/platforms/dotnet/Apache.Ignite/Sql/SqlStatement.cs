@@ -57,15 +57,19 @@ namespace Apache.Ignite.Sql
         /// <param name="pageSize">Page size.</param>
         /// <param name="properties">Properties.</param>
         /// <param name="timeZoneId">
-        /// Time zone id. Examples: <c>"America/New_York"</c>, <c>"UTC+3"</c>.
+        /// Time zone id in <see href="https://www.iana.org/time-zones">TZDB</see> format.
+        /// Examples: <c>"America/New_York"</c>, <c>"UTC+3"</c>.
         /// <para />
         /// Affects time-related SQL functions (e.g. <c>CURRENT_TIME</c>)
         /// and string literal conversions (e.g. <c>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</c>).
         /// <para />
-        /// Defaults to local time zone: <see cref="TimeZoneInfo.Local"/>.
+        /// Defaults to system time zone:
+        /// <see cref="DateTimeZoneProviders.Tzdb"/>.<see cref="IDateTimeZoneProvider.GetSystemDefault()"/>.<see cref="DateTimeZone.Id"/>.
         /// <para />
-        /// Can be obtained using the standard library with <see cref="TimeZoneInfo.Id"/>
-        /// or using NodaTime with <see cref="DateTimeZone.Id"/>.
+        /// Can be obtained using NodaTime with <see cref="DateTimeZone.Id"/>
+        /// from <see cref="DateTimeZoneProviders.Tzdb">Tzdb provider</see>.
+        /// <para />
+        /// Note that <see cref="TimeZoneInfo.Id"/> from the standard library is OS-dependent and is not compatible with TZDB on Windows.
         /// <para />
         /// For more information, see <see href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)"/>.
         /// </param>
@@ -85,7 +89,7 @@ namespace Apache.Ignite.Sql
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
             Properties = properties == null || ReferenceEquals(properties, EmptyProperties) ? EmptyProperties : new(properties);
-            TimeZoneId = timeZoneId ?? TimeZoneInfo.Local.Id;
+            TimeZoneId = timeZoneId ?? DateTimeZoneProviders.Tzdb.GetSystemDefault().Id;
         }
 
         /// <summary>
@@ -114,15 +118,19 @@ namespace Apache.Ignite.Sql
         public IReadOnlyDictionary<string, object?> Properties { get; init; }
 
         /// <summary>
-        /// Gets the time zone id. Examples: <c>"America/New_York"</c>, <c>"UTC+3"</c>.
+        /// Gets the time zone id in <see href="https://www.iana.org/time-zones">TZDB</see> format.
+        /// Examples: <c>"America/New_York"</c>, <c>"UTC+3"</c>.
         /// <para />
         /// Affects time-related SQL functions (e.g. <c>CURRENT_TIME</c>)
         /// and string literal conversions (e.g. <c>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</c>).
         /// <para />
-        /// Defaults to local time zone: <see cref="TimeZoneInfo.Local"/>.
+        /// Defaults to system time zone:
+        /// <see cref="DateTimeZoneProviders.Tzdb"/>.<see cref="IDateTimeZoneProvider.GetSystemDefault()"/>.<see cref="DateTimeZone.Id"/>.
         /// <para />
-        /// Can be obtained using the standard library with <see cref="TimeZoneInfo.Id"/>
-        /// or using NodaTime with <see cref="DateTimeZone.Id"/>.
+        /// Can be obtained using NodaTime with <see cref="DateTimeZone.Id"/>
+        /// from <see cref="DateTimeZoneProviders.Tzdb">Tzdb provider</see>.
+        /// <para />
+        /// Note that <see cref="TimeZoneInfo.Id"/> from the standard library is OS-dependent and is not compatible with TZDB on Windows.
         /// <para />
         /// For more information, see <see href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)"/>.
         /// </summary>

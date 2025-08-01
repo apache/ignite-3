@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.message;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -61,5 +62,5 @@ public interface ExecuteRequest extends NetworkMessage {
      */
     @Marshallable
     @Nullable
-    Object input();
+    ComputeJobDataHolder input();
 }

@@ -19,24 +19,28 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to update a row specified by a row id.
+ * State machine command to update a row specified by a row ID.
+ *
+ * <p>This command is replaced with {@link UpdateCommandV2} and only exists in the source code for backward compatibility.</p>
  */
-@Transferable(PartitionReplicationMessageGroup.Commands.UPDATE)
+@Transferable(Commands.UPDATE_V1)
 public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+    @PropertyName("tablePartitionId")
+    ReplicationGroupIdMessage commitPartitionId();
 
     UUID rowUuid();
 
     @Nullable TimedBinaryRowMessage messageRowToUpdate();
 
-    String txCoordinatorId();
+    UUID txCoordinatorId();
 
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
     @Nullable Long leaseStartTime();

@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,44 +32,42 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
     private final TxManager txManager;
     private final HybridTimestampTracker observableTimeTracker;
     private final @Nullable QueryTransactionWrapper tx;
-    private final TransactionInflights transactionInflights;
+    private final TransactionalOperationTracker txTracker;
 
     /** Constructor. */
     public QueryTransactionContextImpl(
             TxManager txManager,
             HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction tx,
-            TransactionInflights transactionInflights
+            TransactionalOperationTracker txTracker
     ) {
         this.txManager = txManager;
         this.observableTimeTracker = observableTimeTracker;
-        this.tx = tx != null ? new QueryTransactionWrapperImpl(tx, false, transactionInflights) : null;
-        this.transactionInflights = transactionInflights;
+        this.tx = tx != null ? new QueryTransactionWrapperImpl(tx, false, txTracker) : null;
+        this.txTracker = txTracker;
     }
 
-    /**
-     * Starts an implicit transaction if there is no external transaction.
-     *
-     * @param readOnly Query type.
-     * @return Transaction wrapper.
-     */
+
+    /** {@inheritDoc} */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            transaction = txManager.begin(observableTimeTracker, readOnly);
-            result = new QueryTransactionWrapperImpl(transaction, true, transactionInflights);
+            if (implicit) {
+                transaction = txManager.beginImplicit(observableTimeTracker, readOnly);
+            } else {
+                transaction = txManager.beginExplicit(observableTimeTracker, readOnly, InternalTxOptions.defaults());
+            }
+
+            result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();
             result = tx;
         }
 
-        // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
-        if (transaction.isReadOnly() && !transactionInflights.addInflight(transaction.id(), transaction.isReadOnly())) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
-        }
+        txTracker.registerOperationStart(transaction);
 
         return result;
     }

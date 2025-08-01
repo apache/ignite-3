@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -69,17 +71,20 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.RowTypeUtils;
@@ -105,11 +110,20 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
     private SqlSchemaManagerImpl sqlSchemaManager;
+    private SqlStatisticManager sqlStatisticManager;
 
     @BeforeEach
     void init() {
+        sqlStatisticManager = tableId -> 10_000L;
+
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
-        sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
+        sqlSchemaManager = new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                200
+        );
 
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -128,11 +142,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
 
         // just to fill up cache
-        sqlSchemaManager.schema(versionAfter);
+        sqlSchemaManager.schemas(versionAfter);
 
         int nonExistingTableId = Integer.MAX_VALUE;
 
-        assertThat(catalogManager.table(nonExistingTableId, versionAfter), nullValue());
+        assertThat(catalogManager.catalog(versionAfter).table(nonExistingTableId), nullValue());
 
         assertThrowsWithCause(
                 () -> sqlSchemaManager.table(versionAfter, nonExistingTableId),
@@ -152,8 +166,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         assertNotNull(rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME));
         assertNotNull(rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME));
@@ -171,8 +186,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -181,14 +197,14 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(schema.catalogVersion(), equalTo(versionAfter));
 
-        CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(PUBLIC_SCHEMA_NAME, versionAfter);
+        CatalogSchemaDescriptor schemaDescriptor = catalogManager.catalog(versionBefore).schema(PUBLIC_SCHEMA_NAME);
 
         assertThat(schemaDescriptor, notNullValue());
         assertThat(schema.getName(), equalTo(schemaDescriptor.name()));
 
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
             int zoneId = tableDescriptor.zoneId();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, versionAfter);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(versionAfter).zone(zoneId);
             assertNotNull(zoneDescriptor, "Zone does not exist: " + zoneId);
 
             Table table = schema.getTable(tableDescriptor.name());
@@ -229,8 +245,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         int version = catalogManager.latestCatalogVersion();
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(version);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(version);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -267,20 +284,21 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteTable table = getTable(unwrapSchema(schemaPlus), "TEST");
 
-        CatalogTableDescriptor tableDescriptor = catalogManager.table(table.id(), versionAfter);
+        CatalogTableDescriptor tableDescriptor = catalogManager.catalog(versionAfter).table(table.id());
 
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedColumnsCount(descriptor), "column count");
 
         for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);
@@ -336,8 +354,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -388,8 +407,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -449,8 +469,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -459,38 +480,49 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T1");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(1),
+                    table.id(),
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T1 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T2");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(3, 1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(3, 1),
+                    table.id(),
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T2 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T3");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(2, 1, 0), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(2, 1, 0),
+                    table.id(),
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T3 in zone \"Default\"")));
         }
     }
 
     @Test
     public void testHashIndex() {
         int versionBefore = catalogManager.latestCatalogVersion();
-        await(catalogManager.execute(List.of(
-                createDummyTable("T1"),
-                createHashIndex("T1", "VAL1_IDX", "VAL1")
-        )));
+        await(catalogManager.execute(createDummyTable("T1")));
+        await(catalogManager.execute(createHashIndex("T1", "VAL1_IDX", "VAL1")));
 
         {
             int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 1));
+            assertThat(versionAfter, equalTo(versionBefore + 2));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -506,10 +538,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         {
             int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 2));
+            assertThat(versionAfter, equalTo(versionBefore + 3));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -529,11 +562,44 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
     @Test
-    public void testSortedIndex() {
+    public void testHashIndexCreationWithTable() {
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
                 createDummyTable("T1"),
+                createHashIndex("T1", "VAL1_IDX", "VAL1")
+        )));
+
+        int versionAfter = catalogManager.latestCatalogVersion();
+        assertThat(versionAfter, equalTo(versionBefore + 1));
+
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
+
+        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        assertNotNull(schemaPlus);
+
+        IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+        assertNotNull(index, "Index should be available");
+
+        assertThat(index.name(), equalTo("VAL1_IDX"));
+        assertThat(index.type(), equalTo(Type.HASH));
+        assertThat(index.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
+        )));
+
+        Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+        assertThat(indexes.keySet(), containsInAnyOrder("T1_PK", "VAL1_IDX"));
+        assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
+    }
+
+    @Test
+    public void testSortedIndex() {
+        int versionBefore = catalogManager.latestCatalogVersion();
+        await(catalogManager.execute(createDummyTable("T1")));
+        await(catalogManager.execute(List.of(
                 createSortedIndex("T1", "IDX1", List.of("VAL1", "VAL2"),
                         List.of(CatalogColumnCollation.ASC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST)),
                 createSortedIndex("T1", "IDX2", List.of("VAL1", "VAL2"),
@@ -542,10 +608,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         {
             int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 1));
+            assertThat(versionAfter, equalTo(versionBefore + 2));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -564,10 +631,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         {
             int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 2));
+            assertThat(versionAfter, equalTo(versionBefore + 3));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -591,10 +659,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         {
             int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 3));
+            assertThat(versionAfter, equalTo(versionBefore + 4));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+            IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+            assertNotNull(schemas);
+            SchemaPlus rootSchema = schemas.root();
 
             SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
@@ -615,6 +684,55 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
+    @Test
+    public void testSortedIndexCreationWithTable() {
+        int versionBefore = catalogManager.latestCatalogVersion();
+        await(catalogManager.execute(List.of(
+                createDummyTable("T1"),
+                createSortedIndex("T1", "IDX1", List.of("VAL1", "VAL2"),
+                        List.of(CatalogColumnCollation.ASC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST)),
+                createSortedIndex("T1", "IDX2", List.of("VAL1", "VAL2"),
+                        List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.DESC_NULLS_LAST))
+        )));
+
+        int versionAfter = catalogManager.latestCatalogVersion();
+        assertThat(versionAfter, equalTo(versionBefore + 1));
+
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
+
+        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        assertNotNull(schemaPlus);
+
+        IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+        assertNotNull(index1);
+
+        IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+        assertNotNull(index2);
+
+        assertThat(index1.name(), equalTo("IDX1"));
+        assertThat(index1.type(), equalTo(Type.SORTED));
+        assertThat(index1.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
+                new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
+        )));
+
+        assertThat(index2.name(), equalTo("IDX2"));
+        assertThat(index2.type(), equalTo(Type.SORTED));
+        assertThat(index2.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
+                new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
+        )));
+
+        Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+        assertThat(indexes.keySet(), containsInAnyOrder("T1_PK", "IDX1", "IDX2"));
+
+        assertSame(index1, indexes.get("IDX1"), "IDX1 cache entry");
+        assertSame(index2, indexes.get("IDX2"), "IDX2 cache entry");
+    }
+
     private Map<String, IgniteIndex> findTableIndexes(int catalogVersion, String schemaName, String tableName) {
         Catalog catalog = catalogManager.catalog(catalogVersion);
         CatalogTableDescriptor table = catalog.schema(schemaName).table(tableName);
@@ -624,7 +742,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void makeIndexAvailable(String name) {
-        Map<String, CatalogIndexDescriptor> indices = catalogManager.indexes(catalogManager.latestCatalogVersion())
+        Map<String, CatalogIndexDescriptor> indices = catalogManager.catalog(catalogManager.latestCatalogVersion()).indexes()
                 .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
 
         CatalogIndexDescriptor indexDescriptor = indices.get(name);
@@ -648,8 +766,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
@@ -688,13 +807,14 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         int versionAfter = catalogManager.latestCatalogVersion();
         assertThat(versionAfter, equalTo(versionBefore + 1));
 
-        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-        assertNotNull(rootSchema);
+        IgniteSchemas schemas = sqlSchemaManager.schemas(versionAfter);
+        assertNotNull(schemas);
+        SchemaPlus rootSchema = schemas.root();
 
         SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
-        CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(SYSTEM_SCHEMA_NAME, versionAfter);
+        CatalogSchemaDescriptor schemaDescriptor = catalogManager.catalog(versionAfter).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaDescriptor);
 
         CatalogSystemViewDescriptor viewDescriptor = schemaDescriptor.systemView("V1");

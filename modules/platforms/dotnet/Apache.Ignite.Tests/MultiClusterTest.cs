@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Internal.Common;
 using NUnit.Framework;
 
 /// <summary>
@@ -46,7 +47,11 @@ public class MultiClusterTest
 
         using var client = await IgniteClient.StartAsync(cfg);
 
-        TestUtils.WaitForCondition(() => log.Entries.Any(e => e.Message.Contains("Cluster ID mismatch")));
+        TestUtils.WaitForCondition(
+            () => log.Entries.Any(e => e.Message.Contains("Cluster ID mismatch")),
+            5000,
+            () => log.Entries.StringJoin());
+
         Assert.AreEqual(1, client.GetConnections().Count);
     }
 

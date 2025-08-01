@@ -55,4 +55,9 @@ public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommands
     public int readRequiredCatalogVersion(ByteBuffer raw) {
         return marshaller.get().readRequiredCatalogVersion(raw);
     }
+
+    @Override
+    public long readSafeTimestamp(ByteBuffer raw) {
+        return marshaller.get().readSafeTimestamp(raw);
+    }
 }

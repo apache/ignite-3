@@ -178,6 +178,8 @@ public class SslTests : IgniteTestsBase
     }
 
     [Test]
+    [Platform("Linux", Reason = "CipherSuitesPolicy is not supported on Windows.")]
+    [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "Test runs only on Linux")]
     public async Task TestCustomCipherSuite()
     {
         var cipherSuite = OperatingSystem.IsMacOS()
@@ -192,7 +194,7 @@ public class SslTests : IgniteTestsBase
                 SslClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (_, _, _, _) => true,
-                    CipherSuitesPolicy = new CipherSuitesPolicy(new[] { cipherSuite })
+                    CipherSuitesPolicy = new CipherSuitesPolicy([cipherSuite])
                 }
             }
         };

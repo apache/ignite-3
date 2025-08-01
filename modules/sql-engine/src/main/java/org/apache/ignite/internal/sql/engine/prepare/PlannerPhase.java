@@ -19,11 +19,17 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.IgnitePrograms.cbo;
 import static org.apache.ignite.internal.sql.engine.prepare.IgnitePrograms.hep;
+import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.JOIN_PUSH_THROUGH_JOIN_RULE;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.calcite.plan.RelOptLattice;
+import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelRule;
+import org.apache.calcite.plan.hep.HepMatchOrder;
+import org.apache.calcite.plan.hep.HepPlanner;
+import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -35,13 +41,10 @@ import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule;
 import org.apache.calcite.rel.rules.FilterMergeRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinPushExpressionsRule;
-import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
-import org.apache.calcite.rel.rules.SortRemoveRule;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
@@ -59,6 +62,8 @@ import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
+import org.apache.ignite.internal.sql.engine.rule.SortMergeRule;
+import org.apache.ignite.internal.sql.engine.rule.SortRemoveRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
@@ -68,8 +73,12 @@ import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimizeBushyRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelateTransposeRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteSubQueryRemoveRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Represents a planner phase with its description and a used rule set.
@@ -79,7 +88,8 @@ public enum PlannerPhase {
             "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
-            CoreRules.JOIN_SUB_QUERY_TO_CORRELATE
+            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25801
+            IgniteSubQueryRemoveRule.INSTANCE
     ) {
         /** {@inheritDoc} */
         @Override
@@ -106,6 +116,7 @@ public enum PlannerPhase {
             FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
+            CoreRules.FILTER_REDUCE_EXPRESSIONS,
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
@@ -125,6 +136,7 @@ public enum PlannerPhase {
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
             ProjectScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
+            IgniteProjectCorrelateTransposeRule.INSTANCE,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
@@ -138,17 +150,49 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_OPTIMIZE_JOIN_ORDER(
+            "Heuristic phase to optimize join order"
+    ) {
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return (planner, rel, traits, materializations, lattices) -> {
+                HepProgramBuilder builder = new HepProgramBuilder();
+
+                builder
+                        .addSubprogram(
+                                new HepProgramBuilder()
+                                        .addMatchOrder(HepMatchOrder.BOTTOM_UP)
+                                        .addRuleInstance(CoreRules.JOIN_TO_MULTI_JOIN)
+                                        .build()
+                        )
+                        .addRuleInstance(IgniteMultiJoinOptimizeBushyRule.Config.DEFAULT.toRule());
+
+                HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
+                        null, Commons.context(rel).config().getCostFactory());
+
+                hepPlanner.setExecutor(planner.getExecutor());
+
+                for (RelOptMaterialization materialization : materializations) {
+                    hepPlanner.addMaterialization(materialization);
+                }
+
+                for (RelOptLattice lattice : lattices) {
+                    hepPlanner.addLattice(lattice);
+                }
+
+                hepPlanner.setRoot(rel);
+
+                return hepPlanner.findBestExp();
+            };
+        }
+    },
+
     OPTIMIZATION(
             "Main optimization phase",
             FilterMergeRule.Config.DEFAULT
                     .withOperandFor(LogicalFilter.class).toRule(),
 
-            JoinPushThroughJoinRule.Config.RIGHT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
-            JoinPushExpressionsRule.Config.DEFAULT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
+            CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
@@ -182,10 +226,8 @@ public enum PlannerPhase {
 
             CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES_TO_JOIN,
 
-            SortRemoveRule.Config.DEFAULT
-                    .withOperandSupplier(b ->
-                            b.operand(LogicalSort.class)
-                                    .anyInputs()).toRule(),
+            SortRemoveRule.INSTANCE,
+            SortMergeRule.INSTANCE,
 
             SortExchangeTransposeRule.INSTANCE,
 
@@ -193,9 +235,11 @@ public enum PlannerPhase {
             CoreRules.MINUS_MERGE,
             CoreRules.INTERSECT_MERGE,
             CoreRules.UNION_REMOVE,
-            CoreRules.JOIN_COMMUTE,
             CoreRules.AGGREGATE_REMOVE,
+
+            CoreRules.JOIN_COMMUTE,
             CoreRules.JOIN_COMMUTE_OUTER,
+            JOIN_PUSH_THROUGH_JOIN_RULE,
 
             PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
             PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,

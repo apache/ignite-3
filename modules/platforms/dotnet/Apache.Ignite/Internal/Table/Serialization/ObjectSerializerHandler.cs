@@ -42,7 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-        private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
+        private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, scoped Span<byte> noValueSet, TV value);
 
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, scoped Span<byte> noValueSet)
         {
             var cacheKey = (schema.Version, keyOnly);
 
@@ -427,7 +427,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             type = type.UnwrapEnum();
 
-            if (type != columnType)
+            if (type != columnType && type != column.Type.ToClrTypeAlternative())
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
@@ -455,7 +455,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 type = nullableType;
             }
 
-            if (type != columnType)
+            if (type != columnType && type != column.Type.ToClrTypeAlternative())
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
 

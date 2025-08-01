@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -33,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(CmgMessageGroup.Commands.CLUSTER_NODE)
 public interface ClusterNodeMessage extends NetworkMessage, Serializable {
-    String id();
+    UUID id();
 
     String name();
 

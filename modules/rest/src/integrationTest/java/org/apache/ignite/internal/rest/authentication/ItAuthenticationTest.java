@@ -52,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     /** HTTP client that is expected to be defined in subclasses. */
-    private HttpClient client;
+    private final HttpClient client = HttpClient.newBuilder().build();
 
     private String username = "admin";
 
@@ -62,9 +62,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @BeforeEach
     @Override
-    public void setup(TestInfo testInfo) {
-        client = HttpClient.newBuilder()
-                .build();
+    public void startCluster(TestInfo testInfo) {
     }
 
     @Override
@@ -86,7 +84,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     @Test
     public void disabledAuthentication(TestInfo testInfo) throws Exception {
         enableAuth = false;
-        super.setup(testInfo);
+        super.startCluster(testInfo);
 
         // Then.
         cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node ->
@@ -98,7 +96,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     public void defaultUser(TestInfo testInfo) throws Exception {
         username = null;
         password = null;
-        super.setup(testInfo);
+        super.startCluster(testInfo);
 
         // Authentication is enabled.
         Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
@@ -115,7 +113,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void changeCredentials(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
+        super.startCluster(testInfo);
         Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.
@@ -154,7 +152,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
+        super.startCluster(testInfo);
         Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.

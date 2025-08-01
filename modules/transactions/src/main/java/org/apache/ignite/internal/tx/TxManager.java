@@ -21,14 +21,15 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -37,44 +38,86 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a read-write transaction coordinated by a local node.
+     * Starts an implicit read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
      * @return The transaction.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker);
+    default InternalTransaction beginImplicitRw(HybridTimestampTracker timestampTracker) {
+        return beginImplicit(timestampTracker, false);
+    }
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value. The transaction has
-     * {@link TxPriority#NORMAL} priority.
+     * Starts an implicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @return The transaction.
+     */
+    default InternalTransaction beginImplicitRo(HybridTimestampTracker timestampTracker) {
+        return beginImplicit(timestampTracker, true);
+    }
+
+    /**
+     * Starts an implicit transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @return The transaction.
+     */
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    /**
+     * Starts an explicit read-write transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Transaction options.
+     * @return The transaction.
+     */
+    default InternalTransaction beginExplicitRw(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
+        return beginExplicit(timestampTracker, false, options);
+    }
+
+    /**
+     * Starts an explicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Transaction options.
+     * @return The transaction.
+     */
+    default InternalTransaction beginExplicitRo(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
+        return beginExplicit(timestampTracker, true, options);
+    }
+
+    /**
+     * Starts either read-write or read-only explicit transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @param txOptions Options.
      * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
-     *         available in the tables.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+    InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions);
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Begins a remote transaction.
      *
-     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
-     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
-     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @param priority Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is
-     *         the more likely the transaction will win the conflict.
-     * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
-     *         available in the tables.
+     * @param txId Tx id.
+     * @param commitPartId Table partition id.
+     * @param coord Tx coordinator.
+     * @param token Enlistment token.
+     * @param timeout The timeout.
+     * @param cb Delayed ack callback.
+     *
+     * @return Remote transaction.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority);
+    InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
 
     /**
      * Returns a transaction state meta.
@@ -115,28 +158,33 @@ public interface TxManager extends IgniteComponent {
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
-     *         updated with commit timestamp of every committed transaction.
+     *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
-     * @param commit {@code True} if a commit requested.
+     * @param ts The timestamp which is associated to txn completion.
+     * @param commit {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded. 'commit' and timeout must not be {@code true} at the same time.
      */
-    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit);
+    void finishFull(
+            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+    );
 
     /**
      * Finishes a dependant transactions.
      *
-     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
-     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     * @param timestampTracker Observable timestamp tracker is used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param commitPartition Partition to store a transaction state.
-     * @param commit {@code true} if a commit requested.
-     * @param enlistedGroups Enlisted partition groups with consistency tokens.
+     * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
+     * @param commitIntent {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
-            boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            @Nullable ReplicationGroupId commitPartition,
+            boolean commitIntent,
+            boolean timeoutExceeded,
+            Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );
 
@@ -146,15 +194,15 @@ public interface TxManager extends IgniteComponent {
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
      * @param commitPartitionId Commit partition id.
-     * @param enlistedPartitions Map of partition groups to their primary nodes.
+     * @param enlistedPartitions Map of enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Map<TablePartitionId, String> enlistedPartitions,
+            ReplicationGroupId commitPartitionId,
+            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -166,15 +214,15 @@ public interface TxManager extends IgniteComponent {
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
      * @param commitPartitionId Commit partition id.
-     * @param enlistedPartitions Enlisted partition groups.
+     * @param enlistedPartitions Enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            TablePartitionId commitPartitionId,
-            Collection<TablePartitionId> enlistedPartitions,
+            ReplicationGroupId commitPartitionId,
+            Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -188,14 +236,30 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Completable future of Void.
      */
-    CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId);
+    CompletableFuture<Void> cleanup(ReplicationGroupId commitPartitionId, String node, UUID txId);
 
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
      *
+     * @param resourceVacuumMetrics Metrics of resource vacuumizing.
      * @return Vacuum complete future.
      */
-    CompletableFuture<Void> vacuum();
+    CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics);
+
+    /**
+     * Kills a local transaction by its id. The behavior is similar to the transaction rollback.
+     *
+     * @param txId Transaction id.
+     * @return Future will be completed with value true if the transaction was started locally and completed by this call.
+     */
+    CompletableFuture<Boolean> kill(UUID txId);
+
+    /**
+     * Returns lock retry count.
+     *
+     * @return The count.
+     */
+    int lockRetryCount();
 
     /**
      * Returns a number of finished transactions.

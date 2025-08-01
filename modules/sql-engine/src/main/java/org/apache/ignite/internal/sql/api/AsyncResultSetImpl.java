@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,6 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -69,16 +72,23 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         return hasRowSet() ? cursor.metadata() : null;
     }
 
+    /** Returns partition awareness metadata from an underlying cursor. */
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return cursor.partitionAwarenessMetadata();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
+        SqlQueryType queryType = cursor.queryType();
+        return queryType.hasRowSet();
     }
 
     /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        if (cursor.queryType() != SqlQueryType.DML) {
+        SqlQueryType queryType = cursor.queryType();
+        if (!queryType.returnsAffectedRows()) {
             return -1;
         }
 
@@ -90,11 +100,12 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (cursor.queryType() != SqlQueryType.DDL) {
+        SqlQueryType queryType = cursor.queryType();
+        if (!queryType.supportsWasApplied()) {
             return false;
         }
 
-        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + curPage;
+        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL/KILL result: " + curPage;
 
         return (boolean) curPage.items().get(0).get(0);
     }
@@ -304,6 +315,18 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         /** {@inheritDoc} */
         @Override
+        public BigDecimal decimalValue(String columnName) {
+            return (BigDecimal) row.get(columnIndexChecked(columnName));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public BigDecimal decimalValue(int columnIndex) {
+            return (BigDecimal) row.get(columnIndex);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public String stringValue(String columnName) {
             return (String) row.get(columnIndexChecked(columnName));
         }
@@ -312,6 +335,18 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public String stringValue(int columnIndex) {
             return (String) row.get(columnIndex);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] bytesValue(String columnName) {
+            return (byte[]) row.get(columnIndexChecked(columnName));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] bytesValue(int columnIndex) {
+            return (byte[]) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */
@@ -380,9 +415,10 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             return meta;
         }
 
+        /** {@inheritDoc} */
         @Override
         public String toString() {
-            return "Row " + row;
+            return S.tupleToString(this);
         }
     }
 }

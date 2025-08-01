@@ -1,0 +1,195 @@
+Sort
+    collation: [SEGMENT ASC, NUM_CUSTOMERS ASC]
+    fetch: 100
+    est: (rows=86)
+  Project
+      fieldNames: [SEGMENT, NUM_CUSTOMERS, SEGMENT_BASE]
+      projection: [SEGMENT, NUM_CUSTOMERS, *(SEGMENT, 50)]
+      est: (rows=86)
+    ColocatedHashAggregate
+        fieldNames: [SEGMENT, NUM_CUSTOMERS]
+        group: [SEGMENT]
+        aggregation: [COUNT()]
+        est: (rows=86)
+      Project
+          fieldNames: [SEGMENT]
+          projection: [CAST(/(REVENUE, 50)):INTEGER]
+          est: (rows=87)
+        ColocatedHashAggregate
+            fieldNames: [C_CUSTOMER_SK, REVENUE]
+            group: [C_CUSTOMER_SK]
+            aggregation: [SUM(SS_EXT_SALES_PRICE)]
+            est: (rows=87)
+          Project
+              fieldNames: [C_CUSTOMER_SK, SS_EXT_SALES_PRICE]
+              projection: [C_CUSTOMER_SK, SS_EXT_SALES_PRICE]
+              est: (rows=436)
+            HashJoin
+                predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
+                type: inner
+                est: (rows=436)
+              HashJoin
+                  predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=35419)
+                Exchange
+                    distribution: single
+                    est: (rows=2880404)
+                  TableScan
+                      table: PUBLIC.STORE_SALES
+                      fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_EXT_SALES_PRICE]
+                      est: (rows=2880404)
+                NestedLoopJoin
+                    predicate: >=(D_MONTH_SEQ, $f0$0)
+                    fieldNames: [D_DATE_SK, D_MONTH_SEQ, $f0, $f0$0]
+                    type: inner
+                    est: (rows=18262)
+                  NestedLoopJoin
+                      predicate: <=(D_MONTH_SEQ, $f0)
+                      type: inner
+                      est: (rows=36525)
+                    Exchange
+                        distribution: single
+                        est: (rows=73049)
+                      TableScan
+                          table: PUBLIC.DATE_DIM
+                          fieldNames: [D_DATE_SK, D_MONTH_SEQ]
+                          est: (rows=73049)
+                    ColocatedHashAggregate
+                        fieldNames: [$f0]
+                        group: []
+                        aggregation: [SINGLE_VALUE(EXPR$0)]
+                        est: (rows=1)
+                      ReduceHashAggregate
+                          fieldNames: [EXPR$0]
+                          group: [EXPR$0]
+                          aggregation: []
+                          est: (rows=1620)
+                        Exchange
+                            distribution: single
+                            est: (rows=1620)
+                          MapHashAggregate
+                              fieldNames: [EXPR$0, _GROUP_ID]
+                              group: [EXPR$0]
+                              aggregation: []
+                              est: (rows=1620)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: AND(=(D_YEAR, 2000), =(D_MOY, 2))
+                                fieldNames: [EXPR$0]
+                                projection: [+(D_MONTH_SEQ, 3)]
+                                est: (rows=8100)
+                  ColocatedHashAggregate
+                      fieldNames: [$f0]
+                      group: []
+                      aggregation: [SINGLE_VALUE(EXPR$0)]
+                      est: (rows=1)
+                    ReduceHashAggregate
+                        fieldNames: [EXPR$0]
+                        group: [EXPR$0]
+                        aggregation: []
+                        est: (rows=1620)
+                      Exchange
+                          distribution: single
+                          est: (rows=1620)
+                        MapHashAggregate
+                            fieldNames: [EXPR$0, _GROUP_ID]
+                            group: [EXPR$0]
+                            aggregation: []
+                            est: (rows=1620)
+                          TableScan
+                              table: PUBLIC.DATE_DIM
+                              predicate: AND(=(D_YEAR, 2000), =(D_MOY, 2))
+                              fieldNames: [EXPR$0]
+                              projection: [+(D_MONTH_SEQ, 1)]
+                              est: (rows=8100)
+              MergeJoin
+                  predicate: AND(=(CA_COUNTY, S_COUNTY), =(CA_STATE, S_STATE))
+                  type: inner
+                  est: (rows=1146158968532545)
+                HashJoin
+                    predicate: =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK)
+                    type: inner
+                    est: (rows=4245033216787203)
+                  Exchange
+                      distribution: single
+                      est: (rows=50000)
+                    Sort
+                        collation: [CA_COUNTY ASC, CA_STATE ASC]
+                        est: (rows=50000)
+                      TableScan
+                          table: PUBLIC.CUSTOMER_ADDRESS
+                          fieldNames: [CA_ADDRESS_SK, CA_COUNTY, CA_STATE]
+                          est: (rows=50000)
+                  ColocatedHashAggregate
+                      group: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                      aggregation: []
+                      est: (rows=4245033216787203)
+                    Project
+                        fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                        projection: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                        est: (rows=11791758935520012)
+                      MergeJoin
+                          predicate: =(C_CUSTOMER_SK, CUSTOMER_SK)
+                          type: inner
+                          est: (rows=11791758935520012)
+                        HashJoin
+                            predicate: =(SOLD_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=786117262368)
+                          HashJoin
+                              predicate: =(ITEM_SK, I_ITEM_SK)
+                              type: inner
+                              est: (rows=646983689)
+                            Exchange
+                                distribution: single
+                                est: (rows=2160932)
+                              Sort
+                                  collation: [CUSTOMER_SK ASC]
+                                  est: (rows=2160932)
+                                UnionAll
+                                    est: (rows=2160932)
+                                  TableScan
+                                      table: PUBLIC.CATALOG_SALES
+                                      fieldNames: [SOLD_DATE_SK, CUSTOMER_SK, ITEM_SK]
+                                      est: (rows=1441548)
+                                  TableScan
+                                      table: PUBLIC.WEB_SALES
+                                      fieldNames: [SOLD_DATE_SK, CUSTOMER_SK, ITEM_SK]
+                                      est: (rows=719384)
+                            Exchange
+                                distribution: single
+                                est: (rows=1996)
+                              TableScan
+                                  table: PUBLIC.ITEM
+                                  predicate: AND(=(I_CATEGORY, _UTF-8'Books'), =(I_CLASS, _UTF-8'business'))
+                                  fieldNames: [I_ITEM_SK, I_CLASS, I_CATEGORY]
+                                  est: (rows=1996)
+                          Exchange
+                              distribution: single
+                              est: (rows=8100)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: AND(=(D_MOY, 2), =(D_YEAR, 2000))
+                                fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
+                                est: (rows=8100)
+                        Exchange
+                            distribution: single
+                            est: (rows=100000)
+                          Sort
+                              collation: [C_CUSTOMER_SK ASC]
+                              est: (rows=100000)
+                            TableScan
+                                table: PUBLIC.CUSTOMER
+                                fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                                est: (rows=100000)
+                Exchange
+                    distribution: single
+                    est: (rows=12)
+                  Sort
+                      collation: [S_COUNTY ASC, S_STATE ASC]
+                      est: (rows=12)
+                    TableScan
+                        table: PUBLIC.STORE
+                        fieldNames: [S_COUNTY, S_STATE]
+                        est: (rows=12)

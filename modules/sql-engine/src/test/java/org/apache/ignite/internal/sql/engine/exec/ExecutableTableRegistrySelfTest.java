@@ -22,12 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.Spliterators;
-import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -40,13 +38,16 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.Test;
@@ -92,8 +93,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
         int tableId = 1;
 
-        CompletableFuture<ExecutableTable> f = tester.getTable(tableId);
-        ExecutableTable executableTable = f.join();
+        ExecutableTable executableTable = tester.getTable(tableId);
 
         assertNotNull(executableTable.scannableTable());
         assertNotNull(executableTable.updatableTable());
@@ -105,13 +105,9 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         int cacheSize = 2;
         Tester tester = new Tester(cacheSize);
 
-        CompletableFuture<ExecutableTable> f1 = tester.getTable(1);
-        CompletableFuture<ExecutableTable> f2 = tester.getTable(2);
-        CompletableFuture<ExecutableTable> f3 = tester.getTable(3);
-
-        f1.join();
-        f2.join();
-        f3.join();
+        tester.getTable(1);
+        tester.getTable(2);
+        tester.getTable(3);
 
         boolean done = IgniteTestUtils.waitForCondition(() -> tester.registry.tableCache.size() == cacheSize, 15_000);
         assertTrue(done, "Failed to clear the cache");
@@ -140,15 +136,17 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
                     sqlSchemaManager,
                     replicaService,
                     new TestClockService(clock),
-                    cacheSize
+                    new SystemPropertiesNodeProperties(),
+                    cacheSize,
+                    CaffeineCacheFactory.INSTANCE
             );
         }
 
-        CompletableFuture<ExecutableTable> getTable(int tableId) {
+        ExecutableTable getTable(int tableId) {
             int schemaVersion = 1;
             int tableVersion = 10;
 
-            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion),
+            TableImpl table = new TableImpl(internalTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(tableVersion),
                     mock(IgniteSql.class), -1);
 
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
@@ -156,16 +154,20 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(tableManager.cachedTable(tableId)).thenReturn(table);
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
-            when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
-            when(descriptor.spliterator()).thenReturn(Spliterators.emptySpliterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
-                    table.name(), tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
+                    "TBL1", tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1, 10000
             );
 
             when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);
 
             return registry.getTable(schemaVersion, tableId);
+        }
+
+        private LockManager lockManager() {
+            HeapLockManager lockManager = HeapLockManager.smallInstance();
+            lockManager.start(new WaitDieDeadlockPreventionPolicy());
+            return lockManager;
         }
     }
 }

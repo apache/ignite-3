@@ -18,27 +18,31 @@
 package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final BiConsumer<List<T>, BitSet> flusher;
+    private final Function<List<T>, CompletableFuture<?>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    private BitSet deleted;
-
     private boolean closed;
 
-    StreamerBuffer(int capacity, BiConsumer<List<T>, BitSet> flusher) {
+    /** Last flush completion timestamp, in nanoseconds. */
+    private long lastFlushNanos = System.nanoTime();
+
+    private CompletableFuture<?> flushFut;
+
+    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<?>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
-        deleted = new BitSet(capacity);
     }
 
     /**
@@ -46,43 +50,85 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(T item, boolean delete) {
-        if (closed) {
-            throw new IllegalStateException("Streamer is closed, can't add items.");
+    void add(T item) {
+        List<T> bufToFlush = null;
+
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Streamer is closed, can't add items.");
+            }
+
+            buf.add(item);
+
+            if (buf.size() >= capacity) {
+                bufToFlush = buf;
+                buf = new ArrayList<>(capacity);
+                lastFlushNanos = System.nanoTime();
+            }
         }
 
-        buf.add(item);
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
+    }
 
-        if (delete) {
-            deleted.set(buf.size() - 1);
+    void flushAndClose() {
+        List<T> bufToFlush;
+
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+
+            bufToFlush = buf;
         }
 
-        if (buf.size() >= capacity) {
-            flusher.accept(buf, deleted);
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
+    }
+
+    void autoFlush(long intervalNanos) {
+        List<T> bufToFlush;
+
+        synchronized (this) {
+            if (closed || buf.isEmpty()) {
+                return;
+            }
+
+            if (flushFut != null && !flushFut.isDone()) {
+                // Flush in progress.
+                return;
+            }
+
+            if (System.nanoTime() - lastFlushNanos < intervalNanos) {
+                // Not enough time has passed since the last flush.
+                return;
+            }
+
+            bufToFlush = buf;
             buf = new ArrayList<>(capacity);
-            deleted = new BitSet(capacity);
+            lastFlushNanos = System.nanoTime();
         }
+
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
-    synchronized void flushAndClose() {
+    synchronized void forEach(Consumer<T> consumer) {
         if (closed) {
-            throw new IllegalStateException("Streamer is already closed.");
-        }
-
-        closed = true;
-
-        if (!buf.isEmpty()) {
-            flusher.accept(buf, deleted);
-        }
-    }
-
-    synchronized void flush() {
-        if (closed || buf.isEmpty()) {
             return;
         }
 
-        flusher.accept(buf, deleted);
-        buf = new ArrayList<>(capacity);
-        deleted = new BitSet(capacity);
+        buf.forEach(consumer);
+    }
+
+    private void flushBuf(@Nullable List<T> bufToFlush) {
+        if (bufToFlush == null || bufToFlush.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture<?> fut = flusher.apply(bufToFlush);
+
+        synchronized (this) {
+            flushFut = fut;
+        }
     }
 }

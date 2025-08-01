@@ -18,6 +18,7 @@
 package org.apache.ignite.catalog.definitions;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
 import org.jetbrains.annotations.Nullable;
@@ -64,5 +65,24 @@ public class IndexDefinition {
      */
     public List<ColumnSorted> columns() {
         return columns;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IndexDefinition that = (IndexDefinition) o;
+        return Objects.equals(name, that.name)
+                && type == that.type
+                && Objects.equals(columns, that.columns);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, type, columns);
     }
 }

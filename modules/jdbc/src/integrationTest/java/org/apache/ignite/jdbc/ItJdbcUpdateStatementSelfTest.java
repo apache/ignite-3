@@ -81,10 +81,9 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Execute test.
      *
-     * @throws SQLException If failed.
      */
     @Test
-    public void testExecuteAndExecuteUpdate() throws SQLException {
+    public void testExecuteAndExecuteUpdate() {
         testExecute((String updateQuery) -> {
             try {
                 stmt.executeUpdate(updateQuery);
@@ -102,7 +101,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
         });
     }
 
-    private void testExecute(Consumer<String> updateFunction) throws SQLException {
+    private void testExecute(Consumer<String> updateFunction) {
         final String createSql = "CREATE TABLE public.person(id INTEGER PRIMARY KEY, sid VARCHAR,"
                 + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL)";
 
@@ -119,7 +118,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
         updateFunction.accept(insertSql);
         updateFunction.accept(updateSql);
 
-        KeyValueView<Integer, Person> person = clusterNodes.get(0).tables()
+        KeyValueView<Integer, Person> person = CLUSTER.node(0).tables()
                 .table("PERSON").keyValueView(Integer.class, Person.class);
 
         assertEquals("John", person.get(null, 1).firstname);

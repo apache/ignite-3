@@ -18,33 +18,28 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tx storage test for RocksDB implementation.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
@@ -52,14 +47,16 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
     private TxStateRocksDbSharedStorage sharedStorage;
 
-    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    @InjectExecutorService
+    private ExecutorService executor;
 
     @Override
-    protected TxStateRocksDbTableStorage createTableStorage() {
-        return new TxStateRocksDbTableStorage(
-                TABLE_ID,
+    protected TxStateRocksDbStorage createTableOrZoneStorage() {
+        return new TxStateRocksDbStorage(
+                ZONE_ID,
                 3,
                 sharedStorage
         );
@@ -68,9 +65,16 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage =
-                new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
-        sharedStorage.start();
+        sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
+                workDir,
+                scheduledExecutor,
+                executor,
+                mock(LogSyncer.class),
+                mock(FailureProcessor.class),
+                () -> 0
+        );
+        assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.beforeTest();
     }
@@ -80,39 +84,6 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     protected void afterTest() throws Exception {
         super.afterTest();
 
-        IgniteUtils.closeAllManually(
-                sharedStorage,
-                () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS),
-                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
-        );
-    }
-
-    @Test
-    void testRestartStorageInProgressOfRebalance() {
-        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
-
-        List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
-                randomTxMetaTuple(1, UUID.randomUUID()),
-                randomTxMetaTuple(1, UUID.randomUUID())
-        );
-
-        fillStorage(storage, rows);
-
-        // We emulate the situation that the rebalancing did not have time to end.
-        storage.lastApplied(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
-
-        assertThat(storage.flush(), willCompleteSuccessfully());
-
-        tableStorage.stop();
-
-        tableStorage = createTableStorage();
-
-        tableStorage.start();
-
-        storage = tableStorage.getOrCreateTxStateStorage(0);
-
-        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
-
-        checkStorageContainsRows(storage, rows);
+        assertThat(sharedStorage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 }

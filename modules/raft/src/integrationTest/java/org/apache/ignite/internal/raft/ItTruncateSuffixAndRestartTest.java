@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -42,13 +43,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderChange;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -72,6 +75,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -125,7 +129,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         CompletableFuture<Void> changeFuture = networkConfiguration.change(cfg -> cfg
-                .changeNodeFinder().changeNetClusterNodes(
+                .changeNodeFinder().convert(StaticNodeFinderChange.class)
+                .changeNetClusterNodes(
                         range(port(0), port(NODES)).mapToObj(port -> "localhost:" + port).toArray(String[]::new)
                 )
         );
@@ -163,7 +168,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
         final Loza raftMgr;
 
-        private @Nullable CompletableFuture<RaftGroupService> serviceFuture;
+        private @Nullable RaftGroupService raftGroupService;
 
         private TestRaftGroupListener raftGroupListener;
 
@@ -186,7 +191,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new InMemoryStaleIds(),
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
-                    mock(FailureProcessor.class)
+                    mock(FailureManager.class),
+                    defaultChannelTypeRegistry(),
+                    new DefaultIgniteProductVersionSource()
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -207,7 +214,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             raftGroupListener = new TestRaftGroupListener();
 
             try {
-                serviceFuture = raftMgr.startRaftGroupNode(
+                raftGroupService = raftMgr.startRaftGroupNode(
                         new RaftNodeId(GROUP_ID, new Peer(nodeName)),
                         raftGroupConfiguration,
                         raftGroupListener,
@@ -222,15 +229,16 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         RaftGroupService getService() {
-            assertNotNull(serviceFuture);
-            assertThat(serviceFuture, willCompleteSuccessfully());
+            assertNotNull(raftGroupService);
 
-            return serviceFuture.join();
+            return raftGroupService;
         }
 
         void stopService() {
-            if (serviceFuture != null) {
-                serviceFuture = null;
+            if (raftGroupService != null) {
+                raftGroupService.shutdown();
+
+                raftGroupService = null;
 
                 try {
                     raftMgr.stopRaftNode(new RaftNodeId(GROUP_ID, new Peer(nodeName)));
@@ -392,6 +400,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public void destroyLogStorage(String uri) {
             // No-op.
+        }
+
+        @Override
+        public Set<String> raftNodeStorageIdsOnDisk() {
+            // There is nothing on disk.
+            return Set.of();
         }
 
         @Override

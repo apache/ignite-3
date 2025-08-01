@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.Test;
 
@@ -36,16 +38,18 @@ import org.junit.jupiter.api.Test;
  */
 public class ValueConditionTest {
     /** Entry key. */
-    private static final byte[] KEY = new byte[]{1};
+    private static final byte[] KEY = {1};
 
     /** Entry value. */
-    private static final byte[] VAL_1 = new byte[]{11};
+    private static final byte[] VAL_1 = {11};
 
     /** Other entry value. */
-    private static final byte[] VAL_2 = new byte[]{22};
+    private static final byte[] VAL_2 = {22};
 
     /** Yet another entry value. */
-    private static final byte[] VAL_3 = new byte[]{33};
+    private static final byte[] VAL_3 = {33};
+
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Tests values equality.
@@ -54,9 +58,9 @@ public class ValueConditionTest {
     public void eq() {
         Condition cond = new ValueCondition(EQUAL, KEY, VAL_1);
 
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
 
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
     }
 
     /**
@@ -66,9 +70,9 @@ public class ValueConditionTest {
     public void ne() {
         Condition cond = new ValueCondition(NOT_EQUAL, KEY, VAL_1);
 
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
 
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
     }
 
     /**
@@ -79,10 +83,10 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(GREATER, KEY, VAL_1);
 
         // byte[]{22} > byte[]{11}.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
 
         // byte[]{11} > byte[]{11}.
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
     }
 
     /**
@@ -93,13 +97,13 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(GREATER_OR_EQUAL, KEY, VAL_2);
 
         // byte[]{33} >= byte[]{22}.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_3, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_3, 1, clock.now())));
 
         // byte[]{22} >= byte[]{22}.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
 
         // byte[]{11} >= byte[]{22}.
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
     }
 
     /**
@@ -110,10 +114,10 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(LESS, KEY, VAL_2);
 
         // byte[]{11} < byte[]{22}
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
 
         // byte[]{22} < byte[]{22}
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
     }
 
     /**
@@ -124,12 +128,12 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(LESS_OR_EQUAL, KEY, VAL_2);
 
         // byte[]{11} <= byte[]{22}
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, clock.now())));
 
         // byte[]{22} <= byte[]{22}
-        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL_2, 1, clock.now())));
 
         // byte[]{33} <= byte[]{22}
-        assertFalse(cond.test(new EntryImpl(KEY, VAL_3, 1, 1)));
+        assertFalse(cond.test(new EntryImpl(KEY, VAL_3, 1, clock.now())));
     }
 }

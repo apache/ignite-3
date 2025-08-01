@@ -58,6 +58,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -311,6 +311,46 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = remainingInternal() >= MAX_VAR_INT_BYTES;
 
         writeVarInt(val + 1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeFixedInt(int val) {
+        lastFinished = remainingInternal() >= Integer.BYTES;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putIntLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            }
+
+            pos += Integer.BYTES;
+
+            setPosition(pos);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeFixedLong(long val) {
+        lastFinished = remainingInternal() >= Long.BYTES;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putLong(heapArr, baseOff + pos, val);
+            }
+
+            pos += Long.BYTES;
+
+            setPosition(pos);
+        }
     }
 
     @Override
@@ -1119,6 +1159,40 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         setPosition(pos);
+
+        return val;
+    }
+
+    @Override
+    public int readFixedInt() {
+        lastFinished = remainingInternal() >= Integer.BYTES;
+
+        int val = 0;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            val = GridUnsafe.getInt(heapArr, baseOff + pos);
+
+            setPosition(pos + Integer.BYTES);
+        }
+
+        return val;
+    }
+
+    @Override
+    public long readFixedLong() {
+        lastFinished = remainingInternal() >= Long.BYTES;
+
+        long val = 0;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            val = GridUnsafe.getLong(heapArr, baseOff + pos);
+
+            setPosition(pos + Long.BYTES);
+        }
 
         return val;
     }

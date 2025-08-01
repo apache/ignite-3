@@ -22,25 +22,40 @@ import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
+import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatusAndCreateTimeStartTime;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,12 +71,19 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
 
+    @Mock(answer = RETURNS_DEEP_STUBS)
+    private TopologyService topologyService;
+
     private ComputeExecutor computeExecutor;
+
+    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
 
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
-        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
+        computeExecutor = new ComputeExecutorImpl(
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()));
+
         computeExecutor.start();
     }
 
@@ -74,8 +96,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     void threadInterruption() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                InterruptingJob.class,
-                null,
+                InterruptingJob.class.getName(),
+                jobClassLoader,
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -104,8 +126,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     void cooperativeCancellation() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                CancellingJob.class,
-                null,
+                CancellingJob.class.getName(),
+                jobClassLoader,
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -134,62 +156,60 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void retryJobFail() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        RetryJobFail.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                RetryJobFail.class,
-                null,
-                new Object[]{runTimes}
+                RetryJobFail.class.getName(),
+                jobClassLoader,
+                null
         );
 
         await().until(execution::state, jobStateWithStatus(FAILED));
 
-        assertThat(runTimes.get(), is(maxRetries + 1));
+        assertThat(RetryJobFail.runTimes.get(), is(maxRetries + 1));
     }
 
-    private static class RetryJobFail implements ComputeJob<Object[], Integer> {
+    private static class RetryJobFail implements ComputeJob<Object, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object args) {
             runTimes.incrementAndGet();
+
             throw new RuntimeException();
         }
     }
 
     @Test
     void retryJobSuccess() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        RetryJobSuccess.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                RetryJobSuccess.class,
-                null,
-                new Object[]{
-                        runTimes,
-                        maxRetries
-                }
+                RetryJobSuccess.class.getName(),
+                jobClassLoader,
+                SharedComputeUtils.marshalArgOrResult(maxRetries, null)
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(runTimes.get(), is(maxRetries + 1));
+        assertThat(RetryJobSuccess.runTimes.get(), is(maxRetries + 1));
     }
 
-    private static class RetryJobSuccess implements ComputeJob<Object[], Integer> {
+    private static class RetryJobSuccess implements ComputeJob<Integer, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
-            int maxRetries = (int) args[1];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Integer args) {
+            int maxRetries = args;
+
             if (runTimes.incrementAndGet() <= maxRetries) {
                 throw new RuntimeException();
             }
+
             return completedFuture(0);
         }
 
@@ -197,39 +217,60 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void runJobOnce() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        JobSuccess.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                JobSuccess.class,
-                null,
-                new Object[]{runTimes}
+                JobSuccess.class.getName(),
+                jobClassLoader,
+                null
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(execution.resultAsync(), willBe(1));
-        assertThat(runTimes.get(), is(1));
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalArgOrResult(h, null, null)), willBe(1));
+        assertThat(JobSuccess.runTimes.get(), is(1));
     }
 
-    private static class JobSuccess implements ComputeJob<Object[], Integer> {
+    private static class JobSuccess implements ComputeJob<Object, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object arg) {
             return completedFuture(runTimes.incrementAndGet());
         }
+    }
 
+    @Test
+    void findJobArgumentType() {
+        assertThat(getJobExecuteArgumentType(RetryJobSuccess.class), is(Integer.class));
+    }
+
+    private static class Task implements MapReduceTask<String, String, String, String> {
+
+        @Override
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext taskContext, @Nullable String input) {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            return null;
+        }
+    }
+
+    @Test
+    void findTaskArgumentType() {
+        assertThat(getTaskSplitArgumentType(Task.class), is(String.class));
     }
 
     @Test
     void cancelCompletedJob() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                SimpleJob.class,
-                null,
+                SimpleJob.class.getName(),
+                jobClassLoader,
                 null
         );
 

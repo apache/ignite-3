@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfigurationSchema;
 import org.apache.ignite.internal.eventlog.config.schema.EventTypeValidatorImpl;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkConfigurationSchema;
+import org.apache.ignite.internal.eventlog.config.schema.WebhookSinkConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by eventlog.
@@ -47,7 +48,7 @@ public class EventLogConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(LogSinkConfigurationSchema.class);
+        return List.of(LogSinkConfigurationSchema.class, WebhookSinkConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */

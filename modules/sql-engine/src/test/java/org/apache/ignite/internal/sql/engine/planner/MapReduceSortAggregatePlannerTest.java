@@ -246,6 +246,17 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
+     * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
+     */
+    @Test
+    public void subqueryWithSingleValueAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27C, hasSingleValueAggregate());
+    }
+
+    /**
      * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
      */
     @Test
@@ -305,10 +316,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(1, isInstanceOf(IgniteReduceSortAggregate.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(input(isInstanceOf(IgniteLimit.class)
-                                                .and(input(isInstanceOf(IgniteSort.class)
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
+                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                .and(input(isTableScan("TEST")))
                                         ))
                                 ))
                         ))
@@ -573,10 +582,14 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
+        checkSimpleAggSingle(testCase, hasAggregate());
+    }
+
+    private void checkSimpleAggSingle(TestCase testCase, Predicate<IgniteMapSortAggregate> aggPredicate) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(hasAggregate())
+                                .and(aggPredicate)
                                 .and(hasGroups())
                                 .and(input(isTableScan("TEST")))
                         ))

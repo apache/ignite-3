@@ -31,7 +31,9 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
-    private final String affinity;
+    private final Integer quorumSize;
+
+    private final String distributionAlgorithm;
 
     private final Integer dataNodesAutoAdjust;
 
@@ -43,28 +45,34 @@ public class ZoneDefinition {
 
     private final String storageProfiles;
 
+    private final String consistencyMode;
+
     private ZoneDefinition(
             String zoneName,
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
-            String affinity,
+            Integer quorumSize,
+            String distributionAlgorithm,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
             String filter,
-            String storageProfiles
+            String storageProfiles,
+            String consistencyMode
     ) {
         this.zoneName = zoneName;
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
-        this.affinity = affinity;
+        this.quorumSize = quorumSize;
+        this.distributionAlgorithm = distributionAlgorithm;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
+        this.consistencyMode = consistencyMode;
     }
 
     /**
@@ -114,12 +122,21 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns affinity function.
+     * Returns quorum size.
      *
-     * @return Affinity function.
+     * @return Quorum size.
      */
-    public String affinityFunction() {
-        return affinity;
+    public Integer quorumSize() {
+        return quorumSize;
+    }
+
+    /**
+     * Returns distribution algorithm.
+     *
+     * @return Distribution algorithm.
+     */
+    public String distributionAlgorithm() {
+        return distributionAlgorithm;
     }
 
     /**
@@ -168,12 +185,39 @@ public class ZoneDefinition {
     }
 
     /**
+     * Returns consistency mode.
+     *
+     * @return Consistency mode.
+     */
+    public String consistencyMode() {
+        return consistencyMode;
+    }
+
+    /**
      * Returns new builder using this definition.
      *
      * @return New builder.
      */
     public Builder toBuilder() {
         return new Builder(this);
+    }
+
+    @Override
+    public String toString() {
+        return "ZoneDefinition{"
+                + "zoneName='" + zoneName + '\''
+                + ", ifNotExists=" + ifNotExists
+                + ", partitions=" + partitions
+                + ", replicas=" + replicas
+                + ", quorumSize=" + quorumSize
+                + ", distributionAlgorithm='" + distributionAlgorithm + '\''
+                + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
+                + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
+                + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown
+                + ", filter='" + filter + '\''
+                + ", storageProfiles='" + storageProfiles + '\''
+                + ", consistencyMode='" + consistencyMode + '\''
+                + '}';
     }
 
     /**
@@ -188,7 +232,9 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
-        private String affinity;
+        private Integer quorumSize;
+
+        private String distributionAlgorithm;
 
         private Integer dataNodesAutoAdjust;
 
@@ -200,6 +246,8 @@ public class ZoneDefinition {
 
         private String storageProfiles;
 
+        private String consistencyMode;
+
         private Builder() {}
 
         private Builder(ZoneDefinition definition) {
@@ -207,12 +255,14 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
-            affinity = definition.affinity;
+            quorumSize = definition.quorumSize;
+            distributionAlgorithm = definition.distributionAlgorithm;
             dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
             filter = definition.filter;
             storageProfiles = definition.storageProfiles;
+            consistencyMode = definition.consistencyMode;
         }
 
         /**
@@ -268,18 +318,31 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets the affinity function.
+         * Sets quorum size.
          *
-         * @param affinity Affinity function.
+         * @param quorumSize Quorum size.
          * @return This builder instance.
          */
-        public Builder affinity(String affinity) {
-            Objects.requireNonNull(affinity, "Affinity function must not be null.");
-            if (affinity.isBlank()) {
-                throw new IllegalArgumentException("Affinity function must not be blank.");
+        public Builder quorumSize(Integer quorumSize) {
+            Objects.requireNonNull(quorumSize, "Quorum size must not be null.");
+
+            this.quorumSize = quorumSize;
+            return this;
+        }
+
+        /**
+         * Sets the distribution algorithm.
+         *
+         * @param distributionAlgorithm Distribution algorithm.
+         * @return This builder instance.
+         */
+        public Builder distributionAlgorithm(String distributionAlgorithm) {
+            Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
+            if (distributionAlgorithm.isBlank()) {
+                throw new IllegalArgumentException("Partition distribution algorithm must not be blank.");
             }
 
-            this.affinity = affinity;
+            this.distributionAlgorithm = distributionAlgorithm;
             return this;
         }
 
@@ -355,6 +418,19 @@ public class ZoneDefinition {
         }
 
         /**
+         * Sets consistency mode.
+         *
+         * @param consistencyMode Consistency mode.
+         * @return This builder instance.
+         */
+        public Builder consistencyMode(String consistencyMode) {
+            Objects.requireNonNull(consistencyMode, "Consistency mode must not be null.");
+
+            this.consistencyMode = consistencyMode;
+            return this;
+        }
+
+        /**
          * Builds the zone definition.
          *
          * @return Zone definition.
@@ -365,12 +441,14 @@ public class ZoneDefinition {
                     ifNotExists,
                     partitions,
                     replicas,
-                    affinity,
+                    quorumSize,
+                    distributionAlgorithm,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    storageProfiles
+                    storageProfiles,
+                    consistencyMode
             );
         }
     }

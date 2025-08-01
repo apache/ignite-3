@@ -18,6 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TimeZone;
+import org.apache.calcite.DataContext;
+import org.apache.calcite.DataContext.Variable;
+import org.apache.calcite.DataContexts;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -38,6 +43,11 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
  * Plan util methods.
  */
 public class PlanUtils {
+
+    public static DataContext defaultDataContext() {
+        return DataContexts.of(Map.of(Variable.TIME_ZONE.camelName, TimeZone.getDefault()));
+    }
+
     /**
      * Return {@code true} if observes AGGREGATE and DISTINCT simultaneously.
      *
@@ -80,7 +90,7 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(typeFactory, aggregateCalls, inputType, builder);
 
         return builder.build();
     }
@@ -115,19 +125,24 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(typeFactory, aggregateCalls, inputType, builder);
 
         builder.add("_GROUP_ID", SqlTypeName.TINYINT);
 
         return builder.build();
     }
 
-    private static void addAccumulatorFields(IgniteTypeFactory typeFactory, List<AggregateCall> aggregateCalls, Builder builder) {
+    private static void addAccumulatorFields(
+            IgniteTypeFactory typeFactory,
+            List<AggregateCall> aggregateCalls,
+            RelDataType inputType,
+            Builder builder
+    ) {
         Accumulators accumulators = new Accumulators(typeFactory);
 
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-            Accumulator acc = accumulators.accumulatorFactory(call).get();
+            Accumulator acc = accumulators.accumulatorFactory(defaultDataContext(), call, inputType).get();
             RelDataType fieldType;
             // For a decimal type Accumulator::returnType returns a type with default precision and scale,
             // that can cause precision loss when a tuple is sent over the wire by an exchanger/outbox.

@@ -20,8 +20,10 @@ package org.apache.ignite.internal.rest.recovery;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -37,26 +39,31 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Test for disaster recovery restart partitions command. */
 @MicronautTest
 public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPerClassIntegrationTest {
-    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private static final String FIRST_ZONE = "first_ZONE";
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
+    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     public static final String RESTART_PARTITIONS_ENDPOINT = "/partitions/restart";
+
+    public static final String RESTART_ZONE_PARTITIONS_ENDPOINT = "zone/partitions/restart";
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -64,8 +71,8 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @BeforeAll
     public void setUp() {
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
-        sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%s'", TABLE_NAME,
+        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME,
                 FIRST_ZONE));
     }
 
@@ -73,8 +80,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     public void testRestartPartitionZoneNotFound() {
         String unknownZone = "unknown_zone";
 
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of());
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -85,24 +91,23 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
+    // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testRestartPartitionTableNotFound() {
-        String tableName = "unknown_table";
+        String tableName = "PUBLIC.unknown_table";
 
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName + "]"));
+        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
     }
 
     @Test
     void testRestartPartitionsIllegalPartitionNegative() {
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10)));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -114,8 +119,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     void testRestartPartitionsPartitionsOutOfRange() {
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT)));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -137,8 +141,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
                 .map(String::toUpperCase)
                 .collect(toSet());
 
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -149,8 +152,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     public void testRestartAllPartitions() {
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -159,8 +161,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     public void testRestartSpecifiedPartitions() {
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1)));
+        MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -171,8 +172,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     public void testRestartPartitionsByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
-        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+        MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -184,5 +184,20 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
                 .map(Ignite::name)
                 .limit(count)
                 .collect(toSet());
+    }
+
+    private static MutableHttpRequest<?> restartPartitionsRequest(
+            Set<String> nodeNames,
+            String zoneName,
+            String tableName,
+            Collection<Integer> partitionIds
+    ) {
+        if (colocationEnabled()) {
+            return HttpRequest.POST(RESTART_ZONE_PARTITIONS_ENDPOINT,
+                    new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
+        } else {
+            return HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
+                    new RestartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds));
+        }
     }
 }

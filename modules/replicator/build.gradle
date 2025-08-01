@@ -23,7 +23,7 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-core')
@@ -36,7 +36,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-failure-handler')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -59,12 +59,9 @@ dependencies {
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
-    testImplementation(testFixtures(project(':ignite-failure-handler')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-failure-handler'))
 
-    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-network-api')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
@@ -74,8 +71,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-replicator'

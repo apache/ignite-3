@@ -24,11 +24,12 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingException;
 
 /**
  * A factory that able to create targets for cluster with up to 64 nodes.
@@ -60,7 +61,11 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             long node = nodeNameToId.getOrDefault(name, -1);
-            assert node >= 0 : "invalid node";
+
+            if (node == -1) {
+                throw new MappingException("Mandatory node was excluded from mapping: " + name);
+            }
+
             nodesMap |= node;
         }
 
@@ -89,13 +94,18 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
-                // TODO Ignore unknown node until IGNITE-22969
                 if (node != -1) {
                     currentPartitionNodes |= node;
                 }
             }
 
-            assert currentPartitionNodes != 0L : "No partition node found";
+            if (currentPartitionNodes == 0) {
+                List<String> nodes = assignment.nodes().stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toList());
+
+                throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
+            }
 
             finalised = finalised && isPow2(currentPartitionNodes);
 
@@ -127,15 +137,20 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     private long nodeListToMap(List<String> nodes) {
+        assert !nodes.isEmpty() : "Empty target is not allowed";
+
         long nodesMap = 0;
 
         for (String name : nodes) {
             long node = nodeNameToId.getOrDefault(name, -1);
 
-            // TODO Ignore unknown node until IGNITE-22969
-            if (node != -1) {
+            if (node >= 0) {
                 nodesMap |= node;
             }
+        }
+
+        if (nodesMap == 0) {
+            throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
         }
 
         return nodesMap;

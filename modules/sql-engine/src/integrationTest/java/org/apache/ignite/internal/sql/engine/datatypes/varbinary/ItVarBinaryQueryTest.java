@@ -46,7 +46,7 @@ public class ItVarBinaryQueryTest extends BaseQueryDataTypeTest<VarBinary> {
         String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
         IgniteException t = assertThrows(IgniteException.class, () -> checkQuery(query).check());
-        String error = format("Values passed to {} operator must have compatible types", opSql);
+        String error = format("Cannot apply '{}' to arguments of type", opSql);
         assertThat(t.getMessage(), containsString(error));
     }
 

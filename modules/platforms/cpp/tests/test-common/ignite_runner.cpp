@@ -34,9 +34,16 @@ constexpr std::string_view SYSTEM_SHELL = IGNITE_SWITCH_WIN_OTHER("cmd.exe", "/b
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "-c");
 constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat", "./gradlew");
 
+const std::string SERVER_ADDRESS = "127.0.0.1";
+
 } // anonymous namespace
 
 namespace ignite {
+
+std::vector<std::string> ignite_runner::SINGLE_NODE_ADDR = {SERVER_ADDRESS + ":10942"};
+std::vector<std::string> ignite_runner::NODE_ADDRS = {SERVER_ADDRESS + ":10942", SERVER_ADDRESS + ":10943"};
+std::vector<std::string> ignite_runner::SSL_NODE_ADDRS = {SERVER_ADDRESS + ":10944"};
+std::vector<std::string> ignite_runner::SSL_NODE_CA_ADDRS = {SERVER_ADDRESS + ":10945"};
 
 void ignite_runner::start() {
     std::string home = resolve_ignite_home();

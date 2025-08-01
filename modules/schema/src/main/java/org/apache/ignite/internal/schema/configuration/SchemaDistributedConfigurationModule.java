@@ -35,6 +35,6 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<Class<?>> schemaExtensions() {
-        return List.of(GcExtensionConfigurationSchema.class, StorageUpdateExtensionConfigurationSchema.class);
+        return List.of(GcExtensionConfigurationSchema.class);
     }
 }

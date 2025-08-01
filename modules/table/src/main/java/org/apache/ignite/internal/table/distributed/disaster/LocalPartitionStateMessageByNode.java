@@ -51,6 +51,19 @@ public class LocalPartitionStateMessageByNode {
         map.put(nodeName, state);
     }
 
+    /**
+     * Returns node state mapping.
+     *
+     * @param node Consistent ID of the node.
+     */
+    public LocalPartitionStateMessage partitionState(String node) {
+        return map.get(node);
+    }
+
+    public Set<String> nodes() {
+        return map.keySet();
+    }
+
     @Override
     public String toString() {
         return map.toString();

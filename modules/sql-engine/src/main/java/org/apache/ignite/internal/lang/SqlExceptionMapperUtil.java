@@ -20,8 +20,12 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingException;
+import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.SqlException;
 
@@ -48,6 +52,14 @@ public class SqlExceptionMapperUtil {
      * @return Public exception.
      */
     public static Throwable mapToPublicSqlException(Throwable origin) {
+        Throwable unwrapped = ExceptionUtils.unwrapCause(origin);
+        if (unwrapped instanceof MappingException) {
+            return new SqlException(Sql.MAPPING_ERR, unwrapped.getMessage());
+        }
+        if (unwrapped instanceof UnknownNodeException) {
+            return new SqlException(Common.NODE_LEFT_ERR, "Node left the cluster. Node: " + ((UnknownNodeException) unwrapped).nodeName());
+        }
+
         Throwable e = mapToPublicException(origin);
         if (e instanceof Error) {
             return e;

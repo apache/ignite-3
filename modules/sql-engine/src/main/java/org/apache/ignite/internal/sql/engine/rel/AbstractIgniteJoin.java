@@ -27,9 +27,7 @@ import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.si
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
@@ -38,19 +36,24 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -60,17 +63,27 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgniteRel {
+
+    /** Override JoinInfo stored in {@link Join} because that joinInfo treats IS NOT DISTINCT FROM as non-equijoin condition. */
+    protected final JoinInfo joinInfo;
+
     protected AbstractIgniteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
             RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, List.of(), left, right, condition, variablesSet, joinType);
+
+        JoinInfo baseJoinInfo = super.analyzeCondition();
+
+        if (baseJoinInfo.isEqui()) {
+            this.joinInfo = baseJoinInfo;
+        } else {
+            this.joinInfo = JoinInfo.of(left, right, condition);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public RelWriter explainTerms(RelWriter pw) {
-        return super.explainTerms(pw)
-                .itemIf("variablesSet", Commons.transform(variablesSet.asList(), CorrelationId::getId),
-                        pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
+    public JoinInfo analyzeCondition() {
+        return joinInfo;
     }
 
     /** {@inheritDoc} */
@@ -210,7 +223,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        // Tere are several rules:
+        // There are several rules:
         // 1) any join is possible on broadcast or single distribution
         // 2) hash distributed join is possible when join keys equal to source distribution keys
         // 3) hash and broadcast distributed tables can be joined when join keys equal to hash
@@ -240,15 +253,17 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
                 // We cannot provide random distribution without unique constraint on join keys,
                 // so, we require hash distribution (wich satisfies random distribution) instead.
-                DistributionFunction function = distrType == HASH_DISTRIBUTED
-                        ? distribution.function()
-                        : DistributionFunction.hash();
-
-                IgniteDistribution outDistr = hash(joinInfo.leftKeys, function);
+                IgniteDistribution outDistr = distrType == HASH_DISTRIBUTED
+                        ? IgniteDistributions.clone(distribution, joinInfo.leftKeys)
+                        : hash(joinInfo.leftKeys);
 
                 if (distrType != HASH_DISTRIBUTED || outDistr.satisfies(distribution)) {
+                    IgniteDistribution rightDistribution = distrType == HASH_DISTRIBUTED
+                            ? IgniteDistributions.clone(distribution, joinInfo.rightKeys)
+                            : hash(joinInfo.rightKeys);
+
                     return Pair.of(nodeTraits.replace(outDistr),
-                            List.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
+                            List.of(left.replace(outDistr), right.replace(rightDistribution)));
                 }
 
                 break;
@@ -281,15 +296,49 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         ImmutableIntList sourceKeys = left2Right ? joinInfo.leftKeys : joinInfo.rightKeys;
         ImmutableIntList targetKeys = left2Right ? joinInfo.rightKeys : joinInfo.leftKeys;
 
-        Map<Integer, Integer> keyMap = new HashMap<>();
-        for (int i = 0; i < joinInfo.leftKeys.size(); i++) {
-            keyMap.put(sourceKeys.get(i), targetKeys.get(i));
-        }
-
         return Mappings.target(
-                keyMap,
+                IntPair.zip(sourceKeys, targetKeys, true),
                 (left2Right ? left : right).getRowType().getFieldCount(),
                 (left2Right ? right : left).getRowType().getFieldCount()
+        );
+    }
+
+    @Override
+    protected RelDataType deriveRowType() {
+        return deriveRowTypeAsFor(joinType);
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer
+                // Predicate is composed based on joint row type, therefore if original join doesn't projects rhs,
+                // then we have to rebuild row type just for predicate.
+                .addPredicate(condition, joinType.projectsRight() ? getRowType() : deriveRowTypeAsFor(JoinRelType.INNER))
+                .addJoinType(joinType);
+    }
+
+    private RelDataType deriveRowTypeAsFor(JoinRelType joinType) {
+        List<String> fieldNames = new ArrayList<>(left.getRowType().getFieldNames());
+
+        RelDataTypeFactory typeFactory = getCluster().getTypeFactory();
+
+        if (joinType.projectsRight()) {
+            fieldNames.addAll(right.getRowType().getFieldNames());
+
+            fieldNames = SqlValidatorUtil.uniquify(
+                    fieldNames,
+                    (original, attempt, size) -> original + "$" + attempt,
+                    typeFactory.getTypeSystem().isSchemaCaseSensitive()
+            );
+        }
+
+        return SqlValidatorUtil.deriveJoinRowType(
+                left.getRowType(),
+                right.getRowType(),
+                joinType,
+                getCluster().getTypeFactory(),
+                fieldNames,
+                List.of()
         );
     }
 }

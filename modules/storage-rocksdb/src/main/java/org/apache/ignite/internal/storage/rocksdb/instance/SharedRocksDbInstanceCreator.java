@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
@@ -55,8 +56,17 @@ import org.rocksdb.RocksDBException;
  * Contains a boilerplate code for reading/creating the DB.
  */
 public class SharedRocksDbInstanceCreator {
+    private final FailureProcessor failureProcessor;
+
+    private final String nodeName;
+
     /** List of resources that must be closed if DB creation failed in the process. */
     private final List<AutoCloseable> resources = new ArrayList<>();
+
+    public SharedRocksDbInstanceCreator(FailureProcessor failureProcessor, String nodeName) {
+        this.failureProcessor = failureProcessor;
+        this.nodeName = nodeName;
+    }
 
     /**
      * Creates an instance of {@link SharedRocksDbInstance}.
@@ -73,11 +83,13 @@ public class SharedRocksDbInstanceCreator {
 
             var flusher = new RocksDbFlusher(
                     "rocksdb storage profile [" + profile.name() + "]",
+                    nodeName,
                     busyLock,
                     engine.scheduledPool(),
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
                     engine.logSyncer(),
+                    failureProcessor,
                     () -> {} // No-op.
             );
 
@@ -92,6 +104,8 @@ public class SharedRocksDbInstanceCreator {
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
                     .setWriteBufferManager(profile.writeBufferManager())
+                    // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                    .setAvoidFlushDuringShutdown(true)
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));

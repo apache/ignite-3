@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
@@ -47,16 +45,15 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,11 +62,15 @@ import org.junit.jupiter.api.Test;
  */
 @MicronautTest(rebuildContext = true)
 public class DeploymentManagementControllerTest extends ClusterPerTestIntegrationTest {
-    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
-    private Path dummyFile;
+    private Path smallFile;
+
+    private Path bigFile;
 
     private static final long SIZE_IN_BYTES = 1024L;
+
+    private static final long BIG_IN_BYTES = 100 * 1024L * 1024L;  // 100 MiB
 
     @Inject
     @Client(NODE_URL + "/management/v1/deployment")
@@ -77,16 +78,14 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @BeforeEach
     public void setup() throws IOException {
-        dummyFile = workDir.resolve("dummy.txt");
+        smallFile = workDir.resolve("small.txt");
+        bigFile = workDir.resolve("big.txt");
 
-        if (!Files.exists(dummyFile)) {
-            try (SeekableByteChannel channel = Files.newByteChannel(dummyFile, WRITE, CREATE)) {
-                channel.position(SIZE_IN_BYTES - 4);
-
-                ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
-                buf.rewind();
-                channel.write(buf);
-            }
+        if (!Files.exists(smallFile)) {
+            IgniteTestUtils.fillDummyFile(smallFile, SIZE_IN_BYTES);
+        }
+        if (!Files.exists(bigFile)) {
+            IgniteTestUtils.fillDummyFile(bigFile, BIG_IN_BYTES);
         }
     }
 
@@ -105,6 +104,15 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
             assertThat(status.id(), is(id));
             assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
         });
+    }
+
+    @Test
+    public void testDeployBig() {
+        String id = "testId";
+        String version = "1.1.1";
+        HttpResponse<Object> response = deploy(id, version, bigFile.toFile());
+
+        assertThat(response.code(), is(OK.code()));
     }
 
     @Test
@@ -178,7 +186,7 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
     }
 
     private HttpResponse<Object> deploy(String id, String version) {
-        return deploy(id, version, dummyFile.toFile());
+        return deploy(id, version, smallFile.toFile());
     }
 
     private HttpResponse<Object> deploy(String id, String version, File file) {

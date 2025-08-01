@@ -367,6 +367,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(1.1f, (float?)1.1f, TableFloatName);
         await TestKey(1.1d, (double?)1.1d, TableDoubleName);
         await TestKey(1.234m, (decimal?)1.234m, TableDecimalName);
+        await TestKey(new BigDecimal(1.234m), (BigDecimal?)new BigDecimal(1.234m), TableDecimalName);
         await TestKey("foo", "foo", TableStringName);
 
         var localDateTime = new LocalDateTime(2022, 10, 13, 8, 4, 42);
@@ -384,7 +385,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public void TestToString()
     {
-        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = PUBLIC.TBL1, Id =", KvView.ToString());
     }
 
     private static async Task TestKey<TK, TV>(TK key, TV val, IKeyValueView<TK, TV> kvView)

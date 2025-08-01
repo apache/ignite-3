@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /** Source of metrics for table partition statuses. */
@@ -36,6 +37,8 @@ class PartitionStatesMetricSource implements MetricSource {
     private final String metricSourceName;
 
     private final int tableId;
+
+    private final int zoneId;
 
     private final DisasterRecoveryManager disasterRecoveryManager;
 
@@ -47,6 +50,7 @@ class PartitionStatesMetricSource implements MetricSource {
             DisasterRecoveryManager disasterRecoveryManager
     ) {
         this.tableId = tableDescriptor.id();
+        this.zoneId = tableDescriptor.zoneId();
         this.disasterRecoveryManager = disasterRecoveryManager;
 
         metricSourceName = String.format("partition.states.zone.%s.table.%s", tableDescriptor.zoneId(), tableDescriptor.id());
@@ -112,13 +116,24 @@ class PartitionStatesMetricSource implements MetricSource {
         long[] count = {0};
 
         // When receiving/loading metrics for all tables, the total complexity will be O(N*N) where N is the number of tables (for
-        // simplicity). While this is done intentionally, in the future it will be necessary to optimize this or wait for the collocation
+        // simplicity). While this is done intentionally, in the future it will be necessary to optimize this or wait for the colocation
         // of table partitions within one distribution zone.
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
             if (raftNodeId.groupId() instanceof TablePartitionId) {
                 var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
                 if (tablePartitionId.tableId() == tableId) {
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
+
+                    if (localPartitionStateWithLogIndex.state == state) {
+                        count[0]++;
+                    }
+                }
+            } else if (raftNodeId.groupId() instanceof ZonePartitionId) {
+                var zonePartitionId = (ZonePartitionId) raftNodeId.groupId();
+
+                if (zonePartitionId.zoneId() == zoneId) {
                     LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
                             LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 

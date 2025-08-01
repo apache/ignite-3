@@ -17,48 +17,42 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,68 +61,77 @@ import org.junit.jupiter.api.Test;
 class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
+    /** How often we update the low water mark. */
+    private static final long LW_UPDATE_TIME_MS = TimeUnit.MILLISECONDS.toMillis(500);
+
+    /**
+     * Checkpoint interval determines how often we update a snapshot of minActiveTxBeginTime,
+     * it should be less than {@link #LW_UPDATE_TIME_MS} for the test to work.
+     */
+    private static final long CHECK_POINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
+
+    /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
+    private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
+
+    /** Transactions that are started in the test. */
+    private final List<InternalTransaction> transactions = new ArrayList<>();
+
     @Override
     protected int initialNodes() {
         return CLUSTER_SIZE;
     }
 
-    @Test
-    void testRaftGroupsUpdate() throws InterruptedException {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
-        int partsCount = 16;
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return "ignite {\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+                + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+                + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+                + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+                + "  },\n"
+                + "  storage.engines: { "
+                + "    aipersist: { checkpoint: { "
+                + "      intervalMillis: " + CHECK_POINT_INTERVAL_MS
+                + "    } } "
+                + "  },\n"
+                + "  clientConnector.port: {},\n"
+                + "  rest.port: {},\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "}";
+    }
 
-        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
-                partsCount, initialNodes()));
-        sql("alter zone test set default");
-        sql("create table a(a int primary key)");
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        String clusterConfiguration = format(
+                "ignite { gc: {lowWatermark: { dataAvailabilityTimeMillis: {}, updateIntervalMillis: {} } } }",
+                // dataAvailabilityTime is 2 x updateFrequency by default
+                LW_UPDATE_TIME_MS * 2, LW_UPDATE_TIME_MS
+        );
 
-        Catalog minRequiredCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assertNotNull(minRequiredCatalog);
+        builder.clusterConfiguration(clusterConfiguration);
+    }
 
-        sql("create table b(a int primary key)");
+    @BeforeAll
+    void setup() {
+        List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+        assertEquals(initialNodes(), nodes.size());
+    }
 
-        List<TablePartitionId> expectedReplicationGroups = prepareExpectedGroups(catalogManager, partsCount);
+    @BeforeEach
+    public void beforeEach() {
+        transactions.forEach(Transaction::rollback);
+        transactions.clear();
 
-        // Raft groups update procedure is aborted if a primary
-        // for a replication group is not selected.
-        // Therefore, after creating the tables, before starting the
-        // procedure, we must wait for the selection of primary replicas.
-        waitPrimaryReplicas(expectedReplicationGroups);
-
-        // Latest active catalog contains all required tables.
-        {
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
-
-            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
-
-            assertThat(fut, willCompleteSuccessfully());
-
-            ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
-        }
-
-        // Latest active catalog does not contain all required tables.
-        // Replicas of dropped tables must also be updated.
-        long requiredTime = ignite.clockService().nowLong();
-
-        {
-            sql("drop table a");
-            sql("drop table b");
-
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
-
-            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
-
-            assertThat(fut, willCompleteSuccessfully());
-
-            ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
-        }
+        dropAllTables();
     }
 
     @Test
-    void testGlobalMinimumTxBeginTime() {
+    void testGlobalMinimumTxRequiredTime() {
         IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
         IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
         IgniteImpl node2 = unwrapIgniteImpl(CLUSTER.node(2));
@@ -139,37 +142,49 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 node2.catalogCompactionRunner()
         );
 
-        Collection<ClusterNode> topologyNodes = node0.clusterNodes();
+        Catalog catalog1 = getLatestCatalog(node2);
 
-        InternalTransaction tx1 = startRwTxWithStartTimeNotLessThan(node0, node0.clock().now());
-        InternalTransaction tx2 = startRwTxWithStartTimeNotLessThan(node1, tx1.startTimestamp());
-        InternalTransaction readonlyTx = (InternalTransaction) node1.transactions().begin(new TransactionOptions().readOnly(true));
-        InternalTransaction tx3 = startRwTxWithStartTimeNotLessThan(node2, tx2.startTimestamp());
+        Transaction tx1 = beginTx(node0, false);
 
-        // make sure that transactions are ordered as expected
-        assertThat(tx2.startTimestamp().longValue(), greaterThan(tx1.startTimestamp().longValue()));
-        assertThat(tx3.startTimestamp().longValue(), greaterThan(tx2.startTimestamp().longValue()));
+        // Changing the catalog and starting transaction.
+        sql("create table a(a int primary key)");
+        Catalog catalog2 = getLatestCatalog(node0);
+        assertThat(catalog2.version(), is(catalog1.version() + 1));
+        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
+        List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
+                .map(node -> beginTx(node, true))
+                .collect(Collectors.toList());
+
+        // Changing the catalog again and starting transaction.
+        sql("alter table a add column (b int)");
+
+        Awaitility.await().untilAsserted(() -> assertThat(getLatestCatalogVersion(node1), is(catalog2.version() + 1)));
+        Catalog catalog3 = getLatestCatalog(node1);
+
+        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
+
+        Collection<ClusterNode> topologyNodes = node0.cluster().nodes();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx1.startTimestamp().longValue()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog1.time()));
         });
 
         tx1.rollback();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx2.startTimestamp().longValue()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog2.time()));
         });
 
-        tx2.commit();
+        txs2.forEach(Transaction::commit);
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxBeginTime, is(tx3.startTimestamp().longValue()));
+            assertThat(timeHolder.txMinRequiredTime, is(catalog3.time()));
         });
 
-        tx3.rollback();
+        txs3.forEach(Transaction::rollback);
 
         // Since there are no active RW transactions in the cluster, the minimum time will be min(now()) across all nodes.
         compactors.forEach(compactor -> {
@@ -180,87 +195,110 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             long maxTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
 
             // Read-only transactions are not counted,
-            assertThat(timeHolder.minActiveTxBeginTime, greaterThan(readonlyTx.startTimestamp().longValue()));
+            ignoredReadonlyTxs.forEach(tx -> {
+                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.schemaTimestamp().longValue()));
+            });
 
-            assertThat(timeHolder.minActiveTxBeginTime, greaterThanOrEqualTo(minTime));
-            assertThat(timeHolder.minActiveTxBeginTime, lessThanOrEqualTo(maxTime));
+            assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));
+            assertThat(timeHolder.txMinRequiredTime, lessThanOrEqualTo(maxTime));
         });
 
-        readonlyTx.rollback();
+        ignoredReadonlyTxs.forEach(Transaction::rollback);
     }
 
-    private static void waitPrimaryReplicas(List<TablePartitionId> groups) {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-        List<CompletableFuture<?>> waitFutures = new ArrayList<>(groups.size());
+    @Test
+    public void testCompactionRun() {
+        sql(format("create zone if not exists test (partitions {}, replicas {}) storage profiles ['default']",
+                CLUSTER_SIZE, CLUSTER_SIZE)
+        );
 
-        for (TablePartitionId groupId : groups) {
-            CompletableFuture<ReplicaMeta> waitFut = node.placementDriver()
-                    .awaitPrimaryReplica(groupId, node.clock().now(), 10, TimeUnit.SECONDS);
+        sql("alter zone test set default");
 
-            waitFutures.add(waitFut);
-        }
+        sql("create table a(a int primary key)");
+        sql("alter table a add column b int");
 
-        await(CompletableFutures.allOf(waitFutures));
+        Ignite ignite = CLUSTER.aliveNode();
+
+        log.info("Awaiting for the first compaction to run...");
+
+        int catalogVersion1 = getLatestCatalogVersion(ignite);
+        expectEarliestCatalogVersion(catalogVersion1 - 1);
+
+        log.info("Awaiting for the second compaction to run...");
+
+        sql("alter table a add column c int");
+
+        int catalogVersion2 = getLatestCatalogVersion(ignite);
+        assertTrue(catalogVersion1 < catalogVersion2, "Catalog version should have changed");
+
+        expectEarliestCatalogVersion(catalogVersion2 - 1);
+
+        sql("drop table a");
+
+        log.info("Awaiting for the third compaction to run...");
+
+        int catalogVersion3 = getLatestCatalogVersion(ignite);
+        assertTrue(catalogVersion2 < catalogVersion3, "Catalog version should have changed");
+
+        expectEarliestCatalogVersion(catalogVersion3 - 1);
     }
 
-    private static List<TablePartitionId> prepareExpectedGroups(CatalogManagerImpl catalogManager, int partsCount) {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+    @Test
+    void droppedZoneCompacted() {
+        String zoneName = "zone1";
+        String tableName = "table1";
+        sql(format(
+                "create zone {} (partitions {}) storage profiles ['{}','{}']",
+                zoneName,
+                10,
+                DEFAULT_AIMEM_PROFILE_NAME,
+                DEFAULT_ROCKSDB_PROFILE_NAME
+        ));
+        sql(format("create table {}(id int primary key) zone {}", tableName, zoneName));
+        sql(format("drop table {}", tableName));
+        sql(format("drop zone {}", zoneName));
 
-        Catalog lastCatalog = catalogManager.catalog(
-                catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(lastCatalog);
+        sql(format("alter zone {} set auto scale up {}", "\"Default\"", 10));
 
-        Collection<CatalogTableDescriptor> tables = lastCatalog.tables();
-        assertThat(tables, hasSize(2));
+        int catalogVersion = getLatestCatalogVersion(node(0));
+        expectEarliestCatalogVersion(catalogVersion - 1);
+    }
 
-        List<TablePartitionId> expected = new ArrayList<>(partsCount * tables.size());
+    private InternalTransaction beginTx(Ignite node, boolean readOnly) {
+        TransactionOptions txOptions = new TransactionOptions().readOnly(readOnly);
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin(txOptions);
 
-        tables.forEach(tab -> {
-            for (int p = 0; p < partsCount; p++) {
-                expected.add(new TablePartitionId(tab.id(), p));
+        transactions.add(tx);
+
+        return tx;
+    }
+
+    private static int getLatestCatalogVersion(Ignite ignite) {
+        Catalog catalog = getLatestCatalog(ignite);
+
+        return catalog.version();
+    }
+
+    private static Catalog getLatestCatalog(Ignite ignite) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) igniteImpl.catalogManager());
+
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(igniteImpl.clock().nowLong()));
+
+        Objects.requireNonNull(catalog);
+
+        return catalog;
+    }
+
+    private static void expectEarliestCatalogVersion(int expectedVersion) {
+        Awaitility.await().pollInSameThread().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+            for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
+                IgniteImpl ignite = unwrapIgniteImpl(node);
+                CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+
+                assertThat("The earliest catalog version does not match. ",
+                        catalogManager.earliestCatalogVersion(), is(expectedVersion));
             }
         });
-
-        return expected;
-    }
-
-    private static void ensureTimestampStoredInAllReplicas(
-            HybridTimestamp expectedTimestamp,
-            List<TablePartitionId> expectedReplicationGroups
-    ) throws InterruptedException {
-        for (int i = 0; i < CLUSTER_SIZE; i++) {
-            Loza loza = unwrapIgniteImpl(CLUSTER.node(i)).raftManager();
-            JraftServerImpl server = (JraftServerImpl) loza.server();
-
-            for (TablePartitionId groupId : expectedReplicationGroups) {
-                List<Peer> peers = server.localPeers(groupId);
-
-                assertThat(peers, is(not(empty())));
-
-                Peer serverPeer = server.localPeers(groupId).get(0);
-                RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
-                DelegatingStateMachine fsm = (DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
-                PartitionListener listener = (PartitionListener) fsm.getListener();
-
-                // When a future completes from `Invoke`, it is guaranteed that the leader will be updated,
-                // the remaining replicas can be updated later.
-                IgniteTestUtils.waitForCondition(
-                        () -> Long.valueOf(expectedTimestamp.longValue()).equals(listener.minimumActiveTxBeginTime()),
-                        5_000
-                );
-
-                assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expectedTimestamp.longValue()));
-            }
-        }
-    }
-
-    private static InternalTransaction startRwTxWithStartTimeNotLessThan(IgniteImpl ignite, HybridTimestamp timestamp) {
-        ignite.clock().update(timestamp);
-
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin();
-
-        assertThat(tx.startTimestamp().longValue(), greaterThan(timestamp.longValue()));
-
-        return tx; 
     }
 }

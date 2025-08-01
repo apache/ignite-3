@@ -51,6 +51,43 @@ namespace Apache.Ignite
             DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
             Embedded.GroupCode => Embedded.GroupName,
             Marshalling.GroupCode => Marshalling.GroupName,
+            Rest.GroupCode => Rest.GroupName,
+            CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
+
+            _ => UnknownGroupName
+        };
+
+        /// <summary>
+        /// Gets the group error prefix by code.
+        /// </summary>
+        /// <param name="groupCode">Group code.</param>
+        /// <returns>Group error prefix.</returns>
+        public static string GetErrorPrefix(int groupCode) => groupCode switch
+        {
+            Common.GroupCode => Common.ErrorPrefix,
+            Table.GroupCode => Table.ErrorPrefix,
+            Client.GroupCode => Client.ErrorPrefix,
+            Sql.GroupCode => Sql.ErrorPrefix,
+            MetaStorage.GroupCode => MetaStorage.ErrorPrefix,
+            Index.GroupCode => Index.ErrorPrefix,
+            Transactions.GroupCode => Transactions.ErrorPrefix,
+            Replicator.GroupCode => Replicator.ErrorPrefix,
+            Storage.GroupCode => Storage.ErrorPrefix,
+            DistributionZones.GroupCode => DistributionZones.ErrorPrefix,
+            Network.GroupCode => Network.ErrorPrefix,
+            NodeConfiguration.GroupCode => NodeConfiguration.ErrorPrefix,
+            CodeDeployment.GroupCode => CodeDeployment.ErrorPrefix,
+            GarbageCollector.GroupCode => GarbageCollector.ErrorPrefix,
+            Authentication.GroupCode => Authentication.ErrorPrefix,
+            Compute.GroupCode => Compute.ErrorPrefix,
+            Catalog.GroupCode => Catalog.ErrorPrefix,
+            PlacementDriver.GroupCode => PlacementDriver.ErrorPrefix,
+            CriticalWorkers.GroupCode => CriticalWorkers.ErrorPrefix,
+            DisasterRecovery.GroupCode => DisasterRecovery.ErrorPrefix,
+            Embedded.GroupCode => Embedded.ErrorPrefix,
+            Marshalling.GroupCode => Marshalling.ErrorPrefix,
+            Rest.GroupCode => Rest.ErrorPrefix,
+            CommonConfiguration.GroupCode => CommonConfiguration.ErrorPrefix,
 
             _ => UnknownGroupName
         };
@@ -63,6 +100,9 @@ namespace Apache.Ignite
 
             /// <summary> Common group name. </summary>
             public const String GroupName = "CMN";
+
+            /// <summary> Common error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> NodeStopping error. </summary>
             public const int NodeStopping = (GroupCode << 16) | (1 & 0xFFFF);
@@ -104,6 +144,9 @@ namespace Apache.Ignite
             /// <summary> Table group name. </summary>
             public const String GroupName = "TBL";
 
+            /// <summary> Table error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> TableAlreadyExists error. </summary>
             public const int TableAlreadyExists = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -116,17 +159,11 @@ namespace Apache.Ignite
             /// <summary> ColumnNotFound error. </summary>
             public const int ColumnNotFound = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> TableStopping error. </summary>
-            public const int TableStopping = (GroupCode << 16) | (5 & 0xFFFF);
-
-            /// <summary> TableDefinition error. </summary>
-            public const int TableDefinition = (GroupCode << 16) | (6 & 0xFFFF);
-
             /// <summary> SchemaVersionMismatch error. </summary>
-            public const int SchemaVersionMismatch = (GroupCode << 16) | (7 & 0xFFFF);
+            public const int SchemaVersionMismatch = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> UnsupportedPartitionType error. </summary>
-            public const int UnsupportedPartitionType = (GroupCode << 16) | (8 & 0xFFFF);
+            public const int UnsupportedPartitionType = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Client errors. </summary>
@@ -137,6 +174,9 @@ namespace Apache.Ignite
 
             /// <summary> Client group name. </summary>
             public const String GroupName = "CLIENT";
+
+            /// <summary> Client error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> Connection error. </summary>
             public const int Connection = (GroupCode << 16) | (1 & 0xFFFF);
@@ -150,23 +190,20 @@ namespace Apache.Ignite
             /// <summary> TableIdNotFound error. </summary>
             public const int TableIdNotFound = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> Authentication error. </summary>
-            public const int Authentication = (GroupCode << 16) | (5 & 0xFFFF);
-
-            /// <summary> Authorization error. </summary>
-            public const int Authorization = (GroupCode << 16) | (6 & 0xFFFF);
-
             /// <summary> Configuration error. </summary>
-            public const int Configuration = (GroupCode << 16) | (7 & 0xFFFF);
+            public const int Configuration = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> ClusterIdMismatch error. </summary>
-            public const int ClusterIdMismatch = (GroupCode << 16) | (8 & 0xFFFF);
+            public const int ClusterIdMismatch = (GroupCode << 16) | (6 & 0xFFFF);
 
             /// <summary> ClientSslConfiguration error. </summary>
-            public const int ClientSslConfiguration = (GroupCode << 16) | (9 & 0xFFFF);
+            public const int ClientSslConfiguration = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> HandshakeHeader error. </summary>
-            public const int HandshakeHeader = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int HandshakeHeader = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> ServerToClientRequest error. </summary>
+            public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -177,6 +214,9 @@ namespace Apache.Ignite
 
             /// <summary> Sql group name. </summary>
             public const String GroupName = "SQL";
+
+            /// <summary> Sql error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> QueryNoResultSet error. </summary>
             public const int QueryNoResultSet = (GroupCode << 16) | (1 & 0xFFFF);
@@ -215,6 +255,9 @@ namespace Apache.Ignite
             /// <summary> MetaStorage group name. </summary>
             public const String GroupName = "META";
 
+            /// <summary> MetaStorage error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> StartingStorage error. </summary>
             public const int StartingStorage = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -229,6 +272,12 @@ namespace Apache.Ignite
 
             /// <summary> OpExecutionTimeout error. </summary>
             public const int OpExecutionTimeout = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> Compacted error. </summary>
+            public const int Compacted = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> Diverged error. </summary>
+            public const int Diverged = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Index errors. </summary>
@@ -240,14 +289,14 @@ namespace Apache.Ignite
             /// <summary> Index group name. </summary>
             public const String GroupName = "IDX";
 
-            /// <summary> InvalidIndexDefinition error. </summary>
-            public const int InvalidIndexDefinition = (GroupCode << 16) | (1 & 0xFFFF);
+            /// <summary> Index error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> IndexNotFound error. </summary>
-            public const int IndexNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+            public const int IndexNotFound = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> IndexAlreadyExists error. </summary>
-            public const int IndexAlreadyExists = (GroupCode << 16) | (3 & 0xFFFF);
+            public const int IndexAlreadyExists = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> Transactions errors. </summary>
@@ -258,6 +307,9 @@ namespace Apache.Ignite
 
             /// <summary> Transactions group name. </summary>
             public const String GroupName = "TX";
+
+            /// <summary> Transactions error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> TxStateStorage error. </summary>
             public const int TxStateStorage = (GroupCode << 16) | (1 & 0xFFFF);
@@ -283,26 +335,29 @@ namespace Apache.Ignite
             /// <summary> TxFailedReadWriteOperation error. </summary>
             public const int TxFailedReadWriteOperation = (GroupCode << 16) | (8 & 0xFFFF);
 
-            /// <summary> TxReplicaUnavailable error. </summary>
-            public const int TxReplicaUnavailable = (GroupCode << 16) | (9 & 0xFFFF);
-
             /// <summary> TxStateStorageRebalance error. </summary>
-            public const int TxStateStorageRebalance = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int TxStateStorageRebalance = (GroupCode << 16) | (9 & 0xFFFF);
 
             /// <summary> TxReadOnlyTooOld error. </summary>
-            public const int TxReadOnlyTooOld = (GroupCode << 16) | (11 & 0xFFFF);
+            public const int TxReadOnlyTooOld = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> TxIncompatibleSchema error. </summary>
-            public const int TxIncompatibleSchema = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int TxIncompatibleSchema = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> TxPrimaryReplicaExpired error. </summary>
-            public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (12 & 0xFFFF);
 
             /// <summary> TxAlreadyFinished error. </summary>
-            public const int TxAlreadyFinished = (GroupCode << 16) | (14 & 0xFFFF);
+            public const int TxAlreadyFinished = (GroupCode << 16) | (13 & 0xFFFF);
 
             /// <summary> TxStaleOperation error. </summary>
-            public const int TxStaleOperation = (GroupCode << 16) | (15 & 0xFFFF);
+            public const int TxStaleOperation = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> TxStaleReadOnlyOperation error. </summary>
+            public const int TxStaleReadOnlyOperation = (GroupCode << 16) | (15 & 0xFFFF);
+
+            /// <summary> TxAlreadyFinishedWithTimeout error. </summary>
+            public const int TxAlreadyFinishedWithTimeout = (GroupCode << 16) | (16 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>
@@ -313,6 +368,9 @@ namespace Apache.Ignite
 
             /// <summary> Replicator group name. </summary>
             public const String GroupName = "REP";
+
+            /// <summary> Replicator error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> ReplicaCommon error. </summary>
             public const int ReplicaCommon = (GroupCode << 16) | (1 & 0xFFFF);
@@ -338,8 +396,8 @@ namespace Apache.Ignite
             /// <summary> ReplicaStopping error. </summary>
             public const int ReplicaStopping = (GroupCode << 16) | (8 & 0xFFFF);
 
-            /// <summary> ReplicationSafeTimeReordering error. </summary>
-            public const int ReplicationSafeTimeReordering = (GroupCode << 16) | (9 & 0xFFFF);
+            /// <summary> GroupOverloaded error. </summary>
+            public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
@@ -351,23 +409,14 @@ namespace Apache.Ignite
             /// <summary> Storage group name. </summary>
             public const String GroupName = "STORAGE";
 
-            /// <summary> Generic error. </summary>
-            public const int Generic = (GroupCode << 16) | (1 & 0xFFFF);
-
-            /// <summary> DirectoryCreation error. </summary>
-            public const int DirectoryCreation = (GroupCode << 16) | (2 & 0xFFFF);
-
-            /// <summary> AlreadyClosed error. </summary>
-            public const int AlreadyClosed = (GroupCode << 16) | (3 & 0xFFFF);
-
-            /// <summary> StorageRebalance error. </summary>
-            public const int StorageRebalance = (GroupCode << 16) | (4 & 0xFFFF);
-
-            /// <summary> AlreadyDestroyed error. </summary>
-            public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
+            /// <summary> Storage error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> IndexNotBuilt error. </summary>
-            public const int IndexNotBuilt = (GroupCode << 16) | (6 & 0xFFFF);
+            public const int IndexNotBuilt = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> StorageCorrupted error. </summary>
+            public const int StorageCorrupted = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
@@ -378,6 +427,9 @@ namespace Apache.Ignite
 
             /// <summary> DistributionZones group name. </summary>
             public const String GroupName = "DISTRZONES";
+
+            /// <summary> DistributionZones error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> ZoneNotFound error. </summary>
             public const int ZoneNotFound = (GroupCode << 16) | (1 & 0xFFFF);
@@ -392,17 +444,30 @@ namespace Apache.Ignite
             /// <summary> Network group name. </summary>
             public const String GroupName = "NETWORK";
 
+            /// <summary> Network error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> UnresolvableConsistentId error. </summary>
             public const int UnresolvableConsistentId = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> PortInUse error. </summary>
-            public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> Bind error. </summary>
+            public const int Bind = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> FileTransfer error. </summary>
+            public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> FileValidation error. </summary>
+            public const int FileValidation = (GroupCode << 16) | (4 & 0xFFFF);
 
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> PortInUse is obsolete. Use Bind instead. </summary>
+            [Obsolete]
+            public const int PortInUse = Bind;
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -413,6 +478,9 @@ namespace Apache.Ignite
 
             /// <summary> NodeConfiguration group name. </summary>
             public const String GroupName = "NODECFG";
+
+            /// <summary> NodeConfiguration error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> ConfigRead error. </summary>
             public const int ConfigRead = (GroupCode << 16) | (1 & 0xFFFF);
@@ -436,6 +504,9 @@ namespace Apache.Ignite
             /// <summary> CodeDeployment group name. </summary>
             public const String GroupName = "CODEDEPLOY";
 
+            /// <summary> CodeDeployment error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> UnitNotFound error. </summary>
             public const int UnitNotFound = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -458,6 +529,9 @@ namespace Apache.Ignite
             /// <summary> GarbageCollector group name. </summary>
             public const String GroupName = "GC";
 
+            /// <summary> GarbageCollector error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> Closed error. </summary>
             public const int Closed = (GroupCode << 16) | (1 & 0xFFFF);
         }
@@ -470,6 +544,9 @@ namespace Apache.Ignite
 
             /// <summary> Authentication group name. </summary>
             public const String GroupName = "AUTHENTICATION";
+
+            /// <summary> Authentication error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> UnsupportedAuthenticationType error. </summary>
             public const int UnsupportedAuthenticationType = (GroupCode << 16) | (1 & 0xFFFF);
@@ -489,6 +566,9 @@ namespace Apache.Ignite
 
             /// <summary> Compute group name. </summary>
             public const String GroupName = "COMPUTE";
+
+            /// <summary> Compute error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> ClassPath error. </summary>
             public const int ClassPath = (GroupCode << 16) | (1 & 0xFFFF);
@@ -517,23 +597,23 @@ namespace Apache.Ignite
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
 
-            /// <summary> ChangeJobPriorityNoJob error. </summary>
-            public const int ChangeJobPriorityNoJob = (GroupCode << 16) | (10 & 0xFFFF);
-
-            /// <summary> ChangeJobPriorityJobExecuting error. </summary>
-            public const int ChangeJobPriorityJobExecuting = (GroupCode << 16) | (11 & 0xFFFF);
-
             /// <summary> PrimaryReplicaResolve error. </summary>
-            public const int PrimaryReplicaResolve = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int PrimaryReplicaResolve = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> ChangeJobPriority error. </summary>
-            public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int ChangeJobPriority = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> NodeNotFound error. </summary>
-            public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
+            public const int NodeNotFound = (GroupCode << 16) | (12 & 0xFFFF);
 
             /// <summary> MarshallingTypeMismatch error. </summary>
-            public const int MarshallingTypeMismatch = (GroupCode << 16) | (15 & 0xFFFF);
+            public const int MarshallingTypeMismatch = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> ComputeJobCancelled error. </summary>
+            public const int ComputeJobCancelled = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> ComputePlatformExecutor error. </summary>
+            public const int ComputePlatformExecutor = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
@@ -544,6 +624,9 @@ namespace Apache.Ignite
 
             /// <summary> Catalog group name. </summary>
             public const String GroupName = "CATALOG";
+
+            /// <summary> Catalog error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> Validation error. </summary>
             public const int Validation = (GroupCode << 16) | (1 & 0xFFFF);
@@ -557,6 +640,9 @@ namespace Apache.Ignite
 
             /// <summary> PlacementDriver group name. </summary>
             public const String GroupName = "PLACEMENTDRIVER";
+
+            /// <summary> PlacementDriver error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> PrimaryReplicaAwaitTimeout error. </summary>
             public const int PrimaryReplicaAwaitTimeout = (GroupCode << 16) | (1 & 0xFFFF);
@@ -574,6 +660,9 @@ namespace Apache.Ignite
             /// <summary> CriticalWorkers group name. </summary>
             public const String GroupName = "WORKERS";
 
+            /// <summary> CriticalWorkers error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> SystemWorkerBlocked error. </summary>
             public const int SystemWorkerBlocked = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -590,6 +679,9 @@ namespace Apache.Ignite
             /// <summary> DisasterRecovery group name. </summary>
             public const String GroupName = "RECOVERY";
 
+            /// <summary> DisasterRecovery error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> IllegalPartitionId error. </summary>
             public const int IllegalPartitionId = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -601,6 +693,9 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> RestartWithCleanUp error. </summary>
+            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
@@ -611,6 +706,9 @@ namespace Apache.Ignite
 
             /// <summary> Embedded group name. </summary>
             public const String GroupName = "EMBEDDED";
+
+            /// <summary> Embedded error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> ClusterNotInitialized error. </summary>
             public const int ClusterNotInitialized = (GroupCode << 16) | (1 & 0xFFFF);
@@ -634,6 +732,9 @@ namespace Apache.Ignite
             /// <summary> Marshalling group name. </summary>
             public const String GroupName = "MARSHALLING";
 
+            /// <summary> Marshalling error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
             /// <summary> Common error. </summary>
             public const int Common = (GroupCode << 16) | (1 & 0xFFFF);
 
@@ -642,6 +743,44 @@ namespace Apache.Ignite
 
             /// <summary> Unmarshalling error. </summary>
             public const int Unmarshalling = (GroupCode << 16) | (3 & 0xFFFF);
+        }
+
+        /// <summary> Rest errors. </summary>
+        public static class Rest
+        {
+            /// <summary> Rest group code. </summary>
+            public const short GroupCode = 23;
+
+            /// <summary> Rest group name. </summary>
+            public const String GroupName = "REST";
+
+            /// <summary> Rest error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ClusterNotInit error. </summary>
+            public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
+        }
+
+        /// <summary> CommonConfiguration errors. </summary>
+        public static class CommonConfiguration
+        {
+            /// <summary> CommonConfiguration group code. </summary>
+            public const short GroupCode = 24;
+
+            /// <summary> CommonConfiguration group name. </summary>
+            public const String GroupName = "COMMONCFG";
+
+            /// <summary> CommonConfiguration error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ConfigurationApply error. </summary>
+            public const int ConfigurationApply = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ConfigurationParse error. </summary>
+            public const int ConfigurationParse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> ConfigurationValidation error. </summary>
+            public const int ConfigurationValidation = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

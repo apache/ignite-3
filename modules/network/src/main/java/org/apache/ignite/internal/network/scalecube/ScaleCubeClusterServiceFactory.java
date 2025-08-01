@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.scalecube.cluster.ClusterConfig;
@@ -29,6 +30,7 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
+import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -90,6 +94,8 @@ public class ScaleCubeClusterServiceFactory {
      * @param clusterIdSupplier Supplier for cluster ID.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param channelTypeRegistry {@link ChannelTypeRegistry} registry.
+     * @param productVersionSource Source of product version.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -100,7 +106,9 @@ public class ScaleCubeClusterServiceFactory {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ChannelTypeRegistry channelTypeRegistry,
+            IgniteProductVersionSource productVersionSource
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -124,7 +132,9 @@ public class ScaleCubeClusterServiceFactory {
                 staleIds,
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller(),
-                criticalWorkerRegistry
+                criticalWorkerRegistry,
+                failureProcessor,
+                channelTypeRegistry
         );
 
         return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
@@ -147,17 +157,19 @@ public class ScaleCubeClusterServiceFactory {
                         configView,
                         serializationService,
                         consistentId,
+                        launchId,
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,
-                        failureProcessor
+                        channelTypeRegistry,
+                        productVersionSource
                 );
                 this.connectionMgr = connectionMgr;
 
                 connectionMgr.start();
                 messagingService.start();
 
-                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localAddress());
+                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localBindAddress());
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
@@ -169,12 +181,18 @@ public class ScaleCubeClusterServiceFactory {
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         scalecubeLocalAddress,
                         messagingService,
-                        topologyService,
                         messageFactory
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
-                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
+
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(
+                        configView.nodeFinder(),
+                        nodeName(),
+                        connectionMgr.localBindAddress()
+                );
+                finder.start();
+
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {
                             @Override
@@ -192,13 +210,14 @@ public class ScaleCubeClusterServiceFactory {
 
                 Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
                 ClusterNode localNode = new ClusterNodeImpl(
-                        localMember.id(),
+                        UUID.fromString(localMember.id()),
                         consistentId,
                         new NetworkAddress(localMember.address().host(), localMember.address().port())
                 );
                 connectionMgr.setLocalNode(localNode);
 
-                this.shutdownFuture = cluster.onShutdown().toFuture();
+                this.shutdownFuture = cluster.onShutdown().toFuture()
+                        .thenAccept(v -> finder.close());
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
@@ -220,40 +239,44 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                ConnectionManager localConnectionMgr = connectionMgr;
+                try {
+                    ConnectionManager localConnectionMgr = connectionMgr;
 
-                if (localConnectionMgr != null) {
-                    localConnectionMgr.initiateStopping();
-                }
-
-                // Local member will be null, if cluster has not been started.
-                if (cluster != null && cluster.member() != null) {
-                    cluster.shutdown();
-
-                    try {
-                        shutdownFuture.get(10, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-
-                        throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
-                    } catch (ExecutionException e) {
-                        throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
-                    } catch (TimeoutException e) {
-                        // Failed to leave gracefully.
-                        LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
+                    if (localConnectionMgr != null) {
+                        localConnectionMgr.initiateStopping();
                     }
 
+                    // Local member will be null, if cluster has not been started.
+                    if (cluster != null && cluster.member() != null) {
+                        cluster.shutdown();
+
+                        try {
+                            shutdownFuture.get(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+
+                            throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
+                        } catch (ExecutionException e) {
+                            throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
+                        } catch (TimeoutException e) {
+                            // Failed to leave gracefully.
+                            LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
+                        }
+
+                    }
+
+                    if (localConnectionMgr != null) {
+                        localConnectionMgr.stop();
+                    }
+
+                    // Messaging service checks connection manager's status before sending a message, so connection manager should be
+                    // stopped before messaging service
+                    messagingService.stop();
+
+                    return nullCompletedFuture();
+                } catch (Throwable t) {
+                    return failedFuture(t);
                 }
-
-                if (localConnectionMgr != null) {
-                    localConnectionMgr.stop();
-                }
-
-                // Messaging service checks connection manager's status before sending a message, so connection manager should be
-                // stopped before messaging service
-                messagingService.stop();
-
-                return nullCompletedFuture();
             }
 
             @Override
@@ -318,18 +341,18 @@ public class ScaleCubeClusterServiceFactory {
 
         return ClusterConfig.defaultLocalConfig()
                 .membership(opts ->
-                        opts.syncInterval(cfg.membershipSyncInterval())
+                        opts.syncInterval(cfg.membershipSyncIntervalMillis())
                                 .suspicionMult(scaleCube.membershipSuspicionMultiplier())
                 )
                 .failureDetector(opts ->
-                        opts.pingInterval(cfg.failurePingInterval())
+                        opts.pingInterval(cfg.failurePingIntervalMillis())
                                 .pingReqMembers(scaleCube.failurePingRequestMembers())
                 )
                 .gossip(opts ->
-                        opts.gossipInterval(scaleCube.gossipInterval())
+                        opts.gossipInterval(scaleCube.gossipIntervalMillis())
                                 .gossipRepeatMult(scaleCube.gossipRepeatMult())
                 )
-                .metadataTimeout(scaleCube.metadataTimeout());
+                .metadataTimeout(scaleCube.metadataTimeoutMillis());
     }
 
     /**
@@ -348,12 +371,12 @@ public class ScaleCubeClusterServiceFactory {
     }
 
     /**
-     * Converts the given list of {@link NetworkAddress} into a list of ScaleCube's {@link Address}.
+     * Converts the given collection of {@link NetworkAddress} into a list of ScaleCube's {@link Address}.
      *
      * @param addresses Network address.
      * @return List of ScaleCube's {@link Address}.
      */
-    private static List<Address> parseAddresses(List<NetworkAddress> addresses) {
+    private static List<Address> parseAddresses(Collection<NetworkAddress> addresses) {
         return addresses.stream()
                 .map(addr -> Address.create(addr.host(), addr.port()))
                 .collect(Collectors.toList());

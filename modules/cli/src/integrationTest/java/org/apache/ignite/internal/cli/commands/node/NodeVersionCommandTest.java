@@ -35,7 +35,7 @@ public class NodeVersionCommandTest extends CliCommandTestNotInitializedIntegrat
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputMatches("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
+                () -> assertOutputMatches("Apache Ignite version [1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
         );
     }
 }

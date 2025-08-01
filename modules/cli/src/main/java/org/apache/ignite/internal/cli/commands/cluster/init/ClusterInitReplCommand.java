@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION;
+import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
@@ -25,7 +27,9 @@ import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent;
 import picocli.CommandLine.Mixin;
 
 /**
@@ -50,10 +54,34 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(this::buildCallInput)
+                .then(askQuestionIfConfigIsPath().build())
                 .then(Flows.fromCall(call))
                 .print()
         );
+    }
+
+
+    private FlowBuilder<String, ClusterInitCallInput> askQuestionIfConfigIsPath() {
+        try {
+            clusterInitOptions.clusterConfiguration();
+            return Flows.from(this::buildCallInput);
+        } catch (ConfigAsPathException e) {
+            QuestionUiComponent questionUiComponent = fromYesNoQuestion(
+                    "It seems that you have passed the path to the configuration file in the configuration content "
+                            + CLUSTER_CONFIG_OPTION + " option. "
+                            + "Do you want to read cluster configuration from this file?"
+            );
+
+            return Flows.acceptQuestion(questionUiComponent,
+                    clusterUrl -> ClusterInitCallInput.builder()
+                            .clusterConfiguration(clusterInitOptions.readConfigAsPath())
+                            .cmgNodes(clusterInitOptions.cmgNodes())
+                            .metaStorageNodes(clusterInitOptions.metaStorageNodes())
+                            .clusterName(clusterInitOptions.clusterName())
+                            .clusterUrl(clusterUrl)
+                            .build()
+            );
+        }
     }
 
     private ClusterInitCallInput buildCallInput(String clusterUrl) {

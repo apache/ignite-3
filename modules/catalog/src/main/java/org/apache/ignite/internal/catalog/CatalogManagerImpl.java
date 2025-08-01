@@ -23,15 +23,19 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -42,11 +46,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -56,7 +55,11 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -70,8 +73,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -82,20 +84,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public static final String DEFAULT_ZONE_NAME = "Default";
 
     private static final int MAX_RETRY_COUNT = 10;
-
-    /** Safe time to wait before new Catalog version activation. */
-    static final int DEFAULT_DELAY_DURATION = 0;
-
-    static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
-
-    /**
-     * Initial update token for a catalog descriptor, this token is valid only before the first call of
-     * {@link UpdateEntry#applyUpdate(Catalog, long)}.
-     *
-     * <p>After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
-     * {@link UpdateEntry#applyUpdate(Catalog, long)}
-     */
-    public static final long INITIAL_CAUSALITY_TOKEN = 0L;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
@@ -115,9 +103,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final ClockService clockService;
 
-    private final LongSupplier delayDurationMsSupplier;
+    private final FailureProcessor failureProcessor;
 
-    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
+    private final NodeProperties nodeProperties;
+
+    private final LongSupplier delayDurationMsSupplier;
 
     private final CatalogSystemViewRegistry catalogSystemViewProvider;
 
@@ -125,10 +115,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
-     * Constructor.
+     * Future used to chain local appends to UpdateLog to avoid useless concurrency (as all concurrent attempts to append compete for the
+     * same catalog version, hence only one will win and the rest will have to retry).
+     *
+     * <p>Guarded by {@link #lastSaveUpdateFutureMutex}.
      */
-    public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION, () -> DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
+    private CompletableFuture<Void> lastSaveUpdateFuture = nullCompletedFuture();
+
+    /**
+     * Guards access to {@link #lastSaveUpdateFuture}.
+     */
+    private final Object lastSaveUpdateFutureMutex = new Object();
+
+    /**
+     * Test-only constructor.
+     */
+    @TestOnly
+    public CatalogManagerImpl(
+            UpdateLog updateLog,
+            ClockService clockService,
+            FailureProcessor failureProcessor,
+            LongSupplier delayDurationMsSupplier
+    ) {
+        this(updateLog, clockService, failureProcessor, new SystemPropertiesNodeProperties(), delayDurationMsSupplier);
     }
 
     /**
@@ -137,13 +146,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
-            LongSupplier delayDurationMsSupplier,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
+            LongSupplier delayDurationMsSupplier
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
+        this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
-        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
 
@@ -151,7 +162,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
-        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
+        Catalog emptyCatalog = new Catalog(0, HybridTimestamp.MIN_VALUE.longValue(), objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
 
@@ -178,114 +189,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
-        versionTracker.close();
+        versionTracker.close(new NodeStoppingException());
         return updateLog.stopAsync(componentContext);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
-        if (schema == null) {
-            return null;
-        }
-        return schema.table(tableName);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
-        return catalogAt(timestamp).table(tableId);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
-        return catalog(catalogVersion).table(tableId);
-    }
-
-    @Override
-    public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return catalog(catalogVersion).tables();
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
-        if (schema == null) {
-            return null;
-        }
-        return schema.aliveIndex(indexName);
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
-        return catalogAt(timestamp).index(indexId);
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion) {
-        return catalog(catalogVersion).index(indexId);
-    }
-
-    @Override
-    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
-        return catalog(catalogVersion).indexes();
-    }
-
-    @Override
-    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
-        return catalog(catalogVersion).indexes(tableId);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        if (catalog == null) {
-            return null;
-        }
-
-        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        return catalog == null ? null : catalog.schema(schemaId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp) {
-        return catalogAt(timestamp).zone(zoneName);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return catalogAt(timestamp).zone(zoneId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
-        return catalog(catalogVersion).zone(zoneId);
-    }
-
-    @Override
-    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
-        return catalog(catalogVersion).zones();
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -299,13 +204,18 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
+    public Catalog earliestCatalog() {
+        return catalogByVer.firstEntry().getValue();
+    }
+
+    @Override
     public int latestCatalogVersion() {
         return catalogByVer.lastEntry().getKey();
     }
 
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
-        return versionTracker.waitFor(version);
+        return inBusyLockAsync(busyLock, () -> versionTracker.waitFor(version));
     }
 
     @Override
@@ -314,32 +224,43 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable Catalog catalog(int catalogVersion) {
-        return catalogByVer.get(catalogVersion);
+    public Catalog catalog(int catalogVersion) {
+        Catalog catalog = catalogByVer.get(catalogVersion);
+
+        if (catalog == null) {
+            throw new CatalogNotFoundException("Catalog version not found: " + catalogVersion);
+        }
+
+        return catalog;
+    }
+
+    @Override
+    public Catalog activeCatalog(long timestamp) {
+        return catalogAt(timestamp);
     }
 
     private Catalog catalogAt(long timestamp) {
         Entry<Long, Catalog> entry = catalogByTs.floorEntry(timestamp);
 
         if (entry == null) {
-            throw new IllegalStateException("No valid schema found for given timestamp: " + timestamp);
+            throw new CatalogNotFoundException("Catalog not found for given timestamp: " + timestamp);
         }
 
         return entry.getValue();
     }
 
     @Override
-    public CompletableFuture<Integer> execute(CatalogCommand command) {
-        return saveUpdateAndWaitForActivation(command);
+    public CompletableFuture<CatalogApplyResult> execute(CatalogCommand command) {
+        return saveUpdateAndWaitForActivation(List.of(command));
     }
 
     @Override
-    public CompletableFuture<Integer> execute(List<CatalogCommand> commands) {
+    public CompletableFuture<CatalogApplyResult> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
             return nullCompletedFuture();
         }
 
-        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
+        return saveUpdateAndWaitForActivation(List.copyOf(commands));
     }
 
     /**
@@ -366,11 +287,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
                         .replicas(DEFAULT_REPLICA_COUNT)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .quorumSize(DEFAULT_ZONE_QUORUM_SIZE)
+                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(nodeProperties.colocationEnabled()))
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(
-                                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                                List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
                         )
                         .build(),
                 AlterZoneSetDefaultCommand.builder()
@@ -378,15 +300,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .build(),
                 // Add schemas
                 CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
-                CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
+                CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog));
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
-                    if (error != null) {
-                        LOG.warn("Unable to create default zone.", error);
+                    if (error != null && !hasCause(error, NodeStoppingException.class)) {
+                        failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
                     }
 
                     return null;
@@ -405,12 +327,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
 
-    private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
-        CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
+    private CompletableFuture<CatalogApplyResult> saveUpdateAndWaitForActivation(List<UpdateProducer> updateProducers) {
+        CompletableFuture<CatalogApplyResult> resultFuture = new CompletableFuture<>();
 
-        saveUpdate(updateProducer, 0)
+        saveUpdateEliminatingLocalConcurrency(updateProducers)
                 .thenCompose(this::awaitVersionActivation)
-                .whenComplete((newVersion, err) -> {
+                .whenComplete((result, err) -> {
                     if (err != null) {
                         Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
 
@@ -437,11 +359,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             resultFuture.completeExceptionally(err);
                         }
                     } else {
-                        resultFuture.complete(newVersion);
+                        resultFuture.complete(result);
                     }
                 });
 
         return resultFuture;
+    }
+
+    private CompletableFuture<CatalogApplyResult> saveUpdateEliminatingLocalConcurrency(List<UpdateProducer> updateProducer) {
+        // Avoid useless and wasteful competition for the save catalog version by enforcing an order.
+        synchronized (lastSaveUpdateFutureMutex) {
+            CompletableFuture<CatalogApplyResult> chainedFuture = lastSaveUpdateFuture
+                    .thenCompose(unused -> saveUpdate(updateProducer, 0));
+
+            // Suppressing any exception to make sure it doesn't ruin subsequent appends. The suppression is not a problem
+            // as the callers will handle exceptions anyway.
+            lastSaveUpdateFuture = chainedFuture.handle((res, ex) -> null);
+
+            return chainedFuture;
+        }
+    }
+
+    private CompletableFuture<CatalogApplyResult> awaitVersionActivation(CatalogApplyResult catalogApplyResult) {
+        return awaitVersionActivation(catalogApplyResult.getCatalogVersion()).thenApply(unused -> catalogApplyResult);
     }
 
     private CompletableFuture<Integer> awaitVersionActivation(int version) {
@@ -453,43 +393,58 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
-        return clusterWideEnsuredActivationTsSafeForRoReads(
-                catalog,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
-                clockService.maxClockSkewMillis());
+        return clusterWideEnsuredActivationTimestamp(catalog.time(), clockService.maxClockSkewMillis());
     }
 
     /**
-     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
-     * until the max retry count is reached.
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts until the max retry count is
+     * reached.
      *
-     * @param updateProducer Supplies simple updates to include into a versioned update to install.
+     * @param updateProducers List of simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
-     * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
+     * @return Future that completes with the result of applying updates, contains the Catalog version when the updates are visible or an
+     *         exception in case of any error.
      */
-    private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+    private CompletableFuture<CatalogApplyResult> saveUpdate(List<UpdateProducer> updateProducers, int attemptNo) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
             if (attemptNo >= MAX_RETRY_COUNT) {
-                return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+                return failedFuture(new IgniteInternalException(INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
             }
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
 
-            List<UpdateEntry> updates;
+            BitSet applyResults = new BitSet(updateProducers.size());
+            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
-                updates = updateProducer.get(catalog);
+                UpdateContext updateContext = new UpdateContext(catalog);
+                for (int i = 0; i < updateProducers.size(); i++) {
+                    UpdateProducer update = updateProducers.get(i);
+                    List<UpdateEntry> entries = update.get(updateContext);
+
+                    if (entries.isEmpty()) {
+                        continue;
+                    }
+
+                    for (UpdateEntry entry : entries) {
+                        updateContext.updateCatalog(cat -> entry.applyUpdate(cat, INITIAL_TIMESTAMP));
+                    }
+
+                    applyResults.set(i);
+                    bulkUpdateEntries.addAll(entries);
+                }
             } catch (CatalogValidationException ex) {
                 return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
             } catch (Exception ex) {
                 return failedFuture(ex);
             }
 
-            if (updates.isEmpty()) {
-                return completedFuture(catalog.version());
+            // all results are empty.
+            if (applyResults.cardinality() == 0) {
+                return completedFuture(new CatalogApplyResult(applyResults, catalog.version(), catalog.time()));
             }
 
             int newVersion = catalog.version() + 1;
@@ -499,14 +454,17 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // after all reactions to that event will be completed through the catalog event notifications mechanism.
             // This is important for the distribution zones recovery purposes:
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
-            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
-                    .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
+            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), bulkUpdateEntries))
+                    .thenCompose(result -> {
+                        return inBusyLockAsync(busyLock, () -> versionTracker.waitFor(newVersion).thenApply(none -> result));
+                    })
                     .thenCompose(result -> {
                         if (result) {
-                            return completedFuture(newVersion);
+                            long newCatalogTime = catalogByVer.get(newVersion).time();
+                            return completedFuture(new CatalogApplyResult(applyResults, newVersion, newCatalogTime));
                         }
 
-                        return saveUpdate(updateProducer, attemptNo + 1);
+                        return saveUpdate(updateProducers, attemptNo + 1);
                     });
         } finally {
             busyLock.leaveBusy();
@@ -545,7 +503,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             assert catalog != null : version - 1;
 
             for (UpdateEntry entry : update.entries()) {
-                catalog = entry.applyUpdate(catalog, causalityToken);
+                catalog = entry.applyUpdate(catalog, metaStorageUpdateTimestamp);
             }
 
             catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp);
@@ -572,12 +530,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
-                        if (err != null) {
-                            LOG.warn("Failed to apply catalog update.", err);
-                            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                        if (err != null && !hasCause(err, NodeStoppingException.class)) {
+                            failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 
-                        versionTracker.update(version, null);
+                        if (!busyLock.enterBusy()) {
+                            return;
+                        }
+
+                        try {
+                            versionTracker.update(version, null);
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     });
         }
     }
@@ -587,7 +552,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         assert activationTimestamp > catalog.time()
                 : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
-                        + catalog.time();
+                + catalog.time();
 
         return new Catalog(
                 update.version(),
@@ -599,28 +564,4 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         );
     }
 
-    private static class BulkUpdateProducer implements UpdateProducer {
-        private final List<? extends UpdateProducer> commands;
-
-        BulkUpdateProducer(List<? extends UpdateProducer> producers) {
-            this.commands = producers;
-        }
-
-        @Override
-        public List<UpdateEntry> get(Catalog catalog) {
-            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
-
-            for (UpdateProducer producer : commands) {
-                List<UpdateEntry> entries = producer.get(catalog);
-
-                for (UpdateEntry entry : entries) {
-                    catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
-                }
-
-                bulkUpdateEntries.addAll(entries);
-            }
-
-            return bulkUpdateEntries;
-        }
-    }
 }

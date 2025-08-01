@@ -37,7 +37,8 @@ namespace Apache.Ignite.Internal.Common
         /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.
         /// <para />
-        /// Unlike <see cref="ArgumentNullException.ThrowIfNull"/>, this is a generic method and does not cause boxing allocations.
+        /// Unlike <see cref="ArgumentNullException.ThrowIfNull(object?,string?)"/>,
+        /// this is a generic method and does not cause boxing allocations.
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
@@ -60,7 +61,8 @@ namespace Apache.Ignite.Internal.Common
         /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.
         /// <para />
-        /// Unlike <see cref="ArgumentNullException.ThrowIfNull"/>, this is a generic method and does not cause boxing allocations.
+        /// Unlike <see cref="ArgumentNullException.ThrowIfNull(object?,string?)"/>,
+        /// this is a generic method and does not cause boxing allocations.
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>

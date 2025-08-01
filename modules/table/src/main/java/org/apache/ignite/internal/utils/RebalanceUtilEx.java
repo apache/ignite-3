@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -37,15 +38,16 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
@@ -110,7 +112,9 @@ public class RebalanceUtilEx {
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
@@ -118,7 +122,9 @@ public class RebalanceUtilEx {
     public static CompletableFuture<Void> handleReduceChanged(
             MetaStorageManager metaStorageMgr,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
+            int consensusGroupSize,
             TablePartitionId partId,
             WatchEvent event,
             long assignmentsTimestamp
@@ -134,46 +140,54 @@ public class RebalanceUtilEx {
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(
+                dataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
-        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, assignmentsTimestamp);
+        byte[] pendingByteArray = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, assignmentsTimestamp));
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = longToBytesKeepingOrder(entry.revision());
+        byte[] timestamp = longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
-        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
+        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
         //     put(stableKey, assignments)
-        //     put(changeTriggerKey, revision)
-        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey))) {
+        //     put(changeTriggerKey, timestamp)
+        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey))) {
         //     put(pendingKey, pending)
-        //     put(changeTriggerKey, revision)
+        //     put(changeTriggerKey, timestamp)
         // }
+
+        Condition revisionAndTimestampDontExistOrLessThan = or(notExists(changeTriggerKey), value(changeTriggerKey).lt(timestamp));
 
         Iif resultingOperation = iif(
                 and(
-                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        revisionAndTimestampDontExistOrLessThan,
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
                 ),
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev)
+                        put(changeTriggerKey, timestamp)
                 ).yield(),
                 iif(
                         and(
-                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                revisionAndTimestampDontExistOrLessThan,
                                 notExists(pendingKey)
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev)
+                                put(changeTriggerKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

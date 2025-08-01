@@ -17,22 +17,26 @@
 
 package org.apache.ignite.internal.ssl;
 
-import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
@@ -40,48 +44,38 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.ClusterConfiguration;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** SSL support integration test. */
 @ExtendWith(WorkDirectoryExtension.class)
-@TestInstance(Lifecycle.PER_CLASS)
-public class ItSslTest extends BaseIgniteAbstractTest {
+public class ItSslTest {
 
-    private static String password;
+    private static final String PASSWORD = "changeit";
 
-    private String trustStorePath;
+    private static String trustStorePath;
 
-    private String keyStorePath;
-
-    private Cluster cluster;
-
-    @WorkDirectory
-    private static Path WORK_DIR;
+    private static String keyStorePath;
 
     @BeforeAll
-    void beforeAll() {
-        password = "changeit";
+    static void beforeAll() {
         trustStorePath = getResourcePath(ItSslTest.class, "ssl/truststore.jks");
         keyStorePath = getResourcePath(ItSslTest.class, "ssl/keystore.p12");
     }
 
     @Nested
     @DisplayName("Given SSL disabled on the cluster")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithoutSsl {
+    class ClusterWithoutSsl extends ClusterPerClassIntegrationTest {
         @Language("JSON")
         String sslDisabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
@@ -95,31 +89,31 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
-        @BeforeAll
-        void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, WORK_DIR, sslDisabledBoostrapConfig);
-            cluster.startAndInit(2);
+        @Override
+        protected int initialNodes() {
+            return 2;
         }
 
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+        @Override
+        protected String getNodeBootstrapConfigTemplate() {
+            return sslDisabledBoostrapConfig;
         }
 
         @Test
         @DisplayName("SSL disabled and cluster starts")
         void clusterStartsWithDisabledSsl(TestInfo testInfo) {
-            assertThat(cluster.runningNodes().count(), is(2L));
+            assertThat(CLUSTER.runningNodes().count(), is(2L));
         }
 
         @Test
         @DisplayName("Client can connect without ssl")
         void clientCouldConnectWithoutSsl() {
             try (IgniteClient client = IgniteClient.builder().addresses("localhost:10800").build()) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -130,7 +124,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
+                            .trustStorePassword(PASSWORD)
                             .build();
 
             assertThrows(
@@ -159,26 +153,25 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             + "?sslEnabled=true"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
-                            + "&trustStorePassword=" + password;
+                            + "&trustStorePassword=" + PASSWORD;
             assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
     }
 
     @Nested
     @DisplayName("Given SSL enabled on the cluster")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithSsl {
+    class ClusterWithSsl extends ClusterPerClassIntegrationTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
                 + "      trustStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
@@ -192,30 +185,30 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "    enabled: true, "
                 + "    keyStore: {\n"
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + password + "\"\n"
+                + "      password: \"" + PASSWORD + "\"\n"
                 + "    }\n"
                 + "  },\n"
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
-        @BeforeAll
-        void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
-            cluster.startAndInit(2);
+        @Override
+        protected int initialNodes() {
+            return 2;
         }
 
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+        @Override
+        protected String getNodeBootstrapConfigTemplate() {
+            return sslEnabledBoostrapConfig;
         }
 
         @Test
         @DisplayName("SSL enabled and setup correctly then cluster starts")
         void clusterStartsWithEnabledSsl(TestInfo testInfo) {
-            assertThat(cluster.runningNodes().count(), is(2L));
+            assertThat(CLUSTER.runningNodes().count(), is(2L));
         }
 
         @Test
@@ -226,6 +219,54 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     // no-op
                 }
             });
+        }
+
+        @Test
+        @DisplayName("Client cannot connect with SSL configured and invalid trust store password")
+        void clientCanNotConnectWithSslAndInvalidTrustStorePassword() {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(PASSWORD + "_foo")
+                            .build();
+
+            IgniteClientConnectionException ex = assertThrows(IgniteClientConnectionException.class, () -> {
+                try (IgniteClient ignored = IgniteClient.builder().addresses("localhost:10800").ssl(sslConfiguration).build()) {
+                    // no-op
+                }
+            });
+
+            assertThat(ex.getMessage(), is("Client SSL configuration error: keystore password was incorrect"));
+            // Exceptions thrown from the synchronous build method are copied to include the sync method
+            assertThat(ex.getCause(), isA(IgniteClientConnectionException.class));
+            assertThat(ex.getCause().getCause(), isA(IOException.class));
+            assertThat(ex.getCause().getCause().getMessage(), is("keystore password was incorrect"));
+        }
+
+        @Test
+        @DisplayName("Client cannot connect with SSL configured and invalid trust store password async method")
+        void clientCanNotConnectWithSslAndInvalidTrustStorePasswordAsync() {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(PASSWORD + "_foo")
+                            .build();
+
+            CompletableFuture<IgniteClient> clientFuture =
+                    IgniteClient.builder().addresses("localhost:10800").ssl(sslConfiguration).buildAsync();
+
+            assertThat(clientFuture, willThrow(IgniteClientConnectionException.class));
+
+            CompletionException completionException = assertThrows(CompletionException.class, clientFuture::join);
+
+            assertThat(completionException.getCause(), isA(IgniteClientConnectionException.class));
+            IgniteClientConnectionException ex = (IgniteClientConnectionException) completionException.getCause();
+
+            assertThat(ex.getMessage(), is("Client SSL configuration error: keystore password was incorrect"));
+            assertThat(ex.getCause(), isA(IOException.class));
+            assertThat(ex.getCause().getMessage(), is("keystore password was incorrect"));
         }
 
         @Test
@@ -241,7 +282,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
+                            .trustStorePassword(PASSWORD)
                             .build();
 
             try (IgniteClient client = IgniteClient.builder()
@@ -249,7 +290,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -261,7 +302,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             + "?sslEnabled=true"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
-                            + "&trustStorePassword=" + password;
+                            + "&trustStorePassword=" + PASSWORD;
             try (Connection conn = DriverManager.getConnection(url)) {
                 // No-op.
             }
@@ -270,25 +311,23 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
     @Nested
     @DisplayName("Given SSL enabled on the cluster and specific cipher enabled")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithSslCustomCipher {
+    class ClusterWithSslCustomCipher extends ClusterPerClassIntegrationTest {
         String sslEnabledWithCipherBoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
 
-        @BeforeAll
-        void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledWithCipherBoostrapConfig);
-            cluster.startAndInit(2);
+        @Override
+        protected int initialNodes() {
+            return 2;
         }
 
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+        @Override
+        protected String getNodeBootstrapConfigTemplate() {
+            return sslEnabledWithCipherBoostrapConfig;
         }
 
         @Test
         @DisplayName("SSL enabled and setup correctly then cluster starts")
         void clusterStartsWithEnabledSsl(TestInfo testInfo) {
-            assertThat(cluster.runningNodes().count(), is(2L));
+            assertThat(CLUSTER.runningNodes().count(), is(2L));
         }
 
         @Test
@@ -316,7 +355,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
+                            .trustStorePassword(PASSWORD)
                             .build();
 
             try (IgniteClient client = IgniteClient.builder()
@@ -324,7 +363,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -336,7 +375,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             .enabled(true)
                             .ciphers(List.of("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"))
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
+                            .trustStorePassword(PASSWORD)
                             .build();
 
             assertThrows(IgniteClientConnectionException.class, () -> {
@@ -357,7 +396,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             + "&ciphers=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
-                            + "&trustStorePassword=" + password;
+                            + "&trustStorePassword=" + PASSWORD;
             assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
@@ -369,7 +408,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             + "?sslEnabled=true"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
-                            + "&trustStorePassword=" + password;
+                            + "&trustStorePassword=" + PASSWORD;
             try (Connection conn = DriverManager.getConnection(url)) {
                 // No-op.
             }
@@ -378,8 +417,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
     @Nested
     @DisplayName("Given SSL enabled client auth is set to require on the cluster")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithSslAndClientAuth {
+    class ClusterWithSslAndClientAuth extends ClusterPerClassIntegrationTest {
         @Language("JSON")
         String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
@@ -387,11 +425,11 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "      enabled: true,\n"
                 + "      clientAuth: \"require\",\n"
                 + "      trustStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
@@ -406,35 +444,35 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "    clientAuth: \"require\", "
                 + "    keyStore: {\n"
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + password + "\"\n"
+                + "      password: \"" + PASSWORD + "\"\n"
                 + "    }, \n"
                 + "    trustStore: {\n"
                 + "      type: JKS,"
-                + "      password: \"" + password + "\","
+                + "      password: \"" + PASSWORD + "\","
                 + "      path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      }\n"
                 + "  },\n"
                 + "  rest: {\n"
                 + "    port: {}, \n"
                 + "    ssl.port: {} \n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
-        @BeforeAll
-        void setUp(TestInfo testInfo) {
-            cluster = new Cluster(testInfo, WORK_DIR, sslEnabledBoostrapConfig);
-            cluster.startAndInit(2);
+        @Override
+        protected int initialNodes() {
+            return 2;
         }
 
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+        @Override
+        protected String getNodeBootstrapConfigTemplate() {
+            return sslEnabledBoostrapConfig;
         }
 
         @Test
         @DisplayName("SSL enabled and setup correctly then cluster starts")
         void clusterStartsWithEnabledSsl(TestInfo testInfo) {
-            assertThat(cluster.runningNodes().count(), is(2L));
+            assertThat(CLUSTER.runningNodes().count(), is(2L));
         }
 
         @Test
@@ -460,7 +498,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
+                            .trustStorePassword(PASSWORD)
                             .build();
 
             assertThrows(IgniteClientConnectionException.class,
@@ -478,10 +516,9 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStorePath(trustStorePath)
-                            .trustStorePassword(password)
-                            .clientAuth(REQUIRE)
+                            .trustStorePassword(PASSWORD)
                             .keyStorePath(keyStorePath)
-                            .keyStorePassword(password)
+                            .keyStorePassword(PASSWORD)
                             .build();
 
             try (IgniteClient client = IgniteClient.builder()
@@ -489,7 +526,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     .ssl(sslConfiguration)
                     .build()
             ) {
-                assertThat(client.clusterNodes(), hasSize(2));
+                assertThat(client.cluster().nodes(), hasSize(2));
             }
         }
 
@@ -501,11 +538,11 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             + "?sslEnabled=true"
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
-                            + "&trustStorePassword=" + password
+                            + "&trustStorePassword=" + PASSWORD
                             + "&clientAuth=require"
                             + "&keyStorePath=" + keyStorePath
                             + "&keyStoreType=PKCS12"
-                            + "&keyStorePassword=" + password;
+                            + "&keyStorePassword=" + PASSWORD;
             try (Connection conn = DriverManager.getConnection(url)) {
                 // No-op.
             }
@@ -514,14 +551,16 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
     @Test
     @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
-    void incompatibleCiphersNodes(TestInfo testInfo) {
-        Cluster incompatibleTestCluster = new Cluster(testInfo, WORK_DIR);
+    void incompatibleCiphersNodes(TestInfo testInfo, @WorkDirectory Path workDir) {
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
+
+        Cluster incompatibleTestCluster = new Cluster(clusterConfiguration);
 
         try {
             String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
             String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-            ServerRegistration successfulRegistration = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
+            ServerRegistration successfulRegistration = incompatibleTestCluster.startEmbeddedNode(0, sslEnabledWithCipher1BoostrapConfig);
 
             InitParameters initParameters = InitParameters.builder()
                     .metaStorageNodes(successfulRegistration.server())
@@ -533,7 +572,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
             // First node will initialize the cluster with single node successfully since the second node can't connect to it.
             assertThat(successfulRegistration.registrationFuture(), willCompleteSuccessfully());
 
-            ServerRegistration failingRegistration = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
+            ServerRegistration failingRegistration = incompatibleTestCluster.startEmbeddedNode(1, sslEnabledWithCipher2BoostrapConfig);
             assertThat(failingRegistration.registrationFuture(), willTimeoutIn(1, TimeUnit.SECONDS));
         } finally {
             incompatibleTestCluster.shutdown();
@@ -548,11 +587,11 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "      enabled: true,\n"
                 + "      ciphers: " + ciphers + ",\n"
                 + "      trustStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      },\n"
                 + "      keyStore: {\n"
-                + "        password: \"" + password + "\","
+                + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
                 + "      }\n"
                 + "    },\n"
@@ -567,7 +606,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "    ciphers: " + ciphers + ",\n"
                 + "    keyStore: {\n"
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + password + "\"\n"
+                + "      password: \"" + PASSWORD + "\"\n"
                 + "    }\n"
                 + "  },\n"
                 + "  rest: {\n"

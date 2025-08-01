@@ -112,7 +112,7 @@ public class ResetPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** Names of zones to reset partitions of. */
+        /** IDs of partitions to reset. */
         ResetPartitionsCallInputBuilder partitionIds(@Nullable List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;

@@ -18,8 +18,9 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -29,23 +30,37 @@ public class ClientTablesGetRequest {
     /**
      * Processes the request.
      *
-     * @param out          Packer.
      * @param igniteTables Ignite tables.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
-            ClientMessagePacker out,
+    public static CompletableFuture<ResponseWriter> process(
             IgniteTables igniteTables
     ) {
-        return igniteTables.tablesAsync().thenAccept(tables -> {
+        return igniteTables.tablesAsync().thenApply(tables -> out -> {
             out.packInt(tables.size());
 
             for (var table : tables) {
                 var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
-                out.packString(table.name());
+                out.packString(quoteTableNameIfNotAllUpper(table.qualifiedName().objectName()));
             }
         });
+    }
+
+    private static String quoteTableNameIfNotAllUpper(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            char ch = name.charAt(i);
+
+            if (Character.isDigit(ch) || ch == '_') {
+                continue;
+            }
+
+            if (!Character.isUpperCase(ch)) {
+                return IgniteNameUtils.quoteIfNeeded(name);
+            }
+        }
+
+        return name;
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -37,9 +38,10 @@ import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateC
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -79,15 +81,16 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterStateStorage clusterStateStorage,
             @Mock LogicalTopology logicalTopology,
             @Mock NodeAttributes nodeAttributes,
-            @Mock FailureProcessor failureProcessor,
-            @Mock RaftGroupService raftGroupService
+            @Mock FailureManager failureManager,
+            @Mock RaftGroupService raftGroupService,
+            @Mock MetricManager metricManager
     ) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
-                .thenReturn(completedFuture(raftGroupService));
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+                .thenReturn(raftGroupService);
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
                 .clusterTag(cmgMessagesFactory.clusterTag().clusterId(UUID.randomUUID()).clusterName("foo").build())
@@ -97,6 +100,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 .build();
 
         when(raftGroupService.run(any()))
+                .thenReturn(nullCompletedFuture());
+        when(raftGroupService.run(any(), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
         when(raftGroupService.run(any(InitCmgStateCommand.class)))
@@ -111,9 +116,10 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 nodeAttributes,
-                failureProcessor,
+                failureManager,
                 new ClusterIdHolder(),
-                RaftGroupOptionsConfigurer.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY,
+                metricManager
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());

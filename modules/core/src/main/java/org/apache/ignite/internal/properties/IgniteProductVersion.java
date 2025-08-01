@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class representing an Ignite version.
  */
-public class IgniteProductVersion implements Serializable {
+public class IgniteProductVersion implements Serializable, Comparable<IgniteProductVersion> {
     /**
      * Ignite version in the following formats "major.minor.maintenance(.patch)?(-preRelease)?".
      *
@@ -59,6 +59,9 @@ public class IgniteProductVersion implements Serializable {
     /** Version of the current node. */
     public static final IgniteProductVersion CURRENT_VERSION = fromString(IgniteProperties.get(IgniteProperties.VERSION));
 
+    /** Product name of the current node. */
+    public static final String CURRENT_PRODUCT = IgniteProperties.get(IgniteProperties.PRODUCT);
+
     /** Major version number. */
     private final byte major;
 
@@ -76,7 +79,8 @@ public class IgniteProductVersion implements Serializable {
     @Nullable
     private final String preRelease;
 
-    private IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
+    /** Constructor. */
+    public IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
@@ -147,6 +151,68 @@ public class IgniteProductVersion implements Serializable {
      */
     public @Nullable String preRelease() {
         return preRelease;
+    }
+
+    @Override
+    public int compareTo(IgniteProductVersion other) {
+        int res;
+
+        // Compare major, minor, maintenance
+        res = Byte.compare(major(), other.major());
+        if (res != 0) {
+            return res;
+        }
+
+        res = Byte.compare(minor(), other.minor());
+        if (res != 0) {
+            return res;
+        }
+
+        res = Byte.compare(maintenance(), other.maintenance());
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare patch (nullable)
+        res = compareNullable(patch(), other.patch());
+        if (res != 0) {
+            return res;
+        }
+
+        // Compare pre-release order (nullable)
+        res = compareNullable(preReleaseOrder(preRelease()), preReleaseOrder(other.preRelease()));
+        return res;
+    }
+
+    private static int compareNullable(@Nullable Byte a, @Nullable Byte b) {
+        if (a != null && b != null) {
+            return Byte.compare(a, b);
+        } else if (a != null) {
+            return 1;
+        } else if (b != null) {
+            return -1;
+        }
+        return 0;
+    }
+
+    @Nullable
+    private static Byte preReleaseOrder(@Nullable String preRelease) {
+        if (preRelease == null) {
+            return null;
+        }
+        switch (preRelease.toLowerCase()) {
+            case "alpha":
+                return 0;
+            case "beta":
+                return 1;
+            case "rc":
+                return 2;
+            case "final":
+            case "":
+                return 3;
+            default:
+                return 4; // Unknown or custom stages
+        }
     }
 
     @Override

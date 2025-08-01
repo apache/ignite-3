@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -40,32 +40,54 @@ public class CreateSchemaCommand implements CatalogCommand {
 
     private final String schemaName;
 
-    private CreateSchemaCommand(String schemaName) {
+    private final boolean ifNotExists;
+
+    private CreateSchemaCommand(String schemaName, boolean ifNotExists, boolean systemSchemaCommand) {
         validateIdentifier(schemaName, "Name of the schema");
 
+        if (systemSchemaCommand) {
+            if (!CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException("Not a system schema, schema: '{}'", schemaName);
+            }
+        } else {
+            if (CatalogUtils.isSystemSchema(schemaName)) {
+                throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
+            }
+        }
+
         this.schemaName = schemaName;
+        this.ifNotExists = ifNotExists;
+    }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         int id = catalog.objectIdGenState();
 
-        if (catalog.schema(schemaName) != null) {
-            throw new CatalogValidationException(format("Schema with name '{}' already exists", schemaName));
+        CatalogSchemaDescriptor schema = catalog.schema(schemaName);
+
+        if (ifNotExists && schema != null) {
+            return List.of();
+        } else if (schema != null) {
+            throw new CatalogValidationException("Schema with name '{}' already exists.", schemaName);
         }
 
-        CatalogSchemaDescriptor schema = new CatalogSchemaDescriptor(
+        CatalogSchemaDescriptor newSchema = new CatalogSchemaDescriptor(
                 id,
                 schemaName,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
                 new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
+                INITIAL_TIMESTAMP
         );
 
         return List.of(
-                new NewSchemaEntry(schema),
+                new NewSchemaEntry(newSchema),
                 new ObjectIdGenUpdateEntry(1)
         );
     }
@@ -80,6 +102,8 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         private String name;
 
+        private boolean ifNotExists;
+
         /** {@inheritDoc} */
         @Override
         public CreateSchemaCommandBuilder name(String name) {
@@ -89,8 +113,39 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         /** {@inheritDoc} */
         @Override
+        public CreateSchemaCommandBuilder ifNotExists(boolean value) {
+            this.ifNotExists = value;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public CatalogCommand build() {
-            return new CreateSchemaCommand(name);
+            return new CreateSchemaCommand(name, ifNotExists, false);
+        }
+    }
+
+    /** Returns builder to create a command to create a system schema. */
+    public static SystemSchemaBuilder systemSchemaBuilder() {
+        return new SystemSchemaBuilder();
+    }
+
+    /** Implementation of {@link CreateSystemSchemaCommandBuilder}. */
+    public static class SystemSchemaBuilder implements CreateSystemSchemaCommandBuilder {
+
+        private String name;
+
+        /** {@inheritDoc} */
+        @Override
+        public CreateSystemSchemaCommandBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CatalogCommand build() {
+            return new CreateSchemaCommand(name, false, true);
         }
     }
 }

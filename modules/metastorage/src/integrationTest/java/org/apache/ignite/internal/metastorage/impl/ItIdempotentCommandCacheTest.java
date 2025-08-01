@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
@@ -44,17 +46,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -71,10 +76,10 @@ import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -92,7 +97,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
@@ -109,6 +116,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
 
@@ -125,11 +133,14 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final int YIELD_RESULT = 10;
     private static final int ANOTHER_YIELD_RESULT = 20;
 
-    @InjectConfiguration("mock.retryTimeout = 10000")
+    @InjectConfiguration("mock.retryTimeoutMillis = 10000")
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = 100")
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
+    private SystemDistributedConfiguration systemConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private List<Node> nodes;
 
@@ -155,9 +166,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         Node(
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
-                MetaStorageConfiguration metaStorageConfiguration,
+                SystemDistributedConfiguration systemConfiguration,
                 Path workDir,
-                int index
+                int index,
+                ScheduledExecutorService scheduledExecutorService
         ) {
             List<NetworkAddress> addrs = new ArrayList<>();
 
@@ -194,6 +206,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             );
 
             cmgManager = mock(ClusterManagementGroupManager.class);
+            configureCmgManagerToStartMetastorage(cmgManager);
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 
@@ -203,10 +216,15 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
-            storage = new RocksDbKeyValueStorage(
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+            storage = spy(new RocksDbKeyValueStorage(
                     clusterService.nodeName(),
                     metastorageWorkDir.dbPath(),
-                    new NoOpFailureProcessor());
+                    new NoOpFailureManager(),
+                    readOperationForCompactionTracker,
+                    scheduledExecutorService
+            ));
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -217,11 +235,12 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    msRaftConfigurer
+                    systemConfiguration,
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
-            clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
+            clockWaiter = new ClockWaiter(clusterService.nodeName(), clock, scheduledExecutorService);
 
             clockService = new ClockServiceImpl(
                     clock,
@@ -232,7 +251,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
             if (metaStorageNodesFut != null) {
-                when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
+                when(cmgManager.metaStorageInfo()).thenReturn(
+                        metaStorageNodesFut.thenApply(nodes -> new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(nodes).build())
+                );
             }
 
             assertThat(
@@ -401,7 +422,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         // Do the snapshot.
-        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName())));
+        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName()), false));
 
         // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
         for (Node node : nodes) {
@@ -411,7 +432,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         // Restart cluster.
         startCluster(testInfo);
 
-        long timestampAfterRestartPhysicalLong = nodes.get(0).clockService.now().getPhysical();
+        ClockService node0ClockService = nodes.get(0).clockService;
+        long timestampAfterRestartPhysicalLong = node0ClockService.now().getPhysical();
 
         leader = leader(raftClient());
 
@@ -430,15 +452,16 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             assertThat(node.clockService.waitFor(
                     new HybridTimestamp(
-                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeout().value()
+                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeoutMillis().value()
                                     + node.clockService.maxClockSkewMillis(),
                             0
                     )
             ), willCompleteSuccessfully());
         }
 
-        HybridTimestamp evictionTimestamp = HybridTimestamp.hybridTimestamp(nodes.get(0).clockService.nowLong()
-                - (raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()));
+        HybridTimestamp evictionTimestamp = node0ClockService.now().subtractPhysicalTime(
+                raftConfiguration.retryTimeoutMillis().value() + node0ClockService.maxClockSkewMillis()
+        );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
 
@@ -472,12 +495,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 .fromConsistentIds(nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet()));
 
         try {
-            CompletableFuture<RaftGroupService> raftServiceFuture = node.raftManager
-                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
-
-            assertThat(raftServiceFuture, willCompleteSuccessfully());
-
-            return raftServiceFuture.join();
+            return node.raftManager
+                    .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration, true);
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }
@@ -496,7 +515,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             byte[] anotherValue
     ) {
         HybridClock clock = new HybridClockImpl();
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         return CMD_FACTORY.invokeCommand()
                 .condition(notExists(testKey))
@@ -515,7 +534,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             int anotherYieldResult
     ) {
         HybridClock clock = new HybridClockImpl();
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         Iif iif = iif(
                 notExists(testKey),
@@ -535,7 +554,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i);
+            Node node = new Node(testInfo, raftConfiguration, systemConfiguration, workDir, i, scheduledExecutorService);
             nodes.add(node);
         }
 

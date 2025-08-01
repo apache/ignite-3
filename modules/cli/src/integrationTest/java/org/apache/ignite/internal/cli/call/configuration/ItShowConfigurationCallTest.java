@@ -94,7 +94,7 @@ class ItShowConfigurationCallTest extends CliIntegrationTest {
         // Given
         var input = NodeConfigShowCallInput.builder()
                 .nodeUrl(NODE_URL)
-                .selector("ignite.clientConnector.connectTimeout")
+                .selector("ignite.clientConnector.connectTimeoutMillis")
                 .build();
 
         // When

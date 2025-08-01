@@ -211,7 +211,7 @@ bool is_actual_error(int err)
 
 void throw_secure_error(std::string err)
 {
-    throw ignite_error(error::code::GENERIC, std::move(err));
+    throw ignite_error(error::code::CLIENT_SSL_CONFIGURATION, std::move(err));
 }
 
 std::string get_last_secure_error()
@@ -246,4 +246,3 @@ void throw_last_secure_error(const std::string& description)
 }
 
 } // namespace ignite::network
-

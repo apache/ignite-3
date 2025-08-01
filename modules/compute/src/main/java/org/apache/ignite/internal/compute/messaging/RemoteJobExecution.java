@@ -19,23 +19,22 @@ package org.apache.ignite.internal.compute.messaging;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.CancellableJobExecution;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Remote job execution implementation.
- *
- * @param <R> Job result type.
  */
-public class RemoteJobExecution<R> implements JobExecution<R> {
+public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
     private final ClusterNode remoteNode;
 
-    private final CompletableFuture<UUID> jobIdFuture;
+    private final UUID jobId;
 
-    private final CompletableFuture<R> resultFuture;
+    private final CompletableFuture<ComputeJobDataHolder> resultFuture;
 
     private final InFlightFutures inFlightFutures;
 
@@ -45,48 +44,45 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
      * Constructor.
      *
      * @param remoteNode Remote node.
-     * @param jobIdFuture Job id future.
-     * @param resultFuture Job result future.
+     * @param jobId Job id.
      * @param inFlightFutures In-flight futures collection.
      * @param messaging Compute messaging service.
      */
     public RemoteJobExecution(
             ClusterNode remoteNode,
-            CompletableFuture<UUID> jobIdFuture,
-            CompletableFuture<R> resultFuture,
+            UUID jobId,
             InFlightFutures inFlightFutures,
             ComputeMessaging messaging
     ) {
         this.remoteNode = remoteNode;
-        this.jobIdFuture = jobIdFuture;
-        this.resultFuture = resultFuture;
+        this.jobId = jobId;
+        this.resultFuture = inFlightFutures.registerFuture(messaging.remoteJobResultRequestAsync(remoteNode, jobId));
         this.inFlightFutures = inFlightFutures;
         this.messaging = messaging;
     }
 
     @Override
-    public CompletableFuture<R> resultAsync() {
+    public CompletableFuture<ComputeJobDataHolder> resultAsync() {
         return resultFuture;
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return inFlightFutures.registerFuture(
-                jobIdFuture.thenCompose(jobId -> messaging.remoteStateAsync(remoteNode, jobId))
-        );
+        return inFlightFutures.registerFuture(messaging.remoteStateAsync(remoteNode, jobId));
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return inFlightFutures.registerFuture(
-                jobIdFuture.thenCompose(jobId -> messaging.remoteCancelAsync(remoteNode, jobId))
-        );
+        return inFlightFutures.registerFuture(messaging.remoteCancelAsync(remoteNode, jobId));
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return inFlightFutures.registerFuture(
-                jobIdFuture.thenCompose(jobId -> messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority))
-        );
+        return inFlightFutures.registerFuture(messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority));
+    }
+
+    @Override
+    public ClusterNode node() {
+        return remoteNode;
     }
 }

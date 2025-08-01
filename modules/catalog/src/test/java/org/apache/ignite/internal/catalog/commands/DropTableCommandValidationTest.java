@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -75,9 +76,17 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand dropCommand = DropTableCommand.builder()
+                .schemaName(SCHEMA_NAME + "_UNK")
+                .tableName("TEST")
+                .ifTableExists(true)
+                .build();
+
+        dropCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test
@@ -93,7 +102,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }

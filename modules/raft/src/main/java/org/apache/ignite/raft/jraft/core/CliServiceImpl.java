@@ -442,7 +442,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status snapshot(final String groupId, final PeerId peer) {
+    public Status snapshot(final String groupId, final PeerId peer, boolean forced) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(peer, "Null peer");
 
@@ -454,6 +454,7 @@ public class CliServiceImpl implements CliService {
             .snapshotRequest()
             .groupId(groupId)
             .peerId(peer.toString())
+            .forced(forced)
             .build();
 
         try {

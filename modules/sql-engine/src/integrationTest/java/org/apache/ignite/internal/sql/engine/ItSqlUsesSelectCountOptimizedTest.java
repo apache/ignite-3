@@ -44,7 +44,8 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
     @BeforeEach
     @AfterEach
     public void resetFastOpt() {
-        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", String.valueOf(Commons.fastQueryOptimizationEnabled()));
+        System.clearProperty("FAST_QUERY_OPTIMIZATION_ENABLED");
+        Commons.resetFastQueryOptimizationFlag();
     }
 
     @Test
@@ -119,6 +120,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
         // Disable fast query optimization
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
         System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "false");
+        Commons.resetFastQueryOptimizationFlag();
 
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))

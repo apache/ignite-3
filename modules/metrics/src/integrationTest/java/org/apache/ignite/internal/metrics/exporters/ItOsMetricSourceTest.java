@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.greaterThan;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -49,7 +50,7 @@ class ItOsMetricSourceTest extends BaseIgniteAbstractTest {
     @Test
     void testOsMetrics() {
         MetricManager metricManager = new MetricManagerImpl();
-        metricManager.configure(simpleConfiguration);
+        metricManager.configure(simpleConfiguration, UUID::randomUUID, "test-node");
 
         Map<String, MetricExporter> exporters = new HashMap<>();
         TestSimpleExporter simpleExporter = new TestSimpleExporter();

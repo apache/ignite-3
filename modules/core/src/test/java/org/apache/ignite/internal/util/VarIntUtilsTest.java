@@ -22,6 +22,8 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -29,34 +31,56 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class VarIntUtilsTest {
     @ParameterizedTest
-    @MethodSource("sampleInts")
-    void readingAndWritingVarintsIsCompatible(int intVal) {
+    @MethodSource("sampleLongs")
+    void readingAndWritingVarintsInMemoryIsCompatible(long longVal) {
         byte[] array = new byte[10];
 
-        VarIntUtils.putVarIntToBytes(intVal, array, 1);
+        VarIntUtils.putVarIntToBytes(longVal, array, 1);
 
         ByteBuffer buf = ByteBuffer.wrap(array);
         buf.position(1);
 
-        assertThat(VarIntUtils.readVarInt(buf), is(intVal));
+        assertThat(VarIntUtils.readVarInt(buf), is(longVal));
     }
 
     @ParameterizedTest
-    @MethodSource("sampleInts")
-    void writingVarIntReturnsNumberOfBytesInItsRepresentation(int intVal) {
-        byte[] array = new byte[10];
+    @MethodSource("sampleLongs")
+    void readingAndWritingVarintsInIoIsCompatible(long longVal) throws Exception {
+        IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(100);
 
-        int len = VarIntUtils.putVarIntToBytes(intVal, array, 0);
+        VarIntUtils.writeVarInt(longVal, out);
 
-        assertThat(VarIntUtils.varIntLength(intVal), is(len));
+        IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        assertThat(VarIntUtils.readVarInt(in), is(longVal));
     }
 
     @ParameterizedTest
-    @MethodSource("sampleInts")
-    void readingVarIntConsumesExactlyItsBytes(int intVal) {
+    @MethodSource("sampleLongs")
+    void writingVarIntInMemoryReturnsNumberOfBytesInItsRepresentation(long longVal) {
         byte[] array = new byte[10];
 
-        int len = VarIntUtils.putVarIntToBytes(intVal, array, 0);
+        int len = VarIntUtils.putVarIntToBytes(longVal, array, 0);
+
+        assertThat(VarIntUtils.varIntLength(longVal), is(len));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sampleLongs")
+    void writingVarIntInIoReturnsNumberOfBytesInItsRepresentation(long longVal) throws Exception {
+        IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(100);
+
+        int len = VarIntUtils.writeVarInt(longVal, out);
+
+        assertThat(VarIntUtils.varIntLength(longVal), is(len));
+    }
+
+    @ParameterizedTest
+    @MethodSource("sampleLongs")
+    void readingVarIntFromMemoryConsumesExactlyItsBytes(long longVal) {
+        byte[] array = new byte[10];
+
+        int len = VarIntUtils.putVarIntToBytes(longVal, array, 0);
 
         ByteBuffer buf = ByteBuffer.wrap(array);
 
@@ -65,16 +89,30 @@ class VarIntUtilsTest {
         assertThat(buf.position(), is(len));
     }
 
-    private static Stream<Arguments> sampleInts() {
+    @ParameterizedTest
+    @MethodSource("sampleLongs")
+    void readingVarIntFromIoConsumesExactlyItsBytes(long longVal) throws Exception {
+        byte[] array = new byte[10];
+
+        int len = VarIntUtils.putVarIntToBytes(longVal, array, 0);
+
+        IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(array);
+
+        VarIntUtils.readVarInt(in);
+
+        assertThat(in.available(), is(array.length - len));
+    }
+
+    private static Stream<Arguments> sampleLongs() {
         return Stream.of(
-                -1, 0, 1,
-                128 - 2, 128 - 1, 255, 256,
-                128 * 128 - 2, 128 * 128 - 1,
-                65535, 65536,
-                128 * 128 * 128 - 2, 128 * 128 * 128 - 1,
-                16777215, 16777216,
-                128 * 128 * 128 * 128 - 2, 128 * 128 * 128 * 128 - 1,
-                2147483647
+                -1L, 0L, 1L,
+                128L - 2, 128L - 1, 255L, 256L,
+                128L * 128 - 2, 128L * 128 - 1,
+                65535L, 65536L,
+                128L * 128 * 128 - 2, 128L * 128 * 128 - 1,
+                16777215L, 16777216L,
+                128L * 128 * 128 * 128 - 2, 128L * 128 * 128 * 128 - 1,
+                2147483647L
         ).map(Arguments::of);
     }
 

@@ -14,7 +14,6 @@
 # limitations under the License.
 import os
 import platform
-import re
 import subprocess
 import setuptools
 import sys
@@ -23,8 +22,8 @@ from pprint import pprint
 from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
 
-PACKAGE_NAME = 'pyignite3'
-EXTENSION_NAME = 'pyignite3._pyignite3_extension'
+PACKAGE_NAME = 'pyignite_dbapi'
+EXTENSION_NAME = 'pyignite_dbapi._pyignite_dbapi_extension'
 
 
 def is_a_requirement(req_line):
@@ -46,12 +45,19 @@ with open('README.md', 'r', encoding='utf-8') as readme_file:
     long_description = readme_file.read()
 
 version = None
-with open(PACKAGE_NAME + '/__init__.py', 'r') as fd:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-                        fd.read(), re.MULTILINE).group(1)
+with open(os.path.join(PACKAGE_NAME, '_version.txt'), 'r') as fd:
+    version = fd.read()
     if not version:
         raise RuntimeError('Cannot find version information')
 
+def cmake_project_version(version):
+    """
+    Strips the pre-release portion of the project version string to satisfy CMake requirements
+    """
+    dash_index = version.find("-")
+    if dash_index != -1:
+        return version[:dash_index]
+    return version
 
 def _get_env_variable(name, default='OFF'):
     if name not in os.environ.keys():
@@ -88,8 +94,8 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_BUILD_TYPE={cfg}',
                 f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={ext_dir}',
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
-                f'-DPYTHON_EXECUTABLE={sys.executable}',
                 f'-DEXTENSION_FILENAME={ext_file}',
+                f'-DIGNITE_VERSION={cmake_project_version(version)}',
             ]
 
             if platform.system() == 'Windows':
@@ -116,7 +122,7 @@ class CMakeBuild(build_ext):
 
             # Config and build the extension
             subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args, cwd=self.build_temp)
-            subprocess.check_call(['cmake', '--build', '.', '-j', str(cpu_count), '--config', cfg],
+            subprocess.check_call(['cmake', '--build', '.', '-j', str(cpu_count), '--config', cfg, '-v'],
                                   cwd=self.build_temp)
 
 
@@ -132,25 +138,29 @@ def run_setup():
         long_description_content_type='text/markdown',
         url='https://github.com/apache/ignite-3/tree/main/modules/platforms/python',
         packages=setuptools.find_packages(),
+        include_package_data=True,
         ext_modules=[CMakeExtension(EXTENSION_NAME)],
         cmdclass=dict(build_ext=CMakeBuild),
         install_requires=install_requirements,
         license='Apache License 2.0',
         license_files=('LICENSE', 'NOTICE'),
         classifiers=[
+            'Programming Language :: C++',
             'Programming Language :: Python',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: 3 :: Only',
             'Intended Audience :: Developers',
             'Topic :: Database :: Front-Ends',
             'Topic :: Software Development :: Libraries :: Python Modules',
-            'License :: Free for non-commercial use',
-            'Operating System :: OS Independent',
-        ]
+            'Operating System :: MacOS',
+            'Operating System :: Microsoft :: Windows',
+            'Operating System :: POSIX :: Linux',
+        ],
     )
 
 

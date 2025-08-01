@@ -18,17 +18,22 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZoneIdDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -39,11 +44,13 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -55,7 +62,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: after switching to zone-based replication
  */
 public class DistributionZoneRebalanceEngineV2 {
-    /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
 
     /** Prevents double stopping of the component. */
@@ -111,16 +117,16 @@ public class DistributionZoneRebalanceEngineV2 {
             });
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-            metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
+            metaStorageManager.registerPrefixWatch(zoneDataNodesHistoryPrefix(), dataNodesListener);
 
-            CompletableFuture<Long> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
             // At the moment of the start of this manager, it is guaranteed that Meta Storage has been recovered.
             assert recoveryFinishFuture.isDone();
 
-            long recoveryRevision = recoveryFinishFuture.join();
+            long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return rebalanceTriggersRecovery(recoveryRevision);
+            return recoveryRebalanceTrigger(recoveryRevision);
         });
     }
 
@@ -136,87 +142,115 @@ public class DistributionZoneRebalanceEngineV2 {
     }
 
     private WatchListener createDistributionZonesDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                return IgniteUtils.inBusyLockAsync(busyLock, () -> {
-                    Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
+        return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
+            Set<NodeWithAttributes> dataNodesWithAttributes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
 
-                    if (dataNodes == null) {
-                        // The zone was removed so data nodes were removed too.
-                        return nullCompletedFuture();
-                    }
-
-                    int zoneId = extractZoneIdDataNodes(evt.entryEvent().newEntry().key());
-
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                    //  in the catalog. Better to store this version when writing datanodes.
-                    int catalogVersion = catalogService.latestCatalogVersion();
-
-                    Catalog catalog = catalogService.catalog(catalogVersion);
-
-                    long assignmentsTimestamp = catalog.time();
-
-                    CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
-
-                    if (zoneDescriptor == null) {
-                        // Zone has been removed.
-                        return nullCompletedFuture();
-                    }
-
-                    Set<String> filteredDataNodes = filterDataNodes(
-                            dataNodes,
-                            zoneDescriptor,
-                            distributionZoneManager.nodesAttributes()
-                    );
-
-                    if (filteredDataNodes.isEmpty()) {
-                        return nullCompletedFuture();
-                    }
-
-                    return triggerZonePartitionsRebalance(
-                            zoneDescriptor,
-                            filteredDataNodes,
-                            evt.entryEvent().newEntry().revision(),
-                            metaStorageManager,
-                            busyLock,
-                            assignmentsTimestamp
-                    );
-                });
+            if (dataNodesWithAttributes == null) {
+                // The zone was removed so data nodes were removed too.
+                return nullCompletedFuture();
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
+            Set<Node> dataNodes = dataNodesWithAttributes.stream()
+                    .map(NodeWithAttributes::node)
+                    .collect(toSet());
+
+            int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);
+
+            // It is safe to get the latest version of the catalog as we are in the metastore thread.
+            // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
+            //  in the catalog. Better to store this version when writing datanodes.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            long assignmentsTimestamp = catalog.time();
+
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            if (zoneDescriptor == null) {
+                // Zone has been removed.
+                return nullCompletedFuture();
             }
-        };
+
+            Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
+
+            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodesWithAttributes, zoneDescriptor));
+
+            if (LOG.isInfoEnabled()) {
+                var matchedNodes = new ArrayList<NodeWithAttributes>();
+                var filteredOutNodes = new ArrayList<NodeWithAttributes>();
+
+                for (Node dataNode : dataNodes) {
+                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
+
+                    if (filteredDataNodes.contains(dataNode.nodeName())) {
+                        matchedNodes.add(nodeWithAttributes);
+                    } else {
+                        filteredOutNodes.add(nodeWithAttributes);
+                    }
+                }
+
+                if (!filteredOutNodes.isEmpty()) {
+                    LOG.info(
+                            "Some data nodes were filtered out because they don't match zone's attributes:"
+                                    + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
+                            zoneDescriptor.id(),
+                            zoneDescriptor.filter(),
+                            zoneDescriptor.storageProfiles(),
+                            filteredOutNodes,
+                            matchedNodes
+                    );
+                }
+            }
+
+            if (filteredDataNodes.isEmpty()) {
+                return nullCompletedFuture();
+            }
+
+            long revision = evt.entryEvent().newEntry().revision();
+            HybridTimestamp timestamp = evt.entryEvent().newEntry().timestamp();
+
+            Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(revision));
+
+            return triggerZonePartitionsRebalance(
+                    zoneDescriptor,
+                    filteredDataNodes,
+                    revision,
+                    timestamp,
+                    metaStorageManager,
+                    busyLock,
+                    assignmentsTimestamp,
+                    aliveNodes
+            );
+        });
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
         return recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
+                parameters.zoneDescriptor().updateTimestamp(),
                 parameters.catalogVersion()
         );
     }
 
     /**
      * Calculate data nodes from the distribution zone for {@code zoneDescriptor} and {@code causalityToken} and trigger zones partitions
-     * rebalance. For more details see
-     * {@link ZoneRebalanceUtil#triggerZonePartitionsRebalance(CatalogZoneDescriptor, Set, long, MetaStorageManager)}
+     * rebalance. For more details see {@link ZoneRebalanceUtil#triggerZonePartitionsRebalance}.
      *
      * @param zoneDescriptor Zone descriptor.
      * @param causalityToken Causality token.
+     * @param timestamp Timestamp corresponding to the causality token.
      * @param catalogVersion Catalog version.
      * @return The future, which completes when the all metastore updates done.
      */
     private CompletableFuture<Void> recalculateAssignmentsAndTriggerZonePartitionsRebalance(
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
+            HybridTimestamp timestamp,
             int catalogVersion
     ) {
-        return distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+        return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
@@ -224,13 +258,17 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
+                    Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(causalityToken));
+
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
+                            timestamp,
                             metaStorageManager,
                             busyLock,
-                            catalog.time()
+                            catalog.time(),
+                            aliveNodes
                     );
                 }));
     }
@@ -243,22 +281,27 @@ public class DistributionZoneRebalanceEngineV2 {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> recoveryRebalanceTrigger(long recoveryRevision) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+
+            HybridTimestamp recoveryTimestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
+
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalog.zones()
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndTriggerZonePartitionsRebalance(
                                     zoneDesc,
                                     recoveryRevision,
-                                    catalogService.latestCatalogVersion()
+                                    recoveryTimestamp,
+                                    catalog.version()
                             )
                     )
                     .collect(Collectors.toUnmodifiableList());
 
             return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

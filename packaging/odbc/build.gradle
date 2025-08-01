@@ -26,6 +26,8 @@ plugins {
     alias(libs.plugins.setupbuilder)
 }
 
+apply from: "$rootDir/buildscripts/utils.gradle"
+
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -40,9 +42,10 @@ dependencies {
 }
 
 def tokens = [
-        VERSION : version,
-        LIB_DIR : "/usr/lib",
-        TMP_DIR : "/tmp/ignite3-odbc"
+        USERNAME    : 'root',
+        VERSION     : projectVersion,
+        LIB_DIR     : "/usr/lib",
+        TMP_DIR     : "/tmp/ignite3-odbc"
 ]
 
 File odbcDll = configurations.odbc.files.find { it.name == "ignite3-odbc.dll" }
@@ -50,7 +53,7 @@ def tokensWin = [
         DLL_SRC : odbcDll != null ? odbcDll.path : ''
 ]
 
-tasks.register('replacePackageScriptVars', Copy) {
+def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
@@ -63,7 +66,7 @@ tasks.register('replacePackageScriptVars', Copy) {
     into "$buildDir/scripts/"
 }
 
-tasks.register('replacePackageScriptVarsWin', Copy) {
+def replacePackageScriptVarsWin = tasks.register('replacePackageScriptVarsWin', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
@@ -137,14 +140,16 @@ ospackage {
     packageName "ignite3-odbc"
     packageGroup "Library"
     url "https://ignite.apache.org"
+    user tokens.USERNAME
     packageDescription "This package will install Apache Ignite 3 ODBC driver"
     os LINUX
+    release getCommitNum()
 
     into(tokens.LIB_DIR) {
         from configurations.odbc
     }
 
-    into("${tokens.TMP_DIR}/${project.version}") {
+    into("${tokens.TMP_DIR}/${projectVersion}") {
         from "$buildDir/scripts/ignite3-odbc.ini"
     }
 }
@@ -156,7 +161,7 @@ setupBuilder {
     appIdentifier = "ignite3-odbc"
 
     // '-SNAPSHOT' is not valid in Windows versions
-    version = project.version.toString().replace("-SNAPSHOT", "")
+    version = projectVersion.toString().replace("-SNAPSHOT", "")
 
     licenseFile = "$rootDir/LICENSE"
 

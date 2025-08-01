@@ -23,22 +23,30 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ExecutorServiceExtension.class)
 class ClockWaiterTest {
     private ClockWaiter waiter;
 
     private final HybridClock clock = new HybridClockImpl();
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     @BeforeEach
     void createWaiter() {
-        waiter = new ClockWaiter("test", clock);
+        waiter = new ClockWaiter("test", clock, scheduledExecutor);
 
         assertThat(waiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -91,6 +99,6 @@ class ClockWaiterTest {
 
         assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat(future, willThrow(CancellationException.class));
+        assertThat(future, willThrow(NodeStoppingException.class));
     }
 }

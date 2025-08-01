@@ -79,7 +79,6 @@ mpi::mpi(const mpi &other) {
     init();
 
     check(mbedtls_mpi_copy(val, other.val));
-    check(mbedtls_mpi_shrink(val, 0));
 }
 
 mpi::mpi(mpi &&other) noexcept {
@@ -144,7 +143,7 @@ unsigned short mpi::length() const noexcept {
 }
 
 mpi::mag_view mpi::magnitude() const noexcept {
-    return {val->p, val->n};
+    return {val->p, val->n, mbedtls_mpi_size(val)};
 }
 
 bool mpi::is_zero() const noexcept {
@@ -189,7 +188,6 @@ mpi mpi::operator+(const mpi &addendum) const {
     mpi result;
 
     check(mbedtls_mpi_add_mpi(result.val, val, addendum.val));
-    result.shrink();
 
     return result;
 }
@@ -198,7 +196,6 @@ mpi mpi::operator-(const mpi &subtrahend) const {
     mpi result;
 
     check(mbedtls_mpi_sub_mpi(result.val, val, subtrahend.val));
-    result.shrink();
 
     return result;
 }
@@ -207,7 +204,6 @@ mpi mpi::operator*(const mpi &factor) const {
     mpi result;
 
     check(mbedtls_mpi_mul_mpi(result.val, val, factor.val));
-    result.shrink();
 
     return result;
 }
@@ -216,7 +212,6 @@ mpi mpi::operator/(const mpi &divisor) const {
     mpi result;
 
     check(mbedtls_mpi_div_mpi(result.val, nullptr, val, divisor.val));
-    result.shrink();
 
     return result;
 }
@@ -225,34 +220,28 @@ mpi mpi::operator%(const mpi &divisor) const {
     mpi remainder;
 
     check(mbedtls_mpi_div_mpi(nullptr, remainder.val, val, divisor.val));
-    remainder.shrink();
 
     return remainder;
 }
 
 void mpi::add(const mpi &addendum) {
     check(mbedtls_mpi_add_mpi(val, val, addendum.val));
-    shrink();
 }
 
 void mpi::subtract(const mpi &subtrahend) {
     check(mbedtls_mpi_sub_mpi(val, val, subtrahend.val));
-    shrink();
 }
 
 void mpi::multiply(const mpi &factor) {
     check(mbedtls_mpi_mul_mpi(val, val, factor.val));
-    shrink();
 }
 
 void mpi::divide(const mpi &divisor) {
     check(mbedtls_mpi_div_mpi(val, nullptr, val, divisor.val));
-    shrink();
 }
 
 void mpi::modulo(const mpi &divisor) {
     check(mbedtls_mpi_div_mpi(nullptr, val, val, divisor.val));
-    shrink();
 }
 
 void mpi::shrink(size_t limbs) {
@@ -267,9 +256,6 @@ mpi mpi::div_and_mod(const mpi &divisor, mpi &remainder) const {
     mpi result;
 
     check(mbedtls_mpi_div_mpi(result.val, remainder.val, val, divisor.val));
-
-    result.shrink();
-    remainder.shrink();
 
     return result;
 }

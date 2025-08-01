@@ -87,7 +87,7 @@ public class ConstructableTreeNodeTest {
         // Named list node.
         var elements = parentNode.elements();
 
-        parentNode.construct("elements", null, true);
+        parentNode.construct("my-elements", null, true);
 
         assertNotNull(parentNode.elements());
         assertNotSame(elements, parentNode.elements());
@@ -109,7 +109,7 @@ public class ConstructableTreeNodeTest {
     /**
      * Constant configuration source.
      */
-    private static class ConstantConfigurationSource implements ConfigurationSource {
+    public static class ConstantConfigurationSource implements ConfigurationSource {
         private final Object constant;
 
         /**
@@ -117,7 +117,7 @@ public class ConstructableTreeNodeTest {
          *
          * @param constant Constant.
          */
-        private ConstantConfigurationSource(Object constant) {
+        public ConstantConfigurationSource(Object constant) {
             this.constant = constant;
         }
 
@@ -136,12 +136,12 @@ public class ConstructableTreeNodeTest {
 
         assertEquals("value", childNode.strCfg());
 
-        childNode.construct("intCfg", new ConstantConfigurationSource(255), true);
+        childNode.construct("my-int-cfg", new ConstantConfigurationSource(255), true);
 
         assertEquals(255, childNode.intCfg());
 
         assertThrows(ClassCastException.class, () ->
-                childNode.construct("intCfg", new ConstantConfigurationSource(new Object()), true)
+                childNode.construct("my-int-cfg", new ConstantConfigurationSource(new Object()), true)
         );
     }
 
@@ -150,7 +150,7 @@ public class ConstructableTreeNodeTest {
         // Inner node.
         var parentNode = newParentInstance();
 
-        parentNode.construct("child", new ConfigurationSource() {
+        parentNode.construct("my-child", new ConfigurationSource() {
             @Override
             public <T> T unwrap(Class<T> clazz) {
                 throw new UnsupportedOperationException("unwrap");
@@ -211,7 +211,7 @@ public class ConstructableTreeNodeTest {
 
         assertThrows(NullPointerException.class, () -> child.intCfg());
 
-        ((InnerNode) child).constructDefault("intCfg");
+        ((InnerNode) child).constructDefault("my-int-cfg");
 
         assertEquals(99, child.intCfg());
     }

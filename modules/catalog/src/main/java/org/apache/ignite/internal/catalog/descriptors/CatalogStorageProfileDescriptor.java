@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.IOException;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Storage profile descriptor.
  */
-public class CatalogStorageProfileDescriptor {
-    public static final CatalogObjectSerializer<CatalogStorageProfileDescriptor> SERIALIZER = new StorageProfileDescriptorSerializer();
-
+public class CatalogStorageProfileDescriptor implements MarshallableEntry {
     private final String storageProfile;
 
     /**
@@ -40,11 +36,6 @@ public class CatalogStorageProfileDescriptor {
         this.storageProfile = storageProfile;
     }
 
-    @Override
-    public String toString() {
-        return S.toString(this);
-    }
-
     /**
      * Storage profile name.
      *
@@ -54,20 +45,31 @@ public class CatalogStorageProfileDescriptor {
         return storageProfile;
     }
 
-    /**
-     * Serializer for {@link CatalogStorageProfilesDescriptor}.
-     */
-    private static class StorageProfileDescriptorSerializer implements CatalogObjectSerializer<CatalogStorageProfileDescriptor> {
-        @Override
-        public CatalogStorageProfileDescriptor readFrom(IgniteDataInput input) throws IOException {
-            String storageProfileDescriptor = input.readUTF();
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_STORAGE_PROFILE.id();
+    }
 
-            return new CatalogStorageProfileDescriptor(storageProfileDescriptor);
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
         }
 
-        @Override
-        public void writeTo(CatalogStorageProfileDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeUTF(descriptor.storageProfile());
-        }
+        CatalogStorageProfileDescriptor that = (CatalogStorageProfileDescriptor) o;
+        return storageProfile.equals(that.storageProfile);
+    }
+
+    @Override
+    public int hashCode() {
+        return storageProfile.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

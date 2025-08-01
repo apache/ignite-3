@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.file;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.network.ClusterNode;
@@ -39,6 +40,11 @@ public class TestTopologyService extends AbstractTopologyService {
     }
 
     @Override
+    public Collection<ClusterNode> logicalTopologyMembers() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public @Nullable ClusterNode getByAddress(NetworkAddress addr) {
         throw new UnsupportedOperationException();
     }
@@ -49,7 +55,7 @@ public class TestTopologyService extends AbstractTopologyService {
     }
 
     @Override
-    public @Nullable ClusterNode getById(String id) {
+    public @Nullable ClusterNode getById(UUID id) {
         throw new UnsupportedOperationException();
     }
 
@@ -69,5 +75,13 @@ public class TestTopologyService extends AbstractTopologyService {
      */
     public void fireDisappearedEvent(ClusterNode member) {
         getEventHandlers().forEach(it -> it.onDisappeared(member));
+    }
+
+    @Override
+    public void onJoined(ClusterNode node) {
+    }
+
+    @Override
+    public void onLeft(ClusterNode node) {
     }
 }

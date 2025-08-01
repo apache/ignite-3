@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
-import org.apache.ignite.internal.tostring.S;
+import java.util.UUID;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClusterNodeImpl implements ClusterNode {
     /** Local ID assigned to the node instance. The ID changes between restarts. */
-    private final String id;
+    private final UUID id;
 
     /** Unique name of a cluster member. Consistent between restarts. */
     private final String name;
@@ -48,7 +48,7 @@ public class ClusterNodeImpl implements ClusterNode {
      * @param address Node address.
      * @param nodeMetadata Node metadata.
      */
-    public ClusterNodeImpl(String id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+    public ClusterNodeImpl(UUID id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -62,12 +62,12 @@ public class ClusterNodeImpl implements ClusterNode {
      * @param name    Unique name of a cluster member.
      * @param address Node address.
      */
-    public ClusterNodeImpl(String id, String name, NetworkAddress address) {
+    public ClusterNodeImpl(UUID id, String name, NetworkAddress address) {
         this(id, name, address, null);
     }
 
     @Override
-    public String id() {
+    public UUID id() {
         return id;
     }
 
@@ -108,6 +108,6 @@ public class ClusterNodeImpl implements ClusterNode {
 
     @Override
     public String toString() {
-        return S.toString(ClusterNodeImpl.class, this);
+        return String.format("{id=%s, name=%s, address=%s}", id, name, address);
     }
 }

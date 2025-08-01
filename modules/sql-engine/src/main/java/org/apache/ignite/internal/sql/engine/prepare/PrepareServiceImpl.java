@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
@@ -28,7 +29,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -41,9 +41,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDdl;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
@@ -52,6 +52,7 @@ import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -59,12 +60,19 @@ import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadataExtractor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -74,10 +82,12 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.SchemaNotFoundException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -100,6 +110,8 @@ public class PrepareServiceImpl implements PrepareService {
             new ParameterMetadata(Collections.emptyList());
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
+
+    private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -132,6 +144,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
+     * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -140,14 +153,15 @@ public class PrepareServiceImpl implements PrepareService {
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
-            SqlSchemaManager schemaManager
+            SqlSchemaManager schemaManager,
+            DdlSqlToCommandConverter ddlSqlToCommandConverter
     ) {
         return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(),
-                clusterCfg.planner().maxPlanningTime().value(),
+                ddlSqlToCommandConverter,
+                clusterCfg.planner().maxPlanningTimeMillis().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
                 schemaManager
@@ -203,6 +217,9 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.registerSource(sqlPlanCacheMetricSource);
         metricManager.enable(sqlPlanCacheMetricSource);
 
+        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, null, planningPool));
+        metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
+
         IgnitePlanner.warmup();
     }
 
@@ -211,6 +228,7 @@ public class PrepareServiceImpl implements PrepareService {
     public void stop() throws Exception {
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
+        metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
     }
 
     /** {@inheritDoc} */
@@ -218,36 +236,63 @@ public class PrepareServiceImpl implements PrepareService {
     public CompletableFuture<QueryPlan> prepareAsync(
             ParsedResult parsedResult, SqlOperationContext operationContext
     ) {
-        CompletableFuture<QueryPlan> result;
-
         String schemaName = operationContext.defaultSchemaName();
 
         assert schemaName != null;
 
-        SchemaPlus schema = schemaManager.schema(operationContext.operationTime().longValue())
-                .getSubSchema(schemaName);
-
-        if (schema == null) {
-            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-        }
-
-        // Add an action to trigger planner timeout, when operation times out.
-        // Or trigger timeout immediately if operation has already timed out.
-        QueryCancel cancelHandler = operationContext.cancel();
-        assert cancelHandler != null;
         boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
+        long timestamp = operationContext.operationTime().longValue();
+        int catalogVersion = schemaManager.catalogVersion(timestamp); 
+
+        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
+
+        CompletableFuture<QueryPlan> planFuture = cache.get(key);
+
+        if (planFuture != null) {
+            return planFuture.thenApply((plan) -> {
+                // We assume that non-multi-step plans is always better then a multi-step plan.
+                // or fast query optimization is disabled return a regular plan.
+                if (!(plan instanceof MultiStepPlan)) {
+                    return plan;
+                } else {
+                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
+                    QueryPlan fastPlan = regularPlan.fastPlan();
+
+                    if (fastPlan != null && !explicitTx) {
+                        return fastPlan;
+                    } else {
+                        return regularPlan;
+                    }
+                }
+            });
+        }
+
+        IgniteSchemas rootSchema = schemaManager.schemas(timestamp);
+        assert rootSchema != null : "Root schema does not exist";
+
+        QueryCancel cancelHandler = operationContext.cancel();
+        assert cancelHandler != null;
+
+        SchemaPlus schemaPlus = rootSchema.root();
+        SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
+        // If default schema does not exist or misconfigured, we should use the root schema as default one
+        // because there is no other schema for the validator to use.
+        if (defaultSchema == null) {
+            defaultSchema = schemaPlus;
+        }
+
         PlanningContext planningContext = PlanningContext.builder()
-                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(defaultSchema).build())
                 .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
+                .catalogVersion(rootSchema.catalogVersion())
+                .defaultSchemaName(schemaName)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .explicitTx(explicitTx)
                 .build();
 
-        result = prepareAsync0(parsedResult, planningContext);
-
-        return result.exceptionally(ex -> {
+        return prepareAsync0(parsedResult, planningContext).exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
 
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
@@ -264,6 +309,8 @@ public class PrepareServiceImpl implements PrepareService {
                 return prepareQuery(parsedResult, planningContext);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
+            case KILL:
+                return prepareKill(parsedResult);
             case DML:
                 return prepareDml(parsedResult, planningContext);
             case EXPLAIN:
@@ -281,6 +328,14 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
+    private CompletableFuture<QueryPlan> prepareKill(ParsedResult parsedResult) {
+        SqlNode sqlNode = parsedResult.parsedTree();
+
+        assert sqlNode instanceof IgniteSqlKill : sqlNode == null ? "null" : sqlNode.getClass().getName();
+
+        return CompletableFuture.completedFuture(new KillPlan(nextPlanId(), KillCommand.fromSqlCall((IgniteSqlKill) sqlNode)));
+    }
+
     private CompletableFuture<QueryPlan> prepareExplain(
             ParsedResult parsedResult,
             PlanningContext ctx
@@ -288,9 +343,12 @@ public class PrepareServiceImpl implements PrepareService {
         SqlNode parsedTree = parsedResult.parsedTree();
 
         assert single(parsedTree);
-        assert parsedTree instanceof SqlExplain : parsedTree.getClass().getCanonicalName();
+        assert parsedTree instanceof IgniteSqlExplain : parsedTree.getClass().getCanonicalName();
 
-        SqlNode explicandum = ((SqlExplain) parsedTree).getExplicandum();
+        IgniteSqlExplain parsedTree0 = (IgniteSqlExplain) parsedTree;
+
+        SqlNode explicandum = parsedTree0.getExplicandum();
+        SqlNode explainMode = parsedTree0.getMode();
 
         SqlQueryType queryType = Commons.getQueryType(explicandum);
 
@@ -323,7 +381,13 @@ public class PrepareServiceImpl implements PrepareService {
         return result.thenApply(plan -> {
             assert plan instanceof ExplainablePlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan);
+            SqlLiteral literal = (SqlLiteral) explainMode;
+
+            IgniteSqlExplainMode mode = literal.symbolValue(IgniteSqlExplainMode.class);
+
+            assert mode != null;
+
+            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan, mode);
         });
     }
 
@@ -335,30 +399,6 @@ public class PrepareServiceImpl implements PrepareService {
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
-
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-
-        if (f != null) {
-            return f.thenApply((plan) -> {
-                // We assume that non-multi-step plans is always better then a multi-step plan.
-                // or fast query optimization is disabled return a regular plan.
-                boolean fastQueryOptEnabled = fastQueryOptimizationEnabled();
-
-                if (!(plan instanceof MultiStepPlan) || !fastQueryOptEnabled) {
-                    return plan;
-                } else {
-                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
-                    QueryPlan fastPlan = regularPlan.fastPlan();
-
-                    if (fastPlan != null && !ctx.explicitTx()) {
-                        return fastPlan;
-                    } else {
-                        return regularPlan;
-                    }
-                }
-            });
-        }
-
         // First validate statement
 
         CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
@@ -406,8 +446,13 @@ public class PrepareServiceImpl implements PrepareService {
                 int catalogVersion = ctx.catalogVersion();
 
                 if (optimizedRel instanceof IgniteKeyValueGet) {
+                    IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataExtractor.getMetadata(kvGet);
+
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
+                            nextPlanId(), catalogVersion, kvGet, resultSetMetadata,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 }
 
@@ -415,9 +460,7 @@ public class PrepareServiceImpl implements PrepareService {
                         nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion, fastPlan
                 );
 
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
+                logPlan(parsedResult.originalQuery(), plan);
 
                 return plan;
             }, planningPool));
@@ -476,7 +519,8 @@ public class PrepareServiceImpl implements PrepareService {
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
-                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                    parameterMetadata, null
             );
         } else {
             plan = new MultiStepPlan(
@@ -484,20 +528,12 @@ public class PrepareServiceImpl implements PrepareService {
             );
         }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Plan prepared: \n{}\n\n{}", originalQuery, plan.explain());
-        }
+        logPlan(originalQuery, plan);
 
         return CompletableFuture.completedFuture(plan);
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
-        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-        if (f != null) {
-            return f;
-        }
-
         SqlNode sqlNode = parsedResult.parsedTree();
 
         assert single(sqlNode);
@@ -539,8 +575,13 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
+                    IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataExtractor.getMetadata(kvModify);
+
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(
@@ -548,9 +589,7 @@ public class PrepareServiceImpl implements PrepareService {
                     );
                 }
 
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
+                logPlan(parsedResult.originalQuery(), plan);
 
                 return plan;
             }, planningPool));
@@ -587,101 +626,46 @@ public class PrepareServiceImpl implements PrepareService {
 
         ResultSetMetadata resultSetMetadata = resultSetMetadata(rowType, null, aliases);
 
-        QueryPlan plan;
-
-        if (fastOptRel instanceof IgniteSelectCount) {
-            plan = new SelectCountPlan(
-                    nextPlanId(),
-                    planningContext.catalogVersion(),
-                    (IgniteSelectCount) fastOptRel,
-                    resultSetMetadata,
-                    stmt.parameterMetadata
-            );
-        } else {
+        if (!(fastOptRel instanceof IgniteSelectCount)) {
             throw new IllegalStateException("Unexpected optimized node: " + fastOptRel);
         }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Plan prepared: \n{}\n\n{}", stmt.parsedResult.originalQuery(), fastOptRel.explain());
-        }
+        SelectCountPlan plan = new SelectCountPlan(
+                nextPlanId(),
+                planningContext.catalogVersion(),
+                (IgniteSelectCount) fastOptRel,
+                resultSetMetadata,
+                stmt.parameterMetadata
+        );
+
+        logPlan(stmt.parsedResult.originalQuery(), plan);
 
         return plan;
     }
 
-    /**
-     * Tries to find a prepared plan if all parameters are set.
-     *
-     * <p>This method relies on the fact that if parameter is specified, it's type does not change during the validation.
-     * Given the following query: SELECT * FROM t WHERE int_key = ?0, the validator assigns type {@code INTEGER} to ?0,
-     * regardless whether prepare is called with parameter values (type hints) or not:
-     * <ul>
-     *     <li>If parameter value (type hint) is int, then the validator returns the same plan</li>
-     *     <li>if type hint is not an int, then the validator return different plan with different parameter metadata.</li>
-     * </ul>
-     *
-     * <p>Because of that we can optimistically create a cache key, if all parameters are set.
-     *
-     * <p>If some parameters are not, always returns {@code null}.
-     */
-    @Nullable
-    private CompletableFuture<QueryPlan> getPlanIfParameterHaveValues(ParsedResult parsedResult, PlanningContext ctx) {
-        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
+    private static CacheKey createCacheKey(
+            ParsedResult parsedResult, int catalogVersion, String schemaName, Object[] params
+    ) {
+        ColumnType[] paramTypes = new ColumnType[params.length];
 
-        CacheKey cacheKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
-        if (cacheKey != null) {
-            CompletableFuture<QueryPlan> f = cache.get(cacheKey);
-            if (f != null) {
-                return f;
-            }
-        }
-        return null;
-    }
+        int idx = 0;
+        for (Object param : params) {
+            ColumnType columnType;
+            if (param != null) {
+                @Nullable NativeType type0 = NativeTypes.fromObject(param);
 
-    @Nullable
-    private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
-
-        Map<Integer, Object> parameters = ctx.parameters();
-
-        int maxParamNum = 0;
-        for (Integer key : parameters.keySet()) {
-            maxParamNum = Math.max(maxParamNum, key);
-        }
-
-        for (int i = 0; i < maxParamNum; i++) {
-            if (!parameters.containsKey(i)) {
-                // Some parameters are not specified,
-                // we do not known the their type and we can not create a cache key.
-                return null;
-            }
-        }
-
-        // If parameters type are known, they do not change and we can create a cache key.
-        // See IgniteSqlValidator::validateInferredDynamicParameters
-
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.catalogVersion();
-        ColumnType[] paramTypes;
-
-        if (parameters.isEmpty()) {
-            paramTypes = new ColumnType[0];
-        } else {
-            ColumnType[] result = new ColumnType[parameters.size()];
-
-            for (Map.Entry<Integer, Object> entry : parameters.entrySet()) {
-                Object value = entry.getValue();
-                ColumnType columnType;
-                if (value != null) {
-                    columnType = NativeTypeSpec.fromObject(value).asColumnType();
-                } else {
-                    columnType = ColumnType.NULL;
+                if (type0 == null) {
+                    throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + param.getClass());
                 }
-                result[entry.getKey()] = columnType;
-            }
 
-            paramTypes = result;
+                columnType = type0.spec();
+            } else {
+                columnType = ColumnType.NULL;
+            }
+            paramTypes[idx++] = columnType;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
@@ -844,6 +828,12 @@ public class PrepareServiceImpl implements PrepareService {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
+        }
+    }
+
+    private static void logPlan(String queryString, ExplainablePlan plan) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Plan prepared: \n{}\n\n{}", queryString, plan.explain());
         }
     }
 }

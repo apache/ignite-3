@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import java.util.UUID;
+
 /**
  * {@link StaleIdDetector} that reports all IDs as fresh (i.e. not stale).
  */
 public class AllIdsAreFresh implements StaleIdDetector {
     @Override
-    public boolean isIdStale(String nodeId) {
+    public boolean isIdStale(UUID nodeId) {
         return false;
     }
 }

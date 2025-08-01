@@ -58,8 +58,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.LongListReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -69,11 +67,10 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -634,17 +631,15 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 }
 
                 // Retry must reset these fields when we release the whole branch without remove.
-                assert r.needReplaceInner == FALSE : "needReplaceInner";
-                assert r.needMergeEmptyBranch == FALSE : "needMergeEmptyBranch";
+                assert !r.needReplaceInner && r.needMergeEmptyBranch == FALSE
+                        : "needReplaceInner=" + r.needReplaceInner + ", needMergeEmptyBranch=" + r.needMergeEmptyBranch;
 
                 if (cnt == 1) {
                     // It was the last element on the leaf.
                     r.needMergeEmptyBranch = TRUE;
                 }
 
-                if (needReplaceInner) {
-                    r.needReplaceInner = TRUE;
-                }
+                r.needReplaceInner = needReplaceInner;
 
                 Tail<L> t = r.addTail(leafId, leafPage, leafAddr, io, 0, Tail.EXACT);
 
@@ -823,8 +818,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 long metaAddr,
                 PageIo iox,
                 Void ignore,
-                int lvl,
-                IoStatisticsHolder statHolder
+                int lvl
         ) {
             // Safe cast because we should never recycle meta page until the tree is destroyed.
             BplusMetaIo io = (BplusMetaIo) iox;
@@ -857,8 +851,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 long pageAddr,
                 PageIo iox,
                 Long rootPageId,
-                int lvl,
-                IoStatisticsHolder statHolder
+                int lvl
         ) {
             assert rootPageId != null;
 
@@ -892,8 +885,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 long pageAddr,
                 PageIo iox,
                 Long rootId,
-                int notUsed,
-                IoStatisticsHolder statHolder
+                int notUsed
         ) {
             assert rootId != null;
 
@@ -919,7 +911,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -934,7 +925,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -942,7 +932,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        this(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        this(treeNamePrefix, grpId, grpName, partId, pageMem, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
     }
@@ -954,7 +944,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
      *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
@@ -966,12 +955,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
     ) {
-        super(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(treeNamePrefix, grpId, grpName, partId, pageMem, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0.0f; // Testing worst case when merge happens only on empty page.
@@ -1034,7 +1022,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             init(rootId, latestLeafIo());
 
             // Initialize meta page with new root page.
-            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, 0, FALSE, statisticsHolder());
+            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, 0, FALSE);
 
             assert res == TRUE : res;
 
@@ -3863,7 +3851,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 // Set forward id to check the triangle invariant under the write-lock.
                 fwdId(fwdId);
 
-                res = write(pageId, page, lockTailExact, this, lvl, RETRY, statisticsHolder());
+                res = write(pageId, page, lockTailExact, this, lvl, RETRY);
             }
 
             // Release tail if retry is required.
@@ -4077,7 +4065,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             releasePage(newRootId, newRootPage);
                         }
 
-                        Bool res = write(metaPageId, addRoot, newRootId, lvl + 1, FALSE, statisticsHolder());
+                        Bool res = write(metaPageId, addRoot, newRootId, lvl + 1, FALSE);
 
                         assert res == TRUE : res;
 
@@ -4109,7 +4097,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             this.pageId = pageId;
             this.fwdId = fwdId;
 
-            return write(pageId, page, insert, this, lvl, RETRY, statisticsHolder());
+            return write(pageId, page, insert, this, lvl, RETRY);
         }
 
         /**
@@ -4127,7 +4115,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             this.pageId = pageId;
             this.fwdId = fwdId;
 
-            return write(pageId, page, replace, this, lvl, RETRY, statisticsHolder());
+            return write(pageId, page, replace, this, lvl, RETRY);
         }
 
         /**
@@ -4679,7 +4667,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Remove operation.
      */
     public final class Remove extends Update implements ReuseBag {
-        Bool needReplaceInner = FALSE;
+        boolean needReplaceInner;
 
         Bool needMergeEmptyBranch = FALSE;
 
@@ -4887,7 +4875,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 assert !isRemoved() : "removed";
 
                 // These fields will be setup again on remove from leaf.
-                needReplaceInner = FALSE;
+                needReplaceInner = false;
                 needMergeEmptyBranch = FALSE;
 
                 releaseTail();
@@ -4913,16 +4901,17 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             // Here we wanted to do a regular merge after all the important operations,
             // so we can leave this invalid tail as is. We have no other choice here
             // because our tail is not long enough for retry. Exiting.
-            assert isRemoved();
-            assert needReplaceInner != TRUE && needMergeEmptyBranch != TRUE;
+            assert isRemoved() && !needReplaceInner && needMergeEmptyBranch != TRUE
+                    : "isRemoved=" + isRemoved() + ", needReplaceInner=" + needReplaceInner
+                    + ", needMergeEmptyBranch=" + needMergeEmptyBranch;
 
             return false;
         }
 
         @Override
         protected Result finishTail() throws IgniteInternalCheckedException {
-            assert !isFinished();
-            assert tail.type == Tail.EXACT && tail.lvl >= 0 : tail;
+            assert !isFinished() && tail.type == Tail.EXACT && tail.lvl >= 0 && needMergeEmptyBranch != READY
+                    : "isFinished=" + isFinished() + ", tail=" + tail + ", needMergeEmptyBranch=" + needMergeEmptyBranch;
 
             if (tail.lvl == 0) {
                 // At the bottom level we can't have a tail without a sibling, it means we have higher levels.
@@ -4939,15 +4928,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // It was a regular merge, leave as is and exit.
                 } else {
                     // Try to find inner key on inner level.
-                    if (needReplaceInner == TRUE) {
+                    if (needReplaceInner && !isInnerKeyInTail()) {
                         // Since we setup needReplaceInner in leaf page write lock and do not release it,
                         // we should not be able to miss the inner key. Even if concurrent merge
                         // happened the inner key must still exist.
-                        if (!isInnerKeyInTail()) {
-                            return NOT_FOUND; // Lock the whole branch up to the inner key.
-                        }
-
-                        needReplaceInner = READY;
+                        return NOT_FOUND; // Lock the whole branch up to the inner key.
                     }
 
                     // Try to merge an empty branch.
@@ -4975,13 +4960,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // The actual row remove may happen here as well.
                     mergeBottomUp(tail);
 
-                    if (needReplaceInner == READY) {
+                    if (needReplaceInner) {
                         replaceInner(); // Replace inner key with new max key for the left subtree.
 
-                        needReplaceInner = DONE;
+                        needReplaceInner = false;
                     }
-
-                    assert needReplaceInner != TRUE;
 
                     // Loop is needed to prevent the rare case when, after parallel remove of keys, empty root remains.
                     // B+tree after removes key: [empty_root] - [empty_inner_node] - [5] ==>
@@ -5060,7 +5043,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long backPage = acquirePage(backId);
 
             try {
-                return write(backId, backPage, lockBackAndRmvFromLeaf, this, 0, RETRY, statisticsHolder());
+                return write(backId, backPage, lockBackAndRmvFromLeaf, this, 0, RETRY);
             } finally {
                 if (canRelease(backId, 0)) {
                     releasePage(backId, backPage);
@@ -5077,7 +5060,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         private Result doRemoveFromLeaf() throws IgniteInternalCheckedException {
             assert page != 0L;
 
-            return write(pageId, page, rmvFromLeaf, this, 0, RETRY, statisticsHolder());
+            return write(pageId, page, rmvFromLeaf, this, 0, RETRY);
         }
 
         /**
@@ -5090,7 +5073,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         private Result doLockTail(int lvl) throws IgniteInternalCheckedException {
             assert page != 0L;
 
-            return write(pageId, page, lockTail, this, lvl, RETRY, statisticsHolder());
+            return write(pageId, page, lockTail, this, lvl, RETRY);
         }
 
         /**
@@ -5121,7 +5104,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long backPage = acquirePage(backId);
 
             try {
-                return write(backId, backPage, lockBackAndTail, this, lvl, RETRY, statisticsHolder());
+                return write(backId, backPage, lockBackAndTail, this, lvl, RETRY);
             } finally {
                 if (canRelease(backId, lvl)) {
                     releasePage(backId, backPage);
@@ -5144,7 +5127,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long fwdPage = acquirePage(fwdId);
 
             try {
-                return write(fwdId, fwdPage, lockTailForward, this, lvl, RETRY, statisticsHolder());
+                return write(fwdId, fwdPage, lockTailForward, this, lvl, RETRY);
             } finally {
                 // If we were not able to lock forward page as tail, release the page.
                 if (canRelease(fwdId, lvl)) {
@@ -5205,8 +5188,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             if (t.down == null) {
                 // It is just a regular merge in progress.
-                assert needMergeEmptyBranch != TRUE;
-                assert needReplaceInner != TRUE;
+                assert needMergeEmptyBranch != TRUE && !needReplaceInner
+                        : "needMergeEmptyBranch=" + needMergeEmptyBranch + ", needReplaceInner" + needReplaceInner;
 
                 return true;
             }
@@ -5373,7 +5356,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         private void cutRoot(int lvl) throws IgniteInternalCheckedException {
-            Bool res = write(metaPageId, cutRoot, lvl, FALSE, statisticsHolder());
+            Bool res = write(metaPageId, cutRoot, lvl, FALSE);
 
             assert res == TRUE : res;
         }
@@ -5391,7 +5374,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         private void replaceInner() throws IgniteInternalCheckedException {
-            assert needReplaceInner == READY : needReplaceInner;
+            assert needReplaceInner;
 
             int innerIdx;
 
@@ -6335,7 +6318,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             try {
                 return nextPage(lastRow);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Unable to read the next page", e);
+                // Can't throw checked exceptions from existing iterator API.
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Unable to read the next page", e);
             }
         }
 
@@ -6404,8 +6388,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 long pageAddr,
                 PageIo iox,
                 G g,
-                int lvl,
-                IoStatisticsHolder statHolder
+                int lvl
         ) throws IgniteInternalCheckedException {
             assert PageIo.getPageId(pageAddr) == pageId
                     : "pageId mismatch [requested=" + pageId + ", stored=" + PageIo.getPageId(pageAddr) + "]";
@@ -6579,71 +6562,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      */
     protected int getLockRetries() {
         return LOCK_RETRIES;
-    }
-
-    /**
-     * Acquires the page by the given ID.
-     *
-     * @param pageId Page ID.
-     * @return Page absolute pointer.
-     * @throws IgniteInternalCheckedException If failed.
-     * @see DataStructure#acquirePage(long, IoStatisticsHolder)
-     */
-    protected final long acquirePage(long pageId) throws IgniteInternalCheckedException {
-        return acquirePage(pageId, statisticsHolder());
-    }
-
-    /**
-     * Executes handler under the read lock or returns lockFailed if lock failed.
-     *
-     * @param pageId Page ID.
-     * @param h Handler.
-     * @param arg Argument.
-     * @param intArg Argument of type {@code int}.
-     * @param lockFailed Result in case of lock failure due to page recycling.
-     * @return Handler result.
-     * @throws IgniteInternalCheckedException If failed.
-     * @see DataStructure#read(long, PageHandler, Object, int, Object, IoStatisticsHolder)
-     */
-    protected final <X, R> R read(
-            long pageId,
-            PageHandler<X, R> h,
-            X arg,
-            int intArg,
-            R lockFailed
-    ) throws IgniteInternalCheckedException {
-        return read(pageId, h, arg, intArg, lockFailed, statisticsHolder());
-    }
-
-    /**
-     * Executes handler under the read lock or returns lockFailed if lock failed.
-     *
-     * @param pageId Page ID.
-     * @param page Page pointer.
-     * @param h Handler.
-     * @param arg Argument.
-     * @param intArg Argument of type {@code int}.
-     * @param lockFailed Result in case of lock failure due to page recycling.
-     * @return Handler result.
-     * @throws IgniteInternalCheckedException If failed.
-     * @see DataStructure#read(long, long, PageHandler, Object, int, Object, IoStatisticsHolder)
-     */
-    protected final <X, R> R read(
-            long pageId,
-            long page,
-            PageHandler<X, R> h,
-            X arg,
-            int intArg,
-            R lockFailed
-    ) throws IgniteInternalCheckedException {
-        return read(pageId, page, h, arg, intArg, lockFailed, statisticsHolder());
-    }
-
-    /**
-     * Returns statistics holder to track IO operations.
-     */
-    protected IoStatisticsHolder statisticsHolder() {
-        return IoStatisticsHolderNoOp.INSTANCE;
     }
 
     /**

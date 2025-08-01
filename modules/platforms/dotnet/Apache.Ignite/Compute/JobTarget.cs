@@ -20,6 +20,7 @@ namespace Apache.Ignite.Compute;
 using System.Collections.Generic;
 using Internal.Common;
 using Network;
+using Table;
 
 /// <summary>
 /// Compute job target.
@@ -69,14 +70,24 @@ public static class JobTarget
     /// <param name="key">Key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
-    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
+    public static IJobTarget<TKey> Colocated<TKey>(QualifiedName tableName, TKey key)
         where TKey : notnull
     {
-        IgniteArgumentCheck.NotNull(tableName);
         IgniteArgumentCheck.NotNull(key);
 
         return new ColocatedTarget<TKey>(tableName, key);
     }
+
+    /// <summary>
+    /// Creates a colocated job target for a specific table and key.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="key">Key.</param>
+    /// <typeparam name="TKey">Key type.</typeparam>
+    /// <returns>Colocated job target.</returns>
+    public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
+        where TKey : notnull =>
+        Colocated(QualifiedName.Parse(tableName), key);
 
     /// <summary>
     /// Single node job target.
@@ -96,6 +107,6 @@ public static class JobTarget
     /// <param name="TableName">Table name.</param>
     /// <param name="Data">Key.</param>
     /// <typeparam name="TKey">Key type.</typeparam>
-    internal sealed record ColocatedTarget<TKey>(string TableName, TKey Data) : IJobTarget<TKey>
+    internal sealed record ColocatedTarget<TKey>(QualifiedName TableName, TKey Data) : IJobTarget<TKey>
         where TKey : notnull;
 }

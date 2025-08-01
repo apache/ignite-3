@@ -39,7 +39,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     private NodeConfigUpdateCall call;
@@ -55,7 +55,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     private NodeConfigUpdateCallInput buildCallInput() {
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl.getNodeUrl())
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

@@ -20,25 +20,41 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests to verify {@link AsyncRootNode}.
  */
+@SuppressWarnings("NumericCastThatLosesPrecision")
 class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
     private static final RowSchema SINGLE_INT_ROW_SCHEMA = RowSchema.builder()
             .addField(NativeTypes.INT32)
@@ -76,10 +92,152 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
         CompletableFuture<?> prefetchFuture = holder.get();
         assertNotNull(prefetchFuture);
         assertFalse(prefetchFuture.isDone());
+
+        await(rootNode.closeAsync());
+    }
+
+    /**
+     * Test to make sure root node won't return false-positive result in {@link BatchedResult#hasMore()}.
+     *
+     * <p>Such problem may arise when incoming request drains the internal buffer of the node empty, while source node has no more data
+     * left yet {@link Downstream#end()} has not been called.
+     *
+     * <p>Test below is a simplified reproducer: data source has exactly the same number of rows that the size of the buffer.
+     *
+     * <p>Another scenario may involve one exchange: one remote should fulfill the demand with all the rows it has, while another remote
+     * doesn't have data at all, but batch message from that remote is delayed.
+     */
+    @Test
+    void ensureNodeWontReturnFalsePositiveHasMoreFlag() {
+        ExecutionContext<RowWrapper> context = executionContext();
+        TestDataSource dataSource = new TestDataSource();
+
+        DataSourceScanNode<RowWrapper> dataSourceScanNode = new DataSourceScanNode<>(
+                context,
+                rowHandler().factory(SINGLE_INT_ROW_SCHEMA),
+                SINGLE_INT_SCHEMA,
+                dataSource,
+                null,
+                null,
+                null
+        );
+
+        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(dataSourceScanNode, Function.identity());
+        dataSourceScanNode.onRegister(rootNode);
+
+        // trigger prefetch
+        await(context.submit(rootNode::startPrefetch, err -> {}));
+
+        // wait for datasource to emit rows
+        await(dataSource.demandFulfilled);
+
+        int requested = (int) dataSource.wasRequested.get();
+
+        // request the same amount to empty the buffer of RootNode
+        CompletableFuture<BatchedResult<RowWrapper>> result = rootNode.requestNextAsync(requested);
+
+        try {
+            result.get(1, TimeUnit.SECONDS);
+
+            fail("Future should not be completed, because it must wait for TestDataSource#endDelay to be triggered");
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (TimeoutException ignored) {
+            // this is expected
+        }
+
+        dataSource.endDelay.complete(null);
+
+        BatchedResult<?> batch = await(result);
+        assertFalse(batch.hasMore());
+
+        await(rootNode.closeAsync());
+    }
+
+    @Test
+    void ensureRootNodeProperlyHandlesConcurrentRequest() {
+        var scanNodeLatch = new CountDownLatch(1);
+        ExecutionContext<RowWrapper> context = executionContext();
+
+        RowFactory<RowWrapper> factory = rowHandler().factory(SINGLE_INT_ROW_SCHEMA);
+        ScanNode<RowWrapper> scanNode = new ScanNode<>(context, () -> {
+            try {
+                scanNodeLatch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return IntStream.range(0, 76).mapToObj(factory::create).iterator();
+        });
+
+        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(scanNode, Function.identity());
+        scanNode.onRegister(rootNode);
+
+        // trigger prefetch
+        context.submit(rootNode::startPrefetch, err -> {});
+
+        CompletableFuture<?> resultFuture1 = rootNode.requestNextAsync(50);
+        CompletableFuture<?> resultFuture2 = rootNode.requestNextAsync(50);
+
+        scanNodeLatch.countDown();
+
+        await(resultFuture1);
+        await(resultFuture2);
     }
 
     @Override
     protected RowHandler<RowWrapper> rowHandler() {
         return SqlRowHandler.INSTANCE;
+    }
+
+    private static class TestDataSource implements ScannableDataSource {
+        final AtomicLong wasRequested = new AtomicLong();
+        final CompletableFuture<Void> endDelay = new CompletableFuture<>();
+        final CompletableFuture<Void> demandFulfilled = new CompletableFuture<>();
+
+        @Override
+        public Publisher<InternalTuple> scan() {
+            return subscriber -> {
+                Subscription subscription = new TestSubscription(subscriber);
+
+                subscriber.onSubscribe(subscription);
+            };
+        }
+
+        private class TestSubscription implements Subscription {
+            private final AtomicBoolean requested = new AtomicBoolean();
+
+            private final Subscriber<? super InternalTuple> subscriber;
+
+            private TestSubscription(Subscriber<? super InternalTuple> subscriber) {
+                this.subscriber = subscriber;
+            }
+
+            @Override
+            public void request(long n) {
+                if (requested.compareAndSet(false, true)) {
+                    wasRequested.set(n);
+
+                    IntStream.range(0, (int) n)
+                            .mapToObj(AsyncRootNodeTest::createTuple)
+                            .forEach(subscriber::onNext);
+
+                    demandFulfilled.complete(null);
+                } else {
+                    endDelay.thenRun(subscriber::onComplete);
+                }
+            }
+
+            @Override
+            public void cancel() {
+            }
+        }
+    }
+
+    private static InternalTuple createTuple(int value) {
+        return new BinaryTuple(1, new BinaryTupleBuilder(1, 4)
+                .appendInt(value)
+                .build()
+        );
     }
 }

@@ -51,11 +51,17 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-partition-replicator')
-    implementation project(':ignite-affinity')
+    implementation project(':ignite-partition-distribution')
+    implementation project(':ignite-low-watermark')
+    implementation project(':ignite-sql-engine-api')
+    implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
-    api libs.calcite.core
+    api(libs.calcite.core) {
+        exclude group: 'org.apache.calcite.avatica', module: 'avatica-metrics'
+        exclude group: 'org.apache.httpcomponents.core5', module: 'httpcore5'
+    }
     implementation libs.calcite.linq4j
     implementation libs.value.annotations
     implementation libs.janino.compiler
@@ -94,30 +100,30 @@ dependencies {
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation(testFixtures(project(':ignite-network-api')))
-    testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-sql-engine')))
-    testImplementation(testFixtures(project(':ignite-distribution-zones')))
-    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
-    testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
-    testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation(testFixtures(project(':ignite-transactions')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation(testFixtures(project(':ignite-metrics')))
+    testImplementation libs.awaitility
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-schema'))
+    testImplementation testFixtures(project(':ignite-network-api'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-sql-engine'))
+    testImplementation testFixtures(project(':ignite-distribution-zones'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-table'))
+    testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.netty.handler
     integrationTestImplementation project(':ignite-api')
-    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-storage-api')
@@ -125,14 +131,19 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-sql-engine-api')
+    integrationTestImplementation project(':ignite-eventlog')
+    integrationTestImplementation project(':ignite-placement-driver-api') // TODO: IGNITE-25283 - remove.
+    integrationTestImplementation project(':ignite-partition-distribution') // TODO: IGNITE-25283 - remove.
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation libs.jetbrains.annotations
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
@@ -143,16 +154,17 @@ dependencies {
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.awaitility
 }
 
 integrationTest {
     useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
+        if (System.getProperty('sqlTest') != null) {
+            it.includeTags 'sqllogic'
         } else {
-            it.excludeTags "sqllogic"
+            it.excludeTags 'sqllogic'
         }
     }
+
+    systemProperty 'buildDirPath', project.buildDir.path
 }

@@ -17,34 +17,27 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table descriptor.
  */
-public class CatalogTableDescriptor extends CatalogObjectDescriptor {
-    public static final CatalogObjectSerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
-
+public class CatalogTableDescriptor extends CatalogObjectDescriptor implements MarshallableEntry, CatalogColumnContainer {
     public static final int INITIAL_TABLE_VERSION = 1;
 
     private final int zoneId;
@@ -103,7 +96,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 colocationCols,
                 new CatalogTableSchemaVersions(new TableVersion(columns)),
                 storageProfile,
-                INITIAL_CAUSALITY_TOKEN
+                INITIAL_TIMESTAMP
         );
     }
 
@@ -117,9 +110,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param storageProfile Storage profile.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Token of the update of the descriptor.
      */
-    private CatalogTableDescriptor(
+    CatalogTableDescriptor(
             int id,
             int schemaId,
             int pkIndexId,
@@ -130,9 +123,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
             String storageProfile,
-            long causalityToken
+            HybridTimestamp timestamp
     ) {
-        super(id, Type.TABLE, name, causalityToken);
+        super(id, Type.TABLE, name, timestamp);
 
         this.schemaId = schemaId;
         this.pkIndexId = pkIndexId;
@@ -159,7 +152,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             String name,
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
-            long causalityToken,
+            HybridTimestamp timestamp,
             String storageProfile
     ) {
         CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
@@ -177,7 +170,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 colocationColumns,
                 newSchemaVersions,
                 storageProfile,
-                causalityToken
+                timestamp
         );
     }
 
@@ -230,16 +223,15 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return colocationColumns;
     }
 
-    /**
-     * Returns a list column descriptors for the table.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
     /** Returns a column descriptor for column with given name, {@code null} if absent. */
     public @Nullable CatalogTableColumnDescriptor column(String name) {
-        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
             return column.getValue();
         } else {
@@ -251,9 +243,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
      */
     public int columnIndex(String name) {
-        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        Int2ObjectMap.Entry<CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
-            return column.getKey();
+            return column.getIntKey();
         } else {
             return -1;
         }
@@ -267,10 +259,15 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns {@code true} if this the given column is a part of collocation key.
+     * Returns {@code true} if this the given column is a part of colocation key.
      */
     public boolean isColocationColumn(String name) {
         return colocationColumns.contains(name);
+    }
+
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_TABLE.id();
     }
 
     @Override
@@ -285,134 +282,4 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return storageProfile;
     }
 
-    /**
-     * Serializer for {@link CatalogTableDescriptor}.
-     */
-    private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
-        @Override
-        public CatalogTableDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
-            String name = input.readUTF();
-            long updateToken = input.readLong();
-
-            CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(input);
-            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
-            String storageProfile = input.readUTF();
-
-            int schemaId = input.readInt();
-            int pkIndexId = input.readInt();
-            int zoneId = input.readInt();
-
-            int pkKeysLen = input.readInt();
-            int[] pkColumnIndexes = input.readIntArray(pkKeysLen);
-            List<String> primaryKeyColumns = new ArrayList<>(pkColumnIndexes.length);
-
-            for (int idx : pkColumnIndexes) {
-                primaryKeyColumns.add(columns.get(idx).name());
-            }
-
-            int colocationColumnsLen = input.readInt();
-
-            List<String> colocationColumns;
-
-            if (colocationColumnsLen == -1) {
-                colocationColumns = primaryKeyColumns;
-            } else {
-                colocationColumns = new ArrayList<>(colocationColumnsLen);
-
-                int[] colocationColumnIdxs = input.readIntArray(colocationColumnsLen);
-
-                for (int idx : colocationColumnIdxs) {
-                    colocationColumns.add(columns.get(idx).name());
-                }
-            }
-
-            return new CatalogTableDescriptor(
-                    id,
-                    schemaId,
-                    pkIndexId,
-                    name,
-                    zoneId,
-                    columns,
-                    primaryKeyColumns,
-                    colocationColumns,
-                    schemaVersions,
-                    storageProfile,
-                    updateToken
-            );
-        }
-
-        @Override
-        public void writeTo(CatalogTableDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
-            output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
-            CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), output);
-            writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
-            output.writeUTF(descriptor.storageProfile());
-
-            output.writeInt(descriptor.schemaId());
-            output.writeInt(descriptor.primaryKeyIndexId());
-            output.writeInt(descriptor.zoneId());
-
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
-
-            output.writeInt(pkIndexes.length);
-            output.writeIntArray(pkIndexes);
-
-            if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
-                output.writeInt(-1);
-            } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
-
-                output.writeInt(colocationIndexes.length);
-                output.writeIntArray(colocationIndexes);
-            }
-        }
-
-        private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
-            int[] colocationColumnIndexes = new int[descriptor.colocationColumns().size()];
-
-            for (int idx : pkColumnIndexes) {
-                String columnName = descriptor.columns.get(idx).name();
-
-                for (int j = 0; j < descriptor.colocationColumns().size(); j++) {
-                    if (descriptor.colocationColumns().get(j).equals(columnName)) {
-                        colocationColumnIndexes[j] = idx;
-
-                        break;
-                    }
-                }
-            }
-
-            return colocationColumnIndexes;
-        }
-
-        private static int[] resolvePkColumnIndexes(CatalogTableDescriptor descriptor) {
-            List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-            List<String> pkColumns = descriptor.primaryKeyColumns();
-
-            assert columns.size() >= pkColumns.size();
-
-            int[] pkColumnIndexes = new int[pkColumns.size()];
-            int foundCount = 0;
-
-            for (int i = 0; i < columns.size() && foundCount < pkColumnIndexes.length; i++) {
-                for (int j = 0; j < pkColumns.size(); j++) {
-                    String pkColumn = pkColumns.get(j);
-
-                    if (pkColumn.equals(columns.get(i).name())) {
-                        pkColumnIndexes[j] = i;
-                        foundCount++;
-
-                        break;
-                    }
-                }
-            }
-
-            assert foundCount == pkColumnIndexes.length;
-
-            return pkColumnIndexes;
-        }
-    }
 }

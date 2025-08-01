@@ -86,8 +86,11 @@ public class ColocationHashTests : IgniteTestsBase
         ((char)BinaryTupleCommon.VarlenEmptyByte).ToString(),
         Guid.Empty,
         Guid.NewGuid(),
-        new LocalDate(9876, 7, 30),
-        new LocalDate(2, 1, 1),
+
+        // Maximum allowed DATE value.
+        new LocalDate(9999, 12, 31),
+
+        // Minimum allowed DATE value.
         new LocalDate(1, 1, 1),
         default(LocalDate),
         new LocalTime(9, 8, 7, 6),
@@ -96,10 +99,13 @@ public class ColocationHashTests : IgniteTestsBase
         LocalTime.Noon,
         LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay,
         default(LocalTime),
-        new LocalDateTime(year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, millisecond: 1),
-        new LocalDateTime(year: 2022, month: 10, day: 22, hour: 10, minute: 30, second: 55, millisecond: 123),
+
+        // Minimum allowed DATETIME value.
+        new LocalDateTime(year: 1, month: 1, day: 1, hour: 18, minute: 0, second: 0, millisecond: 0),
+
+        // Maximum allowed DATETIME value.
+        new LocalDateTime(year: 9999, month: 12, day: 31, hour: 05, minute: 59, second: 59, millisecond: 999),
         LocalDateTime.FromDateTime(DateTime.UtcNow),
-        default(LocalDateTime),
         Instant.FromUnixTimeSeconds(0),
         default(Instant)
     };
@@ -166,7 +172,7 @@ public class ColocationHashTests : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, sql);
 
         // Perform get to populate schema.
-        var table = await Client.Tables.GetTableAsync(tableName);
+        var table = await Client.Tables.GetTableAsync(tableName.ToUpperInvariant());
         var view = table!.RecordBinaryView;
         await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3"});
 
@@ -174,7 +180,7 @@ public class ColocationHashTests : IgniteTestsBase
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
-        var jobTarget = JobTarget.AnyNode(clusterNodes);
+        var jobTarget = JobTarget.AnyNode(clusterNodes.ToArray());
         var job = new JobDescriptor<object, int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)

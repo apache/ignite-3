@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,38 +32,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
-@ExtendWith(WorkDirectoryExtension.class)
-class ItStartTest extends BaseIgniteAbstractTest {
+class ItStartTest extends IgniteAbstractTest {
     private Cluster cluster;
-
-    @WorkDirectory
-    private Path workDir;
-
-    private TestInfo testInfo;
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir);
-    }
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
 
-    @BeforeEach
-    void storeTestInfo(TestInfo testInfo) {
-        this.testInfo = testInfo;
+        cluster = new Cluster(clusterConfiguration);
     }
 
     @AfterEach
@@ -108,11 +95,11 @@ class ItStartTest extends BaseIgniteAbstractTest {
     }
 
     private String startThreadNamePrefix() {
-        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
+        return "%" + cluster.nodeName(0) + "%start-";
     }
 
     private String joinThreadNamePrefix() {
-        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%join-";
+        return "%" + cluster.nodeName(0) + "%join-";
     }
 
     private static LoggingProbe installProbe(Expectation expectation, Map<String, LogInspector> inspectors) {

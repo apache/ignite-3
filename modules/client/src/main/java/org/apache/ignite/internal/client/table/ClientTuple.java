@@ -91,6 +91,14 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         }
 
         if (fullBinaryTuple) {
+            if (part == TuplePart.KEY && column.keyIndex() < 0) {
+                return -1;
+            }
+
+            if (part == TuplePart.VAL && column.valIndex() < 0) {
+                return -1;
+            }
+
             return column.schemaIndex();
         }
 
@@ -125,7 +133,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
 
     @Nullable
     private ClientColumn column(String columnName) {
-        return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
+        return schema.columnSafe(IgniteNameUtils.parseIdentifier(columnName));
     }
 
     private ClientColumn column(int binaryTupleIndex) {

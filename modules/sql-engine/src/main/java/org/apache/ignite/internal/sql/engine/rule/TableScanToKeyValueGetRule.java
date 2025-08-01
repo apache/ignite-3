@@ -35,7 +35,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -115,6 +115,7 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
                         scan.getTable(),
                         scan.getHints(),
                         expressions,
+                        scan.fieldNames(), 
                         scan.projects(),
                         resultingCondition,
                         scan.requiredColumns()
@@ -144,11 +145,11 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
 
         RelOptCluster cluster = scan.getCluster();
         RelCollation collation = primaryKeyIndex.collation();
-        ImmutableBitSet requiredColumns = scan.requiredColumns();
+        ImmutableIntList requiredColumns = scan.requiredColumns();
         RelDataType rowType = table.getRowType(cluster.getTypeFactory());
 
         if (requiredColumns != null) {
-            Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+            Mappings.TargetMapping targetMapping = Commons.projectedMapping(
                     rowType.getFieldCount(), requiredColumns
             );
 

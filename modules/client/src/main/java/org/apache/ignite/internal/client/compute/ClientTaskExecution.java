@@ -61,7 +61,12 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
     // Local states cache
     private final CompletableFuture<List<@Nullable JobState>> statesFutures = new CompletableFuture<>();
 
-    ClientTaskExecution(ReliableChannel ch, CompletableFuture<SubmitTaskResult> reqFuture, Marshaller<R, byte[]> resultMarshaller) {
+    ClientTaskExecution(
+            ReliableChannel ch,
+            CompletableFuture<SubmitTaskResult> reqFuture,
+            Marshaller<R, byte[]> resultMarshaller,
+            Class<?> resultClass
+    ) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(SubmitTaskResult::jobId);
@@ -72,7 +77,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
                 .thenApply(payloadInputChannel -> {
                     // Notifications require explicit input close.
                     try (payloadInputChannel) {
-                        R result = (R) ClientComputeJobUnpacker.unpackJobResult(resultMarshaller, payloadInputChannel.in());
+                        R result = (R) ClientComputeJobUnpacker.unpackJobResult(payloadInputChannel.in(), resultMarshaller, resultClass);
                         stateFuture.complete(unpackTaskState(payloadInputChannel));
                         statesFutures.complete(unpackJobStates(payloadInputChannel));
                         return result;
@@ -93,7 +98,6 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
         return jobIdFuture.thenCompose(jobId -> getTaskState(ch, jobId));
     }
 
-    @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();

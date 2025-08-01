@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.compute.JobTarget.anyNode;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
@@ -35,8 +40,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
  * </ul>
  */
 class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest {
-    private static IgniteServerImpl server;
-
     private static References beforeRestart;
 
     private static References afterRestart;
@@ -47,8 +50,8 @@ class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest
     }
 
     @BeforeAll
-    void init() throws Exception {
-        server = (IgniteServerImpl) CLUSTER.server(0);
+    static void init() throws Exception {
+        IgniteServerImpl server = (IgniteServerImpl) CLUSTER.server(0);
 
         server.api().sql().executeScript("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR)");
 
@@ -57,6 +60,18 @@ class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest
         assertThat(server.restartAsync(), willCompleteSuccessfully());
 
         afterRestart = new References(server);
+    }
+
+    @Test
+    void submitStaysLocalAfterRestart() {
+        CompletableFuture<JobExecution<String>> executionFut = beforeRestart.compute.submitAsync(
+                anyNode(beforeRestart.clusterNodes),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        JobExecution<String> execution = executionFut.join();
+        assertThat(execution.stateAsync(), willCompleteSuccessfully());
     }
 
     @CartesianTest

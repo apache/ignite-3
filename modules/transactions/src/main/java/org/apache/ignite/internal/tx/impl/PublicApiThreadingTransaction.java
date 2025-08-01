@@ -25,13 +25,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -86,8 +85,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
-        return transaction.enlistedNodeAndConsistencyToken(tablePartitionId);
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        return transaction.enlistedPartition(replicationGroupId);
     }
 
     @Override
@@ -96,19 +95,23 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return transaction.assignCommitPartition(tablePartitionId);
+    public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        return transaction.assignCommitPartition(commitPartitionId);
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ReplicationGroupId commitPartition() {
         return transaction.commitPartition();
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        return transaction.enlist(tablePartitionId, nodeAndConsistencyToken);
+    public void enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            String primaryNodeConsistentId,
+            long consistencyToken
+    ) {
+        transaction.enlist(replicationGroupId, tableId, primaryNodeConsistentId, consistencyToken);
     }
 
     @Override
@@ -117,17 +120,52 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
-        return transaction.startTimestamp();
+    public HybridTimestamp schemaTimestamp() {
+        return transaction.schemaTimestamp();
     }
 
     @Override
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return transaction.coordinatorId();
+    }
+
+    @Override
+    public boolean implicit() {
+        return transaction.implicit();
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+        return transaction.finish(commit, executionTimestamp, full, timeoutExceeded);
+    }
+
+    @Override
+    public boolean isFinishingOrFinished() {
+        return transaction.isFinishingOrFinished();
+    }
+
+    @Override
+    public long getTimeout() {
+        return transaction.getTimeout();
     }
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return transaction.kill();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        return transaction.rollbackTimeoutExceededAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return transaction.isRolledBackWithTimeoutExceeded();
     }
 }

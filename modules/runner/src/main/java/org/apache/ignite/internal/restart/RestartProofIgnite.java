@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.restart;
 
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -41,6 +39,8 @@ public class RestartProofIgnite implements Ignite, Wrapper {
     private final IgniteTransactions transactions;
     private final IgniteSql sql;
     private final IgniteCompute compute;
+    private final IgniteCatalog catalog;
+    private final RestartProofIgniteCluster cluster;
 
     /**
      * Constructor.
@@ -52,6 +52,8 @@ public class RestartProofIgnite implements Ignite, Wrapper {
         transactions = new RestartProofIgniteTransactions(attachmentLock);
         sql = new RestartProofIgniteSql(attachmentLock);
         compute = new RestartProofIgniteCompute(attachmentLock);
+        catalog = new RestartProofIgniteCatalog(attachmentLock);
+        cluster = new RestartProofIgniteCluster(attachmentLock);
     }
 
     @Override
@@ -80,19 +82,13 @@ public class RestartProofIgnite implements Ignite, Wrapper {
     }
 
     @Override
-    public Collection<ClusterNode> clusterNodes() {
-        return attachmentLock.attached(Ignite::clusterNodes);
-    }
-
-    @Override
-    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        return attachmentLock.attachedAsync(Ignite::clusterNodesAsync);
-    }
-
-    @Override
     public IgniteCatalog catalog() {
-        // TODO: IGNITE-23015 - add a wrapper.
-        return attachmentLock.attached(Ignite::catalog);
+        return catalog;
+    }
+
+    @Override
+    public IgniteCluster cluster() {
+        return cluster;
     }
 
     @Override

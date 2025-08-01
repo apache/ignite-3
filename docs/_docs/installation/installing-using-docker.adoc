@@ -14,85 +14,67 @@
 // limitations under the License.
 = Installing Using Docker
 
-== Prerequisites
+== Running a Node
 
-Ignite was tested on:
-
-include::includes/prereqs.adoc[]
-
-== Building Docker Image
-
-Ignite 3 is not currently available on DockerHub. To use a Docker image, you need to build it locally:
-
-- Check out the Ignite 3 link:https://github.com/apache/ignite-3[repository].
-- Run the Gradle command to build a Docker image:
-----
-./gradlew docker
-----
-
-The build will result in a docker image you can use locally.
-
-== Running In-Memory Cluster
-
-Run Ignite in a docker container using the `docker run` command.
+Run Ignite in a docker container using the `docker run` command. Docker will automatically pull the appropriate Ignite version:
 
 [source,shell]
 ----
-# Run the latest version
-sudo docker run -it --rm -p 10300:10300 apacheignite/ignite3
+docker run -d -p 10300:10300 -p 10800:10800 -p 3344:3344 ignite/ignite3:latest
 ----
 
-This command will launch a single Ignite node.
+This command launches a single Ignite node. After you run the command, you can check if Ignite is running in the container logs.
 
-To run multiple nodes, instead use a docker-compose file with cluster config file:
+== Running a Cluster
 
-[source,json]
+You can use the docker-compose file to start an entire cluster in docker. You can download a sample docker-compose file and run a 3-node cluster:
+
+- Download the link:quick-start/docker-compose.yml[docker-compose] and link:quick-start/node-docker-config.conf[node configuration] that will be used by docker compose.
+- Download the docker image:
++
+[source,shell]
 ----
-{
-  network: {
-    port: 3344,
-    nodeFinder: {
-      netClusterNodes: [
-        "node1:3344",
-        "node2:3344",
-        "node3:3344"
-      ]
-    }
-  }
-}
+docker pull apacheignite/ignite:3.0.0
 ----
-
++
+- Run the docker compose command. The node configuration should be in the same folder as docker compose file:
++
+[source,shell]
 ----
-version: "3.9"
-
-name: ignite3
-
-x-ignite-def:
-  &ignite-def
-  image: apacheignite/ignite3:${IGNITE3_VERSION:-latest}
-  volumes:
-    - ./cluster.conf:/opt/ignite/etc/ignite-config.conf
-
-services:
-  node1:
-    << : *ignite-def
-    command: --node-name node1
-    ports:
-      - 10300:10300
-      - 3344:3344
-  node2:
-    << : *ignite-def
-    command: --node-name node2
-    ports:
-      - 10301:10300
-      - 3345:3344
-  node3:
-    << : *ignite-def
-    command: --node-name node3
-    ports:
-      - 10302:10300
-      - 3346:3344
+docker compose -f packaging/docker/docker-compose.yml up -d
 ----
 
+3 nodes will start in docker and will be available from CLI tool that can be run locally. Remember to initialise the cluster from the command line tool before working with it.
+
+== Running CLI Tool in Docker
+
+NOTE: It is not recommended to run the CLI tool in docker. Instead, we recommend to link:installation/installing-using-zip[download and install] CLI tool locally.
+
+CLI tool is used to manage Ignite nodes.  By default, docker nodes are isolated and run on different networks, so CLI tool will not be able to connect to the target container from another container. To fix that, you need to create a network and add all containers running the nodes to it.
+
+- Create a new network with the `network create` command:
++
+----
+docker network create ignite-network
+----
++
+- Add any containers with nodes that are already running to the network:
++
+----
+docker network connect ignite-network {container-id}
+----
++
+- Start the container with the Ignite CLI tool on the same network:
++
+[source,shell]
+----
+docker run -p 10301:10300 -p 10801:10800 -p 3345:3344 -it --network=ignite-network ignite/ignite3:latest cli
+----
+
+The CLI will be able to connect to the IP address of the node. If you are not sure what the address is, use the `container inspect` command to check it:
+
+----
+docker container inspect {container-id}
+----
 
 

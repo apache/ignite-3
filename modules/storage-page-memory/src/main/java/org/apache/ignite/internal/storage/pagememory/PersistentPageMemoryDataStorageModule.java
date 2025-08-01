@@ -21,19 +21,21 @@ import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemory
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,19 +51,18 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             LogSyncer logSyncer,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
-        PersistentPageMemoryStorageEngineConfiguration engineConfig =
-                ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-
-        assert engineConfig != null;
+        SystemLocalConfiguration systemLocalConfig = configRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -69,13 +70,16 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
 
         return new PersistentPageMemoryStorageEngine(
                 igniteInstanceName,
-                engineConfig,
+                metricManager,
                 storageConfig,
+                systemLocalConfig,
                 ioRegistry,
                 storagePath,
                 longJvmPauseDetector,
-                failureProcessor,
+                failureManager,
                 logSyncer,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25563 Don't use common scheduler for throttling logs.
+                commonScheduler,
                 clock
         );
     }

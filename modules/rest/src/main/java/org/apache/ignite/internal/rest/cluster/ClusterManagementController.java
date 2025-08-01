@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
+
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +37,7 @@ import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster management controller implementation.
@@ -60,19 +64,20 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterState> clusterState() {
-        return clusterManagementGroupManager.clusterState().thenApply(ClusterManagementController::mapClusterState);
+        return clusterManagementGroupManager.clusterState()
+                .thenApply(ClusterManagementController::mapClusterState)
+                .exceptionally(ex -> {
+                    throw mapException(ex);
+                });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> init(@Body InitCommand initCommand) {
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]", initCommand.metaStorageNodes(),
-                    initCommand.cmgNodes());
-        }
+        LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]",
+                initCommand.metaStorageNodes(), initCommand.cmgNodes()
+        );
 
         return clusterInitializer.initCluster(
                 initCommand.metaStorageNodes(),
@@ -84,17 +89,26 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         });
     }
 
-    private static ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
+    private static ClusterState mapClusterState(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
+        if (clusterState == null) {
+            throw new IgniteException(
+                    CLUSTER_NOT_INIT_ERR,
+                    "Cluster has not yet been initialized or the node is in the process of being stopped."
+            );
+        }
+
         return new ClusterState(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
                 clusterState.igniteVersion().toString(),
-                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()),
+                clusterState.formerClusterIds()
         );
     }
 
     private static RuntimeException mapException(Throwable ex) {
-        var cause = ExceptionUtils.unwrapCause(ex);
+        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
         if (cause instanceof IgniteInternalException) {
             return (IgniteInternalException) cause;
         } else if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
@@ -102,7 +116,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         } else if (cause instanceof IgniteException) {
             return (RuntimeException) cause;
         } else {
-            return new IgniteException(cause);
+            return new IgniteException(INTERNAL_ERR, cause);
         }
     }
 

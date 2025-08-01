@@ -17,45 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
-import org.apache.ignite.internal.hlc.ClockWaiter;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.jetbrains.annotations.Nullable;
 
 /** Context that always returns explicit transaction. */
 public class ExplicitTxContext implements QueryTransactionContext {
-    private static final HybridClock CLOCK = new HybridClockImpl();
-
-    private static final TransactionInflights TX_INFLIGHTS = new TransactionInflights(
-            new TestPlacementDriver("dummy", UUID.randomUUID().toString()),
-            new ClockServiceImpl(CLOCK, new ClockWaiter("dummy", CLOCK), () -> 1L)
-    );
-
-    private final HybridTimestampTracker observableTimeTracker = new HybridTimestampTracker();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
     private final QueryTransactionWrapper txWrapper;
 
     public static QueryTransactionContext fromTx(InternalTransaction tx) {
-        return new ExplicitTxContext(new QueryTransactionWrapperImpl(tx, false, TX_INFLIGHTS));
+        return new ExplicitTxContext(new QueryTransactionWrapperImpl(tx, false, NoOpTransactionalOperationTracker.INSTANCE));
     }
 
     private ExplicitTxContext(QueryTransactionWrapper txWrapper) {
         this.txWrapper = txWrapper;
 
-        observableTimeTracker.update(txWrapper.unwrap().startTimestamp());
+        observableTimeTracker.update(txWrapper.unwrap().schemaTimestamp());
     }
 
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         return txWrapper;
     }
 

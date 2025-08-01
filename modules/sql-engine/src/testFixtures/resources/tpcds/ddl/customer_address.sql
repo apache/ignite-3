@@ -1,0 +1,18 @@
+create table CUSTOMER_ADDRESS
+(
+    CA_ADDRESS_SK    INTEGER       not null,
+    CA_ADDRESS_ID    VARCHAR(16) not null,
+    CA_STREET_NUMBER VARCHAR(10),
+    CA_STREET_NAME   VARCHAR(60),
+    CA_STREET_TYPE   VARCHAR(15),
+    CA_SUITE_NUMBER  VARCHAR(10),
+    CA_CITY          VARCHAR(60),
+    CA_COUNTY        VARCHAR(30),
+    CA_STATE         VARCHAR(2),
+    CA_ZIP           VARCHAR(10),
+    CA_COUNTRY       VARCHAR(20),
+    CA_GMT_OFFSET    NUMERIC(5, 2),
+    CA_LOCATION_TYPE VARCHAR(20),
+    constraint CUSTOMER_ADDRESS_PK
+        primary key (CA_ADDRESS_SK)
+);

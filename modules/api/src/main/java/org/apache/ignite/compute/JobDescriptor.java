@@ -33,22 +33,26 @@ public class JobDescriptor<T, R> {
 
     private final JobExecutionOptions options;
 
+    private final @Nullable Marshaller<T, byte[]> argumentMarshaller;
+
     private final @Nullable Marshaller<R, byte[]> resultMarshaller;
 
-    private final @Nullable Marshaller<T, byte[]> argumentMarshaller;
+    private final Class<R> resultClass;
 
     private JobDescriptor(
             String jobClassName,
             List<DeploymentUnit> units,
             JobExecutionOptions options,
             @Nullable Marshaller<T, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            @Nullable Class<R> resultClass
     ) {
         this.jobClassName = jobClassName;
         this.units = units;
         this.options = options;
         this.argumentMarshaller = argumentMarshaller;
         this.resultMarshaller = resultMarshaller;
+        this.resultClass = resultClass;
     }
 
     /**
@@ -100,12 +104,16 @@ public class JobDescriptor<T, R> {
         return new Builder<>(jobClass.getName());
     }
 
+    public @Nullable Marshaller<T, byte[]> argumentMarshaller() {
+        return argumentMarshaller;
+    }
+
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
         return resultMarshaller;
     }
 
-    public @Nullable Marshaller<T, byte[]> argumentMarshaller() {
-        return argumentMarshaller;
+    public @Nullable Class<R> resultClass() {
+        return resultClass;
     }
 
     /**
@@ -117,6 +125,7 @@ public class JobDescriptor<T, R> {
         private JobExecutionOptions options;
         private Marshaller<T, byte[]> argumentMarshaller;
         private Marshaller<R, byte[]> resultMarshaller;
+        private Class<R> resultClass;
 
         private Builder(String jobClassName) {
             Objects.requireNonNull(jobClassName);
@@ -158,6 +167,18 @@ public class JobDescriptor<T, R> {
         }
 
         /**
+         * Sets the argument marshaller.
+         *
+         * @param marshaller Argument marshaller.
+         *
+         * @return This builder.
+         */
+        public Builder<T, R> argumentMarshaller(Marshaller<T, byte[]> marshaller) {
+            this.argumentMarshaller = marshaller;
+            return this;
+        }
+
+        /**
          * Sets the result marshaller.
          *
          * @param marshaller Result marshaller.
@@ -170,14 +191,14 @@ public class JobDescriptor<T, R> {
         }
 
         /**
-         * Sets the argument marshaller.
+         * Sets the result class.
          *
-         * @param marshaller Argument marshaller.
+         * @param resultClass Result class.
          *
          * @return This builder.
          */
-        public Builder<T, R> argumentMarshaller(Marshaller<T, byte[]> marshaller) {
-            this.argumentMarshaller = marshaller;
+        public Builder<T, R> resultClass(Class<R> resultClass) {
+            this.resultClass = resultClass;
             return this;
         }
 
@@ -192,7 +213,8 @@ public class JobDescriptor<T, R> {
                     units == null ? List.of() : units,
                     options == null ? JobExecutionOptions.DEFAULT : options,
                     argumentMarshaller,
-                    resultMarshaller
+                    resultMarshaller,
+                    resultClass
             );
         }
     }

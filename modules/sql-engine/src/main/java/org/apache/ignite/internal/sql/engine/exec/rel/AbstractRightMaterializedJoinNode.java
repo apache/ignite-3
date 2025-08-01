@@ -21,14 +21,12 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
 /** Right part materialized join node, i.e. all data from right part of join is available locally. */
 public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    static final int NOT_WAITING = -1;
-
     protected boolean inLoop;
     protected int requested;
     int waitingLeft;
@@ -46,12 +44,10 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::doJoin, this::onError);
+            this.execute(this::join);
         }
     }
 
@@ -114,11 +110,17 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(RowT row) throws Exception {
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waitingLeft=").app(waitingLeft)
+                .app(", waitingRight=").app(waitingRight);
+    }
+
+    protected void pushLeft(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
-
-        checkState();
 
         waitingLeft--;
 
@@ -131,8 +133,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        checkState();
-
         waitingLeft = NOT_WAITING;
 
         join();
@@ -141,8 +141,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
     private void endRight() throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
-
-        checkState();
 
         waitingRight = NOT_WAITING;
 
@@ -155,12 +153,6 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
 
     Node<RowT> rightSource() {
         return sources().get(1);
-    }
-
-    private void doJoin() throws Exception {
-        checkState();
-
-        join();
     }
 
     protected abstract void join() throws Exception;

@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,10 +32,12 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
@@ -50,12 +53,15 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -65,14 +71,15 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -95,6 +102,8 @@ public class TestServer implements AutoCloseable {
     private final ClientHandlerMetricSource metrics;
 
     private final AuthenticationManager authenticationManager;
+
+    private final FakeCatalogService catalogService;
 
     private final FakeIgnite ignite;
 
@@ -143,7 +152,8 @@ public class TestServer implements AutoCloseable {
                 securityConfiguration,
                 port,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -163,14 +173,15 @@ public class TestServer implements AutoCloseable {
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             @Nullable HybridClock clock,
-            boolean enableRequestHandling
+            boolean enableRequestHandling,
+            @Nullable BitSet features
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(ClientConnectorExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
-                List.of()
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
         cfg = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
@@ -189,7 +200,7 @@ public class TestServer implements AutoCloseable {
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
-                        .changeIdleTimeout(idleTimeout)
+                        .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
@@ -221,7 +232,17 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+                @Override
+                public void log(Event event) {
+
+                }
+
+                @Override
+                public void log(String type, Supplier<Event> eventProvider) {
+
+                }
+            });
             assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
@@ -231,23 +252,26 @@ public class TestServer implements AutoCloseable {
                 .build();
         ClusterInfo clusterInfo = new ClusterInfo(tag, List.of(tag.clusterId()));
 
+        catalogService = new FakeCatalogService(FakeInternalTable.PARTITIONS);
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
-                ignite,
-                bootstrapFactory,
-                shouldDropConnection,
-                responseDelay,
-                clusterService,
-                clusterInfo,
-                metrics,
-                authenticationManager,
-                clock,
-                ignite.placementDriver(),
-                clientConnectorConfiguration)
+                        ignite,
+                        bootstrapFactory,
+                        shouldDropConnection,
+                        responseDelay,
+                        clusterService,
+                        clusterInfo,
+                        metrics,
+                        authenticationManager,
+                        clock,
+                        ignite.placementDriver(),
+                        clientConnectorConfiguration,
+                        features)
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
-                        (IgniteTransactionsImpl) ignite.transactions(),
+                        ignite.txManager(),
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
@@ -257,10 +281,12 @@ public class TestServer implements AutoCloseable {
                         authenticationManager,
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
-                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
+                        catalogService,
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
-                        new TestLowWatermark()
+                        new TestLowWatermark(),
+                        new SystemPropertiesNodeProperties(),
+                        Runnable::run
                 );
 
         module.startAsync(componentContext).join();
@@ -302,11 +328,11 @@ public class TestServer implements AutoCloseable {
     }
 
     /**
-     * Gets the node name.
+     * Gets the node ID.
      *
-     * @return Node name.
+     * @return Node ID.
      */
-    public String nodeId() {
+    public UUID nodeId() {
         return getNodeId(nodeName);
     }
 
@@ -328,6 +354,15 @@ public class TestServer implements AutoCloseable {
         return ignite.placementDriver();
     }
 
+    /**
+     * Gets the catalog service.
+     *
+     * @return Catalog service.
+     */
+    public FakeCatalogService catalogService() {
+        return catalogService;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {
@@ -347,8 +382,8 @@ public class TestServer implements AutoCloseable {
         return new ClientClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
-    private static String getNodeId(String name) {
-        return name + "-id";
+    private static UUID getNodeId(String name) {
+        return deriveUuidFrom(name);
     }
 
     private static int getFreePort() {

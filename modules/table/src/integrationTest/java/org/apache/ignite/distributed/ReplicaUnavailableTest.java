@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,7 +56,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -98,7 +100,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -127,7 +129,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    @InjectConfiguration("mock.rpcTimeout= 3000")
+    @InjectConfiguration("mock.rpcTimeoutMillis = 3000")
     private ReplicationConfiguration replicationConfiguration;
 
     private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
@@ -150,10 +152,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private TopologyAwareRaftGroupService raftClient;
 
-    private final Function<BiFunction<ReplicaRequest, String, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
+    private final Function<BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
             (invokeImpl) -> new ReplicaListener() {
                 @Override
-                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
                     return invokeImpl.apply(request, senderId);
                 }
 
@@ -186,11 +188,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 any(RaftGroupOptions.class),
                 any(TopologyAwareRaftGroupServiceFactory.class))
         )
-                .thenReturn(completedFuture(raftClient));
+                .thenReturn(raftClient);
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
+                IgniteThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
         replicaService = new ReplicaService(
@@ -208,13 +210,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new NoOpFailureProcessor(),
+                new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                replicaGrpId -> nullCompletedFuture()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

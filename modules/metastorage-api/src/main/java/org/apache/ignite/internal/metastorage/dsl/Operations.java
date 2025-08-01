@@ -35,7 +35,7 @@ public final class Operations {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     /** No-op operation singleton. */
-    private static final Operation NO_OP = MSG_FACTORY.operation().type(OperationType.NO_OP).build();
+    private static final Operation NO_OP = MSG_FACTORY.operation().type(OperationType.NO_OP).key(EMPTY_BYTE_BUFFER).build();
 
     /** Operations. */
     private final List<Operation> operations;
@@ -47,6 +47,15 @@ public final class Operations {
      */
     private Operations(Operation... operations) {
         this.operations = List.of(operations);
+    }
+
+    /**
+     * Constructs new operations batch.
+     *
+     * @param operations operations.
+     */
+    public Operations(List<Operation> operations) {
+        this.operations = operations;
     }
 
     /**

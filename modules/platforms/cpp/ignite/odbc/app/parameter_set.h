@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "ignite/common/ignite_type.h"
 #include "ignite/odbc/app/parameter.h"
 #include "ignite/protocol/writer.h"
 
@@ -37,14 +36,19 @@ public:
     parameter_set() = default;
 
     /**
-     * Write only first row of the param set using provided writer.
+     * Destructor.
+     */
+    virtual ~parameter_set() = default;
+
+    /**
+     * Write only the first row of the param set using a provided writer.
      *
      * @param writer Writer.
      */
     virtual void write(protocol::writer &writer) const = 0;
 
     /**
-     * Write rows of the param set in interval [begin, end) using provided writer.
+     * Write rows of the param set in an interval [begin, end) using a provided writer.
      *
      * @param writer Writer.
      * @param begin Beginning of the interval.
@@ -56,12 +60,12 @@ public:
     /**
      * Get parameter set size.
      *
-     * @return Number of rows in set.
+     * @return Number of rows in a set.
      */
     [[nodiscard]] virtual std::int32_t get_param_set_size() const = 0;
 
     /**
-     * Set number of parameters processed in batch.
+     * Set the number of parameters processed in batch.
      *
      * @param processed Processed.
      */
@@ -177,7 +181,7 @@ public:
      * @param idx Index.
      * @return parameter or null, if parameter is not bound.
      */
-    const parameter *get_parameter(std::uint16_t idx) const;
+    [[nodiscard]] const parameter *get_parameter(std::uint16_t idx) const;
 
     /**
      * Get selected parameter.
@@ -194,13 +198,13 @@ public:
     parameter *select_next_parameter();
 
     /**
-     * Write only first row of the param set using provided writer.
+     * Write only the first row of the param set using a provided writer.
      * @param writer Writer.
      */
     void write(protocol::writer &writer) const override;
 
     /**
-     * Write rows of the param set in interval [begin, end) using provided writer.
+     * Write rows of the param set in the interval [begin, end) using a provided writer.
      *
      * @param writer Writer.
      * @param begin Beginning of the interval.
@@ -219,26 +223,26 @@ public:
     /**
      * Get parameter set size.
      *
-     * @return Number of rows in set.
+     * @return Number of rows in a set.
      */
     [[nodiscard]] std::int32_t get_param_set_size() const override;
 
     /**
-     * Set number of parameters processed in batch.
+     * Set the number of parameters processed in batch.
      *
      * @param processed Processed.
      */
     void set_params_processed(SQLULEN processed) override;
 
     /**
-     * Number of processed params should be written using provided address.
+     * The number of processed params should be written using the provided address.
      *
      * @param ptr Pointer.
      */
     void set_params_processed_ptr(SQLULEN *ptr);
 
     /**
-     * Get pointer to write number of parameters processed in batch.
+     * Get a pointer to write number of parameters processed in batch.
      *
      * @return Pointer to write number of parameters processed in batch.
      */
@@ -267,7 +271,7 @@ public:
 
 private:
     /**
-     * Write single row of the param set using provided writer.
+     * Write a single row of the param set using a provided writer.
      * @param writer Writer.
      * @param idx Row index.
      */
@@ -288,7 +292,7 @@ private:
     /** Parameter set size. */
     SQLULEN m_param_set_size{1};
 
-    /** Current position in parameter set. */
+    /** Current position in a parameter set. */
     SQLULEN m_param_set_pos{0};
 
     /** Index of the parameter, which is currently being set. */

@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -30,11 +31,15 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.BitSet;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -45,6 +50,9 @@ import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.client.proto.HandshakeExtension;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -54,10 +62,9 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -104,6 +111,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Configuration of the client connector. */
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
+    /** Features set. */
+    private final BitSet features;
+
     /**
      * Constructor.
      *
@@ -118,6 +128,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param clock Clock.
      * @param placementDriver Placement driver.
      * @param clientConnectorConfiguration Configuration of the client connector.
+     * @param features Features.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -130,7 +141,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             AuthenticationManager authenticationManager,
             HybridClock clock,
             PlacementDriver placementDriver,
-            ClientConnectorConfiguration clientConnectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            @Nullable BitSet features
     ) {
         assert ignite != null;
         assert bootstrapFactory != null;
@@ -147,19 +159,20 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.placementDriver = placementDriver;
         this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.features = features;
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
         try {
             channel = startEndpoint().channel();
         } catch (InterruptedException e) {
-            throw new IgniteException(e);
+            throw new IgniteException(INTERNAL_ERR, e);
         }
 
         return nullCompletedFuture();
@@ -206,6 +219,23 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+        BitSet features;
+
+        if (this.features == null) {
+            features = BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()});
+            features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
+            features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
+            features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
+            features.set(ProtocolBitmaskFeature.TX_PIGGYBACK.featureId());
+            features.set(ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST.featureId());
+            features.set(ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME.featureId());
+        } else {
+            features = new BitSet(ProtocolBitmaskFeature.values().length);
+            for (int i = this.features.nextSetBit(0); i != -1; i = this.features.nextSetBit(i + 1)) {
+                features.set(i);
+            }
+        }
+
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
@@ -217,8 +247,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
-                                        (IgniteTransactionsImpl) ignite.transactions(),
-                                        new FakeIgniteQueryProcessor(),
+                                        ((FakeIgnite) ignite).txManager(),
+                                        new FakeIgniteQueryProcessor(ignite.name()),
                                         configuration,
                                         compute,
                                         clusterService,
@@ -234,13 +264,18 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 catalogService,
                                                 clockService,
                                                 new AlwaysSyncedSchemaSyncService(),
-                                                new TestLowWatermark()
-                                        )
+                                                new TestLowWatermark(),
+                                                new SystemPropertiesNodeProperties()
+                                        ),
+                                        Runnable::run,
+                                        features,
+                                        randomExtensions(),
+                                        unused -> null
                                 )
                         );
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeoutMillis());
 
         int port = configuration.port();
         Channel ch = null;
@@ -249,16 +284,25 @@ public class TestClientHandlerModule implements IgniteComponent {
         if (bindRes.isSuccess()) {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(bindRes.cause());
+            throw new IgniteException(INTERNAL_ERR, bindRes.cause());
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+            String address = configuration.listenAddresses().length == 0 ? "" :  configuration.listenAddresses()[0];
+            String msg = "Cannot start thin client connector endpoint at address=" + address + ", port=" + port;
 
-            throw new IgniteException(msg);
+            throw new IgniteException(INTERNAL_ERR, msg);
         }
 
         return ch.closeFuture();
+    }
+
+    private static Map<HandshakeExtension, Object> randomExtensions() {
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            return Map.of();
+        }
+
+        return Map.of(HandshakeExtension.AUTHENTICATION_SECRET, String.valueOf(ThreadLocalRandom.current().nextLong()));
     }
 
     private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {

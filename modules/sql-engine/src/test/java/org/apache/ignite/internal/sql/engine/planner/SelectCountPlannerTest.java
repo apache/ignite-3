@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.AfterAll;
@@ -78,10 +79,12 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
 
     @AfterEach
     void clearCatalog() {
+        Commons.resetFastQueryOptimizationFlag();
+
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
@@ -210,7 +213,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     public void doNotOptimizeCountFunc() {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
-        QueryPlan plan = node.prepare("SELECT count(CURRENT_TIME) FROM test");
+        QueryPlan plan = node.prepare("SELECT count(CURRENT_TIMESTAMP) FROM test");
 
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
     }
@@ -340,14 +343,14 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+            QueryTransactionContext txContext = ImplicitTxContext.create();
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
             assertThat(plan.plan().explain(), containsString("SelectCount"));
         }
 
         {
-            NoOpTransaction tx = NoOpTransaction.readWrite("RW");
+            NoOpTransaction tx = NoOpTransaction.readWrite("RW", false);
             QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
@@ -355,7 +358,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            NoOpTransaction tx = NoOpTransaction.readOnly("RO");
+            NoOpTransaction tx = NoOpTransaction.readOnly("RO", false);
             QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
@@ -364,7 +367,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
-        List<String> expressions = plan.selectCountNode().expressions().stream()
+        List<String> expressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -373,7 +376,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
                 equalTo(List.of(expectedExpressions))
         );
 
-        RelDataType rowType = plan.selectCountNode().getRowType();
+        RelDataType rowType = plan.getRel().getRowType();
         assertEquals(expectedExpressions.length, rowType.getFieldCount(), "output columns");
     }
 }

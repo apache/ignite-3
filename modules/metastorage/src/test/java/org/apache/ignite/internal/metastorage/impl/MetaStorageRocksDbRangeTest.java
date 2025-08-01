@@ -18,16 +18,30 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * {@link MetaStorageRangeTest} implementation using {@link RocksDbKeyValueStorage}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class MetaStorageRocksDbRangeTest extends MetaStorageRangeTest {
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @Override
     KeyValueStorage getStorage(Path path) {
-        return new RocksDbKeyValueStorage("test", path, new NoOpFailureProcessor());
+        return new RocksDbKeyValueStorage(
+                "test",
+                path,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
     }
 }

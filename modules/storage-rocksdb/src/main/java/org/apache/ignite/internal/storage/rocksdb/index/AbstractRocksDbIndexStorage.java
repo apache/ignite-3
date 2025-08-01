@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -36,13 +36,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
@@ -127,7 +127,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED, state)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
@@ -138,7 +138,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Transitions the storage to the {@link StorageState#DESTROYED} state and blocks the busy lock.
      */
     public void transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED, state)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return;
         }
 
@@ -159,7 +159,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         busyLock.block();
 
         try {
-            destroyData(writeBatch);
+            clearData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
         } finally {
@@ -178,7 +178,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
 
         try {
-            destroyData(writeBatch);
+            clearData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -208,7 +208,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
 
-        destroyData(writeBatch);
+        clearData(writeBatch);
     }
 
     /**
@@ -257,24 +257,43 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     }
 
     /**
-     * Deletes the data associated with the index, using passed write batch for the operation.
+     * Deletes the data associated with the index to prepare the storage for subsequent use, using passed write batch for the operation.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    public final void clearData(WriteBatch writeBatch) throws RocksDBException {
+        clearIndex(writeBatch);
+
+        if (descriptor.mustBeBuilt()) {
+            resetNextRowIdToBuild(writeBatch);
+        } else {
+            removeNextRowIdToBuild(writeBatch);
+        }
+    }
+
+    /**
+     * Deletes the data associated with the index (the storage will not be used anymore), using passed write batch for the operation.
      *
      * @throws RocksDBException If failed to delete data.
      */
     public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
         clearIndex(writeBatch);
 
-        if (descriptor.mustBeBuilt()) {
-            RowId initialRowId = initialRowIdToBuild(partitionId);
+        removeNextRowIdToBuild(writeBatch);
+    }
 
-            indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, initialRowId);
+    private void resetNextRowIdToBuild(WriteBatch writeBatch) {
+        RowId initialRowId = initialRowIdToBuild(partitionId);
 
-            nextRowIdToBuild = initialRowId;
-        } else {
-            indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
+        indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, initialRowId);
 
-            nextRowIdToBuild = null;
-        }
+        nextRowIdToBuild = initialRowId;
+    }
+
+    private void removeNextRowIdToBuild(WriteBatch writeBatch) {
+        indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
+
+        nextRowIdToBuild = null;
     }
 
     /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
@@ -366,7 +385,11 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             refreshAndPrepareRocksIteratorBusy();
 
             if (!it.isValid()) {
-                RocksUtils.checkIterator(it);
+                try {
+                    it.status();
+                } catch (RocksDBException e) {
+                    throw new IgniteRocksDbException(e);
+                }
 
                 peekedKey = null;
             } else {
@@ -391,7 +414,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             try {
                 it.refresh();
             } catch (RocksDBException e) {
-                throw new StorageException("Error refreshing an iterator", e);
+                throw new IgniteRocksDbException("Error refreshing an iterator", e);
             }
 
             if (key == null) {
@@ -402,7 +425,11 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
                 if (it.isValid()) {
                     it.next();
                 } else {
-                    RocksUtils.checkIterator(it);
+                    try {
+                        it.status();
+                    } catch (RocksDBException e) {
+                        throw new IgniteRocksDbException(e);
+                    }
 
                     it.seek(lowerBound);
                 }

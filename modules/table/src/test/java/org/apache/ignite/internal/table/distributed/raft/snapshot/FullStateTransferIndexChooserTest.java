@@ -59,7 +59,6 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -98,7 +97,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metaStorageManager = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME), clock);
+        metaStorageManager = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
@@ -106,7 +105,12 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark, indexMetaStorage);
 
-        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         indexChooser.start();
 

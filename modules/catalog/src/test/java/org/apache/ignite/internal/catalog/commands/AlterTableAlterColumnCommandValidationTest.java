@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -109,10 +110,15 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true)
+                .build();
+
+        alterCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test
@@ -129,7 +135,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );
@@ -150,7 +156,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'TEST' not found in table 'PUBLIC.TEST'"
         );
@@ -171,7 +177,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the type of key column is not allowed"
         );
@@ -200,7 +206,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the precision of key column is not allowed"
         );
@@ -234,7 +240,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale of key column is not allowed"
         );
@@ -266,7 +272,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Dropping NOT NULL constraint on key column is not allowed"
         );
@@ -303,13 +309,13 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Changing the type from {} to {} is not allowed", from, to)
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
     @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL", "DURATION", "PERIOD"})
@@ -342,7 +348,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("the precision for column of type '{}' is not allowed", type)
         );
@@ -380,7 +386,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the precision for column of type"
         );
@@ -414,19 +420,19 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .columnName(columnName);
 
         assertThrowsWithCause(
-                () -> builder.scale(2).build().get(catalog),
+                () -> builder.scale(2).build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale for column of type"
         );
 
         assertThrowsWithCause(
-                () -> builder.scale(10).build().get(catalog),
+                () -> builder.scale(10).build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale for column of type"
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
     @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL", "DURATION", "PERIOD"})
@@ -459,7 +465,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Changing the length for column of type '{}' is not allowed", type)
         );
@@ -496,7 +502,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the length for column of type"
         );
@@ -533,7 +539,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Adding NOT NULL constraint is not allowed"
         );
@@ -577,9 +583,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional defaults are not supported for non-primary key columns"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
 
@@ -593,9 +599,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional defaults are not supported for non-primary key columns"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
     }
@@ -640,9 +646,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional default contains unsupported function: [col=ID, functionName=invalid_func]"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
 
@@ -656,9 +662,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
-                    "Functional default contains unsupported function: [col=ID2, functionName=invalid_func]"
+                    "Non-constant default cannot be assigned after table creation"
             );
         }
     }
@@ -678,7 +684,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
@@ -730,7 +736,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 //  Remove this after interval type support is added.
                 if (from == DURATION || to == DURATION || from == PERIOD || to == PERIOD) {
                     continue;

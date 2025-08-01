@@ -21,7 +21,6 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Thread factory that produces {@link IgniteThread}s with node name, prefix, allowed operations.
@@ -39,6 +38,7 @@ public class IgniteThreadFactory implements ThreadFactory {
     /** Exception handler. */
     private final Thread.UncaughtExceptionHandler exHnd;
 
+    /** Operations that are allowed to be executed on threads produced by this factory. */
     private final ThreadOperation[] allowedOperations;
 
     /**
@@ -59,13 +59,23 @@ public class IgniteThreadFactory implements ThreadFactory {
     }
 
     @Override
-    public Thread newThread(Runnable r) {
-        Thread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
+    public IgniteThread newThread(Runnable r) {
+        IgniteThread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
         t.setDaemon(this.daemon);
         t.setUncaughtExceptionHandler(exHnd);
 
         return t;
+    }
+
+    /**
+     * Returns the prefix used for thread names.
+     *
+     * @return Thread name prefix.
+     * @see IgniteThread#threadPrefix(String, String)
+     */
+    public String prefix() {
+        return prefix;
     }
 
     /**
@@ -77,7 +87,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static ThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
+    public static IgniteThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
         return create(nodeName, poolName, false, logger, allowedOperations);
     }
 
@@ -91,7 +101,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static ThreadFactory create(
+    public static IgniteThreadFactory create(
             String nodeName,
             String poolName,
             boolean daemon,
@@ -101,8 +111,25 @@ public class IgniteThreadFactory implements ThreadFactory {
         return new IgniteThreadFactory(nodeName, poolName, daemon, logger, allowedOperations);
     }
 
-    @TestOnly
-    public static ThreadFactory withPrefix(String prefix, IgniteLogger logger, ThreadOperation... allowedOperations) {
-        return new IgniteThreadFactory(prefix, false, logger, allowedOperations);
+    /**
+     * Creates a thread factory based on a fixed thread name prefix.
+     * This method should be used with great caution, as the name of the created threads may not contain the node name,
+     * which in turn may lead to worse diagnostics.
+     * Please, use the {@link IgniteThread#threadPrefix(String, String)} to form {@code prefix} wherever possible.
+     * This method only exists due to historical reasons, and allows to avoid changing 3-rd party code.
+     *
+     * @param prefix Fixed thread name prefix.
+     * @param daemon Whether threads created by the factory should be daemon or not.
+     * @param logger Logger.
+     * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
+     * @return Thread factory.
+     */
+    public static IgniteThreadFactory createWithFixedPrefix(
+            String prefix,
+            boolean daemon,
+            IgniteLogger logger,
+            ThreadOperation... allowedOperations
+    ) {
+        return new IgniteThreadFactory(prefix, daemon, logger, allowedOperations);
     }
 }

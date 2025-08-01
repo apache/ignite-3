@@ -17,33 +17,25 @@
 
 package org.apache.ignite.lang;
 
-import static java.util.regex.Pattern.DOTALL;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
  * Each group can be identified by a name and an integer number that both must be unique across all error groups.
  */
 public class ErrorGroup {
-    /** Additional prefix that is used in a human-readable format of ignite errors. */
-    public static final String ERR_PREFIX = "IGN-";
-
-    /** Error message pattern. */
-    private static final Pattern EXCEPTION_MESSAGE_PATTERN =
-            Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)", DOTALL);
-
     /** Group name. */
     private final String groupName;
 
     /** Group code. */
     private final short groupCode;
+
+    /** Additional prefix that is used in a human-readable format of error messages. */
+    private final String errorPrefix;
 
     /** Contains error codes for this error group. */
     private final Set<Short> codes = new HashSet<>();
@@ -51,12 +43,23 @@ public class ErrorGroup {
     /**
      * Creates a new error group with the specified name and corresponding code.
      *
+     * @param errorPrefix Error prefix.
      * @param groupName Group name.
      * @param groupCode Group code.
      */
-    ErrorGroup(String groupName, short groupCode) {
+    ErrorGroup(String errorPrefix, String groupName, short groupCode) {
         this.groupName = groupName;
         this.groupCode = groupCode;
+        this.errorPrefix = errorPrefix;
+    }
+
+    /**
+     * Returns a error prefix of this group.
+     *
+     * @return Error prefix.
+     */
+    public String errorPrefix() {
+        return errorPrefix;
     }
 
     /**
@@ -113,74 +116,28 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, int code, String message) {
-        return errorMessage(traceId, errorGroupByCode(code).name(), code, message);
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        return errorMessage(errorGroup.errorPrefix(), traceId, errorGroup.name(), code, message);
     }
 
     /**
      * Creates a new error message with predefined prefix.
      *
+     * @param errorPrefix Prefix for the error.
      * @param traceId Unique identifier of this exception.
      * @param groupName Group name.
      * @param code Full error code.
      * @param message Original message.
      * @return New error message with predefined prefix.
      */
-    public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code)) + " TraceId:" + traceId
-                + ((message != null && !message.isEmpty()) ? ' ' + message : "");
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param cause Cause.
-     * @return New error message with predefined prefix.
-     */
-    public static String errorMessageFromCause(UUID traceId, int code, Throwable cause) {
-        return errorMessageFromCause(traceId, errorGroupByCode(code).name(), code, cause);
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param groupName Group name.
-     * @param code Full error code.
-     * @param cause Cause.
-     * @return New error message with predefined prefix.
-     */
-    public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
-        String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
-
-        if (c != null) {
-            c = extractCauseMessage(c);
-        }
-
-        return errorMessage(traceId, groupName, code, c);
-    }
-
-    /**
-     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
-     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
-     * {@code errorMessage}.
-     *
-     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
-     * @return Extracted message.
-     */
-    public static @Nullable String extractCauseMessage(String errorMessage) {
-        if (errorMessage == null) {
-            return null;
-        }
-
-        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
-        return (m.matches()) ? m.group(8) : errorMessage;
+    static String errorMessage(String errorPrefix, UUID traceId, String groupName, int code, String message) {
+        return errorPrefix + "-" + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code))
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "") + " TraceId:" + traceId.toString().substring(0, 8);
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "ErrorGroup [name=" + name() + ", groupCode=" + groupCode() + ']';
+        return "ErrorGroup [errorPrefix=" + errorPrefix + ", name=" + name() + ", groupCode=" + groupCode() + ']';
     }
 }

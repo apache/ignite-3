@@ -23,10 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -36,16 +39,19 @@ public class ClientTables implements IgniteTables {
     private final ReliableChannel ch;
 
     private final MarshallersProvider marshallers;
+    private final int sqlPartitionAwarenessMetadataCacheSize;
 
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
      */
-    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers) {
+    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers, int sqlPartitionAwarenessMetadataCacheSize) {
         this.ch = ch;
         this.marshallers = marshallers;
+        this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
     }
 
     /** {@inheritDoc} */
@@ -57,31 +63,58 @@ public class ClientTables implements IgniteTables {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
-            var in = r.in();
-            var cnt = in.unpackInt();
-            var res = new ArrayList<Table>(cnt);
+        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLES_GET_QUALIFIED : ClientOp.TABLES_GET,
+                ClientOp.TABLES_GET,
+                null, r -> {
+                    var in = r.in();
+                    var cnt = in.unpackInt();
+                    var res = new ArrayList<Table>(cnt);
+                    boolean unpackQualifiedNames = useQualifiedNames(r.clientChannel());
 
-            for (int i = 0; i < cnt; i++) {
-                res.add(new ClientTable(ch, marshallers, in.unpackInt(), in.unpackString()));
-            }
+                    for (int i = 0; i < cnt; i++) {
+                        int tableId = in.unpackInt();
+                        QualifiedName name = unpackQualifiedNames ? in.unpackQualifiedName() : QualifiedName.parse(in.unpackString());
 
-            return res;
-        });
+                        res.add(new ClientTable(ch, marshallers, tableId, name, sqlPartitionAwarenessMetadataCacheSize));
+                    }
+
+                    return res;
+                });
     }
 
     /** {@inheritDoc} */
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return sync(tableAsync(name));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
+        return ch.serviceAsync((ch) -> useQualifiedNames(ch) ? ClientOp.TABLE_GET_QUALIFIED : ClientOp.TABLE_GET,
+                ClientOp.TABLE_GET,
+                w -> {
+                    if (useQualifiedNames(w.clientChannel())) {
+                        w.out().packQualifiedName(name);
+                    } else {
+                        w.out().packString(name.objectName());
+                    }
+                }, r -> {
+                    if (r.in().tryUnpackNil()) {
+                        return null;
+                    }
+
+                    int tableId = r.in().unpackInt();
+                    boolean unpackQualifiedNames = useQualifiedNames(r.clientChannel());
+                    QualifiedName qname = unpackQualifiedNames ? r.in().unpackQualifiedName() : QualifiedName.parse(r.in().unpackString());
+
+                    return new ClientTable(ch, marshallers, tableId, qname, sqlPartitionAwarenessMetadataCacheSize);
+                });
+    }
+
+    private static boolean useQualifiedNames(ClientChannel ch) {
+        return ch.protocolContext().isFeatureSupported(ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME);
     }
 }

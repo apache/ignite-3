@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.DeprecatedAlias;
 
 /**
  * C# generator for Error Codes.
@@ -68,6 +69,20 @@ public class CsharpGenerator extends GenericGenerator {
         line();
         line("            _ => UnknownGroupName");
         line("        };");
+        line();
+        line("        /// <summary>");
+        line("        /// Gets the group error prefix by code.");
+        line("        /// </summary>");
+        line("        /// <param name=\"groupCode\">Group code.</param>");
+        line("        /// <returns>Group error prefix.</returns>");
+        line("        public static string GetErrorPrefix(int groupCode) => groupCode switch");
+        line("        {");
+        for (var descriptor : descriptors) {
+            line("            " + descriptor.className + ".GroupCode => " + descriptor.className + ".ErrorPrefix,");
+        }
+        line();
+        line("            _ => UnknownGroupName");
+        line("        };");
         for (var descriptor : descriptors) {
             generateErrorGroupClass(descriptor);
         }
@@ -88,11 +103,19 @@ public class CsharpGenerator extends GenericGenerator {
         line("            public const String GroupName = \"" + descriptor.groupName + "\";");
         line();
 
+        line("            /// <summary> " + descriptor.className + " error prefix. </summary>");
+        line("            public const String ErrorPrefix = \"" + descriptor.errorPrefix + "\";");
+        line();
+
         for (int i = 0; i < descriptor.errorCodes.size(); i++) {
             generateErrorCode(descriptor.errorCodes.get(i).name, descriptor.errorCodes.get(i).code);
             if (i != descriptor.errorCodes.size() - 1) {
                 line();
             }
+        }
+
+        for (DeprecatedAlias deprecatedAlias : descriptor.deprecatedAliases) {
+            generateDeprecatedAlias(deprecatedAlias);
         }
 
         line("        }");
@@ -102,5 +125,16 @@ public class CsharpGenerator extends GenericGenerator {
         line(String.format("            /// <summary> %s error. </summary>", transfromErrorCodeName(name)));
         line(String.format("            public const int %s = (GroupCode << %d) | (%d & 0xFFFF);", transfromErrorCodeName(name), groupShift,
                 code));
+    }
+
+    private void generateDeprecatedAlias(DeprecatedAlias deprecatedAlias) throws IOException {
+        String transformedAlias = transfromErrorCodeName(deprecatedAlias.alias);
+        String transformedTarget = transfromErrorCodeName(deprecatedAlias.target);
+
+        line();
+        line(String.format("            /// <summary> %s is obsolete. Use %s instead. </summary>", transformedAlias,
+                transformedTarget));
+        line("            [Obsolete]");
+        line(String.format("            public const int %s = %s;", transformedAlias, transformedTarget));
     }
 }

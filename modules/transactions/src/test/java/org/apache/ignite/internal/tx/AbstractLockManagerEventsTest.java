@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -63,7 +64,7 @@ public abstract class AbstractLockManagerEventsTest extends AbstractLockingTest 
     private void checkLockConflictEvent(UUID lockAcquirerTx, UUID lockHolderTx) {
         assertNotNull(eventParamsRef.get());
         assertEquals(lockAcquirerTx, eventParamsRef.get().lockAcquirerTx());
-        assertEquals(lockHolderTx, eventParamsRef.get().lockHolderTx());
+        assertTrue(eventParamsRef.get().lockHolderTxs().contains(lockHolderTx));
     }
 
     private void checkNoEvent() {

@@ -21,18 +21,28 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Local partition state message, has partition ID, state and last committed log index.
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE)
 public interface LocalPartitionStateMessage extends NetworkMessage {
-    /** Partition ID. */
+    /** Table Partition ID. */
+    @Nullable
     TablePartitionIdMessage partitionId();
+
+    /** Zone Partition ID. */
+    @Nullable
+    ZonePartitionIdMessage zonePartitionId();
 
     /** Calculated state of the partition. */
     LocalPartitionStateEnum state();
 
     /** Index of the last received log entry for this partition. */
     long logIndex();
+
+    /** Estimated number of rows for this partition. */
+    long estimatedRows();
 }

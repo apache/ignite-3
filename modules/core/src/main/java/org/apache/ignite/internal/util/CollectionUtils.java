@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
-import static java.util.Collections.addAll;
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.nCopies;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
 
@@ -147,28 +147,30 @@ public final class CollectionUtils {
     }
 
     /**
-     * Union set and items.
+     * Logical union operation on two probably {@code null} or empty sets.
      *
-     * @param set Set.
-     * @param ts Items.
-     * @param <T> Type of the elements of set and items..
-     * @return Immutable union of set and items.
+     * @param firstSet First operand.
+     * @param secondSet Second operand.
+     * @return Result of the union on two sets that equals to all unique elements from the first and the second set or empty set if both
+     *      given sets are empty.
      */
-    @SafeVarargs
-    public static <T> Set<T> union(@Nullable Set<T> set, @Nullable T... ts) {
-        if (nullOrEmpty(set)) {
-            return ts == null || ts.length == 0 ? Set.of() : Set.of(ts);
+    public static <T> Set<T> union(@Nullable Set<T> firstSet, @Nullable Set<T> secondSet) {
+        boolean isFirstSetEmptyOrNull = nullOrEmpty(firstSet);
+        boolean isSecondSetEmptyOrNull = nullOrEmpty(secondSet);
+
+        if (isFirstSetEmptyOrNull && isSecondSetEmptyOrNull) {
+            return Set.of();
+        } else if (isFirstSetEmptyOrNull) {
+            return unmodifiableSet(secondSet);
+        } else if (isSecondSetEmptyOrNull) {
+            return unmodifiableSet(firstSet);
+        } else {
+            var union = new HashSet<>(firstSet);
+
+            union.addAll(secondSet);
+
+            return unmodifiableSet(union);
         }
-
-        if (ts == null || ts.length == 0) {
-            return unmodifiableSet(set);
-        }
-
-        Set<T> res = new HashSet<>(set);
-
-        addAll(res, ts);
-
-        return unmodifiableSet(res);
     }
 
     /**
@@ -617,5 +619,27 @@ public final class CollectionUtils {
                 return list.size();
             }
         };
+    }
+
+    /**
+     * Sets list element at the specified index. Expands a list if needed.
+     *
+     * @param list List to update.
+     * @param i Target index.
+     * @param element Element to put.
+     * @param <T> Type of the list elements.
+     */
+    public static <T> void setListAtIndex(List<T> list, int i, T element) {
+        if (list.size() < i) {
+            list.addAll(nCopies(i - list.size(), null));
+        }
+
+        if (list.size() < i + 1) {
+            list.add(element);
+        } else {
+            T prev = list.set(i, element);
+
+            assert prev == null : String.format("Found previous value %s at index %d", prev, i);
+        }
     }
 }

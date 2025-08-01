@@ -26,12 +26,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for deployment commands. */
 public class ItDeploymentUnitTest extends CliIntegrationTest {
+    private static final long BIG_IN_BYTES = 100 * 1024L * 1024L; // 100 MiB
 
     private String testFile;
 
@@ -277,6 +279,25 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
 
             assertDeployed(List.of(new UnitIdVersion("test-unit", "1.0.0"), new UnitIdVersion("test-unit", "*2.0.0")));
         });
+    }
+
+    @Test
+    @DisplayName("Should deploy a unit with version from big file")
+    void deployBig() throws IOException {
+        String id = "test.unit.id.9";
+
+        Path bigFile = WORK_DIR.resolve("bigFile.txt");
+        IgniteTestUtils.fillDummyFile(bigFile, BIG_IN_BYTES);
+
+        // When deploy with version
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", bigFile.toString());
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
     }
 
     private void assertDeployed(String id) {

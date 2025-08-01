@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Objects;
-import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -39,12 +38,12 @@ public class SuperRootChangeImpl implements SuperRootChange {
     }
 
     @Override
-    public <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey) {
+    public <V> V viewRoot(RootKey<?, V, ?> rootKey) {
         return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
     }
 
     @Override
-    public <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey) {
+    public <C> C changeRoot(RootKey<?, ? super C, C> rootKey) {
         // "construct" does a field copying, which is what we need before mutating it.
         superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
 

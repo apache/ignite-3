@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -191,6 +192,18 @@ public class SqlRowProjection implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return row.decimalValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return row.decimalValue(rowIndexMapping[columnIndex]);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return row.stringValue(columnName);
     }
@@ -199,6 +212,18 @@ public class SqlRowProjection implements Tuple {
     @Override
     public String stringValue(int columnIndex) {
         return row.stringValue(rowIndexMapping[columnIndex]);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(String columnName) {
+        return row.bytesValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return row.bytesValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */

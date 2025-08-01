@@ -17,10 +17,12 @@
 
 package org.apache.ignite.client;
 
+import static java.util.stream.Collectors.toList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.Comparator;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
@@ -37,9 +39,7 @@ public class ClientTablesTest extends AbstractClientTest {
         var tables = client.tables().tables();
         assertEquals(2, tables.size());
 
-        tables.sort(Comparator.comparing(Table::name));
-        assertEquals(DEFAULT_TABLE, tables.get(0).name());
-        assertEquals("t", tables.get(1).name());
+        assertThat(tables.stream().map(t -> t.qualifiedName().objectName()).collect(toList()), containsInAnyOrder(DEFAULT_TABLE, "T"));
     }
 
     @Test
@@ -54,12 +54,12 @@ public class ClientTablesTest extends AbstractClientTest {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
         Table table = client.tables().table(DEFAULT_TABLE);
 
-        assertEquals(DEFAULT_TABLE, table.name());
+        assertEquals(DEFAULT_TABLE, table.qualifiedName().objectName());
     }
 
     @Test
     public void testTableReturnsNullWhenDoesNotExist() {
-        Table table = client.tables().table("non-existent-table");
+        Table table = client.tables().table("\"non-existent-table\"");
 
         assertNull(table);
     }

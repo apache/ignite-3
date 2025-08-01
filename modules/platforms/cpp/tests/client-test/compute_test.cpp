@@ -71,17 +71,19 @@ protected:
     template<typename T>
     void check_argument(T value, const std::string &expected_str) {
         auto cluster_nodes = m_client.get_cluster_nodes();
-        auto execution = m_client.get_compute().submit(cluster_nodes, m_echo_job, {value});
+        auto execution = m_client.get_compute().submit(job_target::any_node(cluster_nodes), m_echo_job, {value});
         auto result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(result.value().get_primitive().template get<T>(), value);
 
-        execution = m_client.get_compute().submit(cluster_nodes, m_to_string_job, {value});
+        execution = m_client.get_compute().submit(job_target::any_node(cluster_nodes), m_to_string_job, {value});
         result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
-        EXPECT_EQ(result.value().get_primitive().template get<std::string>(), expected_str);
+        auto res_str = result.value().get_primitive().template get<std::string>();
+        if (res_str != expected_str)
+            throw ignite_error("Expected equality of these values: '" + res_str + "' and '" + expected_str + "'");
     }
 
     /**
@@ -125,9 +127,6 @@ TEST_F(compute_test, get_cluster_nodes) {
 
     ASSERT_EQ(4, cluster_nodes.size());
 
-    EXPECT_FALSE(cluster_nodes[0].get_id().empty());
-    EXPECT_FALSE(cluster_nodes[1].get_id().empty());
-
     EXPECT_EQ(3344, cluster_nodes[0].get_address().port);
     EXPECT_EQ(3345, cluster_nodes[1].get_address().port);
 
@@ -140,7 +139,7 @@ TEST_F(compute_test, get_cluster_nodes) {
 TEST_F(compute_test, execute_on_random_node) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    auto execution = m_client.get_compute().submit(cluster_nodes, m_node_name_job, {});
+    auto execution = m_client.get_compute().submit(job_target::any_node(cluster_nodes), m_node_name_job, {});
     auto result = execution.get_result();
 
     ASSERT_TRUE(result.has_value());
@@ -148,8 +147,8 @@ TEST_F(compute_test, execute_on_random_node) {
 }
 
 TEST_F(compute_test, execute_on_specific_node) {
-    auto execution1 = m_client.get_compute().submit({get_node(0)}, m_node_name_job, {"-11"});
-    auto execution2 = m_client.get_compute().submit({get_node(1)}, m_node_name_job, {42});
+    auto execution1 = m_client.get_compute().submit(job_target::node(get_node(0)), m_node_name_job, {"-11"});
+    auto execution2 = m_client.get_compute().submit(job_target::node(get_node(1)), m_node_name_job, {42});
 
     auto res1 = execution1.get_result();
     auto res2 = execution2.get_result();
@@ -162,25 +161,29 @@ TEST_F(compute_test, execute_on_specific_node) {
 }
 
 TEST_F(compute_test, execute_broadcast_one_node) {
-    auto res = m_client.get_compute().submit_broadcast({get_node(1)}, m_node_name_job, {"42"});
+    auto res = m_client.get_compute().submit_broadcast(broadcast_job_target::node(get_node(1)), m_node_name_job, {"42"});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(execs.size(), 1);
 
-    EXPECT_EQ(res.begin()->first, get_node(1));
-
-    ASSERT_TRUE(res.begin()->second.has_value());
-    EXPECT_EQ(res.begin()->second.value().get_result()->get_primitive(), PLATFORM_TEST_NODE_RUNNER + "_242");
+    ASSERT_TRUE(execs.front().has_value());
+    EXPECT_EQ(execs.front().value().get_result()->get_primitive(), PLATFORM_TEST_NODE_RUNNER + "_242");
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
-    auto res = m_client.get_compute().submit_broadcast(get_node_set(), m_node_name_job, {"42"});
+    auto res = m_client.get_compute().submit_broadcast(broadcast_job_target::nodes(get_node_set()), m_node_name_job, {"42"});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 4);
+    ASSERT_EQ(execs.size(), 4);
 
-    EXPECT_EQ(res[get_node(0)].value().get_result()->get_primitive(), get_node(0).get_name() + "42");
-    EXPECT_EQ(res[get_node(1)].value().get_result()->get_primitive(), get_node(1).get_name() + "42");
-    EXPECT_EQ(res[get_node(2)].value().get_result()->get_primitive(), get_node(2).get_name() + "42");
-    EXPECT_EQ(res[get_node(3)].value().get_result()->get_primitive(), get_node(3).get_name() + "42");
+    std::sort(execs.begin(), execs.end(), [] (auto &n1, auto &n2) {
+        return n1.value().get_node().get_name() < n2.value().get_node().get_name();
+    });
+
+    EXPECT_EQ(execs[0].value().get_result()->get_primitive().get<std::string>(), get_node(0).get_name() + "42");
+    EXPECT_EQ(execs[1].value().get_result()->get_primitive().get<std::string>(), get_node(1).get_name() + "42");
+    EXPECT_EQ(execs[2].value().get_result()->get_primitive().get<std::string>(), get_node(2).get_name() + "42");
+    EXPECT_EQ(execs[3].value().get_result()->get_primitive().get<std::string>(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, job_error_propagates_to_client) {
@@ -189,7 +192,7 @@ TEST_F(compute_test, job_error_propagates_to_client) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().submit(cluster_nodes, m_error_job, {"unused"}).get_result();
+                m_client.get_compute().submit(job_target::any_node(cluster_nodes), m_error_job, {"unused"}).get_result();
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19603
@@ -204,12 +207,12 @@ TEST_F(compute_test, job_error_propagates_to_client) {
 }
 
 TEST_F(compute_test, unknown_node_execute_throws) {
-    auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
+    auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().submit({unknown_node}, m_echo_job, {"unused"});
+                m_client.get_compute().submit(job_target::node(unknown_node), m_echo_job, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(),
                     testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
@@ -221,12 +224,12 @@ TEST_F(compute_test, unknown_node_execute_throws) {
 
 // TODO https://issues.apache.org/jira/browse/IGNITE-21553
 TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
-    auto unknown_node = cluster_node("some", "random", {"127.0.0.1", 1234});
+    auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().submit_broadcast({unknown_node}, m_echo_job, {"unused"});
+                m_client.get_compute().submit_broadcast(broadcast_job_target::node(unknown_node), m_echo_job, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(),
                     testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
@@ -287,7 +290,7 @@ TEST_F(compute_test, submit_colocated) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
         auto key = get_tuple(var.first);
 
-        auto execution = m_client.get_compute().submit_colocated(TABLE_1, key, m_node_name_job, {});
+        auto execution = m_client.get_compute().submit(job_target::colocated(TABLE_1, key), m_node_name_job, {});
         auto res_node_name = execution.get_result();
         auto expected_node_name = PLATFORM_TEST_NODE_RUNNER + var.second;
 
@@ -299,9 +302,9 @@ TEST_F(compute_test, execute_colocated_throws_when_table_does_not_exist) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().submit_colocated("unknownTable", get_tuple(42), m_echo_job, {});
+                (void) m_client.get_compute().submit(job_target::colocated("UNKNOWN_TABLE", get_tuple(42)), m_echo_job, {});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Table does not exist: 'unknownTable'", e.what());
+                EXPECT_STREQ("Table does not exist: 'PUBLIC.UNKNOWN_TABLE'", e.what());
                 throw;
             }
         },
@@ -312,7 +315,7 @@ TEST_F(compute_test, execute_colocated_throws_when_key_column_is_missing) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().submit_colocated(TABLE_1, get_tuple("some"), m_echo_job, {});
+                (void) m_client.get_compute().submit(job_target::colocated(TABLE_1, get_tuple("some")), m_echo_job, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Missed key column: KEY"));
                 throw;
@@ -325,7 +328,7 @@ TEST_F(compute_test, execute_colocated_throws_when_key_is_empty) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().submit_colocated(TABLE_1, {}, m_echo_job, {});
+                (void) m_client.get_compute().submit(job_target::colocated(TABLE_1, {}), m_echo_job, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Key tuple can not be empty", e.what_str());
                 throw;
@@ -343,7 +346,7 @@ TEST_F(compute_test, unknown_unit) {
                     .deployment_units({{"unknown"}})
                     .build();
 
-                (void) m_client.get_compute().submit(cluster_nodes, job_desc, {});
+                (void) m_client.get_compute().submit(job_target::any_node(cluster_nodes), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:latest doesn't exist"));
                 throw;
@@ -361,7 +364,7 @@ TEST_F(compute_test, execute_unknown_unit_and_version) {
                     .deployment_units({{"unknown", "1.2.3"}})
                     .build();
 
-                (void) m_client.get_compute().submit(cluster_nodes, job_desc, {});
+                (void) m_client.get_compute().submit(job_target::any_node(cluster_nodes), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
                 throw;
@@ -379,7 +382,7 @@ TEST_F(compute_test, execute_colocated_unknown_unit_and_version) {
                     .deployment_units({{"unknown", "1.2.3"}})
                     .build();
 
-                (void) comp.submit_colocated(TABLE_1, get_tuple(1), job_desc, {});
+                (void) comp.submit(job_target::colocated(TABLE_1, get_tuple(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
                 throw;
@@ -393,13 +396,14 @@ TEST_F(compute_test, broadcast_unknown_unit_and_version) {
         .deployment_units({{"unknown", "1.2.3"}})
         .build();
 
-    auto res = m_client.get_compute().submit_broadcast({get_node(1)}, job_desc, {});
+    auto res = m_client.get_compute().submit_broadcast(broadcast_job_target::node(get_node(1)), job_desc, {});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(execs.size(), 1);
 
-    auto &res1 = res[get_node(1)];
-    ASSERT_TRUE(res1.has_error());
-    EXPECT_THAT(res1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
+    auto &exec1 = execs.front();
+    ASSERT_TRUE(exec1.has_error());
+    EXPECT_THAT(exec1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
 }
 
 TEST_F(compute_test, execute_empty_unit_name) {
@@ -410,7 +414,7 @@ TEST_F(compute_test, execute_empty_unit_name) {
                     .deployment_units({{""}})
                     .build();
 
-                (void) m_client.get_compute().submit({get_node(1)}, job_desc, {});
+                (void) m_client.get_compute().submit(job_target::node(get_node(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit name can not be empty", e.what_str());
                 throw;
@@ -427,7 +431,7 @@ TEST_F(compute_test, execute_empty_unit_version) {
                     .deployment_units({{"some", ""}})
                     .build();
 
-                (void) m_client.get_compute().submit({get_node(1)}, job_desc, {});
+                (void) m_client.get_compute().submit(job_target::node(get_node(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit version can not be empty", e.what_str());
                 throw;
@@ -444,7 +448,7 @@ TEST_F(compute_test, broadcast_empty_unit_name) {
                     .deployment_units({{""}})
                     .build();
 
-                (void) m_client.get_compute().submit_broadcast({get_node(1)}, job_desc, {});
+                (void) m_client.get_compute().submit_broadcast(broadcast_job_target::node(get_node(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit name can not be empty", e.what_str());
                 throw;
@@ -461,7 +465,7 @@ TEST_F(compute_test, broadcast_empty_unit_version) {
                     .deployment_units({{"some", ""}})
                     .build();
 
-                (void) m_client.get_compute().submit_broadcast({get_node(1)}, job_desc, {});
+                (void) m_client.get_compute().submit_broadcast(broadcast_job_target::node(get_node(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit version can not be empty", e.what_str());
                 throw;
@@ -478,7 +482,7 @@ TEST_F(compute_test, execute_colocated_empty_unit_name) {
                     .deployment_units({{""}})
                     .build();
 
-                (void) m_client.get_compute().submit_colocated(TABLE_1, get_tuple(1), job_desc, {});
+                (void) m_client.get_compute().submit(job_target::colocated(TABLE_1, get_tuple(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit name can not be empty", e.what_str());
                 throw;
@@ -496,7 +500,7 @@ TEST_F(compute_test, execute_colocated_empty_unit_version) {
                     .deployment_units({{"some", ""}})
                     .build();
 
-                comp.submit_colocated(TABLE_1, get_tuple(1), job_desc, {});
+                comp.submit(job_target::colocated(TABLE_1, get_tuple(1)), job_desc, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit version can not be empty", e.what_str());
                 throw;
@@ -508,7 +512,7 @@ TEST_F(compute_test, execute_colocated_empty_unit_version) {
 TEST_F(compute_test, job_execution_status_executing) {
     const std::int32_t sleep_ms = 3000;
 
-    auto execution = m_client.get_compute().submit({get_node(1)}, m_sleep_job, {sleep_ms});
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
 
     auto state = execution.get_state();
 
@@ -519,7 +523,7 @@ TEST_F(compute_test, job_execution_status_executing) {
 TEST_F(compute_test, DISABLED_job_execution_status_completed) {
     const std::int32_t sleep_ms = 1;
 
-    auto execution = m_client.get_compute().submit({get_node(1)}, m_sleep_job, {sleep_ms});
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
     execution.get_result();
 
     auto state = execution.get_state();
@@ -529,7 +533,7 @@ TEST_F(compute_test, DISABLED_job_execution_status_completed) {
 }
 
 TEST_F(compute_test, job_execution_status_failed) {
-    auto execution = m_client.get_compute().submit({get_node(1)}, m_error_job, {"unused"});
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_error_job, {"unused"});
 
     EXPECT_THROW(
         {
@@ -549,9 +553,9 @@ TEST_F(compute_test, job_execution_status_failed) {
 }
 
 TEST_F(compute_test, job_execution_cancel) {
-    const std::int32_t sleep_ms = 5000;
+    constexpr std::int32_t sleep_ms = 5000;
 
-    auto execution = m_client.get_compute().submit({get_node(1)}, m_sleep_job, {sleep_ms});
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
     execution.cancel();
 
     auto state = execution.get_state();
@@ -561,9 +565,9 @@ TEST_F(compute_test, job_execution_cancel) {
 }
 
 TEST_F(compute_test, job_execution_change_priority) {
-    const std::int32_t sleep_ms = 5000;
+    constexpr std::int32_t sleep_ms = 5000;
 
-    auto execution = m_client.get_compute().submit({get_node(1)}, m_sleep_job, {sleep_ms});
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
     auto res = execution.change_priority(123);
 
     EXPECT_EQ(res, job_execution::operation_result::INVALID_STATE);

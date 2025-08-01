@@ -60,7 +60,7 @@ public class GeneralErrorsController {
     public HttpResponse<? extends Problem> unsupportedMediaType(HttpRequest<?> request) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.UNSUPPORTED_MEDIA_TYPE)
-                        .detail("Unsupported media type: " + request.getContentType().map(MediaType::getType).orElse(null))
+                        .detail("Unsupported media type: " + request.getContentType().map(MediaType::getName).orElse(null))
         );
     }
 

@@ -12,51 +12,72 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-= Installing Using DEP and RPM Package
+= Installing Using DEB and RPM Package
 
-Ignite can be installed from the official link:https://www.apache.org/dist/ignite/rpm[RPM] or link:https://www.apache.org/dist/ignite/deb[DEB] repositories.
+Ignite can be installed by using the standard package managers for the platform.
 
 == Installing Deb Package
 
-//Configure the repository:
-
-//[source, shell]
-//----
-//sudo apt update
-//sudo apt install gnupg ca-certificates --no-install-recommends -y
-//----
-
-
-//[source, shell]
-//----
-//sudo bash -c 'cat <<EOF > /etc/apt/sources.list.d/ignite.list
-//deb http://apache.org/dist/ignite/deb/ apache-ignite main
-//EOF'
-//sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0EE62FB37A00258D
-//sudo apt update
-//sudo apt install apache-ignite --no-install-recommends
-//----
-
-Install the Ignite 3 package:
+Install the Ignite 3 packages:
 
 [tabs]
 --
 tab:deb[]
-[source, shell]
+[source, shell, subs="attributes,specialchars"]
 ----
-sudo apt install ignite-db-3.0.0-beta2.deb --no-install-recommends
-sudo apt install ignite-cli-3.0.0-beta2.deb --no-install-recommends
+sudo apt-get install ./ignite3-db-3.0.0.deb --no-install-recommends
+sudo apt-get install ./ignite3-cli-3.0.0.deb --no-install-recommends
 ----
 
 tab:RPM[]
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-sudo rpm -i ignite-db-3.0.0-beta2.noarch.rpm
-
-sudo rpm -i ignite-cli-3.0.0-beta2.noarch.rpm
+sudo rpm -i ignite3-db-3.0.0.noarch.rpm
+sudo rpm -i ignite3-cli-3.0.0.noarch.rpm
 ----
-
 --
+
+The packages will be installed in the following way:
+
+[cols="1,3",opts="stretch,header"]
+|====
+|Folder| Description
+
+|/usr/share/ignite3db|The root installation of Ignite.
+|/etc/ignite3db|The location of configuration files.
+|/var/log/ignite3db|The location of node logs.
+|/usr/lib/ignite3cli|The location of the CLI tool.
+|====
+
+The root of Ignite’s installation
+
+== Running Ignite as a Service
+
+NOTE: When running on Windows 10 WSL or Docker, you should start Ignite as a stand-alone process (not as a service). We recommend to link:installation/installing-using-zip[install Ignite 3 using ZIP archive] in these environments.
+
+To start a Ignite node with a custom configuration, run the following command:
+
+[source, bash]
+----
+sudo systemctl start ignite3db
+----
+
+To launch the node at system startup, run the following command:
+
+[source, bash]
+----
+sudo systemctl enable ignite3db
+----
+
+
+== Running Ignite as a Stand-Alone Process
+
+Generally, you would want to run Ignite as a service. However, Ignite also provides a startup script that can be used to start it as a stand-alone application. To run it, use the following command:
+
+[source, bash]
+----
+sudo bash /usr/share/ignite3db/start.sh 1>/tmp/ignite3-start.log 2>&1 &
+----
 
 == Next Steps
 

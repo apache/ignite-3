@@ -24,17 +24,19 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.TaskStatus.CANCELED;
 import static org.apache.ignite.compute.TaskStatus.EXECUTING;
 import static org.apache.ignite.compute.TaskStatus.FAILED;
+import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
+import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,14 +51,18 @@ import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
-import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.CancellableTaskExecution;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.ResultUnmarshallingJobExecution;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,18 +75,20 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
+public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
 
     private final CompletableFuture<List<JobExecution<T>>> executionsFuture;
 
-    private final CompletableFuture<Map<UUID, T>> resultsFuture;
+    private final CompletableFuture<IgniteBiTuple<Map<UUID, T>, Long>> resultsFuture;
 
     private final CompletableFuture<QueueExecution<R>> reduceExecutionFuture;
 
     private final AtomicReference<TaskState> reduceFailedState = new AtomicReference<>();
+
+    private final CancelHandle cancelHandle = CancelHandle.create();
 
     private final AtomicBoolean isCancelled;
 
@@ -98,7 +106,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
      */
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,
-            JobSubmitter jobSubmitter,
+            JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
@@ -112,7 +120,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
                     reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
-                    return task.splitAsync(context, tryUnmarshalOrCast(task.splitJobInputMarshaller(), arg))
+                    Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
+                    return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 
@@ -120,10 +129,10 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 0
         );
 
-        executionsFuture = splitExecution.resultAsync().thenApply(splitResult -> {
+        executionsFuture = splitExecution.resultAsync().thenCompose(splitResult -> {
             List<MapReduceJob<M, T>> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
-            return submit(runners, jobSubmitter);
+            return jobSubmitter.submit(runners, cancelHandle.token());
         });
 
         resultsFuture = executionsFuture.thenCompose(TaskExecutionInternal::resultsAsync);
@@ -134,8 +143,11 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
             // This future is already finished
             MapReduceTask<I, M, T, R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
+            Map<UUID, T> resMap = results.get1();
+            assert resMap != null : "Results map should not be null";
+
             return executorService.submit(
-                    () -> task.reduceAsync(context, results),
+                    () -> task.reduceAsync(context, resMap),
                     Integer.MAX_VALUE,
                     0
             );
@@ -207,8 +219,10 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
             return falseCompletedFuture();
         }
 
-        // If the split job is not complete, this will cancel the executions future.
+        // If the split job is not complete.
         if (splitExecution.cancel()) {
+            // The split job cancelled, but since it's not a direct chain of futures, we should cancel the next future in chain manually.
+            executionsFuture.cancel(true);
             return trueCompletedFuture();
         }
 
@@ -219,13 +233,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
         // Split job was complete, results future was running, but not complete yet.
         if (resultsFuture.cancel(true)) {
-            return executionsFuture.thenCompose(executions -> {
-                CompletableFuture<Boolean>[] cancelFutures = executions.stream()
-                        .map(JobExecution::cancelAsync)
-                        .toArray(CompletableFuture[]::new);
-
-                return allOf(cancelFutures);
-            }).thenApply(unused -> true);
+            return executionsFuture.thenCompose(unused -> cancelHandle.cancelAsync())
+                    .thenApply(unused -> true);
         }
 
         // Results arrived but reduce is not yet submitted
@@ -279,9 +288,9 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
     }
 
-    private static <T> CompletableFuture<Map<UUID, T>> resultsAsync(List<JobExecution<T>> executions) {
-        CompletableFuture<T>[] resultFutures = executions.stream()
-                .map(JobExecution::resultAsync)
+    private static <T> CompletableFuture<IgniteBiTuple<Map<UUID, T>, Long>> resultsAsync(List<JobExecution<T>> executions) {
+        CompletableFuture<IgniteBiTuple<T, Long>>[] resultFutures = executions.stream()
+                .map(j -> ((ResultUnmarshallingJobExecution<IgniteBiTuple<T, Long>>) j).resultWithTimestampAsync())
                 .toArray(CompletableFuture[]::new);
 
         CompletableFuture<UUID>[] idFutures = executions.stream()
@@ -289,25 +298,49 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 .toArray(CompletableFuture[]::new);
 
         return allOf(concat(resultFutures, idFutures)).thenApply(unused -> {
-            Map<UUID, T> results = new HashMap<>();
+            Map<UUID, T> results = new LinkedHashMap<>();
+            long timestamp = NULL_HYBRID_TIMESTAMP;
 
             for (int i = 0; i < resultFutures.length; i++) {
-                results.put(idFutures[i].join(), resultFutures[i].join());
+                IgniteBiTuple<T, Long> jobRes = resultFutures[i].join();
+                results.put(idFutures[i].join(), jobRes.get1());
+
+                Long jobTs = jobRes.get2();
+                assert jobTs != null : "Job result timestamp should not be null";
+
+                timestamp = Math.max(timestamp, jobTs);
             }
 
-            return results;
+            return new IgniteBiTuple<>(results, timestamp);
         });
-    }
-
-    private static <M, T> List<JobExecution<T>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
-        return runners.stream()
-                .map(jobSubmitter::submit)
-                .collect(toList());
     }
 
     @Override
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
         return reduceResultMarshallerRef;
+    }
+
+    @Override
+    public boolean marshalResult() {
+        // Not needed because split/reduce jobs always run on the client handler node
+        return false;
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        if (resultsFuture.isCompletedExceptionally()) {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
+        IgniteBiTuple<Map<UUID, T>, Long> res = resultsFuture.getNow(null);
+
+        if (res == null) {
+            throw new IllegalStateException("Task execution is not complete yet, cannot get hybrid timestamp.");
+        }
+
+        assert res.get2() != null : "Task result timestamp should not be null";
+
+        return res.get2();
     }
 
     private static class SplitResult<I, M, T, R> {

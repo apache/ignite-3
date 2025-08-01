@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator.message;
 
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageGroup.PRIMARY_REPLICA_CHANGE_COMMAND;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -32,7 +33,7 @@ public interface PrimaryReplicaChangeCommand extends WriteCommand {
     long leaseStartTime();
 
     /** Primary replica node id. */
-    String primaryReplicaNodeId();
+    UUID primaryReplicaNodeId();
 
     /** Primary replica node name. */
     String primaryReplicaNodeName();

@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -64,14 +65,12 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (waiting == 0) {
             sources().get(curSrcIdx).request(waiting = inBufSize);
         } else if (!inLoop) {
-            context().execute(this::flush, this::onError);
+            this.execute(this::flush);
         }
     }
 
@@ -82,8 +81,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     public void push(RowT row, int idx) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -103,8 +100,6 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert waiting > 0;
         assert curSrcIdx == idx;
 
-        checkState();
-
         grouping.endOfSet(idx);
 
         if (type == AggregateType.SINGLE && grouping.isEmpty()) {
@@ -114,7 +109,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         }
 
         if (curSrcIdx >= sources().size()) {
-            waiting = -1;
+            waiting = NOT_WAITING;
 
             flush();
         } else {
@@ -152,14 +147,15 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         };
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
+    }
+
     private void flush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
-        assert waiting == -1;
+        assert waiting == NOT_WAITING;
 
         int processed = 0;
 
@@ -179,7 +175,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
                 if (processed >= inBufSize && requested > 0) {
                     // Allow others to do their job.
-                    context().execute(this::flush, this::onError);
+                    this.execute(this::flush);
 
                     return;
                 }

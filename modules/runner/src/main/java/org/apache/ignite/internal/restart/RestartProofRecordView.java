@@ -30,7 +30,7 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
@@ -205,8 +205,18 @@ class RestartProofRecordView<R> extends RestartProofApiObject<RecordView<R>> imp
     }
 
     @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        consumeAttached(view -> view.deleteAll(tx));
+    }
+
+    @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         return attachedAsync(view -> view.deleteAllAsync(tx, keyRecs));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return attachedAsync(view -> view.deleteAllAsync(tx));
     }
 
     @Override
@@ -225,16 +235,15 @@ class RestartProofRecordView<R> extends RestartProofApiObject<RecordView<R>> imp
     }
 
     @Override
-    public <E, V, R1, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R1> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R1> receiver,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Subscriber<R1> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg
-    ) {
-        return attachedAsync(view -> view.streamData(publisher, keyFunc, payloadFunc, receiver, resultSubscriber, options, receiverArg));
+            @Nullable DataStreamerOptions options) {
+        return attachedAsync(view -> view.streamData(publisher, receiver, keyFunc, payloadFunc, receiverArg, resultSubscriber, options));
     }
 
     // TODO: IGNITE-23011 - support cursor transparency?

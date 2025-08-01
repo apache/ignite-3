@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsImpl.processColumns;
+import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanOrEqualToZero;
 import static org.apache.ignite.internal.catalog.sql.QueryUtils.isGreaterThanZero;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
@@ -39,7 +41,7 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
 
     private CreateTableImpl createTable;
 
-    private String tableName;
+    private QualifiedName tableName;
 
     CreateFromDefinitionImpl(IgniteSql sql) {
         super(sql);
@@ -65,18 +67,21 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
         if (isGreaterThanZero(def.replicas())) {
             createZone.replicas(def.replicas());
         }
-
-        if (!StringUtils.nullOrBlank(def.affinityFunction())) {
-            createZone.affinity(def.affinityFunction());
+        if (isGreaterThanZero(def.quorumSize())) {
+            createZone.quorumSize(def.quorumSize());
         }
 
-        if (isGreaterThanZero(def.dataNodesAutoAdjust())) {
+        if (!StringUtils.nullOrBlank(def.distributionAlgorithm())) {
+            createZone.distributionAlgorithm(def.distributionAlgorithm());
+        }
+
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjust())) {
             createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
         }
-        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleUp())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleUp())) {
             createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
         }
-        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleDown())) {
+        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleDown())) {
             createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
         }
 
@@ -84,14 +89,19 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.filter(def.filter());
         }
 
+        if (!StringUtils.nullOrBlank(def.consistencyMode())) {
+            createZone.consistencyMode(def.consistencyMode());
+        }
         return this;
     }
 
     CreateFromDefinitionImpl from(TableDefinition def) {
         createTable = new CreateTableImpl(sql);
-        String tableName = def.tableName();
-        this.tableName = tableName;
-        createTable.name(def.schemaName(), tableName);
+
+        QualifiedName qualifiedName = def.qualifiedName();
+        this.tableName = qualifiedName;
+        createTable.name(qualifiedName);
+
         if (def.ifNotExists()) {
             createTable.ifNotExists();
         }

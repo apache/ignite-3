@@ -30,7 +30,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -106,8 +105,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 long pageAddr,
                 PageIo io,
                 Long nextLink,
-                int itemId,
-                IoStatisticsHolder statHolder
+                int itemId
         ) throws IgniteInternalCheckedException {
             DataPageIo dataIo = (DataPageIo) io;
 

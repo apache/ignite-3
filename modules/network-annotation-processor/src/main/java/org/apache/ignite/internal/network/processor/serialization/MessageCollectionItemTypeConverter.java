@@ -30,7 +30,7 @@ import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 
 /**
  * Class for extracting {@link MessageCollectionItemType} from different type representations.

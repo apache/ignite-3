@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -39,7 +39,7 @@ import picocli.CommandLine.Parameters;
 public class ConnectReplCommand extends BaseCommand implements Runnable {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
+    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = RestEndpointUrlConverter.class)
     private URL nodeUrl;
 
     @ArgGroup(exclusive = false)

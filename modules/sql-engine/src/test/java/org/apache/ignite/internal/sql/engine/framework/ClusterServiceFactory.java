@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -27,8 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.AbstractTopologyService;
@@ -38,7 +38,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -68,7 +70,7 @@ public class ClusterServiceFactory {
     private ClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
-                key -> new ClusterNodeImpl(UUID.randomUUID().toString(), name, new NetworkAddress(name + "-host", 1000))
+                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
         );
     }
 
@@ -119,6 +121,21 @@ public class ClusterServiceFactory {
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
+
+            @Override
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                ClusterNode node = nodeByName.remove(nodeName);
+
+                if (node != null) {
+                    messagingServicesByNode.remove(nodeName);
+                    topologyServicesByNode.remove(nodeName);
+
+                    topologyServicesByNode.values()
+                            .forEach(topologyService -> topologyService.evictNode(nodeName));
+                }
+
+                return nullCompletedFuture();
+            }
         };
     }
 
@@ -130,9 +147,11 @@ public class ClusterServiceFactory {
         private final Map<NetworkAddress, ClusterNode> allMembersByAddress;
 
         private LocalTopologyService(String localMember, List<String> allMembers) {
-            this.allMembers = allMembers.stream()
+            this.allMembers = new ConcurrentHashMap<>();
+
+            allMembers.stream()
                     .map(LocalTopologyService::nodeFromName)
-                    .collect(Collectors.toMap(ClusterNode::name, Function.identity()));
+                    .forEach(node -> this.allMembers.put(node.name(), node));
 
             this.localMember = this.allMembers.get(localMember);
 
@@ -145,8 +164,21 @@ public class ClusterServiceFactory {
             this.allMembers.forEach((ignored, member) -> allMembersByAddress.put(member.address(), member));
         }
 
+        private void evictNode(String nodeName) {
+            ClusterNode nodeToEvict = allMembers.remove(nodeName);
+
+            if (nodeToEvict != null) {
+                getEventHandlers().forEach(handler -> handler.onDisappeared(nodeToEvict));
+            }
+        }
+
         private static ClusterNode nodeFromName(String name) {
-            return new ClusterNodeImpl(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+            return new ClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+        }
+
+        @Override
+        public Collection<TopologyEventHandler> getEventHandlers() {
+            return super.getEventHandlers();
         }
 
         /** {@inheritDoc} */
@@ -158,6 +190,11 @@ public class ClusterServiceFactory {
         /** {@inheritDoc} */
         @Override
         public Collection<ClusterNode> allMembers() {
+            return allMembers.values();
+        }
+
+        @Override
+        public Collection<ClusterNode> logicalTopologyMembers() {
             return allMembers.values();
         }
 
@@ -174,8 +211,16 @@ public class ClusterServiceFactory {
         }
 
         @Override
-        public @Nullable ClusterNode getById(String id) {
+        public @Nullable ClusterNode getById(UUID id) {
             return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+        }
+
+        @Override
+        public void onJoined(ClusterNode node) {
+        }
+
+        @Override
+        public void onLeft(ClusterNode node) {
         }
     }
 
@@ -204,11 +249,22 @@ public class ClusterServiceFactory {
 
         @Override
         public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
-            for (var handler : messagingServicesByNode.get(recipientConsistentId).messageHandlers(msg.groupType())) {
+            LocalMessagingService recipient = messagingServicesByNode.get(recipientConsistentId);
+
+            if (recipient == null) {
+                return failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
+            }
+
+            for (NetworkMessageHandler handler : recipient.messageHandlers(msg.groupType())) {
                 handler.onReceived(msg, localNode, null);
             }
 
             return nullCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+            return failedFuture(new UnsupportedOperationException());
         }
 
         /** {@inheritDoc} */

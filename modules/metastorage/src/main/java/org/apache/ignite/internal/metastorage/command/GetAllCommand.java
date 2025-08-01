@@ -25,6 +25,8 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
@@ -34,6 +36,7 @@ public interface GetAllCommand extends ReadCommand {
     /**
      * Returns the list of keys.
      */
+    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
     List<ByteBuffer> keys();
 
     /**

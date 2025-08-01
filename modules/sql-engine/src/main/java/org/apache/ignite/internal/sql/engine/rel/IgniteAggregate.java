@@ -29,9 +29,11 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 
 /**
  * IgniteAggregate.
@@ -139,5 +141,20 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
                 estimateMemoryForGroup(mq),
                 0
         );
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        RelDataType rowType = getInput().getRowType();
+
+        writer
+                .addGroup(groupSet, rowType)
+                .addAggregation(aggCalls, rowType);
+
+        if (getGroupType() != Group.SIMPLE) {
+            writer.addGroupSets(groupSets, rowType);
+        }
+
+        return writer;
     }
 }

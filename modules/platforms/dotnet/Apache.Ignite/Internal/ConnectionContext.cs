@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using Ignite.Network;
     using Network;
+    using Proto;
 
     /// <summary>
     /// Socket connection context.
@@ -31,17 +32,27 @@ namespace Apache.Ignite.Internal
     /// <param name="ClusterIds">Cluster ids, from oldest to newest.</param>
     /// <param name="ClusterName">Cluster name.</param>
     /// <param name="SslInfo">SSL info.</param>
+    /// <param name="Features">Protocol features.</param>
     internal record ConnectionContext(
         ClientProtocolVersion Version,
         TimeSpan IdleTimeout,
         ClusterNode ClusterNode,
         IReadOnlyList<Guid> ClusterIds,
         string ClusterName,
-        ISslInfo? SslInfo)
+        ISslInfo? SslInfo,
+        ProtocolBitmaskFeature Features)
     {
         /// <summary>
         /// Gets the current cluster id.
         /// </summary>
         public Guid ClusterId => ClusterIds[^1];
+
+        /// <summary>
+        /// Gets a value indicating whether the server supports the specified feature.
+        /// </summary>
+        /// <param name="feature">Feature flag.</param>
+        /// <returns>True if the server supports the specified feature; false otherwise.</returns>
+        public bool ServerHasFeature(ProtocolBitmaskFeature feature) =>
+            (Features & feature) == feature;
     }
 }

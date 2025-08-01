@@ -1,0 +1,21 @@
+# name: test/sql/types/time/time_parsing.test
+# description: Test time parsing
+# group: [time]
+# Ignore https://issues.apache.org/jira/browse/IGNITE-15619
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19162
+
+statement ok
+PRAGMA enable_verification
+
+# we support up until microsecond precision (max 0-999999)
+query I
+SELECT '14:42:04.999999'::TIME::VARCHAR
+----
+14:42:04.999999
+
+# nanosecond precision gets truncated
+query I
+SELECT '14:42:04.999999999'::TIME::VARCHAR
+----
+14:42:04.999999
+

@@ -25,7 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
+import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.tx.IncompatibleSchemaException;
 
 /**

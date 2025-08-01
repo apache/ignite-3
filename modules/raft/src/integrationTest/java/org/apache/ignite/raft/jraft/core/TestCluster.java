@@ -41,9 +41,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -95,31 +97,29 @@ public class TestCluster {
     private final ConcurrentMap<PeerId, RaftGroupService> serverMap = new ConcurrentHashMap<>();
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
-    private final Consumer<NodeOptions> optsClo;
+    private @Nullable BiConsumer<PeerId, NodeOptions> optsClo;
+
+    private volatile Function<PeerId, MockStateMachine> stateMachineFactory = MockStateMachine::new;
 
     /** Test info. */
     private final TestInfo testInfo;
 
-    private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
+    private Function<PeerId, JRaftServiceFactory> raftServiceFactories = peerId -> new TestJRaftServiceFactory();
 
-    private LinkedHashSet<PeerId> learners;
+    private LinkedHashSet<TestPeer> learners;
 
     private JraftGroupEventsListener raftGrpEvtsLsnr;
 
-    public JRaftServiceFactory getRaftServiceFactory() {
-        return this.raftServiceFactory;
-    }
-
-    public void setRaftServiceFactory(JRaftServiceFactory raftServiceFactory) {
-        this.raftServiceFactory = raftServiceFactory;
+    public void setRaftServiceFactories(Function<PeerId, JRaftServiceFactory> raftServiceFactories) {
+        this.raftServiceFactories = raftServiceFactories;
     }
 
     public LinkedHashSet<PeerId> getLearners() {
-        return this.learners;
+        return this.learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     public void setLearners(LinkedHashSet<TestPeer> learners) {
-        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
+        this.learners = new LinkedHashSet<>(learners);
     }
 
     public TestCluster(String name, String dataPath, List<TestPeer> peers, TestInfo testInfo) {
@@ -153,7 +153,7 @@ public class TestCluster {
         List<TestPeer> peers,
         LinkedHashSet<TestPeer> learners,
         int electionTimeoutMs,
-        @Nullable Consumer<NodeOptions> optsClo,
+        @Nullable BiConsumer<PeerId, NodeOptions> optsClo,
         TestInfo testInfo
     ) {
         this.name = name;
@@ -162,7 +162,7 @@ public class TestCluster {
         this.nodes = new ArrayList<>(this.peers.size());
         this.fsms = new LinkedHashMap<>(this.peers.size());
         this.electionTimeoutMs = electionTimeoutMs;
-        this.learners = learners.stream().map(TestPeer::getPeerId).collect(Collectors.toCollection(LinkedHashSet::new));
+        this.learners = learners;
         this.optsClo = optsClo;
         this.testInfo = testInfo;
     }
@@ -172,7 +172,7 @@ public class TestCluster {
     }
 
     public boolean startLearner(TestPeer peer) throws Exception {
-        this.learners.add(peer.getPeerId());
+        this.learners.add(peer);
         return this.start(peer, false, 300);
     }
 
@@ -217,7 +217,7 @@ public class TestCluster {
             nodeOptions.setEnableMetrics(enableMetrics);
             nodeOptions.setSnapshotThrottle(snapshotThrottle);
             nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
-            nodeOptions.setServiceFactory(this.raftServiceFactory);
+            nodeOptions.setServiceFactory(this.raftServiceFactories.apply(peer.getPeerId()));
             if (clock != null) {
                 nodeOptions.setClock(clock);
             }
@@ -242,7 +242,7 @@ public class TestCluster {
 
             nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
-            MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+            MockStateMachine fsm = stateMachineFactory.apply(peer.getPeerId());
             nodeOptions.setFsm(fsm);
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
@@ -250,19 +250,21 @@ public class TestCluster {
             List<NetworkAddress> addressList = List.of();
 
             if (!emptyPeers) {
-                addressList = peers.stream()
+                addressList = Stream.concat(peers.stream(), learners.stream())
                         .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
                         .collect(toList());
 
                 nodeOptions.setInitialConf(new Configuration(
                         peers.stream().map(TestPeer::getPeerId).collect(toList()),
-                        learners
+                        getLearners()
                 ));
             }
 
-            NodeManager nodeManager = new NodeManager();
-
             ClusterService clusterService = clusterService(testInfo, peer.getPort(), new StaticNodeFinder(addressList));
+            NodeManager nodeManager = new NodeManager(clusterService);
+
+            nodeOptions.setScheduler(JRaftUtils.createScheduler(nodeOptions));
+            nodeOptions.setNodeManager(nodeManager);
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
@@ -272,16 +274,19 @@ public class TestCluster {
 
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-            var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+            var rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+            nodeManager.init(nodeOptions);
+
             if (optsClo != null)
-                optsClo.accept(nodeOptions);
+                optsClo.accept(peer.getPeerId(), nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
-                nodeOptions, rpcServer, nodeManager) {
+                nodeOptions, rpcServer) {
                 @Override public synchronized void shutdown() {
+                    nodeManager.shutdown();
                     // This stop order is consistent with JRaftServerImpl
                     rpcServer.shutdown();
 
@@ -299,7 +304,7 @@ public class TestCluster {
 
             Node node = server.start();
 
-            this.fsms.put(peer.getPeerId(), fsm);
+            this.fsms.put(peer.getPeerId(), (MockStateMachine) nodeOptions.getFsm());
             this.nodes.add((NodeImpl) node);
             return true;
         }
@@ -443,7 +448,7 @@ public class TestCluster {
         this.lock.lock();
         try {
             for (NodeImpl node : this.nodes) {
-                if (!node.isLeader() && !this.learners.contains(node.getServerId())) {
+                if (!node.isLeader() && this.learners.stream().noneMatch(learner -> learner.getPeerId().equals(node.getServerId()))) {
                     ret.add(node);
                 }
             }
@@ -606,5 +611,13 @@ public class TestCluster {
 
             assertSame(leader, leader1, "Leader shouldn't change while comparing fsms");
         }
+    }
+
+    public void setNodeOptionsCustomizer(BiConsumer<PeerId, NodeOptions> customizer) {
+        this.optsClo = customizer;
+    }
+
+    public void setStateMachineFactory(Function<PeerId, MockStateMachine> factory) {
+        this.stateMachineFactory = factory;
     }
 }

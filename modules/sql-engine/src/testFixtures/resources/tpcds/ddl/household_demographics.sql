@@ -1,0 +1,10 @@
+create table HOUSEHOLD_DEMOGRAPHICS
+(
+    HD_DEMO_SK        INTEGER not null,
+    HD_INCOME_BAND_SK INTEGER,
+    HD_BUY_POTENTIAL  VARCHAR(15),
+    HD_DEP_COUNT      INTEGER,
+    HD_VEHICLE_COUNT  INTEGER,
+    constraint HOUSEHOLD_DEMOGRAPHICS_PK
+        primary key (HD_DEMO_SK)
+);

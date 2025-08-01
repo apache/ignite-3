@@ -309,14 +309,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBrokenTransaction() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION;");
-        assertFalse(res);
-        assertNull(stmt.getResultSet());
-        assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-        assertEquals(-1, stmt.getUpdateCount());
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                "Transaction block doesn't have a COMMIT statement at the end.",
+                () -> stmt.execute("START TRANSACTION;")
+        );
 
-        res = stmt.execute("COMMIT;");
+        boolean res = stmt.execute("COMMIT;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
@@ -421,14 +420,23 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
 
         boolean res = stmt.execute("SELECT 1;COMMIT");
         assertTrue(res);
         assertNotNull(stmt.getResultSet());
         assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
 
-        // TX control statements don't affect a JDBC managed transaction.
+        // Even though TX control statements don't affect a JDBC managed transaction directly,
+        // exceptions during execution of previous statements may cause the transaction to rollback.
+        assertThrowsSqlException(
+                "Transaction is already finished",
+                () -> stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")
+        );
+
+        // Let's recover connection.
+        conn.rollback();
+
         {
             long initialRowsCount;
 
@@ -465,8 +473,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
                     assertTrue(rs.next());
 
-                    // The first DML statement was successfully inserted.
-                    assertEquals(initialRowsCount + 1, rs.getLong(1));
+                    assertEquals(initialRowsCount, rs.getLong(1));
                 }
             }
         }

@@ -1,0 +1,76 @@
+version: "3.9"
+
+# TODO: For some reason I had to define the consistent id because the nodes were always colliding with each other
+
+name: test-cluster-generator
+
+x-ignite-def:
+  &ignite-def
+  image: apacheignite/ignite:2.15.0-jdk11
+  volumes:
+    - ./example-persistent-store.xml:/config-file.xml
+    - ./test-cluster:/storage
+
+services:
+  node1:
+    << : *ignite-def
+    environment:
+      IGNITE_WORK_DIR: /storage
+      CONFIG_URI: /config-file.xml
+      IGNITE_NODE_NAME: ad26bff6-5ff5-49f1-9a61-425a827953ed
+      IGNITE_QUIET: false
+    #ports:
+    #  - 10800:10800 # JDBC port
+  node2:
+    << : *ignite-def
+    environment:
+      IGNITE_WORK_DIR: /storage
+      CONFIG_URI: /config-file.xml
+      IGNITE_NODE_NAME: c1099d16-e7d7-49f4-925c-53329286c444
+      IGNITE_QUIET: false
+    depends_on:
+      - node1
+
+  node3:
+    << : *ignite-def
+    environment:
+      IGNITE_WORK_DIR: /storage
+      CONFIG_URI: /config-file.xml
+      IGNITE_NODE_NAME: 7b880b69-8a9e-4b84-b555-250d365e2e67
+      IGNITE_QUIET: false
+    depends_on:
+      - node2
+
+  seed-data-tests:
+    image: maven:3-jdk-11
+    working_dir: /app
+    command: mvn -pl ai2-runner exec:java@seed-data-tests
+    environment:
+      MAVEN_OPTS: "--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-exports=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-exports=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.access=ALL-UNNAMED --illegal-access=permit"
+      CONFIG_URI: /config-file.xml
+      IGNITE_NODE_NAME: b9ab9059-f35a-4c3f-aa49-fdf15db05e07
+    volumes:
+      - $HOME/.m2:/root/.m2 # This can be problematic in the future. We probably need to compile the examples.
+      - ./example-persistent-store.xml:/config-file.xml
+      - ../../tools/sample-cluster-generator:/app
+    depends_on:
+      - node3
+    profiles:
+      - seed-data
+
+  ai2-api-tests:
+    image: maven:3-jdk-11
+    working_dir: /app
+    command: mvn -pl ai2-runner exec:java@ai2-api-tests
+    environment:
+      MAVEN_OPTS: "--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-exports=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-exports=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.access=ALL-UNNAMED --illegal-access=permit"
+      CONFIG_URI: /config-file.xml
+      IGNITE_NODE_NAME: b9ab9059-f35a-4c3f-aa49-fdf15db05e07
+    volumes:
+      - $HOME/.m2:/root/.m2 # This can be problematic in the future. We probably need to compile the examples.
+      - ./example-persistent-store.xml:/config-file.xml
+      - ../../tools/sample-cluster-generator:/app
+    depends_on:
+      - node3
+    profiles:
+      - ai2-api

@@ -23,11 +23,16 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
@@ -37,13 +42,13 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
@@ -79,7 +84,17 @@ public class TestServer {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
-                : new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+                : new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+                    @Override
+                    public void log(Event event) {
+
+                    }
+
+                    @Override
+                    public void log(String type, Supplier<Event> eventProvider) {
+
+                    }
+                });
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.networkConfiguration = networkConfiguration;
 
@@ -102,7 +117,7 @@ public class TestServer {
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(10800)
-                        .changeIdleTimeout(idleTimeout)
+                        .changeIdleTimeoutMillis(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
@@ -116,7 +131,7 @@ public class TestServer {
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(new UUID(0, 0));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
         ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "Test Server");
@@ -124,7 +139,7 @@ public class TestServer {
         var module = new ClientHandlerModule(
                 mock(QueryProcessor.class),
                 mock(IgniteTablesInternal.class),
-                mock(IgniteTransactionsImpl.class),
+                mock(TxManager.class),
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
@@ -137,7 +152,9 @@ public class TestServer {
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                new SystemPropertiesNodeProperties(),
+                Runnable::run
         );
 
         module.startAsync(componentContext).join();

@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.sql;
 
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
+
 /**
  * Common SQL utilities.
  */
 public final class SqlCommon {
-    /** Name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    /** Normalized name of the default schema. */
+    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
 
     /** Default page size. */
     public static final int DEFAULT_PAGE_SIZE = 1024;

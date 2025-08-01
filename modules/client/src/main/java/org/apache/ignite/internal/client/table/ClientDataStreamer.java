@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -33,10 +31,11 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,11 +71,15 @@ class ClientDataStreamer {
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            List<DeploymentUnit> deploymentUnits,
-            String receiverClassName,
-            A receiverArgs,
-            @Nullable Marshaller<A, byte[]> receiverArgsMarshaller
+            DataStreamerReceiverDescriptor<V, A, R> receiverDescriptor,
+            @Nullable A receiverArg
     ) {
+        var opts = receiverDescriptor.options();
+        if (opts != null && !opts.equals(ReceiverExecutionOptions.DEFAULT)) {
+            // TODO IGNITE-25373 Support ReceiverExecutionOptions in Java thin client.
+            throw new UnsupportedOperationException("Receiver options are not supported yet.");
+        }
+
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
@@ -87,14 +90,20 @@ class ClientDataStreamer {
                                     ClientMessagePacker w = out.out();
                                     w.packInt(tbl.tableId());
                                     w.packInt(partitionId);
-                                    w.packDeploymentUnits(deploymentUnits);
+                                    w.packDeploymentUnits(receiverDescriptor.units());
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
                                     StreamerReceiverSerializer.serializeReceiverInfoOnClient(
-                                            w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
+                                            w,
+                                            receiverDescriptor.receiverClassName(),
+                                            receiverArg,
+                                            receiverDescriptor.payloadMarshaller(),
+                                            receiverDescriptor.argumentMarshaller(),
+                                            items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(
+                                                in.in(), receiverDescriptor.resultMarshaller())
                                         : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),

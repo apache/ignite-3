@@ -19,14 +19,15 @@ package org.apache.ignite.internal.cluster.management.network;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -42,13 +43,13 @@ import org.jetbrains.annotations.Nullable;
  * regular message handler.
  */
 public class CmgMessageHandler implements NetworkMessageHandler {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
-
     private final IgniteSpinBusyLock busyLock;
 
     private final CmgMessagesFactory msgFactory;
 
     private final ClusterService clusterService;
+
+    private final FailureProcessor failureProcessor;
 
     private final CmgMessageCallback cmgMessageCallback;
 
@@ -86,17 +87,20 @@ public class CmgMessageHandler implements NetworkMessageHandler {
      * @param busyLock Start-stop lock of the enclosing Ignite component.
      * @param msgFactory Network message factory.
      * @param clusterService Network service.
+     * @param failureProcessor Failure processor.
      * @param cmgMessageCallback Message callback.
      */
     public CmgMessageHandler(
             IgniteSpinBusyLock busyLock,
             CmgMessagesFactory msgFactory,
             ClusterService clusterService,
+            FailureProcessor failureProcessor,
             CmgMessageCallback cmgMessageCallback
     ) {
         this.busyLock = busyLock;
         this.msgFactory = msgFactory;
         this.clusterService = clusterService;
+        this.failureProcessor = failureProcessor;
         this.cmgMessageCallback = cmgMessageCallback;
     }
 
@@ -123,11 +127,15 @@ public class CmgMessageHandler implements NetworkMessageHandler {
                 cmgMessageCallback.onClusterStateMessageReceived((ClusterStateMessage) message, sender, correlationId);
             } else if (message instanceof CancelInitMessage) {
                 cmgMessageCallback.onCancelInitMessageReceived((CancelInitMessage) message, sender, correlationId);
+            } else if (message instanceof RefuseJoinMessage) {
+                cmgMessageCallback.onRefuseJoinMessageReceived((RefuseJoinMessage) message, sender, correlationId);
             } else if (message instanceof CmgInitMessage) {
                 cmgMessageCallback.onCmgInitMessageReceived((CmgInitMessage) message, sender, correlationId);
+            } else if (message instanceof CmgPrepareInitMessage) {
+                cmgMessageCallback.onCmgPrepareInitMessageReceived((CmgPrepareInitMessage) message, sender, correlationId);
             }
         } catch (Exception e) {
-            LOG.error("CMG message handling failed", e);
+            failureProcessor.process(new FailureContext(e, "CMG message handling failed"));
 
             if (correlationId != null) {
                 clusterService.messagingService().respond(sender, initFailed(e), correlationId);

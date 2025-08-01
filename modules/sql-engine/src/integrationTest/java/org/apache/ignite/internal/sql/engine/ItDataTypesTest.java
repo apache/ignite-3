@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,6 +52,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -61,18 +64,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static final String NUMERIC_FORMAT_ERROR = "neither a decimal digit number";
 
-    private static final Object EMPTY_PARAM = new Object();
-
     /**
      * Drops all created tables.
      */
     @AfterEach
     public void dropTables() {
-        var igniteTables = CLUSTER.aliveNode().tables();
-
-        for (var table : igniteTables.tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
     /** Tests correctness with unicode. */
@@ -118,12 +115,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void exactWithApproxComparison() {
-        assertQuery("SELECT '1.1' > 2").returns(false).check();
         assertQuery("SELECT '1.1'::INTEGER > 2").returns(false).check();
-
-        assertQuery("SELECT '1.1' > 2.2").returns(false).check();
 
         assertQuery("SELECT 1.1::INTEGER > 2").returns(false).check();
         assertQuery("SELECT 2 < 1.1::INTEGER").returns(false).check();
@@ -135,61 +128,32 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT '1.1'::float > 2").returns(false).check();
     }
 
-    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-    @ParameterizedTest()
-    @MethodSource("exactDecimalTypes")
-    public void testFilterTypeWiderThanColumnExprErr(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
-        sql(format("create table tbl(v {});", typeName));
-        sql(format("insert into tbl values({});", upper));
+    @ParameterizedTest
+    @CsvSource({"FLOAT", "REAL", "DOUBLE"})
+    public void nonFiniteNumerics(String type) {
+        Number positiveInfinity;
+        Number negativeInfinity;
+        Number nan;
 
-        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
+        if ("DOUBLE".equals(type)) {
+            positiveInfinity = Double.POSITIVE_INFINITY;
+            negativeInfinity = Double.NEGATIVE_INFINITY;
+            nan = Double.NaN;
+        } else {
+            positiveInfinity = Float.POSITIVE_INFINITY;
+            negativeInfinity = Float.NEGATIVE_INFINITY;
+            nan = Float.NaN;
+        }
 
-        String errMsg = typeName + " out of range";
+        assertQuery(format("SELECT CAST('+Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('-Infinity' AS {})", type)).returns(negativeInfinity).check();
+        assertQuery(format("SELECT CAST('NaN' AS {})", type)).returns(nan).check();
 
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v = '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v = {}::VARCHAR", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v < '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v > '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v <> '{}'", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v != ' {} '", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', '{}')", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                errMsg,
-                () -> sql(format("SELECT * FROM tbl WHERE v NOT IN ('1', {}::VARCHAR)", moreThanUpperBoundApprox)));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                "out of range",
-                () -> sql(format("SELECT * FROM tbl WHERE v IN ('1', (SELECT {}))", moreThanUpperBoundApprox)));
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('+Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k > CAST('-Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k <> CAST('NaN' AS {})", type)).returns(0).check();
     }
 
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
@@ -209,9 +173,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v = {}", upper)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} = v", upper)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v = '{}'", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE '{}' = v", upper)).returns(checkReturn).check();
-
         assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
 
@@ -220,18 +181,15 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertQuery(format("SELECT * FROM tbl WHERE v < (SELECT {})", moreThanUpperBoundApprox)).returns(checkReturn).check();
         assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})::varchar", strUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v = ' {} '", strUpper)).returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN (' {}' + '1', '0')", lessUpper)).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}), '0')", strUpper))
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ({} + 1)", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}))", strUpper))
                 .returns(checkReturn).check();
 
-        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1, '0')", lessUpper, typeName)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1)", lessUpper, typeName)).returns(checkReturn).check();
 
-        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1, '0')").withParam(lessUpper).returns(checkReturn).check();
-        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
-        assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1)").withParam(lessUpper).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ({} - 1)", strUpper)).returns(checkReturn).check();
 
         BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
         assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
@@ -318,7 +276,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Tests numeric type convertation on equals.
+     * Tests numeric type conversion on equals.
      */
     @Test
     public void testNumericConvertingOnEquals() {
@@ -387,7 +345,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         LocalDateTime localDateTime = LocalDateTime.parse(isoStr);
         Instant instant = localDateTime.atZone(zoneId).toInstant();
 
-        assertQuery(format("INSERT INTO timestamps VALUES(1, '{}', '{}')", tsStr, tsStr))
+        assertQuery(format(
+                "INSERT INTO timestamps VALUES(1, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')",
+                tsStr, tsStr))
                 .withTimeZoneId(zoneId)
                 .returns(1L)
                 .check();
@@ -483,11 +443,11 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
         assertQuery("select decode(1, 0, 0, ?, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
-        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.000000")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
         assertQuery("select decode(1, 0, 0, ?, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
-        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.00")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.000000")).check();
         assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
         assertQuery("select decode(?, 0, 1.0, 1, 1, 5)").withParams(3).returns(new BigDecimal("5.0")).check();
@@ -511,10 +471,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
         assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
         assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
-        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0"))).check();
-
-        assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
-        assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
+        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0000000"))).check();
 
         assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
                 .returns(new BigDecimal("1.00")).check();
@@ -603,70 +560,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         expectResult(checker, result);
     }
 
-    @ParameterizedTest(name = "{1} {2}")
-    @MethodSource("decimalOverflows")
-    public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
-        if (param == EMPTY_PARAM) {
-            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr));
-        } else {
-            assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
-        }
-    }
-
-    private static Stream<Arguments> decimalOverflows() {
-        return Stream.of(
-                // BIGINT
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -(-9223372036854775807 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -CAST(-9223372036854775808 AS BIGINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808/-1", EMPTY_PARAM),
-
-                // INTEGER
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648 AS BIGINT) AS INTEGER)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS INTEGER)",
-                        EMPTY_PARAM),
-
-                // SMALLINT
-                arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS SMALLINT)",
-                        EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS BIGINT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(33000 + 1 AS FLOAT) AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT 17000::SMALLINT * 2::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -32000::SMALLINT - 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -(-32767::SMALLINT - 1::SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(-32768 AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(? AS SMALLINT)", -32768),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST (-32768 AS SMALLINT)/-1::SMALLINT", EMPTY_PARAM),
-
-                // TINYINT
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT + 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "select CAST(9223372036854775807.5 + 9223372036854775807.5 AS TINYINT)",
-                        EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS BIGINT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT * 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -2::TINYINT - 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -(-127::TINYINT - 1::TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(-128 AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128 AS TINYINT)/-1::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(200 + 1 AS FLOAT) AS TINYINT)", EMPTY_PARAM)
-        );
-    }
-
     @ParameterizedTest(name = "{1}")
     @MethodSource("decimalOverflowsValidation")
     public void testCastDecimalOverflows(SqlTypeName type, String expr, Boolean withException) {
@@ -738,7 +631,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void testCharTypesWithTrailingSpacesAreTrimmed() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
 
@@ -761,7 +653,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void insertCharLimitation() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
@@ -789,7 +680,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, 123)"));
+                    sql("insert into limitedChar(pk, f1) values (1, 123::VARCHAR)"));
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
@@ -802,7 +693,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
-                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test'))"));
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test')::VARCHAR)"));
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
                     sql("insert into limitedChar(pk, f1) values (1, '12' || ?)", "dynamic param string"));
@@ -819,9 +710,18 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void testCalciteUnionCharLiteralsBug() {
+        // See https://issues.apache.org/jira/browse/CALCITE-6350 the report states the issue was fixed by removing a cast in
+        // AbstractTypeCoercion::needToCast but that `fix` causes silent data truncation by introducing extra casts.
+        // The query works in AI w/o that `fix`.
+        assertQuery("SELECT * FROM (SELECT 'word' i UNION ALL SELECT 'w' i) t1 WHERE i='w'")
+                .returns("w")
+                .check();
+    }
+
     /** Test correctness of char types limitation against merge and update operations. */
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void charLimitationWithMergeUpdateOp() {
         try {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
@@ -857,12 +757,52 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testErrorIfBinaryValueSizeGtThanTypePrecision() {
+        sql("CREATE TABLE t(id INT PRIMARY KEY, val5 VARBINARY(5), val6 VARBINARY(6))");
+
+        Object param = "1".repeat(6).getBytes(StandardCharsets.UTF_8);
+        Object value = "1".repeat(12);
+
+        sql(format("INSERT INTO t VALUES(1, DEFAULT, x'{}')", value));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t VALUES(2, ?, DEFAULT)", param)
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t VALUES(2, x'{}', DEFAULT)", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("UPDATE t SET val5=x'{}' WHERE id=1", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t SELECT id, val6, val6 FROM t")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t SELECT * FROM (VALUES(2, x'{}', x'{}')) as tk(k, v1, v2)", value, value))
+        );
+    }
+
+    @Test
     public void zeroStringsAreNotAllowed() {
         // Char
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type CHAR must be at least 1",
+                "CHAR length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
@@ -871,7 +811,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type VARCHAR must be at least 1",
+                "VARCHAR length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(1 AS VARCHAR(0))")
         );
 
@@ -879,15 +819,76 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type BINARY must be at least 1",
+                "BINARY length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
         );
         // Varbinary
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for type VARBINARY must be at least 1",
+                "VARBINARY length 0 must be between 1 and 2147483647",
                 () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
+        );
+    }
+
+    @Test
+    public void testInvalidTypeInCast() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS CHAR(2147483648))")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS VARCHAR(2147483648))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS VARBINARY(2147483648))")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS BINARY(2147483648))")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 100000000 must be between 1 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100000000))")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 100000000 must be between 0 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100, 100000000))")
+        );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('00:00:00' AS TIME(100000000))")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('2000-01-01 00:00:00' AS TIMESTAMP(100000000))")
         );
     }
 
@@ -965,7 +966,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
                 // passed with runtime call and failed with parsing substitution
-                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
+                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.1")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),

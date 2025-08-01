@@ -19,16 +19,20 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.times;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -36,15 +40,13 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,18 +63,22 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
     private static QueryCheckerFactory queryCheckerFactory;
 
     private static final TestCluster CLUSTER = TestBuilders.cluster()
-            .nodes(NODE_NAME1, true)
-            .addTable()
-            .name("T1")
-            .addKeyColumn("ID", NativeTypes.INT32)
-            .addColumn("VAL", NativeTypes.INT32)
-            .end()
-            .dataProvider(NODE_NAME1, "T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of())))
+            .nodes(NODE_NAME1)
             .build(); // add method use table partitions
 
     @BeforeAll
      static void startCluster() {
         CLUSTER.start();
+
+        //noinspection ConcatenationWithEmptyString
+        CLUSTER.node("N1").initSchema(""
+                + "CREATE ZONE test_zone (partitions 3) storage profiles ['Default'];"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone");
+
+        CLUSTER.setAssignmentsProvider("T1", (partitionCount, b) -> IntStream.range(0, partitionCount)
+                .mapToObj(i -> List.of("N1"))
+                .collect(Collectors.toList()));
+        CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of())));
     }
 
     @AfterAll
@@ -85,17 +91,17 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testEnlistCall() {
-        NoOpTransaction tx = NoOpTransaction.readWrite("t1");
+        NoOpTransaction tx = NoOpTransaction.readWrite("t1", false);
 
         NoOpTransaction spiedTx = Mockito.spy(tx);
 
         try {
             assertQuery("INSERT INTO t1 VALUES(1, 2), (2, 3)", spiedTx).check();
-        } catch (Exception ex) {
+        } catch (Exception ignored) {
             // No op.
         }
 
-        Mockito.verify(spiedTx, times(2)).enlist(any(), any());
+        Mockito.verify(spiedTx, times(2)).enlist(any(), anyInt(), any(), anyLong());
     }
 
     private static QueryChecker assertQuery(String qry, InternalTransaction tx) {
@@ -120,8 +126,12 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-                @Nullable InternalTransaction transaction, String qry, Object... params) {
+        public CompletableFuture<QueryMetadata> prepareSingleAsync(
+                SqlProperties properties,
+                @Nullable InternalTransaction transaction,
+                String qry,
+                Object... params
+        ) {
             assert params == null || params.length == 0 : "params are not supported";
             assert prepareOnly : "Expected that the query will be executed";
 
@@ -135,25 +145,14 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
                 SqlProperties properties,
                 HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
+                @Nullable CancellationToken cancellationToken,
                 String qry,
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
-            QueryPlan plan = node.prepare(qry);
-            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan, transaction);
-
-            SqlQueryType type = plan.type();
-
-            assert type != null;
-
-            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
-                    type,
-                    plan.metadata(),
-                    dataCursor,
-                    null
-            );
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = node.executeQuery(transaction, qry);
 
             return CompletableFuture.completedFuture(sqlCursor);
         }

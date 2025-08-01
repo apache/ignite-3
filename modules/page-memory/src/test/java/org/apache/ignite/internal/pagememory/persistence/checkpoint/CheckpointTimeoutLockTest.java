@@ -45,23 +45,31 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link CheckpointTimeoutLock} testing.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointTimeoutLock timeoutLock;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @AfterEach
     void tearDown() {
@@ -75,7 +83,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Test
     void testCheckpointReadLockTimeout() {
         timeoutLock = new CheckpointTimeoutLock(
-                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         timeoutLock.start();
 
@@ -89,9 +97,9 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Test
     void testCheckpointReadLock() throws Exception {
         var timeoutLock0 = new CheckpointTimeoutLock(
-                newReadWriteLock(), 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                newReadWriteLock(), 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
         var timeoutLock1 = new CheckpointTimeoutLock(
-                newReadWriteLock(), 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                newReadWriteLock(), 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         try {
             timeoutLock0.start();
@@ -117,7 +125,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
         timeoutLock = new CheckpointTimeoutLock(
-                readWriteLock, 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                readWriteLock, 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         timeoutLock.start();
 
@@ -137,7 +145,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Test
     void testCheckpointReadLockFailOnNodeStop() {
         timeoutLock = new CheckpointTimeoutLock(
-                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         timeoutLock.stop();
 
@@ -151,13 +159,13 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
-        FailureProcessor failureProcessor = mock(FailureProcessor.class);
-        doAnswer(invocation -> true).when(failureProcessor).process(any());
+        FailureManager failureManager = mock(FailureManager.class);
+        doAnswer(invocation -> true).when(failureManager).process(any());
 
         var timeoutLock0 = new CheckpointTimeoutLock(
-                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), failureProcessor);
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), failureManager);
         var timeoutLock1 = new CheckpointTimeoutLock(
-                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), failureProcessor);
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), failureManager);
 
         try {
             timeoutLock0.start();
@@ -197,9 +205,9 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
         var timeoutLock0 = new CheckpointTimeoutLock(
-                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
         var timeoutLock1 = new CheckpointTimeoutLock(
-                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         try {
             timeoutLock0.start();
@@ -236,9 +244,9 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
         var timeoutLock0 = new CheckpointTimeoutLock(
-                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
         var timeoutLock1 = new CheckpointTimeoutLock(
-                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureManager.class));
 
         try {
             timeoutLock0.start();
@@ -306,7 +314,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         AtomicReference<CheckpointUrgency> urgency = new AtomicReference<>(MUST_TRIGGER);
 
         timeoutLock = new CheckpointTimeoutLock(
-                newReadWriteLock(), 0, urgency::get, checkpointer, mock(FailureProcessor.class));
+                newReadWriteLock(), 0, urgency::get, checkpointer, mock(FailureManager.class));
 
         timeoutLock.start();
 
@@ -328,7 +336,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = newCheckpointer(currentThread(), failedFuture(new Exception("test")));
 
         timeoutLock = new CheckpointTimeoutLock(
-                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureProcessor.class));
+                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureManager.class));
 
         timeoutLock.start();
 
@@ -347,7 +355,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         Checkpointer checkpointer = newCheckpointer(currentThread(), future);
 
         timeoutLock = new CheckpointTimeoutLock(
-                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureProcessor.class));
+                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureManager.class));
 
         timeoutLock.start();
 
@@ -377,7 +385,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000));
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService);
     }
 
     private CheckpointProgress newCheckpointProgress(CompletableFuture<?> future) {

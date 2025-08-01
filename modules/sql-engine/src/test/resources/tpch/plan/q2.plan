@@ -1,0 +1,146 @@
+Sort
+    collation: [S_ACCTBAL DESC, N_NAME ASC, S_NAME ASC, P_PARTKEY ASC]
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [S_ACCTBAL, S_NAME, N_NAME, P_PARTKEY, P_MFGR, S_ADDRESS, S_PHONE, S_COMMENT]
+      projection: [S_ACCTBAL, S_NAME, N_NAME, P_PARTKEY, P_MFGR, S_ADDRESS, S_PHONE, S_COMMENT]
+      est: (rows=3327)
+    Filter
+        predicate: =(PS_SUPPLYCOST, EXPR$0)
+        est: (rows=3327)
+      CorrelatedNestedLoopJoin
+          predicate: true
+          type: left
+          correlates: [$cor1]
+          est: (rows=22178)
+        Project
+            fieldNames: [P_PARTKEY, P_MFGR, S_NAME, S_ADDRESS, S_PHONE, S_ACCTBAL, S_COMMENT, PS_SUPPLYCOST, N_NAME]
+            projection: [P_PARTKEY, P_MFGR, S_NAME, S_ADDRESS, S_PHONE, S_ACCTBAL, S_COMMENT, PS_SUPPLYCOST, N_NAME]
+            est: (rows=22178)
+          MergeJoin
+              predicate: =(S_SUPPKEY, PS_SUPPKEY)
+              type: inner
+              est: (rows=22178)
+            HashJoin
+                predicate: =(P_PARTKEY, PS_PARTKEY)
+                type: inner
+                est: (rows=66600)
+              Exchange
+                  distribution: single
+                  est: (rows=800000)
+                IndexScan
+                    table: PUBLIC.PARTSUPP
+                    index: PS_SK_PK
+                    type: SORTED
+                    fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
+                    collation: [PS_SUPPKEY ASC, PS_PARTKEY ASC]
+                    est: (rows=800000)
+              Exchange
+                  distribution: single
+                  est: (rows=16650)
+                TableScan
+                    table: PUBLIC.PART
+                    predicate: AND(=(P_SIZE, 15), LIKE(P_TYPE, _UTF-8'%BRASS'))
+                    fieldNames: [P_PARTKEY, P_MFGR, P_TYPE, P_SIZE]
+                    est: (rows=16650)
+            HashJoin
+                predicate: =(S_NATIONKEY, N_NATIONKEY)
+                type: inner
+                est: (rows=3330)
+              Exchange
+                  distribution: single
+                  est: (rows=10000)
+                Sort
+                    collation: [S_SUPPKEY ASC]
+                    est: (rows=10000)
+                  TableScan
+                      table: PUBLIC.SUPPLIER
+                      fieldNames: [S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY, S_PHONE, S_ACCTBAL, S_COMMENT]
+                      est: (rows=10000)
+              MergeJoin
+                  predicate: =(N_REGIONKEY, R_REGIONKEY)
+                  type: inner
+                  est: (rows=8)
+                Exchange
+                    distribution: single
+                    est: (rows=25)
+                  IndexScan
+                      table: PUBLIC.NATION
+                      index: N_RK
+                      type: SORTED
+                      fieldNames: [N_NATIONKEY, N_NAME, N_REGIONKEY]
+                      collation: [N_REGIONKEY ASC]
+                      est: (rows=25)
+                Exchange
+                    distribution: single
+                    est: (rows=2)
+                  Sort
+                      collation: [R_REGIONKEY ASC]
+                      est: (rows=2)
+                    TableScan
+                        table: PUBLIC.REGION
+                        predicate: =(R_NAME, _UTF-8'EUROPE')
+                        fieldNames: [R_REGIONKEY, R_NAME]
+                        est: (rows=2)
+        ColocatedHashAggregate
+            fieldNames: [EXPR$0]
+            group: []
+            aggregation: [MIN(PS_SUPPLYCOST)]
+            est: (rows=1)
+          Project
+              fieldNames: [PS_SUPPLYCOST]
+              projection: [PS_SUPPLYCOST]
+              est: (rows=88711)
+            HashJoin
+                predicate: =(S_SUPPKEY, PS_SUPPKEY)
+                type: inner
+                est: (rows=88711)
+              Exchange
+                  distribution: single
+                  est: (rows=266400)
+                IndexScan
+                    table: PUBLIC.PARTSUPP
+                    index: PS_PK
+                    type: SORTED
+                    predicate: =($cor1.P_PARTKEY, PS_PARTKEY)
+                    searchBounds: [ExactBounds [bound=$cor1.P_PARTKEY]]
+                    fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
+                    collation: [PS_PARTKEY ASC]
+                    est: (rows=266400)
+              MergeJoin
+                  predicate: =(S_NATIONKEY, N_NATIONKEY)
+                  type: inner
+                  est: (rows=3330)
+                Exchange
+                    distribution: single
+                    est: (rows=10000)
+                  IndexScan
+                      table: PUBLIC.SUPPLIER
+                      index: S_NK
+                      type: SORTED
+                      fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                      collation: [S_NATIONKEY ASC]
+                      est: (rows=10000)
+                HashJoin
+                    predicate: =(N_REGIONKEY, R_REGIONKEY)
+                    type: inner
+                    est: (rows=8)
+                  Exchange
+                      distribution: single
+                      est: (rows=25)
+                    Sort
+                        collation: [N_NATIONKEY ASC]
+                        est: (rows=25)
+                      TableScan
+                          table: PUBLIC.NATION
+                          fieldNames: [N_NATIONKEY, N_REGIONKEY]
+                          est: (rows=25)
+                  Exchange
+                      distribution: single
+                      est: (rows=2)
+                    TableScan
+                        table: PUBLIC.REGION
+                        predicate: =(R_NAME, _UTF-8'EUROPE')
+                        fieldNames: [R_REGIONKEY, R_NAME]
+                        est: (rows=2)

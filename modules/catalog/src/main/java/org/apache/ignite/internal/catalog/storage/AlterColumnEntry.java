@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTa
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -32,18 +31,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes a column replacement.
  */
 public class AlterColumnEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<AlterColumnEntry> SERIALIZER = new AlterColumnEntrySerializer();
-
     private final int tableId;
 
     private final CatalogTableColumnDescriptor column;
@@ -85,7 +80,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
@@ -95,7 +90,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                 table.columns().stream()
                         .map(source -> source.name().equals(column.name()) ? column : source)
                         .collect(toList()),
-                causalityToken,
+                timestamp,
                 table.storageProfile()
         );
 
@@ -114,23 +109,4 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         return S.toString(this);
     }
 
-    /**
-     * Serializer for {@link AlterColumnEntry}.
-     */
-    private static class AlterColumnEntrySerializer implements CatalogObjectSerializer<AlterColumnEntry> {
-        @Override
-        public AlterColumnEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(input);
-            int tableId = input.readInt();
-
-            return new AlterColumnEntry(tableId, descriptor);
-        }
-
-        @Override
-        public void writeTo(AlterColumnEntry value, IgniteDataOutput output) throws IOException {
-            CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), output);
-
-            output.writeInt(value.tableId);
-        }
-    }
 }

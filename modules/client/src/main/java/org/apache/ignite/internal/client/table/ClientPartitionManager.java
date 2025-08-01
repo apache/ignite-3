@@ -103,14 +103,14 @@ class ClientPartitionManager implements PartitionManager {
         Objects.requireNonNull(key, "Key is null.");
         Objects.requireNonNull(mapper, "Mapper is null.");
 
-        return getPartition(getPartitionAwarenessProvider(null, mapper, key));
+        return getPartition(getPartitionAwarenessProvider(mapper, key));
     }
 
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
         Objects.requireNonNull(key, "Key is null.");
 
-        return getPartition(getPartitionAwarenessProvider(null, key));
+        return getPartition(getPartitionAwarenessProvider(key));
     }
 
     private @Nullable ClusterNode getClusterNode(Partition partition) {
@@ -161,6 +161,8 @@ class ClientPartitionManager implements PartitionManager {
         return tbl.getPartitionAssignment()
                 .thenCompose(partitions -> tbl.getLatestSchema().thenApply(schema -> {
                     Integer hash = partitionAwarenessProvider.getObjectHashCode(schema);
+
+                    assert hash != null;
 
                     return new HashPartition(Math.abs(hash % partitions.size()));
                 }));

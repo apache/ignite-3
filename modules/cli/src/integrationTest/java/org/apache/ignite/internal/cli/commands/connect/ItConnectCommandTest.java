@@ -70,6 +70,20 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
     }
 
     @Test
+    @DisplayName("Should connect to cluster with given url with trailing slash")
+    void connectWithGivenUrlWithTrailingSlash() {
+        // When connect with given url with trailing slash
+        execute("connect", "http://localhost:10301/");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10301"),
+                this::assertTerminalOutputIsEmpty
+        );
+    }
+
+    @Test
     @DisplayName("Should not connect to cluster with wrong url")
     void connectWithWrongUrl() {
         // When connect with wrong url

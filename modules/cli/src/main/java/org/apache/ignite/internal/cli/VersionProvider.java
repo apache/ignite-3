@@ -49,9 +49,8 @@ public class VersionProvider implements CommandLine.IVersionProvider {
         this.cliVerInfo = cliVerInfo;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String[] getVersion() {
-        return new String[]{"Apache Ignite CLI ver. " + cliVerInfo.ver};
+        return new String[]{cliVerInfo.product() + " CLI version " + cliVerInfo.version()};
     }
 }

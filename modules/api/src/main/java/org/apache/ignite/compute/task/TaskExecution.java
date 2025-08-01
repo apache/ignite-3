@@ -78,15 +78,6 @@ public interface TaskExecution<R> {
     }
 
     /**
-     * Cancels the task.
-     *
-     * @return The future which will be completed with {@code true} when the task is cancelled, {@code false} when the task couldn't be
-     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the task no longer exists due to
-     *         exceeding the retention time limit.
-     */
-    CompletableFuture<@Nullable Boolean> cancelAsync();
-
-    /**
      * Changes task priority. After priority change task will be the last in the queue of tasks with the same priority.
      *
      * @param newPriority new priority.

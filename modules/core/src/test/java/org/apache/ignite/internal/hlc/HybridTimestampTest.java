@@ -23,11 +23,19 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
 /**
  * Tests of a hybrid timestamp implementation.
@@ -157,5 +165,97 @@ class HybridTimestampTest {
         var ts = new HybridTimestamp(1, 1);
 
         assertThat(ts.roundUpToPhysicalTick(), is(new HybridTimestamp(2, 0)));
+    }
+
+    @CartesianTest
+    void serializationAndDeserializationForNonNull(@Enum Serializer serializer, @Enum Deserializer deserializer) throws Exception {
+        HybridTimestamp originalTs = new HybridTimestamp(System.currentTimeMillis(), 2);
+
+        byte[] bytes = serializer.serialize(originalTs);
+        HybridTimestamp restoredTs = deserializer.deserialize(bytes);
+
+        assertThat(restoredTs, is(originalTs));
+    }
+
+    @Test
+    void serializationAndDeserializationForNull() throws Exception {
+        IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+
+        HybridTimestamp.write(null, out);
+
+        IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        assertThat(HybridTimestamp.readNullableFrom(in), is(nullValue()));
+
+        assertThat(in.available(), is(0));
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    void readFromFailsWhenDeserializingNull() throws Exception {
+        IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+        HybridTimestamp.write(null, out);
+
+        IgniteDataInput in = new IgniteUnsafeDataInput(out.array());
+
+        IOException ex = assertThrows(IOException.class, () -> HybridTimestamp.readFrom(in));
+        assertThat(ex.getMessage(), is("A non-null timestamp is expected"));
+
+        assertThat(in.available(), is(0));
+    }
+
+    private enum Serializer {
+        TO_BYTES(HybridTimestamp::toBytes),
+        WRITE_TO(ts -> {
+            IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+            ts.writeTo(out);
+            return out.array();
+        }),
+        WRITE(ts -> {
+            IgniteDataOutput out = new IgniteUnsafeDataOutput(100);
+            HybridTimestamp.write(ts, out);
+            return out.array();
+        });
+
+        private final IoFunction<HybridTimestamp, byte[]> transformation;
+
+        Serializer(IoFunction<HybridTimestamp, byte[]> transformation) {
+            this.transformation = transformation;
+        }
+
+        byte[] serialize(HybridTimestamp timestamp) throws IOException {
+            return transformation.apply(timestamp);
+        }
+    }
+
+    private enum Deserializer {
+        FROM_BYTES(HybridTimestamp::fromBytes),
+        READ_FROM(bytes -> {
+            IgniteDataInput in = new IgniteUnsafeDataInput(bytes);
+            HybridTimestamp ts = HybridTimestamp.readFrom(in);
+            assertThat(in.available(), is(0));
+            return ts;
+        }),
+        READ_NULLABLE_FROM(bytes -> {
+            IgniteDataInput in = new IgniteUnsafeDataInput(bytes);
+            HybridTimestamp ts = HybridTimestamp.readNullableFrom(in);
+            assertThat(in.available(), is(0));
+            return ts;
+        });
+
+        private final IoFunction<byte[], HybridTimestamp> transformation;
+
+        Deserializer(IoFunction<byte[], HybridTimestamp> transformation) {
+            this.transformation = transformation;
+        }
+
+        HybridTimestamp deserialize(byte[] bytes) throws IOException {
+            return transformation.apply(bytes);
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoFunction<T, R> {
+        R apply(T t) throws IOException;
     }
 }

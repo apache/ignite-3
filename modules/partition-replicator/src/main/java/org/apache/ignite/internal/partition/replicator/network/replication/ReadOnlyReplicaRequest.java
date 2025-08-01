@@ -17,12 +17,24 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read only replica request.
  */
 public interface ReadOnlyReplicaRequest extends ReplicaRequest {
     HybridTimestamp readTimestamp();
+
+    /** ID of the transaction in which this request is made. */
+    // TODO: remove @Nullable after IGNITE-24120 is sorted out.
+    @Nullable
+    UUID transactionId();
+
+    /** Inconsistent ID of coordinator of transaction to which this operation belongs. */
+    // TODO: remove @Nullable after IGNITE-24120 is sorted out.
+    @Nullable
+    UUID coordinatorId();
 }

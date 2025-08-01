@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +40,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -48,6 +51,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -58,6 +63,8 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -114,7 +121,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
-    private final AtomicLong observableTimestamp = new AtomicLong();
+    private final HybridTimestampTracker observableTimeTracker;
 
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
@@ -123,23 +130,32 @@ public final class ReliableChannel implements AutoCloseable {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    /** Inflights. */
+    private final ClientTransactionInflights inflights;
+
     /**
      * Constructor.
      *
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
+     * @param metrics Client metrics.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
-            ClientMetricSource metrics) {
+            ClientMetricSource metrics,
+            HybridTimestampTracker observableTimeTracker) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
+        this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
+
+        inflights = new ClientTransactionInflights();
     }
 
     /** {@inheritDoc} */
@@ -196,8 +212,12 @@ public final class ReliableChannel implements AutoCloseable {
         return clientCfg;
     }
 
-    public long observableTimestamp() {
-        return observableTimestamp.get();
+    public HybridTimestampTracker observableTimestamp() {
+        return observableTimeTracker;
+    }
+
+    public UUID clusterId() {
+        return clusterId.get();
     }
 
     /**
@@ -226,12 +246,12 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Sends request and handles response asynchronously.
      *
-     * @param opCode        Operation code.
+     * @param <T> response type.
+     * @param opCode Operation code.
      * @param payloadWriter Payload writer.
      * @param payloadReader Payload reader.
-     * @param <T>           response type.
-     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
-     *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node
+     *         exists, it will be used to handle the request; otherwise, default connection will be used.
      * @param retryPolicyOverride Retry policy override.
      * @return Future for the operation.
      */
@@ -253,10 +273,62 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Sends request and handles response asynchronously.
      *
-     * @param opCode        Operation code.
+     * @param opCode Operation code.
      * @param payloadWriter Payload writer.
      * @param payloadReader Payload reader.
-     * @param <T>           response type.
+     * @param <T> response type.
+     * @param channelResolver Channel resolver.
+     * @param retryPolicyOverride Retry policy override.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
+            Supplier<CompletableFuture<ClientChannel>> channelResolver,
+            @Nullable RetryPolicy retryPolicyOverride,
+            boolean expectNotifications
+    ) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> channelResolver.get()
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
+                null,
+                ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCodeFunc Function that returns opCode.
+     * @param retryOpType OpCode to use in retry.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T> response type.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            ToIntFunction<ClientChannel> opCodeFunc,
+            int retryOpType,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader
+    ) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> getChannelAsync(null)
+                        .thenCompose(ch -> {
+                            int opCode = opCodeFunc.applyAsInt(ch);
+                            return serviceAsyncInternal(opCode, payloadWriter, payloadReader, false, ch);
+                        }),
+                null,
+                ctx -> shouldRetry(retryOpType, ctx, null));
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T> response type.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
@@ -264,19 +336,19 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, false);
+        return serviceAsync(opCode, payloadWriter, payloadReader, (String) null, null, false);
     }
 
     /**
      * Sends request without payload and handles response asynchronously.
      *
-     * @param opCode        Operation code.
+     * @param opCode Operation code.
      * @param payloadReader Payload reader.
-     * @param <T>           Response type.
+     * @param <T> Response type.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null, false);
+        return serviceAsync(opCode, null, payloadReader, (String) null, null, false);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
@@ -292,7 +364,14 @@ public final class ReliableChannel implements AutoCloseable {
         });
     }
 
-    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName) {
+    /**
+     * Get the channel.
+     *
+     * @param preferredNodeName Preferred node name.
+     *
+     * @return The future.
+     */
+    public CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName) {
         // 1. Preferred node connection.
         if (preferredNodeName != null) {
             ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
@@ -321,10 +400,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     /**
      * Returns host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
-     *      in {@code addrs} parameter.
+     * in {@code addrs} parameter.
      *
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
-     *      in {@code addrs} parameter.
+     *         in {@code addrs} parameter.
      */
     private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) {
         if (addrs == null || addrs.length == 0) {
@@ -399,6 +478,15 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public void addChannelFailListener(Runnable chFailLsnr) {
         chFailLsnrs.add(chFailLsnr);
+    }
+
+    /**
+     * Get inflights instance.
+     *
+     * @return The instance.
+     */
+    public ClientTransactionInflights inflights() {
+        return inflights;
     }
 
     /**
@@ -676,25 +764,25 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             try {
-                futs.add(hld.getOrCreateChannelAsync(true));
+                futs.add(hld.getOrCreateChannelAsync());
             } catch (Exception e) {
-                log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
+                logFailedEstablishConnection(hld, e);
             }
         }
 
-        long interval = clientCfg.reconnectInterval();
+        long interval = clientCfg.backgroundReconnectInterval();
 
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
                     .whenCompleteAsync(
                             (res, err) -> initAllChannelsAsync(),
-                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+                            delayedExecutor(interval, TimeUnit.MILLISECONDS));
         }
     }
 
     private void onObservableTimestampReceived(long newTs) {
-        observableTimestamp.updateAndGet(curTs -> Math.max(curTs, newTs));
+        observableTimeTracker.update(HybridTimestamp.nullableHybridTimestamp(newTs));
     }
 
     private void onPartitionAssignmentChanged(long timestamp) {
@@ -728,9 +816,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     @Nullable
     private static IgniteClientConnectionException unwrapConnectionException(Throwable err) {
-        while (err instanceof CompletionException) {
-            err = err.getCause();
-        }
+        err = unwrapCause(err);
 
         if (!(err instanceof IgniteClientConnectionException)) {
             return null;
@@ -756,9 +842,6 @@ public final class ReliableChannel implements AutoCloseable {
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
 
-        /** Timestamps of reconnect retries. */
-        private final long[] reconnectRetries;
-
         /**
          * Constructor.
          *
@@ -766,47 +849,12 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
-
-            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0
-                    && chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
-                    ? new long[chCfg.clientConfiguration().reconnectThrottlingRetries()]
-                    : null;
-        }
-
-        /**
-         * Returns whether reconnect throttling should be applied.
-         *
-         * @return Whether reconnect throttling should be applied.
-         */
-        private boolean applyReconnectionThrottling() {
-            if (reconnectRetries == null) {
-                return false;
-            }
-
-            long ts = System.currentTimeMillis();
-
-            for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectThrottlingPeriod()) {
-                    reconnectRetries[i] = ts;
-
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         /**
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            return getOrCreateChannelAsync(false);
-        }
-
-        /**
-         * Get or create channel.
-         */
-        private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
                 return nullCompletedFuture();
             }
@@ -828,17 +876,13 @@ public final class ReliableChannel implements AutoCloseable {
                     return chFut0;
                 }
 
-                if (!ignoreThrottling && applyReconnectionThrottling()) {
-                    return CompletableFuture.failedFuture(new IgniteClientConnectionException(
-                            CONNECTION_ERR, "Reconnect is not allowed due to applied throttling", null));
-                }
-
                 CompletableFuture<ClientChannel> createFut = chFactory.create(
                         chCfg,
                         connMgr,
                         metrics,
                         ReliableChannel.this::onPartitionAssignmentChanged,
-                        ReliableChannel.this::onObservableTimestampReceived);
+                        ReliableChannel.this::onObservableTimestampReceived,
+                        inflights);
 
                 chFut0 = createFut.thenApply(ch -> {
                     UUID currentClusterId = ch.protocolContext().clusterId();
@@ -852,9 +896,13 @@ public final class ReliableChannel implements AutoCloseable {
                             // Ignore
                         }
 
+                        String clusterIdsString = validClusterIds.stream()
+                                .map(UUID::toString)
+                                .collect(Collectors.joining(", "));
+
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + String.join(", " + validClusterIds),
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
                                 ch.endpoint());
                     }
 
@@ -879,7 +927,7 @@ public final class ReliableChannel implements AutoCloseable {
                     closeChannel();
                     onChannelFailure(this, null);
 
-                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
+                    logFailedEstablishConnection(this, err);
 
                     return null;
                 });
@@ -966,5 +1014,25 @@ public final class ReliableChannel implements AutoCloseable {
 
             return ch != null && !ch.closed();
         }
+    }
+
+    private void logFailedEstablishConnection(ClientChannelHolder ch, Throwable err) {
+        String logMessage = "Failed to establish connection to {}: {}";
+
+        if (isLogFailedEstablishConnectionExceptionStackTrace(err)) {
+            log.warn(logMessage, err, ch.chCfg.getAddress(), err.getMessage());
+        } else {
+            log.info(logMessage, ch.chCfg.getAddress(), err.getMessage());
+        }
+    }
+
+    /**
+     * Returns {@code true} if need to log the stack trace of the error, since the error is unexpected and will need to be dealt with later,
+     * otherwise {@code false} and means that the exception is expected and there is not need to log its stack trace so as not to worry when
+     * analyzing the log.
+     */
+    private static boolean isLogFailedEstablishConnectionExceptionStackTrace(Throwable err) {
+        // May occur when nodes are restarted, which is expected.
+        return !hasCauseOrSuppressed(err, "Connection refused", ConnectException.class);
     }
 }

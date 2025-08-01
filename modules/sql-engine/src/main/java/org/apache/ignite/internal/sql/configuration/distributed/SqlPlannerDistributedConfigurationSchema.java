@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.configuration.distributed;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -27,7 +28,8 @@ public class SqlPlannerDistributedConfigurationSchema {
     /** Planner timeout, in ms. */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public final long maxPlanningTime = 15_000L;
+    @PublicName(legacyNames = "maxPlanningTime")
+    public final long maxPlanningTimeMillis = 15_000L;
 
     /**
      * The estimated number of unique queries that are planned to be executed in the cluster in a certain period of time.

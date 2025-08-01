@@ -18,38 +18,38 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.Comparator;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringListMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduce;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduceTuples;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
-import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
+import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ResultStringListUnMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
-import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -69,11 +69,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
 
         assertEquals("itccmt_n_3344", nodes.get(0).name());
         assertEquals(3344, nodes.get(0).address().port());
-        assertTrue(nodes.get(0).id().length() > 10);
+        assertNotNull(nodes.get(0).id());
 
         assertEquals("itccmt_n_3345", nodes.get(1).name());
         assertEquals(3345, nodes.get(1).address().port());
-        assertTrue(nodes.get(1).id().length() > 10);
+        assertNotNull(nodes.get(1).id());
     }
 
     @ParameterizedTest
@@ -157,6 +157,37 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
     }
 
+    @Test
+    void customResultAndArgumentMarshallerExecutedOnDifferentNode() {
+        // Given client node and target node.
+        String clientAddress = getClientAddresses().get(0);
+        ClusterNode targetNode = node(1);
+
+        try (IgniteClient client = IgniteClient.builder().addresses(clientAddress).build()) {
+            // When run job with custom marshaller for string result.
+            String result = client.compute().execute(
+                    JobTarget.node(targetNode),
+                    // The job defines custom marshaller for both argument and result.
+                    JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                            // The client must define both marshaller as well.
+                            .argumentMarshaller(new ArgumentStringMarshaller())
+                            .resultMarshaller(new ResultStringUnMarshaller())
+                            .build(),
+                    "Input"
+            );
+
+            // Then both client and server marshaller were called for argument and for result.
+            assertEquals("Input"
+                            + ":marshalledOnClient"
+                            + ":unmarshalledOnServer"
+                            + ":processedOnServer"
+                            + ":marshalledOnServer"
+                            + ":unmarshalledOnClient",
+                    result
+            );
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void pojoJobWithMarshallers(int targetNodeIdx) {
@@ -167,7 +198,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         PojoResult result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // The job accepts PojoArg and returns PojoResult and defines marshaller for both.
-                JobDescriptor.builder(PojoJob.class)
+                JobDescriptor.builder(PojoJobWithCustomMarshallers.class)
                         // The client must define both marshaller as well.
                         .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
                         .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
@@ -182,8 +213,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void executeBroadcast() {
         // When.
-        Map<ClusterNode, String> result = client().compute().executeBroadcast(
-                Set.of(node(0), node(1)),
+        Collection<String> result = client().compute().execute(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
@@ -192,9 +223,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         // Then.
-        Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
-                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        List<String> resultExpected = List.of(
+                "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);
@@ -204,29 +235,29 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void submitBroadcast() {
         // When.
-        Map<ClusterNode, String> result = client().compute().submitBroadcast(
-                Set.of(node(0), node(1)),
+        Map<String, String> result = client().compute().submitAsync(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).entrySet().stream().collect(
-                Collectors.toMap(Entry::getKey, ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
-        );
+        ).thenApply(broadcastExecution -> broadcastExecution.executions().stream().collect(
+                Collectors.toMap(execution -> execution.node().name(), ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
+        )).join();
 
         // Then.
-        Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
-                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        Map<String, String> resultExpected = Map.of(
+                node(0).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                node(1).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);
     }
 
-    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
+    private static String extractResult(JobExecution<String> e) {
         try {
-            return e.getValue().resultAsync().get();
+            return e.resultAsync().get();
         } catch (InterruptedException | ExecutionException ex) {
             throw new RuntimeException(ex);
         }
@@ -245,7 +276,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                                 column("v", ColumnType.INT32)
                         )
                         .build()
-        ).name();
+        ).qualifiedName();
 
         // When run job with custom marshaller for string argument.
         var tup = Tuple.create().set("key", 1);
@@ -272,23 +303,36 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When.
         List<String> result = client().compute().executeMapReduce(
                 TaskDescriptor.builder(MapReduce.class)
-                        .splitJobArgumentMarshaller(ByteArrayMarshaller.create())
-                        .reduceJobArgumentMarshaller(ByteArrayMarshaller.create())
+                        .splitJobArgumentMarshaller(new ArgumentStringListMarshaller())
+                        .reduceJobResultMarshaller(new ResultStringListUnMarshaller())
                         .build(),
-                // input_O goes to 0 node and input_1 goes to 1 node
+                // input_0 goes to 0 node and input_1 goes to 1 node
                 List.of("Input_0", "Input_1")
         );
 
         // Then.
-        assertThat(
-                result,
-                hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
-        // And
-        assertThat(
-                result,
-                hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
-        );
+        assertThat(result, contains(
+                "Input_0"
+                        + ":listMarshalledOnClient" // Split argument marshalled on the client
+                        // Job argument is marshalled even if the target node is the same because we're using submit
+                        + ":marshalledOnClient"
+                        + ":unmarshalledOnServer" // Job argument unmarshalled on the target node
+                        + ":processedOnServer" // Job processed on the target node
+                        // TODO IGNITE-24183 Avoid job argument and result marshalling on local execution
+                        + ":marshalledOnServer"
+                        + ":unmarshalledOnClient"
+                        + ":listMarshalledOnServer" // Reduce job result marshalled on the client handler node
+                        + ":listUnmarshalledOnClient", // Reduce job result unmarshalled on the client
+                "Input_1"
+                        + ":listMarshalledOnClient" // Split argument marshalled on the client
+                        + ":marshalledOnClient" // Job argument is marshalled on the client handler node
+                        + ":unmarshalledOnServer" // Job argument unmarshalled on the target node
+                        + ":processedOnServer" // Job processed on the target node
+                        + ":marshalledOnServer" // Job result marshalled on the target node
+                        + ":unmarshalledOnClient" // Job result unmarshalled on the client handler node
+                        + ":listMarshalledOnServer" // Reduce job result marshalled on the client handler node
+                        + ":listUnmarshalledOnClient" // Reduce job result unmarshalled on the client
+        ));
     }
 
     @Test
@@ -307,15 +351,5 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         expectedTuple.set("echo", "echo");
 
         assertThat(result, equalTo(expectedTuple));
-    }
-
-    private ClusterNode node(int idx) {
-        return sortedNodes().get(idx);
-    }
-
-    private List<ClusterNode> sortedNodes() {
-        return client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
     }
 }

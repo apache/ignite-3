@@ -41,17 +41,18 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, boolean built, ColumnType... columnTypes) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
 
         int tableId = tableDescriptor.id();
         int indexId = catalogId.getAndIncrement();
 
         CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columnTypes);
 
-        return tableStorage.getOrCreateHashIndex(
+        tableStorage.createHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
+        return (HashIndexStorage) tableStorage.getIndex(TEST_PARTITION, indexDescriptor.id());
     }
 
     @Override

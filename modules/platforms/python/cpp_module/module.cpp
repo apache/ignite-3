@@ -18,61 +18,75 @@
 #include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
+#include "py_object.h"
+#include "py_string.h"
+#include "utils.h"
+#include "ssl_config.h"
 
-#include <ignite/odbc/sql_environment.h>
-#include <ignite/odbc/sql_connection.h>
-#include <ignite/common/detail/defer.h>
+#include "ignite/protocol/protocol_context.h"
 
-#include <memory>
-#include <cmath>
+#include "ignite/common/detail/defer.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <Python.h>
 
+namespace {
 
-static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn)
+/**
+ * Parse a string into the address and properly set the error if there is any.
+ * @param item_str String item.
+ * @return An end point if parsed successfully, and @c std::nullopt otherwise.
+ */
+[[nodiscard]] std::optional<ignite::end_point> parse_address_with_error_handling(const py_string &item_str) noexcept {
+    try {
+        return ignite::parse_single_address(item_str.get_data(), ignite::protocol::protocol_context::DEFAULT_TCP_PORT);
+    } catch (const ignite::ignite_error& err) {
+        PyErr_SetString(py_get_module_interface_error_class(), err.what());
+    }
+    return {};
+}
+
+PyObject* make_connection()
 {
-    auto pyignite3_mod = PyImport_ImportModule("pyignite3");
-
-    if (!pyignite3_mod)
-        return nullptr;
-
-    auto conn_class = PyObject_GetAttrString(pyignite3_mod, "Connection");
-    Py_DECREF(pyignite3_mod);
-
+    py_object conn_class(py_get_module_class("Connection"));
     if (!conn_class)
         return nullptr;
 
-    auto args = PyTuple_New(0);
-    auto kwargs = Py_BuildValue("{}");
-    PyObject* conn_obj  = PyObject_Call(conn_class, args, kwargs);
-    Py_DECREF(conn_class);
-    Py_DECREF(args);
-    Py_DECREF(kwargs);
+    py_object args(PyTuple_New(0));
+    py_object kwargs(Py_BuildValue("{}"));
+    return PyObject_Call(conn_class.get(), args.get(), kwargs.get());
+}
 
-    if (!conn_obj)
-        return nullptr;
-
-    auto py_conn = make_py_connection(std::move(env), std::move(conn));
+PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg) {
+    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit, std::move(ssl_cfg));
     if (!py_conn)
         return nullptr;
 
-    auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
-    if (res)
+    auto conn_obj = make_connection();
+    if (!conn_obj)
+        return nullptr;
+
+    if (PyObject_SetAttrString(conn_obj, "_py_connection", reinterpret_cast<PyObject *>(py_conn)))
         return nullptr;
 
     return conn_obj;
 }
 
-static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
-        "address",
-        "identity",
-        "secret",
-        "schema",
-        "timezone",
-        "page_size",
-        "timeout",
+        const_cast<char*>("address"),
+        const_cast<char*>("identity"),
+        const_cast<char*>("secret"),
+        const_cast<char*>("schema"),
+        const_cast<char*>("timezone"),
+        const_cast<char*>("timeout"),
+        const_cast<char*>("page_size"),
+        const_cast<char*>("autocommit"),
+        "use_ssl",
+        "ssl_keyfile",
+        "ssl_certfile",
+        "ssl_ca_certfile",
         nullptr
     };
 
@@ -83,93 +97,77 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
     const char *timezone = nullptr;
     int timeout = 0;
     int page_size = 0;
+    int autocommit = 1;
+    int use_ssl = 0;
+    const char *ssl_keyfile = nullptr;
+    const char *ssl_certfile = nullptr;
+    const char *ssl_ca_certfile = nullptr;
 
-    int parsed = PyArg_ParseTupleAndKeywords(
-        args, kwargs, "O|$ssssii", kwlist, &address, &identity, &secret, &schema, &timezone, &timeout, &page_size);
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiippsss", kwlist, &address, &identity, &secret,
+        &schema, &timezone, &timeout, &page_size, &autocommit, &use_ssl, &ssl_keyfile, &ssl_certfile, &ssl_ca_certfile);
 
     if (!parsed)
         return nullptr;
 
-    std::stringstream address_builder;
+    std::vector<ignite::end_point> addresses;
     if (PyList_Check(address)) {
         auto size = PyList_Size(address);
         for (Py_ssize_t idx = 0; idx < size; ++idx) {
             auto item = PyList_GetItem(address, idx);
             if (!PyUnicode_Check(item)) {
-                PyErr_SetString(PyExc_RuntimeError, "Only list of string values is allowed in 'address' parameter");
+                PyErr_SetString(py_get_module_interface_error_class(),
+                    "Only a string or a list of strings are allowed in 'address' parameter");
+
                 return nullptr;
             }
 
-            auto str_array = PyUnicode_AsUTF8String(item);
-            if (!str_array) {
-                PyErr_SetString(PyExc_RuntimeError, "Can not convert address string to UTF-8");
+            auto item_str = py_string::try_from_py_utf8(item);
+            if (!item_str) {
+                PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
                 return nullptr;
             }
-            // To be called when the scope is left.
-            ignite::detail::defer([&] { Py_DECREF(str_array); });
 
-            auto *data = PyBytes_AsString(str_array);
-            auto len = PyBytes_Size(str_array);
-            std::string_view view(data, len);
-
-            address_builder << view;
-            if ((idx + 1) < size) {
-                address_builder << ',';
+            auto addr = parse_address_with_error_handling(item_str);
+            if (!addr) {
+                return nullptr;
+            }
+            if (!addr->host.empty()) {
+                addresses.push_back(*addr);
             }
         }
+    } else if (PyUnicode_Check(address)) {
+        auto item_str = py_string::try_from_py_utf8(address);
+        if (!item_str) {
+            PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
+            return nullptr;
+        }
+
+        auto addr = parse_address_with_error_handling(item_str);
+        if (!addr) {
+            return nullptr;
+        }
+        if (!addr->host.empty()) {
+            addresses.push_back(*addr);
+        }
+    } else {
+        PyErr_SetString(py_get_module_interface_error_class(),
+            "Only a string or a list of strings are allowed in 'address' parameter");
+        return nullptr;
     }
 
-    using namespace ignite;
+    ssl_config ssl_cfg(use_ssl != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 
-    auto sql_env = std::make_unique<sql_environment>();
-
-    std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
-    if (!check_errors(*sql_env))
-        return nullptr;
-
-    configuration cfg;
-    auto addrs_str = address_builder.str();
-    cfg.set_address(addrs_str);
-
-    if (schema)
-        cfg.set_schema(schema);
-
-    if (identity)
-        cfg.set_auth_identity(identity);
-
-    if (secret)
-        cfg.set_auth_secret(secret);
-
-    if (page_size)
-        cfg.set_page_size(std::int32_t(page_size));
-
-    if (timeout)
-    {
-        void* ptr_timeout = (void*)(ptrdiff_t(timeout));
-        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-
-        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
-
-    return make_connection(std::move(sql_env), std::move(sql_conn));
+    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, std::move(ssl_cfg));
 }
 
-static PyMethodDef methods[] = {
-    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+PyMethodDef methods[] = {
+    {"connect", PyCFunction(pyignite_dbapi_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
-static struct PyModuleDef module_def = {
+PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
-    MODULE_NAME,
+    EXT_MODULE_NAME,
     nullptr,                /* m_doc */
     -1,                     /* m_size */
     methods,                /* m_methods */
@@ -179,10 +177,10 @@ static struct PyModuleDef module_def = {
     nullptr,                /* m_free */
 };
 
-PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
-    PyObject* mod;
+} // anonymous namespace
 
-    mod = PyModule_Create(&module_def);
+PyMODINIT_FUNC PyInit__pyignite_dbapi_extension(void) { // NOLINT(*-reserved-identifier)
+    PyObject *mod = PyModule_Create(&module_def);
     if (mod == nullptr)
         return nullptr;
 
@@ -193,39 +191,4 @@ PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifi
         return nullptr;
 
     return mod;
-}
-
-bool check_errors(ignite::diagnosable& diag) {
-    auto &records = diag.get_diagnostic_records();
-    if (records.is_successful())
-        return true;
-
-    std::string err_msg;
-    switch (records.get_return_code()) {
-        case SQL_INVALID_HANDLE:
-            err_msg = "Invalid object handle";
-            break;
-
-        case SQL_NO_DATA:
-            err_msg = "No data available";
-            break;
-
-        case SQL_ERROR:
-            auto record = records.get_status_record(1);
-            err_msg = record.get_message_text();
-            break;
-    }
-
-    // TODO: IGNITE-22226 Set a proper error here, not a standard one.
-    PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
-
-    return false;
-}
-
-const char* py_object_get_typename(PyObject* obj) {
-    if (!obj || !obj->ob_type || !obj->ob_type->tp_name) {
-        return "Unknown";
-    }
-
-    return obj->ob_type->tp_name;
 }

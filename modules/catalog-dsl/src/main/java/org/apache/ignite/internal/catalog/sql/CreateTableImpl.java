@@ -18,16 +18,18 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static java.util.Arrays.asList;
-import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseIndexColumnList;
 import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateTableImpl extends AbstractCatalogQuery<Name> {
     private Name tableName;
@@ -38,9 +40,9 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
     private final List<Constraint> constraints = new ArrayList<>();
 
-    private final List<WithOption> withOptions = new ArrayList<>();
-
     private Colocate colocate;
+
+    private Zone zone;
 
     private final List<CreateIndexImpl> indexes = new ArrayList<>();
 
@@ -58,10 +60,10 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         return tableName;
     }
 
-    CreateTableImpl name(String... names) {
-        Objects.requireNonNull(names, "Table name must not be null.");
+    CreateTableImpl name(QualifiedName name) {
+        Objects.requireNonNull(name, "Table name must not be null.");
 
-        this.tableName = new Name(names);
+        this.tableName = Name.qualified(name);
         return this;
     }
 
@@ -86,12 +88,8 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateTableImpl primaryKey(String columnList) {
-        return primaryKey(IndexType.DEFAULT, columnList);
-    }
-
-    CreateTableImpl primaryKey(IndexType type, String columnList) {
-        return primaryKey(type, parseIndexColumnList(columnList));
+    CreateTableImpl primaryKey(List<String> columns) {
+        return primaryKey(IndexType.DEFAULT, columns.stream().map(ColumnSorted::column).collect(Collectors.toList()));
     }
 
     CreateTableImpl primaryKey(IndexType type, List<ColumnSorted> columns) {
@@ -99,10 +97,6 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
 
         constraints.add(new Constraint().primaryKey(type, columns));
         return this;
-    }
-
-    CreateTableImpl colocateBy(String columnList) {
-        return colocateBy(QueryUtils.splitByComma(columnList));
     }
 
     CreateTableImpl colocateBy(String... columns) {
@@ -119,25 +113,24 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl zone(String zone) {
         Objects.requireNonNull(zone, "Zone name must not be null.");
 
-        withOptions.add(WithOption.primaryZone(zone));
+        this.zone = new Zone(zone);
         return this;
-    }
-
-    CreateTableImpl addIndex(String name, String columnList) {
-        return addIndex(name, null, columnList);
-    }
-
-    CreateTableImpl addIndex(String name, IndexType type, String columnList) {
-        return addIndex(name, type, parseIndexColumnList(columnList));
-    }
-
-    CreateTableImpl addIndex(String name, IndexType type, ColumnSorted... columns) {
-        return addIndex(name, type, asList(columns));
     }
 
     CreateTableImpl addIndex(String name, IndexType type, List<ColumnSorted> columns) {
         Objects.requireNonNull(name, "Index name must not be null.");
         Objects.requireNonNull(columns, "Index columns list must not be null.");
+        if (columns.isEmpty()) {
+            throw new IllegalArgumentException("Index columns list must not be empty.");
+        }
+
+        if (type == IndexType.HASH) {
+            for (ColumnSorted c : columns) {
+                if (c.sortOrder() != SortOrder.DEFAULT) {
+                    throw new IllegalArgumentException("Index columns must not define a sort order in hash indexes.");
+                }
+            }
+        }
 
         indexes.add(new CreateIndexImpl(sql).ifNotExists().name(name).using(type).on(tableName, columns));
         return this;
@@ -172,9 +165,8 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
             ctx.sql(" ").visit(colocate);
         }
 
-        if (!withOptions.isEmpty()) {
-            ctx.sql(" ").sql("WITH ");
-            ctx.visit(partsList(withOptions));
+        if (zone != null) {
+            ctx.sql(" ").visit(zone);
         }
 
         ctx.sql(";");

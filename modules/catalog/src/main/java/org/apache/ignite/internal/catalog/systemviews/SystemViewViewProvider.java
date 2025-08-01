@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.systemviews;
 
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
-import static org.apache.ignite.internal.type.NativeTypes.stringOf;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,9 +42,6 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
  * </ul>
  */
 public class SystemViewViewProvider implements CatalogSystemViewProvider {
-
-    private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
-
     /** {@inheritDoc} */
     @Override
     public List<SystemView<?>> getView(Supplier<Catalog> catalogSupplier) {
@@ -69,10 +66,17 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
 
         return SystemViews.<ViewWithSchema>clusterViewBuilder()
                 .name("SYSTEM_VIEWS")
+                .addColumn("VIEW_ID", INT32, entry -> entry.descriptor.id())
+                .addColumn("SCHEMA_NAME", STRING, entry -> entry.schema)
+                .addColumn("VIEW_NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("VIEW_TYPE", STRING, entry -> entry.descriptor.systemViewType().name())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("ID", INT32, entry -> entry.descriptor.id())
-                .addColumn("SCHEMA", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.schema)
-                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
-                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.systemViewType().name())
+                .addColumn("SCHEMA", STRING, entry -> entry.schema)
+                .addColumn("NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("TYPE", STRING, entry -> entry.descriptor.systemViewType().name())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -94,12 +98,21 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
         return SystemViews.<ColumnWithTableId>clusterViewBuilder()
                 .name("SYSTEM_VIEW_COLUMNS")
                 .addColumn("VIEW_ID", INT32, entry -> entry.id)
-                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
-                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
+                .addColumn("VIEW_NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("COLUMN_TYPE", STRING, entry -> entry.descriptor.type().name())
+                .addColumn("IS_NULLABLE_COLUMN", BOOLEAN, entry -> entry.descriptor.nullable())
+                .addColumn("COLUMN_PRECISION", INT32, entry -> entry.descriptor.precision())
+                .addColumn("COLUMN_SCALE", INT32, entry -> entry.descriptor.scale())
+                .addColumn("COLUMN_LENGTH", INT32, entry -> entry.descriptor.length())
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
+                //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
+                .addColumn("NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("TYPE", STRING, entry -> entry.descriptor.type().name())
                 .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
                 .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
                 .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
+                // End of legacy columns list. New columns must be added below this line.
                 .dataProvider(viewDataPublisher)
                 .build();
     }

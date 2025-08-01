@@ -20,10 +20,13 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.pagememory.mv.BlobStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage Io for partition metadata pages.
@@ -48,9 +51,11 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF = LEASE_START_TIME_OFF + Long.BYTES;
+    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_OFF = LEASE_START_TIME_OFF + Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF + Long.BYTES;
+    private static final int PRIMARY_REPLICA_NODE_ID_LOW_OFF = PRIMARY_REPLICA_NODE_ID_HIGH_OFF + Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF + Long.BYTES;
 
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
     private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
@@ -81,7 +86,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
         setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
-        setPrimaryReplicaNodeIdFirstPageId(pageAddr, 0);
+        setPrimaryReplicaNodeId(pageAddr, new UUID(0, 0));
         setPrimaryReplicaNodeNameFirstPageId(pageAddr, 0);
         setEstimatedSize(pageAddr, 0);
     }
@@ -256,25 +261,39 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
-     * Sets the primary replica node id first page id.
+     * Sets the primary replica node id.
      *
      * @param pageAddr Page address.
-     * @param primaryReplicaNodeIdFirstPageId Primary replica node id first page id.
+     * @param primaryReplicaNodeId Primary replica node id.
      */
-    public void setPrimaryReplicaNodeIdFirstPageId(long pageAddr, long primaryReplicaNodeIdFirstPageId) {
+    public void setPrimaryReplicaNodeId(long pageAddr, @Nullable UUID primaryReplicaNodeId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF, primaryReplicaNodeIdFirstPageId);
+        putLong(pageAddr, PRIMARY_REPLICA_NODE_ID_HIGH_OFF, primaryReplicaNodeId == null ? 0
+                : primaryReplicaNodeId.getMostSignificantBits());
+        putLong(pageAddr, PRIMARY_REPLICA_NODE_ID_LOW_OFF, primaryReplicaNodeId == null ? 0
+                : primaryReplicaNodeId.getLeastSignificantBits());
     }
 
     /**
-     * Returns the primary replica node id first page id.
+     * Returns the primary replica node id.
      *
      * @param pageAddr Page address.
-     * @return Primary replica node id first page id.
+     * @return Primary replica node id.
      */
-    public long getPrimaryReplicaNodeIdFirstPageId(long pageAddr) {
-        return getLong(pageAddr, PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF);
+    public @Nullable UUID getPrimaryReplicaNodeId(long pageAddr) {
+        long high = getLong(pageAddr, PRIMARY_REPLICA_NODE_ID_HIGH_OFF);
+        long low = getLong(pageAddr, PRIMARY_REPLICA_NODE_ID_LOW_OFF);
+
+        if (high == 0 && low == 0) {
+            // Maybe someone actually stored UUID(0, 0), or nothing was ever stored; let's check whether something was stored at all
+            // to make sure.
+            if (getPrimaryReplicaNodeNameFirstPageId(pageAddr) == BlobStorage.NO_PAGE_ID) {
+                return null;
+            }
+        }
+
+        return new UUID(high, low);
     }
 
 
@@ -301,10 +320,10 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
-     * Sets the estimated size of this partition.
+     * Sets the estimated number of latest entries in the partition.
      *
      * @param pageAddr Page address.
-     * @param estimatedSize Estimated size.
+     * @param estimatedSize Estimated number of latest entries in the partition.
      */
     public void setEstimatedSize(long pageAddr, long estimatedSize) {
         assertPageType(pageAddr);
@@ -313,7 +332,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
-     * Returns the estimated size of this partition.
+     * Returns the estimated number of latest entries in the partition.
      *
      * @param pageAddr Page address.
      */
@@ -333,7 +352,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
                 .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
                 .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
-                .app("primaryReplicaNodeIdFirstPageId=").app(getPrimaryReplicaNodeIdFirstPageId(addr)).nl()
+                .app("primaryReplicaNodeId=").app(getPrimaryReplicaNodeId(addr)).nl()
                 .app("primaryReplicaNodeNameFirstPageId=").app(getPrimaryReplicaNodeNameFirstPageId(addr)).nl()
                 .app("estimatedSize=").app(getEstimatedSize(addr)).nl()
                 .app(']');

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.flow;
 
+import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.is;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -60,7 +60,7 @@ class FlowTest {
     private StringWriter errOut;
 
     @Test
-    void testVerbose() throws IOException {
+    void verbose() throws IOException {
         // Given
         bindAnswers("no");
 
@@ -68,14 +68,31 @@ class FlowTest {
         askQuestion()
                 .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
-                .verbose(true)
+                .verbose(new boolean[]{true})
                 .print()
                 .start();
 
         // Then error output starts with the message from exception and contains verbose output
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), startsWith("Ooops!" + System.lineSeparator()));
-        assertThat(errOut.toString(), containsString("verbose output"));
+        assertThat(errOut.toString(), is("Ooops!" + lineSeparator() + "verbose output" + lineSeparator()));
+    }
+
+    @Test
+    void noVerbose() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When start flow with print
+        askQuestion()
+                .then(Flows.fromCall(new ThrowingStrCall(), StringCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .verbose(new boolean[0])
+                .print()
+                .start();
+
+        // Then error output is a message from exception and doesn't contain verbose output
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), is("Ooops!" + lineSeparator()));
     }
 
     private static Flow<Object, Integer> createFlow() {
@@ -160,7 +177,7 @@ class FlowTest {
                 .start();
 
         // Then output equals to the message from the exception because we use TestExceptionHandler
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -194,7 +211,7 @@ class FlowTest {
                 .start();
 
         // Then output equals to the message from the exception because we use TestExceptionHandler
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -209,8 +226,8 @@ class FlowTest {
                 .start();
 
         // Then output equals to 2 messages from print operations
-        assertThat(out.toString(), equalTo("2" + System.lineSeparator()
-                + "2" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("2" + lineSeparator()
+                + "2" + lineSeparator()));
         assertThat(errOut.toString(), emptyString());
     }
 
@@ -229,8 +246,8 @@ class FlowTest {
 
         // Then error output equals to 2 messages from exception handler
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()
-                + "Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()
+                + "Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -244,7 +261,7 @@ class FlowTest {
                 .start();
 
         // Then error output equals to the message from answer
-        assertThat(out.toString(), equalTo("2" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("2" + lineSeparator()));
         assertThat(errOut.toString(), emptyString());
     }
 
@@ -262,7 +279,7 @@ class FlowTest {
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -276,7 +293,7 @@ class FlowTest {
                 .start();
 
         // Then error output equals to the message from exception
-        assertThat(out.toString(), equalTo("*2*" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("*2*" + lineSeparator()));
         assertThat(errOut.toString(), emptyString());
     }
 
@@ -286,7 +303,7 @@ class FlowTest {
                 .flatMap(v -> Flows.from(it -> it + "buzz"))
                 .print()
                 .start();
-        assertThat(out.toString(), equalTo("fizzbuzz" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("fizzbuzz" + lineSeparator()));
     }
 
     @Test
@@ -299,7 +316,7 @@ class FlowTest {
                 .map(it -> it + "2")
                 .print()
                 .start();
-        assertThat(out.toString(), equalTo("fizz1" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("fizz1" + lineSeparator()));
     }
 
     @Test
@@ -312,7 +329,7 @@ class FlowTest {
                 .map(it -> it + "2")
                 .print()
                 .start();
-        assertThat(out.toString(), equalTo("fizz1" + System.lineSeparator()));
+        assertThat(out.toString(), equalTo("fizz1" + lineSeparator()));
     }
 
     @Test
@@ -340,7 +357,7 @@ class FlowTest {
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -357,7 +374,7 @@ class FlowTest {
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     @Test
@@ -374,7 +391,7 @@ class FlowTest {
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), emptyString());
-        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+        assertThat(errOut.toString(), equalTo("Ooops!" + lineSeparator()));
     }
 
     private void bindAnswers(String... answers) throws IOException {

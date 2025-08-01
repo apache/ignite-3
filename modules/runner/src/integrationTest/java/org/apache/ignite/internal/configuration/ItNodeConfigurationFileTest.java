@@ -55,27 +55,6 @@ public class ItNodeConfigurationFileTest {
     }
 
     @Test
-    public void illegalConfigurationValueType(TestInfo testInfo, @WorkDirectory Path workDir) {
-        String config =
-                "ignite {\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: none,\n"
-                + "      keyStore: {\n"
-                + "        path: 123\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
-                + "}";
-
-        assertThrowsWithCause(
-                () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
-                ConfigurationValidationException.class,
-                "'String' is expected as a type for the 'ignite.rest.ssl.keyStore.path' configuration value");
-    }
-
-    @Test
     public void illegalConfigurationValue(TestInfo testInfo, @WorkDirectory Path workDir) {
         String config = "ignite {\n"
                 + "  rest: {\n"

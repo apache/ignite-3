@@ -17,30 +17,21 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
-
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that holds a list of table version descriptors.
  */
-public class CatalogTableSchemaVersions {
-    public static final CatalogObjectSerializer<CatalogTableSchemaVersions> SERIALIZER = new TableSchemaVersionsSerializer();
-
+public class CatalogTableSchemaVersions implements MarshallableEntry {
     /**
      * Descriptor of a single table version.
      */
-    public static class TableVersion {
+    public static class TableVersion implements MarshallableEntry {
         private final List<CatalogTableColumnDescriptor> columns;
 
         public TableVersion(List<CatalogTableColumnDescriptor> columns) {
@@ -49,6 +40,11 @@ public class CatalogTableSchemaVersions {
 
         public List<CatalogTableColumnDescriptor> columns() {
             return Collections.unmodifiableList(columns);
+        }
+
+        @Override
+        public int typeId() {
+            return MarshallableEntryType.DESCRIPTOR_TABLE_VERSION.id();
         }
     }
 
@@ -60,11 +56,11 @@ public class CatalogTableSchemaVersions {
      *
      * @param versions Array of table versions.
      */
-    CatalogTableSchemaVersions(TableVersion... versions) {
+    public CatalogTableSchemaVersions(TableVersion... versions) {
         this(CatalogTableDescriptor.INITIAL_TABLE_VERSION, versions);
     }
 
-    private CatalogTableSchemaVersions(int base, TableVersion... versions) {
+    CatalogTableSchemaVersions(int base, TableVersion... versions) {
         this.base = base;
         this.versions = versions;
     }
@@ -81,6 +77,13 @@ public class CatalogTableSchemaVersions {
      */
     public int latestVersion() {
         return base + versions.length - 1;
+    }
+
+    /**
+     * Returns all known table versions.
+     */
+    TableVersion[] versions() {
+        return versions;
     }
 
     /**
@@ -103,41 +106,8 @@ public class CatalogTableSchemaVersions {
         return new CatalogTableSchemaVersions(base, ArrayUtils.concat(versions, tableVersion));
     }
 
-    /**
-     * Serializer for {@link CatalogTableSchemaVersions}.
-     */
-    private static class TableSchemaVersionsSerializer implements CatalogObjectSerializer<CatalogTableSchemaVersions> {
-        @Override
-        public CatalogTableSchemaVersions readFrom(IgniteDataInput input) throws IOException {
-            TableVersion[] versions = readArray(TableVersionSerializer.INSTANCE, input, TableVersion.class);
-            int base = input.readInt();
-
-            return new CatalogTableSchemaVersions(base, versions);
-        }
-
-        @Override
-        public void writeTo(CatalogTableSchemaVersions tabVersions, IgniteDataOutput output) throws IOException {
-            writeArray(tabVersions.versions, TableVersionSerializer.INSTANCE, output);
-            output.writeInt(tabVersions.base);
-        }
-    }
-
-    /**
-     * Serializer for {@link TableVersion}.
-     */
-    private static class TableVersionSerializer implements CatalogObjectSerializer<TableVersion> {
-        static CatalogObjectSerializer<TableVersion> INSTANCE = new TableVersionSerializer();
-
-        @Override
-        public TableVersion readFrom(IgniteDataInput input) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
-
-            return new TableVersion(columns);
-        }
-
-        @Override
-        public void writeTo(TableVersion tableVersion, IgniteDataOutput output) throws IOException {
-            writeList(tableVersion.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
-        }
+    @Override
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_TABLE_SCHEMA_VERSIONS.id();
     }
 }

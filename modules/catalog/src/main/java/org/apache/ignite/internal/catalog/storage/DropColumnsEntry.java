@@ -23,11 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
-import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -35,19 +31,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes dropping of columns.
  */
 public class DropColumnsEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<DropColumnsEntry> SERIALIZER = new DropColumnEntrySerializer();
-
     private final int tableId;
     private final Set<String> columns;
 
@@ -88,7 +79,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
@@ -98,7 +89,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                 table.columns().stream()
                         .filter(col -> !columns.contains(col.name()))
                         .collect(toList()),
-                causalityToken,
+                timestamp,
                 table.storageProfile()
         );
 
@@ -115,24 +106,5 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link DropColumnsEntry}.
-     */
-    private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
-        @Override
-        public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
-            Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
-
-            return new DropColumnsEntry(tableId, columns);
-        }
-
-        @Override
-        public void writeTo(DropColumnsEntry object, IgniteDataOutput output) throws IOException {
-            output.writeInt(object.tableId());
-            writeStringCollection(object.columns(), output);
-        }
     }
 }

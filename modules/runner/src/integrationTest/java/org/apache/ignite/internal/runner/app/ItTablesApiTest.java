@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTablesInternal;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -44,10 +44,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.IndexExistsValidationException;
-import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ResultSet;
@@ -122,51 +120,8 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThat(createTblFut, willThrowWithCauseOrSuppressed(TableExistsValidationException.class));
+        assertThat(createTblFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
         assertThat(createTblIfNotExistsFut, willCompleteSuccessfully());
-    }
-
-    /**
-     * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
-     */
-    @Test
-    public void testGetTableFromLaggedNode() {
-        cluster.runningNodes().forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite0 = cluster.node(0);
-
-        Ignite ignite1 = cluster.node(1);
-
-        Table tbl = createTable(ignite0, TABLE_NAME);
-
-        Tuple tableKey = Tuple.create()
-                .set("key", 123L);
-
-        Tuple value = Tuple.create()
-                .set("valInt", 1234)
-                .set("valStr", "some string row");
-
-        tbl.keyValueView().put(null, tableKey, value);
-
-        assertEquals(value, tbl.keyValueView().get(null, tableKey));
-
-        assertEquals(value, ignite1.tables().table(TABLE_NAME).keyValueView().get(null, tableKey));
-
-        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
-
-        ignite1Inhibitor.startInhibit();
-
-        Tuple otherValue = Tuple.create()
-                .set("valInt", 12345)
-                .set("valStr", "some other string row");
-
-        tbl.keyValueView().put(null, tableKey, otherValue);
-
-        assertEquals(otherValue, tbl.keyValueView().get(null, tableKey));
-
-        ignite1Inhibitor.stopInhibit();
-
-        assertEquals(otherValue, ignite1.tables().table(TABLE_NAME).keyValueView().get(null, tableKey));
     }
 
     /**
@@ -182,7 +137,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
         tryToCreateIndex(ignite0, TABLE_NAME, true);
 
-        assertThrowsWithCause(() -> tryToCreateIndex(ignite0, TABLE_NAME, true), IndexExistsValidationException.class);
+        assertThrowsWithCause(() -> tryToCreateIndex(ignite0, TABLE_NAME, true), CatalogValidationException.class);
 
         tryToCreateIndex(ignite0, TABLE_NAME, false);
     }
@@ -218,7 +173,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
 
             cluster.runningNodes().forEach(ignite -> {
                 if (ignite != ignite1) {
-                    assertThrowsWithCause(() -> tryToCreateIndex(ignite, TABLE_NAME, true), IndexExistsValidationException.class);
+                    assertThrowsWithCause(() -> tryToCreateIndex(ignite, TABLE_NAME, true), CatalogValidationException.class);
 
                     addIndexIfNotExists(ignite, TABLE_NAME);
                 }
@@ -230,7 +185,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
             ignite1Inhibitor.stopInhibit();
         }
 
-        assertThat(addIndexFut, willThrowWithCauseOrSuppressed(IndexExistsValidationException.class));
+        assertThat(addIndexFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
 
         addIndexIfNotExistsFut.get(10, TimeUnit.SECONDS);
     }

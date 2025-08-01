@@ -22,6 +22,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Ignite.Table;
 using Remotion.Linq;
 using Remotion.Linq.Clauses.StreamedData;
 using Remotion.Linq.Parsing.Structure;
@@ -48,7 +49,7 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     public IgniteQueryProvider(
         IQueryParser queryParser,
         IgniteQueryExecutor executor,
-        string tableName)
+        QualifiedName tableName)
     {
         _parser = queryParser;
         Executor = executor;
@@ -58,7 +59,7 @@ internal sealed class IgniteQueryProvider : IQueryProvider
     /// <summary>
     /// Gets the name of the table.
     /// </summary>
-    public string TableName { get; }
+    public QualifiedName TableName { get; }
 
     /// <summary>
     /// Gets the executor.

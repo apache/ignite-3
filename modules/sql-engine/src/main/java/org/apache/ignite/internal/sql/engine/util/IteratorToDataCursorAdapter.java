@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 
@@ -31,7 +32,7 @@ import org.apache.ignite.internal.util.AsyncWrapper;
  * @param <T> Type of the items.
  */
 public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements AsyncDataCursor<T> {
-    private final CompletableFuture<Void> initialized = new CompletableFuture<>();
+    private final CompletableFuture<?> initialized;
 
     /**
      * Constructor.
@@ -42,13 +43,7 @@ public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements A
     public IteratorToDataCursorAdapter(CompletableFuture<Iterator<T>> initFut, Executor exec) {
         super(initFut, exec);
 
-        initFut.whenComplete((r, e) -> {
-            if (e != null) {
-                initialized.completeExceptionally(e);
-            } else {
-                initialized.complete(null);
-            }
-        });
+        initialized = initFut;
     }
 
     /**
@@ -69,6 +64,15 @@ public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements A
 
     @Override
     public CompletableFuture<Void> onFirstPageReady() {
-        return initialized;
+        return initialized.thenRun((() -> {}));
+    }
+
+    @Override
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
+        if (reason == CancellationReason.TIMEOUT && !initialized.isDone()) {
+            initialized.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+        }
+
+        return nullCompletedFuture();
     }
 }

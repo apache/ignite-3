@@ -24,16 +24,16 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.annotations.Table;
+import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Definition of the {@code CREATE TABLE} statement.
  */
 public class TableDefinition {
-    private final String tableName;
-
-    private final String schemaName;
+    private final QualifiedName qualifiedName;
 
     private final boolean ifNotExists;
 
@@ -54,8 +54,7 @@ public class TableDefinition {
     private final List<IndexDefinition> indexes;
 
     private TableDefinition(
-            String tableName,
-            String schemaName,
+            QualifiedName qualifiedName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
@@ -66,8 +65,7 @@ public class TableDefinition {
             Class<?> valueClass,
             List<IndexDefinition> indexes
     ) {
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+        this.qualifiedName = qualifiedName;
         this.ifNotExists = ifNotExists;
         this.columns = columns;
         this.pkType = pkType;
@@ -86,7 +84,25 @@ public class TableDefinition {
      * @return Builder.
      */
     public static Builder builder(String tableName) {
+        Objects.requireNonNull(tableName, "Table name must not be null.");
+        if (tableName.isBlank()) {
+            throw new IllegalArgumentException("Table name must not be blank.");
+        }
+
         return new Builder().tableName(tableName);
+    }
+
+    /**
+     * Creates a builder for the table with the specified qualified name.
+     *
+     * @param qualifiedName Qualified name.
+     * @return Builder.
+     */
+    public static Builder builder(QualifiedName qualifiedName) {
+        Objects.requireNonNull(qualifiedName, "Qualified table name must not be null.");
+        String schemaName = IgniteNameUtils.quoteIfNeeded(qualifiedName.schemaName());
+        String tableName = IgniteNameUtils.quoteIfNeeded(qualifiedName.objectName());
+        return new Builder().tableName(tableName).schema(schemaName);
     }
 
     /**
@@ -95,7 +111,7 @@ public class TableDefinition {
      * @return Table name.
      */
     public String tableName() {
-        return tableName;
+        return IgniteNameUtils.quoteIfNeeded(qualifiedName.objectName());
     }
 
     /**
@@ -104,7 +120,16 @@ public class TableDefinition {
      * @return Schema name or {@code null} if not specified.
      */
     public @Nullable String schemaName() {
-        return schemaName;
+        return IgniteNameUtils.quoteIfNeeded(qualifiedName.schemaName());
+    }
+
+    /**
+     * Returns qualified table name.
+     *
+     * @return Qualified table name.
+     */
+    public QualifiedName qualifiedName() {
+        return qualifiedName;
     }
 
     /**
@@ -148,7 +173,7 @@ public class TableDefinition {
     /**
      * Returns primary zone name.
      *
-     * @return Zone name to use in the {@code WITH PRIMARY_ZONE} option or {@code null} if not specified.
+     * @return Zone name to use in the {@code ZONE} option or {@code null} if not specified.
      */
     public @Nullable String zoneName() {
         return zoneName;
@@ -206,13 +231,52 @@ public class TableDefinition {
         return new Builder(this);
     }
 
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableDefinition that = (TableDefinition) o;
+        return ifNotExists == that.ifNotExists
+                && Objects.equals(qualifiedName, that.qualifiedName)
+                && Objects.equals(columns, that.columns)
+                && pkType == that.pkType
+                && Objects.equals(pkColumns, that.pkColumns)
+                && Objects.equals(colocationColumns, that.colocationColumns)
+                && Objects.equals(zoneName, that.zoneName)
+                && Objects.equals(keyClass, that.keyClass)
+                && Objects.equals(valueClass, that.valueClass)
+                && Objects.equals(indexes, that.indexes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                qualifiedName,
+                ifNotExists,
+                columns,
+                pkType,
+                pkColumns,
+                colocationColumns,
+                zoneName,
+                keyClass,
+                valueClass,
+                indexes
+        );
+    }
+
     /**
      * Builder for the table definition.
      */
     public static class Builder {
+
         private String tableName;
 
-        private String schemaName = Table.DEFAULT_SCHEMA;
+        private String schemaName;
 
         private boolean ifNotExists;
 
@@ -232,11 +296,13 @@ public class TableDefinition {
 
         private final List<IndexDefinition> indexes = new ArrayList<>();
 
-        private Builder() {}
+        private Builder() {
+
+        }
 
         private Builder(TableDefinition definition) {
-            tableName = definition.tableName;
-            schemaName = definition.schemaName;
+            tableName = IgniteNameUtils.quoteIfNeeded(definition.qualifiedName.objectName());
+            schemaName = IgniteNameUtils.quoteIfNeeded(definition.qualifiedName.schemaName());
             ifNotExists = definition.ifNotExists;
             columns = definition.columns;
             pkType = definition.pkType;
@@ -499,6 +565,14 @@ public class TableDefinition {
                 throw new IllegalArgumentException("Index columns list must not be empty.");
             }
 
+            if (type == IndexType.HASH) {
+                for (ColumnSorted c : columns) {
+                    if (c.sortOrder() != SortOrder.DEFAULT) {
+                        throw new IllegalArgumentException("Index columns must not define a sort order in hash indexes.");
+                    }
+                }
+            }
+
             indexes.add(new IndexDefinition(indexName, type, columns));
             return this;
         }
@@ -510,8 +584,7 @@ public class TableDefinition {
          */
         public TableDefinition build() {
             return new TableDefinition(
-                    tableName,
-                    schemaName,
+                    QualifiedName.of(schemaName, tableName),
                     ifNotExists,
                     columns,
                     pkType,

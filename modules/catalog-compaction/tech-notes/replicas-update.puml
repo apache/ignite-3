@@ -12,7 +12,7 @@ node -> node
 note right
   determine minimum begin time among all
   active RW transactions started locally using
-  ActiveLocalTxMinimumBeginTimeProvider
+  ActiveLocalTxMinimumRequiredTimeProvider
 end note
 node -> crd -- : MinimumTimesResponse
 

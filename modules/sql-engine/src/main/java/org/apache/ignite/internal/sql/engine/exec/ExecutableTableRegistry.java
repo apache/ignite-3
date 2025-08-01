@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Provides access to read/write APIs for SQL engine.
  */
@@ -29,7 +27,7 @@ public interface ExecutableTableRegistry {
      *
      * @param catalogVersion Version of the catalog.
      * @param tableId Table Id.
-     * @return An operation that returns executable table.
+     * @return An executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId);
+    ExecutableTable getTable(int catalogVersion, int tableId);
 }

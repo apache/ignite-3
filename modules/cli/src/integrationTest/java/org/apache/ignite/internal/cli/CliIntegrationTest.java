@@ -26,9 +26,11 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.Cluster;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
@@ -42,8 +44,10 @@ import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -63,13 +67,24 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("metastorage").enabled(true),
             new MetricSource().name("client.handler").enabled(true),
             new MetricSource().name("sql.client").enabled(true),
-            new MetricSource().name("sql.plan.cache").enabled(true)
+            new MetricSource().name("sql.plan.cache").enabled(true),
+            new MetricSource().name("sql.queries").enabled(true),
+            new MetricSource().name("storage.aipersist.default").enabled(true),
+            new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
+            new MetricSource().name("topology.cluster").enabled(true),
+            new MetricSource().name("topology.local").enabled(true),
+            new MetricSource().name("thread.pools.partitions-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-planning-executor").enabled(true),
+            new MetricSource().name("transactions").enabled(true),
+            new MetricSource().name("placement-driver").enabled(true),
+            new MetricSource().name("resource.vacuum").enabled(true)
     };
 
     /** Correct ignite jdbc url. */
-    protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:" + Cluster.BASE_CLIENT_PORT;
+    protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:" + ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
 
-    protected static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    protected static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     @Inject
     private ConfigDefaultValueProvider configDefaultValueProvider;
@@ -132,6 +147,10 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         cmd.setErr(new PrintWriter(serr));
     }
 
+    public String getOutput() {
+        return sout.toString();
+    }
+
     protected Class<?> getCommandClass() {
         return TopLevelCliCommand.class;
     }
@@ -165,6 +184,15 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertExitCodeIs(0);
     }
 
+    protected void assertExitCodeIsError() {
+        assertExitCodeIs(errorExitCode());
+    }
+
+    // REPL mode has no exit code for error, override this method in tests for repl commands.
+    protected int errorExitCode() {
+        return 1;
+    }
+
     protected void assertOutputIsNotEmpty() {
         assertThat(sout.toString())
                 .as("Expected command output not to be empty")
@@ -175,6 +203,19 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(sout.toString())
                 .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
                 .isEqualTo(expectedOutput);
+    }
+
+    protected void assertOutputIsSqlResultWithColumns(String... columns) {
+        String tableWithContent = new TableDecorator(false)
+                .decorate(new Table(List.of(columns), List.of()))
+                .toTerminalString();
+        String expectedHeader = Arrays.stream(tableWithContent.split("\n"))
+                .limit(2)
+                .collect(Collectors.joining("\n"));
+
+        assertThat(sout.toString())
+                .as("Expected command output to start with: " + expectedHeader + " but was " + sout.toString())
+                .startsWith(expectedHeader);
     }
 
     protected void assertOutputStartsWith(String expectedOutput) {
@@ -189,6 +230,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputHasLineCount(int expectedLineCount) {
+        assertThat(sout.toString())
+                .as("Expected command output to has " + expectedLineCount + " lines but was " + sout.toString())
+                .hasLineCount(expectedLineCount);
+    }
+
     protected void assertOutputContainsAnyIgnoringCase(Set<String> expectedOutput) {
         CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
 
@@ -198,7 +245,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void assertOutputContainsAny(Set<String> expectedOutput) {
-
         assertThat(sout.toString())
                 .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
                 .containsAnyOf(expectedOutput.toArray(CharSequence[]::new));
@@ -248,6 +294,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEmpty();
     }
 
+    protected void assertOutputContainsSubsequence(Iterable<String> substrings) {
+        assertThat(sout.toString())
+                .as("Expected command output will contain the substrings in the given order")
+                .containsSubsequence(substrings);
+    }
+
     protected void assertErrOutputIsNotEmpty() {
         assertThat(serr.toString())
                 .as("Expected command error output not to be empty")
@@ -270,6 +322,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(serr.toString())
                 .as("Expected command error output to contain: " + expectedErrOutput)
                 .contains(expectedErrOutput);
+    }
+
+    protected void assertErrOutputDoesNotContain(String expectedOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to not contain: " + expectedOutput + " but was " + serr.toString())
+                .doesNotContain(expectedOutput);
     }
 
     protected void setConfigProperty(CliConfigKeys key, String value) {

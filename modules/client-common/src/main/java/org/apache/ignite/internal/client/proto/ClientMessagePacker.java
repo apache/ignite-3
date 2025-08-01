@@ -31,6 +31,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,11 +49,6 @@ public class ClientMessagePacker implements AutoCloseable {
      * Closed flag.
      */
     private boolean closed;
-
-    /**
-     * Metadata.
-     */
-    private @Nullable Object meta;
 
     /**
      * Constructor.
@@ -208,6 +204,29 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void setLong(int index, long v) {
         buf.setLong(index, v);
+    }
+
+    /**
+     * Reserve space for int value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveInt() {
+        buf.writeByte(Code.INT32);
+        var index = buf.writerIndex();
+
+        buf.writeInt(0);
+        return index;
+    }
+
+    /**
+     * Set int value at reserved index (see {@link #reserveInt()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setInt(int index, int v) {
+        buf.setInt(index, v);
     }
 
     /**
@@ -508,6 +527,12 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeBytes(src, off, len);
     }
 
+    void writeIntRawLittleEndian(int payload) {
+        assert !closed : "Packer is closed";
+
+        buf.writeIntLE(payload);
+    }
+
     /**
      * Writes a UUID.
      *
@@ -768,21 +793,13 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Gets metadata.
+     * Packs qualified name.
      *
-     * @return Metadata.
+     * @param name Qualified name.
      */
-    public @Nullable Object meta() {
-        return meta;
-    }
-
-    /**
-     * Sets metadata.
-     *
-     * @param meta Metadata.
-     */
-    public void meta(@Nullable Object meta) {
-        this.meta = meta;
+    public void packQualifiedName(QualifiedName name) {
+        packString(name.schemaName());
+        packString(name.objectName());
     }
 
     /**

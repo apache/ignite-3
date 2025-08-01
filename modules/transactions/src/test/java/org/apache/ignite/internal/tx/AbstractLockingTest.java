@@ -28,17 +28,39 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract class making lock manager tests more simple.
  */
-public abstract class AbstractLockingTest {
-    protected final LockManager lockManager = lockManager();
-    private Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
+@ExtendWith(ConfigurationExtension.class)
+public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    protected LockManager lockManager;
+    private final Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
+
+    @BeforeEach
+    void setUp() {
+        lockManager = lockManager();
+    }
 
     protected abstract LockManager lockManager();
+
+    protected LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        lockManager.start(deadlockPreventionPolicy);
+        return lockManager;
+    }
 
     protected UUID beginTx() {
         return TestTransactionIds.newTransactionId();

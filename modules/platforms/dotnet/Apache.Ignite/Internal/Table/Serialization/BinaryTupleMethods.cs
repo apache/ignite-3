@@ -67,6 +67,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo AppendTimestampNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestampNullable))!;
         private static readonly MethodInfo AppendDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimal))!;
         private static readonly MethodInfo AppendDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimalNullable))!;
+        private static readonly MethodInfo AppendBigDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimal))!;
+        private static readonly MethodInfo AppendBigDecimalNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBigDecimalNullable))!;
         private static readonly MethodInfo AppendBytes =
             typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytesNullable), new[] { typeof(byte[]) })!;
 
@@ -97,9 +99,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetTimestampNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestampNullable))!;
         private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
         private static readonly MethodInfo GetDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimalNullable))!;
+        private static readonly MethodInfo GetBigDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBigDecimal))!;
+        private static readonly MethodInfo GetBigDecimalNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBigDecimalNullable))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytesNullable))!;
 
-        private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
+        private static readonly Dictionary<Type, MethodInfo> WriteMethods = new()
         {
             { typeof(string), AppendString },
             { typeof(sbyte), AppendByte },
@@ -129,9 +133,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(byte[]), AppendBytes },
             { typeof(decimal), AppendDecimal },
             { typeof(decimal?), AppendDecimalNullable },
+            { typeof(BigDecimal), AppendBigDecimal },
+            { typeof(BigDecimal?), AppendBigDecimalNullable }
         };
 
-        private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
+        private static readonly Dictionary<Type, MethodInfo> ReadMethods = new()
         {
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
@@ -158,6 +164,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(LocalDateTime?), GetDateTimeNullable },
             { typeof(Instant), GetTimestamp },
             { typeof(Instant?), GetTimestampNullable },
+            { typeof(BigDecimal), GetBigDecimal },
+            { typeof(BigDecimal?), GetBigDecimalNullable },
             { typeof(decimal), GetDecimal },
             { typeof(decimal?), GetDecimalNullable },
             { typeof(byte[]), GetBytes }
@@ -182,9 +190,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Gets the read method.
         /// </summary>
         /// <param name="type">Type of the value to read.</param>
+        /// <param name="targetTypeHint">User-requested type.</param>
         /// <returns>Read method for the specified value type.</returns>
-        public static MethodInfo GetReadMethod(Type type) =>
-            ReadMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
+        public static MethodInfo GetReadMethod(Type type, Type? targetTypeHint = null)
+        {
+            if (targetTypeHint != null)
+            {
+                if (type == typeof(BigDecimal) || type == typeof(BigDecimal?))
+                {
+                    if (targetTypeHint != typeof(BigDecimal) && targetTypeHint != typeof(BigDecimal?))
+                    {
+                        type = Nullable.GetUnderlyingType(type) != null ? typeof(decimal?) : typeof(decimal);
+                    }
+                }
+            }
+
+            return ReadMethods.TryGetValue(Unwrap(type), out var method) ? method : throw GetUnsupportedTypeException(type);
+        }
 
         /// <summary>
         /// Gets the read method.

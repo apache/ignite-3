@@ -53,7 +53,7 @@ public final class V1Decoder implements LogEntryDecoder {
     }
 
     // Refactored to look closer to Ignites code style.
-    public void decode(final LogEntry log, final byte[] content) {
+    private void decode(final LogEntry log, final byte[] content) {
         var reader = new Reader(content);
         reader.pos = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
 
@@ -65,7 +65,7 @@ public final class V1Decoder implements LogEntryDecoder {
         long term = reader.readLong();
         log.setId(new LogId(index, term));
 
-        long checksum = Bits.getLong(content, reader.pos);
+        long checksum = Bits.getLongLittleEndian(content, reader.pos);
         log.setChecksum(checksum);
 
         int pos = reader.pos + Long.BYTES;
@@ -78,7 +78,7 @@ public final class V1Decoder implements LogEntryDecoder {
             if (peerCount > 0) {
                 List<PeerId> peers = new ArrayList<>(peerCount);
 
-                pos = readNodesList(pos, content, peerCount, peers);
+                pos = readNodesList(reader, pos, content, peerCount, peers);
 
                 log.setPeers(peers);
             }
@@ -89,7 +89,7 @@ public final class V1Decoder implements LogEntryDecoder {
             if (oldPeerCount > 0) {
                 List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
 
-                pos = readNodesList(pos, content, oldPeerCount, oldPeers);
+                pos = readNodesList(reader, pos, content, oldPeerCount, oldPeers);
 
                 log.setOldPeers(oldPeers);
             }
@@ -100,7 +100,7 @@ public final class V1Decoder implements LogEntryDecoder {
             if (learnersCount > 0) {
                 List<PeerId> learners = new ArrayList<>(learnersCount);
 
-                pos = readNodesList(pos, content, learnersCount, learners);
+                pos = readNodesList(reader, pos, content, learnersCount, learners);
 
                 log.setLearners(learners);
             }
@@ -111,7 +111,7 @@ public final class V1Decoder implements LogEntryDecoder {
             if (oldLearnersCount > 0) {
                 List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
 
-                pos = readNodesList(pos, content, oldLearnersCount, oldLearners);
+                pos = readNodesList(reader, pos, content, oldLearnersCount, oldLearners);
 
                 log.setOldLearners(oldLearners);
             }
@@ -129,16 +129,20 @@ public final class V1Decoder implements LogEntryDecoder {
         }
     }
 
-    private static int readNodesList(int pos, byte[] content, int count, List<PeerId> nodes) {
+    private static int readNodesList(Reader reader, int pos, byte[] content, int count, List<PeerId> nodes) {
         for (int i = 0; i < count; i++) {
-            short len = Bits.getShort(content, pos);
-            pos += 2;
+            short len = Bits.getShortLittleEndian(content, pos);
+            pos += Short.BYTES;
 
-            PeerId peer = new PeerId();
-            peer.parse(AsciiStringUtil.unsafeDecode(content, pos, len));
-            nodes.add(peer);
-
+            String consistentId = AsciiStringUtil.unsafeDecode(content, pos, len);
             pos += len;
+
+            reader.pos = pos;
+            int idx = (int) reader.readLong();
+            int priority = (int) (reader.readLong() - 1);
+            pos = reader.pos;
+
+            nodes.add(new PeerId(consistentId, idx, priority));
         }
 
         return pos;

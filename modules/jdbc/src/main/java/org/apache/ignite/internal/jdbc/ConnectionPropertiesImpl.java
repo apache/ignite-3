@@ -25,8 +25,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
-import java.util.stream.Collectors;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -72,16 +70,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC reconnect throttling period. */
-    private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
-            "Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.",
-            IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD, false, 0, Long.MAX_VALUE);
-
-    /** JDBC reconnect throttling retries. */
-    private final IntegerProperty reconnectThrottlingRetries = new IntegerProperty("reconnectThrottlingRetries",
-            "Sets the reconnect throttling retries. Zero means there is no limits.",
-            IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES, false, 0, Integer.MAX_VALUE);
-
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
             "Path to trust store", null, null, false, null);
@@ -98,21 +86,9 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty keyStorePassword = new StringProperty("keyStorePassword",
             "Key store password", null, null, false, null);
 
-    /** SSL client authentication. */
-    private final StringProperty clientAuth = new StringProperty("clientAuth",
-            "SSL client authentication", "none", clientAuthValues(), false, null);
-
     /** SSL ciphers list. */
     private final StringProperty ciphers = new StringProperty("ciphers",
             "SSL ciphers", null, null, false, null);
-
-    private static String[] clientAuthValues() {
-        return Arrays.stream(ClientAuthenticationMode.values())
-                .map(Enum::name)
-                .map(String::toLowerCase)
-                .collect(Collectors.toList())
-                .toArray(String[]::new);
-    }
 
     /** Enable SSL. */
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
@@ -133,7 +109,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
-            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
+            sslEnabled, ciphers, keyStorePath, keyStorePassword,
             username, password, connectionTimeZone
     };
 
@@ -213,30 +189,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public Long getReconnectThrottlingPeriod() {
-        return reconnectThrottlingPeriod.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectThrottlingPeriod(Long period) throws SQLException {
-        reconnectThrottlingPeriod.setValue(period);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Integer getReconnectThrottlingRetries() {
-        return reconnectThrottlingRetries.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) throws SQLException {
-        this.reconnectThrottlingRetries.setValue(reconnectThrottlingRetries);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int getConnectionTimeout() {
         return connTimeout.value();
     }
@@ -305,18 +257,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setSslEnabled(boolean enabled) {
         sslEnabled.setValue(enabled);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setClientAuth(ClientAuthenticationMode clientAuth) {
-        this.clientAuth.setValue(clientAuth.name().toLowerCase());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClientAuthenticationMode getClientAuth() {
-        return ClientAuthenticationMode.valueOf(this.clientAuth.value().toUpperCase());
     }
 
     @Override

@@ -54,9 +54,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
 
     @AfterAll
     public void dropTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+        dropAllTables();
     }
 
     @Test

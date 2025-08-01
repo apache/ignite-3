@@ -52,10 +52,10 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     private final DecoratorRegistry decoratorRegistry;
     private final Set<Consumer<O>> successHandlers = new HashSet<>();
     private final Set<Consumer<Throwable>> failureHandlers = new HashSet<>();
-    private boolean verbose;
+    private boolean[] verbose;
 
     FlowBuilderImpl(Flow<I, O> flow) {
-        this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry(), false);
+        this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry(), new boolean[0]);
     }
 
     /**
@@ -66,7 +66,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      * @param decoratorRegistry decorator registry.
      * @param verbose if @{code true}, flow execution will print debug logs
      */
-    private FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry, boolean verbose) {
+    private FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry, boolean[] verbose) {
         this.flow = flow;
         this.exceptionHandlers = exceptionHandlers;
         this.decoratorRegistry = decoratorRegistry;
@@ -135,7 +135,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
-    public FlowBuilder<I, O> verbose(boolean verbose) {
+    public FlowBuilder<I, O> verbose(boolean[] verbose) {
         this.verbose = verbose;
         return this;
     }
@@ -172,12 +172,12 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      */
     private Flowable<O> run(Flowable<I> input) {
         try {
-            if (verbose) {
-                CliLoggers.startOutputRedirect(CommandLineContextProvider.getContext().err());
+            if (verbose.length > 0) {
+                CliLoggers.startOutputRedirect(CommandLineContextProvider.getContext().err(), verbose);
             }
             return flow.start(input);
         } finally {
-            if (verbose) {
+            if (verbose.length > 0) {
                 CliLoggers.stopOutputRedirect();
             }
         }

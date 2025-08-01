@@ -86,6 +86,22 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     }
 
     /**
+     * Tests {@link ClusterStateStorage#putAll(List, List)} method.
+     */
+    @Test
+    void testGetAndPutAll() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+
+        storage.putAll(List.of(key1, key2), List.of(value1, value2));
+
+        assertThat(storage.get(key1), is(equalTo(value1)));
+        assertThat(storage.get(key2), is(equalTo(value2)));
+    }
+
+    /**
      * Tests that {@link ClusterStateStorage#put} replaces previous values.
      */
     @Test

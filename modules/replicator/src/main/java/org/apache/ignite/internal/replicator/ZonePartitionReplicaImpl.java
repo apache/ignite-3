@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -37,6 +37,8 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     private final TopologyAwareRaftGroupService raftClient;
 
+    private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
+
     /**
      * Constructor.
      *
@@ -47,11 +49,13 @@ public class ZonePartitionReplicaImpl implements Replica {
     public ZonePartitionReplicaImpl(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            TopologyAwareRaftGroupService raftClient
+            TopologyAwareRaftGroupService raftClient,
+            PlacementDriverMessageProcessor placementDriverMessageProcessor
     )  {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
         this.raftClient = raftClient;
+        this.placementDriverMessageProcessor = placementDriverMessageProcessor;
     }
 
     @Override
@@ -65,7 +69,7 @@ public class ZonePartitionReplicaImpl implements Replica {
     }
 
     @Override
-    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId) {
         return listener.invoke(request, senderId);
     }
 
@@ -76,17 +80,33 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
-        throw new UnsupportedOperationException("processPlacementDriverMessage");
+        return placementDriverMessageProcessor.processPlacementDriverMessage(msg);
     }
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        return nullCompletedFuture();
+        listener.onShutdown();
+
+        return raftClient.unsubscribeLeader()
+                .thenAccept(v -> raftClient.shutdown());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
         raftClient.updateConfiguration(peersAndLearners);
+    }
+
+    @Override
+    public CompletableFuture<Void> createSnapshotOn(Member targetMember, boolean forced) {
+        Peer peer = targetMember.isVotingMember()
+                ? new Peer(targetMember.consistentId(), 0)
+                : new Peer(targetMember.consistentId(), 1);
+
+        return raftClient.snapshot(peer, forced);
+    }
+
+    @Override
+    public CompletableFuture<Void> transferLeadershipTo(String targetConsistentId) {
+        return raftClient.transferLeadership(new Peer(targetConsistentId));
     }
 }

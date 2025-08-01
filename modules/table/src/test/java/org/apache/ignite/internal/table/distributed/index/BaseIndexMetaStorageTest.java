@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,7 +87,10 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         var componentContext = new ComponentContext();
 
-        assertThat(startAsync(componentContext, metastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        assertThat(startAsync(componentContext, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(componentContext, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -139,7 +143,7 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
         assertNotNull(versionBytes, "indexId=" + indexId);
 
         int catalogVersion = ByteUtils.bytesToIntKeepingOrder(versionBytes);
-        IndexMeta indexMeta = ByteUtils.fromBytes(valueBytes);
+        IndexMeta indexMeta = VersionedSerialization.fromBytes(valueBytes, IndexMetaSerializer.INSTANCE);
 
         assertEquals(indexMeta.catalogVersion(), catalogVersion, "indexId=" + indexId);
 

@@ -1,5 +1,5 @@
 ## Prerequisites
-* .NET 6 SDK
+* .NET 8 SDK
 * Java 11 SDK
 
 ## Build Java
@@ -42,10 +42,10 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 Update version number in `version.json`.
 
 ### Build Binaries
-`dotnet publish Apache.Ignite --configuration Release --output release/bin`
+`dotnet publish --configuration Release`
 
 ### Pack NuGet
-`dotnet pack Apache.Ignite --configuration Release --include-source --output release/nupkg`
+`dotnet pack --configuration Release --include-source --output release/nupkg`
 
 ### Build Docs
 1. `dotnet tool restore`

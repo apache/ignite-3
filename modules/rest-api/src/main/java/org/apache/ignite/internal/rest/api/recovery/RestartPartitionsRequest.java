@@ -40,7 +40,7 @@ public class RestartPartitionsRequest {
     @Schema(description = "IDs of partitions to restart. If empty/omitted, all partitions will be restarted.")
     private final Set<Integer> partitionIds;
 
-    @Schema(description = "Fully-qualified name of the table to restart partitions of. Without quotes, case-sensitive.")
+    @Schema(description = "Fully-qualified name of the table to restart partitions of.")
     private final String tableName;
 
     /** Constructor. */

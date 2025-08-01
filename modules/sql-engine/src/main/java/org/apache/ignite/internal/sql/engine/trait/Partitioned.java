@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
 
@@ -27,7 +27,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public final class Partitioned<RowT> implements Destination<RowT> {
-    private final Map<Integer, String> assignments;
+    private final Int2ObjectMap<String> assignments;
 
     private final RowPartitionExtractor<RowT> calc;
 
@@ -35,7 +35,7 @@ public final class Partitioned<RowT> implements Destination<RowT> {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(Map<Integer, String> assignments, RowPartitionExtractor<RowT> calc) {
+    public Partitioned(Int2ObjectMap<String> assignments, RowPartitionExtractor<RowT> calc) {
         this.calc = calc;
         this.assignments = assignments;
     }

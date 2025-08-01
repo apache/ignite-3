@@ -20,12 +20,22 @@ set COMMON_JAVA_OPTS=@ADD_OPENS@ ^
 -XX:+HeapDumpOnOutOfMemoryError ^
 -XX:+ExitOnOutOfMemoryError
 
-set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="@CONF_DIR@\ignite.java.util.logging.properties" ^
--XX:HeapDumpPath="@LOG_DIR@" ^
--Xlog:gc=info:file="@LOG_DIR@\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
+set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="%CONF_DIR%\ignite.java.util.logging.properties" ^
+-XX:HeapDumpPath="%LOG_DIR%" ^
+-Xlog:gc=info:file="%LOG_DIR%\%JVM_GC_LOG_NAME%"::filecount=%JVM_GC_NUM_LOGS%,filesize=%JVM_GC_LOG_SIZE%
 
-set CLASSPATH=-classpath "@INSTALL_DIR@\lib\*" @MAIN_CLASS@
+set CLASSPATH=-classpath "%LIBS_DIR%\*" @MAIN_CLASS@
 
-set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" %COMMON_JAVA_OPTS% %LOGGING_JAVA_OPTS% %IGNITE3_EXTRA_JVM_ARGS% %CLASSPATH%
+set JAVA_MEMORY_OPTIONS=-Xmx%JVM_MAX_MEM% -Xms%JVM_MIN_MEM%
+
+set JAVA_GC_OPTIONS=-XX:+Use%JVM_GC% -XX:G1HeapRegionSize=%JVM_G1HeapRegionSize%
+
+set JAVA_CMD_WITH_ARGS="%JAVA_EXE%" ^
+%COMMON_JAVA_OPTS% ^
+%LOGGING_JAVA_OPTS% ^
+%JAVA_MEMORY_OPTIONS% ^
+%JAVA_GC_OPTIONS% ^
+%IGNITE3_EXTRA_JVM_ARGS% ^
+%CLASSPATH%
 
 set APPLICATION_ARGS=--config-path "%CONFIG_FILE%" --work-dir "%WORK_DIR%" --node-name %NODE_NAME%

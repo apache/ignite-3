@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -73,7 +72,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
                     + " doesn't support any other type of partition except hash partition.");
         }
         HashPartition hashPartition = (HashPartition) partition;
-        return table.partitionLocation(new TablePartitionId(table.tableId(), hashPartition.partitionId()));
+        return table.partitionLocation(hashPartition.partitionId());
     }
 
     @Override
@@ -82,7 +81,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
         for (int i = 0; i < partitions; i++) {
-            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), i));
+            futures[i] = table.partitionLocation(i);
         }
 
         return allOf(futures)
@@ -104,7 +103,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
 
         BinaryRowEx keyRow = marshaller.marshal(key);
 
-        return completedFuture(new HashPartition(table.partition(keyRow)));
+        return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }
 
     @Override
@@ -115,6 +114,6 @@ public class HashPartitionManagerImpl implements PartitionManager {
         // columns never change (so they are the same for all schema versions of the table),
         Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-        return completedFuture(new HashPartition(table.partition(keyRow)));
+        return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }
 }

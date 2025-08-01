@@ -17,28 +17,35 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.Collections.synchronizedList;
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -47,38 +54,58 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for lease tracker.
  */
+@ExtendWith(MockitoExtension.class)
 public class LeaseTrackerTest extends BaseIgniteAbstractTest {
-    @Test
-    public void testLeaseCleanup() {
-        AtomicReference<WatchListener> listenerRef = new AtomicReference<>();
-        MetaStorageManager msManager = mock(MetaStorageManager.class);
+    private MetaStorageManager msManager;
 
-        doAnswer(
-                invocation -> {
-                    WatchListener lsnr = invocation.getArgument(1);
-                    listenerRef.set(lsnr);
-                    return null;
-                }
-        ).when(msManager).registerExactWatch(any(), any());
+    private LeaseTracker leaseTracker;
 
-        Entry emptyEntry = EntryImpl.empty(PLACEMENTDRIVER_LEASES_KEY.bytes());
+    @Mock
+    private ClusterNodeResolver clusterNodeResolver;
 
-        when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
+    @BeforeEach
+    void setUp() {
+        msManager = StandaloneMetaStorageManager.create();
 
-        LeaseTracker leaseTracker = new LeaseTracker(
+        HybridClockImpl clock = new HybridClockImpl();
+
+        leaseTracker = new LeaseTracker(
                 msManager,
-                mock(ClusterNodeResolver.class),
-                new TestClockService(new HybridClockImpl())
+                clusterNodeResolver,
+                new TestClockService(clock)
         );
-        leaseTracker.startTrack(0L);
 
+        assertThat(msManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        assertThat(msManager.deployWatches(), willCompleteSuccessfully());
+
+        leaseTracker.startTrack(0L);
+    }
+
+    @AfterEach
+    void tearDown() {
+        leaseTracker.stopTrack();
+
+        msManager.beforeNodeStop();
+
+        assertThat(msManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testLeaseCleanup() {
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
-        leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, p -> {
+
+        leaseTracker.listen(PRIMARY_REPLICA_EXPIRED, p -> {
             parametersRef.set(p);
             return falseCompletedFuture();
         });
@@ -92,25 +119,136 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         String leaseholder0 = "notAccepted";
         String leaseholder1 = "accepted";
 
-        Lease lease0 = new Lease(leaseholder0, leaseholder0 + "_id", startTime, expirationTime, partId0);
-        Lease lease1 = new Lease(leaseholder1, leaseholder1 + "_id", startTime, expirationTime, partId1)
+        Lease lease0 = new Lease(leaseholder0, randomUUID(), startTime, expirationTime, partId0);
+        Lease lease1 = new Lease(leaseholder1, randomUUID(), startTime, expirationTime, partId1)
                 .acceptLease(new HybridTimestamp(2000, 0));
 
-        // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
-        Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
-        Entry entry1 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0)).bytes(), 0, 1);
-        listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry0)));
+        // In batch0, there are leases for partition ids partId0 and partId1. In batch1, there is only partId0, so partId1 is expired.
+        var batch0 = new LeaseBatch(List.of(lease0, lease1));
+        var batch1 = new LeaseBatch(List.of(lease0));
 
-        assertNull(parametersRef.get());
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, batch0.bytes()),
+                willCompleteSuccessfully()
+        );
+
+        await()
+                .during(100, TimeUnit.MILLISECONDS)
+                .until(() -> parametersRef.get() == null);
 
         // Check that the absence of accepted lease triggers the event.
-        listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry1)));
-        assertNotNull(parametersRef.get());
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, batch1.bytes()),
+                willCompleteSuccessfully()
+        );
+
+        await().until(() -> parametersRef.get() != null);
+
         assertEquals(partId1, parametersRef.get().groupId());
 
-        // Check that the absence of not accepted lease doesn't trigger the event.
         parametersRef.set(null);
-        listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, emptyEntry)));
-        assertNull(parametersRef.get());
+
+        // Check that the absence of not accepted lease doesn't trigger the event.
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of()).bytes()),
+                willCompleteSuccessfully()
+        );
+
+        await()
+                .during(100, TimeUnit.MILLISECONDS)
+                .until(() -> parametersRef.get() == null);
+    }
+
+    /**
+     * Tests that when a new replica is elected, an expiration event is always before the next election event.
+     */
+    @Test
+    void replicaExpirationIsFiredBeforeReplicaElection() {
+        var events = synchronizedList(new ArrayList<PrimaryReplicaEvent>());
+
+        leaseTracker.listen(PRIMARY_REPLICA_EXPIRED, params -> {
+            events.add(PRIMARY_REPLICA_EXPIRED);
+
+            return falseCompletedFuture();
+        });
+
+        leaseTracker.listen(PRIMARY_REPLICA_ELECTED, params -> {
+            events.add(PRIMARY_REPLICA_ELECTED);
+
+            return falseCompletedFuture();
+        });
+
+        TablePartitionId partId = new TablePartitionId(0, 0);
+
+        HybridTimestamp expirationTime = new HybridTimestamp(1000, 0);
+
+        Lease lease0 = new Lease("test", randomUUID(), new HybridTimestamp(1, 0), expirationTime, partId)
+                .acceptLease(new HybridTimestamp(1000, 0));
+        Lease lease1 = new Lease("test", randomUUID(), new HybridTimestamp(2, 0), expirationTime, partId)
+                .acceptLease(new HybridTimestamp(2000, 0));
+
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease0)).bytes()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease1)).bytes()),
+                willCompleteSuccessfully()
+        );
+
+        await().until(() -> events, hasSize(3));
+
+        assertThat(events, contains(PRIMARY_REPLICA_ELECTED, PRIMARY_REPLICA_EXPIRED, PRIMARY_REPLICA_ELECTED));
+    }
+
+    @Test
+    void awaitPrimaryReplicaPropagatesExceptions() {
+        when(clusterNodeResolver.getById(any())).thenThrow(new RuntimeException("test"));
+
+        var groupId = new TablePartitionId(0, 0);
+
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                groupId,
+                HybridTimestamp.MAX_VALUE,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        var lease = new Lease("test", randomUUID(), new HybridTimestamp(1, 0), HybridTimestamp.MAX_VALUE, groupId)
+                .acceptLease(HybridTimestamp.MAX_VALUE);
+
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(future, willThrowWithCauseOrSuppressed(RuntimeException.class, "test"));
+    }
+
+    @Test
+    void awaitPrimaryReplicaPropagatesExceptionsOnStop() {
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                new TablePartitionId(0, 0),
+                HybridTimestamp.MAX_VALUE,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        leaseTracker.stopTrack();
+
+        assertThat(future, willThrow(NodeStoppingException.class));
+    }
+
+    @Test
+    void awaitPrimaryReplicaThrowsOnTimeout() {
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                new TablePartitionId(0, 0),
+                HybridTimestamp.MAX_VALUE,
+                1,
+                TimeUnit.MILLISECONDS
+        );
+
+        assertThat(future, willThrow(PrimaryReplicaAwaitTimeoutException.class));
     }
 }

@@ -24,27 +24,27 @@ import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -63,23 +63,31 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
     @InjectQueryCheckerFactory
     private static QueryCheckerFactory queryCheckerFactory;
 
-    // @formatter:off
     private static final TestCluster CLUSTER = TestBuilders.cluster()
             .nodes(NODE_NAME)
-            .addTable()
-                    .name("T1")
-                    .addKeyColumn("ID", NativeTypes.INT32)
-                    .addColumn("VAL", NativeTypes.INT32)
-                    .end()
-            .dataProvider(NODE_NAME, "T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of(
-                    new Object[] {1, 1, 1}, new Object[] {2, 2, 1}
-            ))))
             .build();
-    // @formatter:on
+
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
 
     @BeforeAll
     static void startCluster() {
         CLUSTER.start();
+
+        //noinspection ConcatenationWithEmptyString
+        CLUSTER.node("N1").initSchema(""
+                + "CREATE ZONE test_zone (partitions 1) storage profiles ['Default'];"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone");
+
+        CLUSTER.setAssignmentsProvider("T1", (partitionCount, b) -> IntStream.range(0, partitionCount)
+                .mapToObj(i -> List.of("N1"))
+                .collect(Collectors.toList()));
+        CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
+                List.of(new Object[]{1, 1, 1, 1}, new Object[]{2, 2, 1, 1})
+        )));
     }
 
     @AfterAll
@@ -215,6 +223,57 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testResultSetMatcher() {
+        assertQuery("SELECT * FROM t1")
+                .returnSomething()
+                .check();
+
+        // by default returned rows are ordered
+        assertQuery("SELECT * FROM t1")
+                .results(new ListOfListsMatcher(
+                        Matchers.contains(1, 1),
+                        Matchers.contains(2, 2)
+                ))
+                .check();
+
+        // query returns more than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns less than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2),
+                                Matchers.contains(3, 3)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns different types
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2L)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+    }
+
+    @Test
     void testMetadata() {
         assertQueryMeta("SELECT * FROM t1")
                 .columnNames("ID", "VAL")
@@ -276,7 +335,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );
@@ -288,7 +347,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );
@@ -304,8 +363,12 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-                @Nullable InternalTransaction transaction, String qry, Object... params) {
+        public CompletableFuture<QueryMetadata> prepareSingleAsync(
+                SqlProperties properties,
+                @Nullable InternalTransaction transaction,
+                String qry,
+                Object... params
+        ) {
             assert params == null || params.length == 0 : "params are not supported";
             assert prepareOnly : "Expected that the query will be executed";
 
@@ -319,25 +382,14 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 SqlProperties properties,
                 HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
+                @Nullable CancellationToken cancellationToken,
                 String qry,
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
-            QueryPlan plan = node.prepare(qry);
-            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan);
-
-            SqlQueryType type = plan.type();
-
-            assert type != null;
-
-            AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
-                    type,
-                    plan.metadata(),
-                    dataCursor,
-                    null
-            );
+            AsyncSqlCursor<InternalSqlRow> sqlCursor = node.executeQuery(qry);
 
             return CompletableFuture.completedFuture(sqlCursor);
         }
@@ -355,4 +407,5 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         }
     }
+
 }

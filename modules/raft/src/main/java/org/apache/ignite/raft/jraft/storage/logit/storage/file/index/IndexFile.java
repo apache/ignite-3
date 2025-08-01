@@ -22,8 +22,10 @@ import java.util.Arrays;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
+import org.apache.ignite.raft.jraft.util.Bits;
 
 /**
  *  * File header:
@@ -144,25 +146,19 @@ public class IndexFile extends AbstractFile {
         this.writeLock.lock();
         try {
             assert (logIndex > getLastLogIndex());
-            final byte[] writeData = encodeData(toRelativeOffset(logIndex), position, logType);
-            return doAppend(logIndex, writeData);
+
+            return doAppend(logIndex, addr -> {
+                GridUnsafe.putByte(addr, RECORD_MAGIC_BYTES[0]);
+                GridUnsafe.putByte(addr + 1, logType);
+
+                Bits.putIntLittleEndian(addr + 2, toRelativeOffset(logIndex));
+                Bits.putIntLittleEndian(addr + 6, position);
+
+                return getIndexSize();
+            });
         } finally {
             this.writeLock.unlock();
         }
-    }
-
-    private byte[] encodeData(final int offset, final int position, final byte logType) {
-        final ByteBuffer buffer = ByteBuffer.allocate(getIndexSize());
-        // Magics
-        buffer.put(RECORD_MAGIC_BYTES);
-        // logType (segmentLog or conf)
-        buffer.put(logType);
-        // offset from FirstLogIndex
-        buffer.putInt(offset);
-        // phyPosition in segmentFile
-        buffer.putInt(position);
-        buffer.flip();
-        return buffer.array();
     }
 
     /**

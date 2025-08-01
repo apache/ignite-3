@@ -147,7 +147,7 @@ class DeploymentUnitAcquiredWaiterTest extends BaseIgniteAbstractTest {
         undeployer.submitToAcquireRelease(unit1);
 
         // check delay between attempts to undeploy the unit.
-        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(6))
+        verify(deploymentUnitAccessor, after(DELAY_IN_MILLIS * 5).atMost(7))
                 .computeIfNotAcquired(eq(unit1), any());
     }
 

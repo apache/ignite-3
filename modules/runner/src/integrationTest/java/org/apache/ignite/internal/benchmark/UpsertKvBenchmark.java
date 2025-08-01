@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -55,9 +56,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
-    private final Tuple tuple = Tuple.create();
-
-    private final AtomicInteger id = new AtomicInteger();
+    private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + " USING {} (field{});";
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
@@ -70,35 +69,68 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"8"})
     private int partitionCount;
 
+    @Param({"0", "10"})
+    private int idxes;
+
+    @Param({"100"})
+    private int fieldLength;
+
+    @Param({"HASH", "SORTED"})
+    private String indexType;
+
+    @Param({"uniquePrefix", "uniquePostfix"})
+    private String fieldValueGeneration;
+
+    private static final AtomicInteger COUNTER = new AtomicInteger();
+
+    private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
+
     @Override
     public void nodeSetUp() throws Exception {
         System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
         super.nodeSetUp();
+    }
 
-        //igniteImpl.metricManager().enable("raft");
+    /**
+     * Initializes the tuple.
+     */
+    @Setup
+    public void setUp() {
+        kvView = igniteImpl.tables().table(TABLE_NAME).keyValueView();
 
-        kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
-        for (int i = 1; i < 11; i++) {
-            tuple.set("field" + i, FIELD_VAL);
+        StringBuilder sqlScript = new StringBuilder();
+
+        if (idxes > 10) {
+            throw new IllegalStateException("Unexpected value of idxes: " + idxes);
+        }
+
+        for (int i = 1; i <= idxes; i++) {
+            sqlScript.append(format(INDEX_CREATE_SQL, i, indexType, i));
+        }
+
+        if (sqlScript.length() > 0) {
+            igniteImpl.sql().executeScript(sqlScript.toString());
         }
     }
 
-    @Override
-    public void nodeTearDown() throws Exception {
-        MetricSet set = igniteImpl.metricManager().metricSnapshot().get1().get("raft");
-        DistributionMetric b = set.get("raft.shared.disruptor.Batch");
+    private Tuple valueTuple(int id) {
+        String formattedString = String.format("%" + (fieldValueGeneration.equals("uniquePrefix") ? '-' : '0') + fieldLength + "d", id);
 
-        System.out.println(b);
+        String fieldVal = formattedString.length() > fieldLength ? formattedString.substring(0, fieldLength) : formattedString;
 
-        DistributionMetric stripes = set.get("raft.shared.disruptor.Stripes");
-
-        System.out.println(stripes);
-
-        super.nodeTearDown();
-
-        System.out.println("Inserted " + (id.get() * batch) + " tuples");
+        return Tuple.create()
+                .set("field1", fieldVal)
+                .set("field2", fieldVal)
+                .set("field3", fieldVal)
+                .set("field4", fieldVal)
+                .set("field5", fieldVal)
+                .set("field6", fieldVal)
+                .set("field7", fieldVal)
+                .set("field8", fieldVal)
+                .set("field9", fieldVal)
+                .set("field10", fieldVal);
     }
 
     /**
@@ -109,15 +141,23 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (int i = 0; i < batch - 1; i++) {
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
+            int id = nextId();
+
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
             futs.add(fut);
         }
 
-        for (CompletableFuture<Void> fut : futs) {
-            fut.join();
-        }
+        CompletableFutures.allOf(futs).join();
 
-        kvView.put(null, Tuple.create().set("ycsb_key", id.getAndIncrement()), tuple);
+        int id = nextId();
+
+        kvView.put(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
+    }
+
+    private int nextId() {
+        int cur = GEN.get() + 1;
+        GEN.set(cur);
+        return cur;
     }
 
     /**
@@ -126,8 +166,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + UpsertKvBenchmark.class.getSimpleName() + ".*")
-                .jvmArgsAppend("-Djmh.executor=VIRTUAL")
-                //.addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
+                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
                 .build();
 
         new Runner(opt).run();

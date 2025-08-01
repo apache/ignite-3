@@ -19,10 +19,16 @@ package org.apache.ignite.raft.jraft.rpc.impl.core;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
+import org.apache.ignite.raft.jraft.JRaftUtils;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.NodeImpl.ReadIndexHeartbeatResponseClosure;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -44,6 +50,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.TimeoutNowResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
+import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * Raft rpc service.
@@ -92,13 +99,69 @@ public class DefaultRaftClientService extends AbstractClientService implements R
 
         // Assign an executor in round-robin fasion.
         final Executor executor = this.appendEntriesExecutorMap.computeIfAbsent(peerId,
-            k -> nodeOptions.getStripedExecutor().next());
+                k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(peerId)) { // Replicator should be started asynchronously by node joined event.
+            if (!nodeOptions.isSystemGroup() && JRaftUtils.isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
+                return sendHeartbeat(peerId, request, timeoutMs, done, executor);
+            }
+
             return invokeWithDone(peerId, request, done, timeoutMs, executor);
         }
 
         return onConnectionFail(executor, request, done, peerId);
+    }
+
+    /**
+     * Accumulates heartbeat messages to send them into the batch request.
+     *
+     * @param peerId Remote peer id.
+     * @param request Request.
+     * @param timeoutMs Timeout.
+     * @param done Done callback.
+     * @param executor Executor where the done callback is executed.
+     * @return A future with response.
+     */
+    private Future<Message> sendHeartbeat(
+            PeerId peerId,
+            AppendEntriesRequest request,
+            int timeoutMs,
+            RpcResponseClosure<AppendEntriesResponse> done,
+            Executor executor
+    ) {
+        NodeManager nodeManager = this.nodeOptions.getNodeManager();
+
+        return invokeWithDone(
+                peerId,
+                request,
+                null,
+                done,
+                timeoutMs,
+                executor,
+                (peerId1, request1, ctx, callback, timeoutMs1) ->
+                        nodeManager.enqueue(peerId, (Message) request1).whenComplete((res, err) -> {
+                            if (err instanceof ExecutionException) {
+                                err = new RemotingException(err);
+                            } else if (err instanceof TimeoutException) // Translate timeout exception.
+                            {
+                                err = new InvokeTimeoutException();
+                            }
+
+                            Throwable finalErr = err;
+
+                            // Avoid deadlocks if a closure has completed in the same thread.
+                            Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
+                        })
+        );
+    }
+
+    /**
+     * Checks whether it is a read index request or not.
+     * @param doneClosure Done closure.
+     * @return True if the read index request.
+     */
+    private static boolean isReadIndexRequest(RpcResponseClosure<AppendEntriesResponse> doneClosure) {
+        return doneClosure instanceof ReadIndexHeartbeatResponseClosure;
     }
 
     @Override

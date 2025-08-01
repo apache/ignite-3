@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.compute.utils.InteractiveJobs.Signal.RETURN_WORKER_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -46,7 +49,7 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     private final ClusterNode nonExistingNode = new ClusterNodeImpl(
-            "non-existing-id", "non-existing-name", new NetworkAddress("non-existing-host", 1)
+            randomUUID(), "non-existing-name", new NetworkAddress("non-existing-host", 1)
     );
 
     @Test
@@ -122,29 +125,29 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.initChannels(nodes.stream().map(ClusterNode::name).collect(Collectors.toList()));
 
         // When broadcast a job
-        Map<ClusterNode, JobExecution<Object>> executions = compute().submitBroadcast(
-                nodes, JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
+        CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(
+                BroadcastJobTarget.nodes(nodes),
+                InteractiveJobs.interactiveJobDescriptor(),
+                null
+        );
 
-        // Then one job is alive
-        assertThat(executions.size(), is(2));
-        new TestingJobExecution<>(executions.get(existingNode)).assertExecuting();
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<String> execution = executionFut.join();
 
-        // And second job failed
-        String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
-        assertThat(executions.get(nonExistingNode).resultAsync(), willThrow(NodeNotFoundException.class, errorMessageFragment));
-
-        // Cleanup
+        // Finish running job so that the results could be retrieved.
         InteractiveJobs.all().finish();
+
+        String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
+        assertThat(execution.resultsAsync(), willThrow(NodeNotFoundException.class, errorMessageFragment));
     }
 
     protected abstract IgniteCompute compute();
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(
-                compute().submit(
-                        JobTarget.anyNode(nodes),
-                        JobDescriptor.<String, String>builder(InteractiveJobs.globalJob().name()).build(),
-                        "")
-        );
+        return new TestingJobExecution<>(compute().submitAsync(
+                JobTarget.anyNode(nodes),
+                JobDescriptor.<String, String>builder(InteractiveJobs.globalJob().name()).build(),
+                ""
+        ));
     }
 }

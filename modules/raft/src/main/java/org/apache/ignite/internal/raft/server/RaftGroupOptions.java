@@ -19,10 +19,10 @@ package org.apache.ignite.internal.raft.server;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,14 +41,51 @@ public class RaftGroupOptions {
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
 
-    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
-    private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
-
     /** Marshaller to marshall/unmarshall commands. */
     private @Nullable Marshaller commandsMarshaller;
 
     /** Path to store raft data. */
     private @Nullable Path serverDataPath;
+
+    /**
+     * Externally enforced config index.
+     *
+     * @see #externallyEnforcedConfigIndex()
+     */
+    private @Nullable Long externallyEnforcedConfigIndex;
+
+    /**
+     * Max clock skew in the replication group in milliseconds.
+     */
+    private int maxClockSkewMs;
+
+    /**
+     * If the group is declared as a system group, certain threads are dedicated specifically for that one.
+     */
+    private boolean isSystemGroup = false;
+
+    /**
+     * Gets a system group flag.
+     *
+     * @return System group flag.
+     */
+    public boolean isSystemGroup() {
+        return isSystemGroup;
+    }
+
+    /**
+     * Sets a system flag.
+     * If the flag is true, some resources are used in an exclusive manner to avoid collision with data flow.
+     * Otherwise, the RAFT group shares resources to save physical machine capacity.
+     *
+     * @param systemGroup True for system group, false for client data.
+     * @return System group flag.
+     */
+    public RaftGroupOptions setSystemGroup(boolean systemGroup) {
+        isSystemGroup = systemGroup;
+
+        return this;
+    }
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -141,22 +178,6 @@ public class RaftGroupOptions {
     }
 
     /**
-     * Returns configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
-     */
-    public @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig() {
-        return ownFsmCallerExecutorDisruptorConfig;
-    }
-
-    /**
-     * Sets configuration of own striped disruptor for FSMCaller service of raft node.
-     */
-    public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
-        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
-
-        return this;
-    }
-
-    /**
      * Returns Marshaller used to marshall/unmarshall commands.
      */
     public @Nullable Marshaller commandsMarshaller() {
@@ -194,4 +215,56 @@ public class RaftGroupOptions {
         return this;
     }
 
+    /**
+     * Externally enforced config index.
+     *
+     * <p>If it's not {@code null}, then the Raft node abstains from becoming a leader in configurations whose index precedes
+     * the externally enforced index..
+     *
+     * <p>The idea is that, if a Raft group was forcefully repaired (because it lost majority) using resetPeers(),
+     * the old majority nodes might come back online. If this happens and we do nothing, they might elect a leader from the old majority
+     * that could hijack leadership and cause havoc in the repaired group.
+     *
+     * <p>To prevent this, on a starup or subsequent config changes, current voting set (aka peers) of the repaired group may be 'broken'
+     * to make it impossible for the current node to become a leader. This is enabled by setting a non-null value to
+     * {@link NodeOptions#getExternallyEnforcedConfigIndex ()}. When it's set, on each change of configuration (happening to this.conf),
+     * including the one at startup, we check whether the applied config precedes the externally enforced
+     * config (in which case this.conf.peers will be 'broken' to make sure current node does not become a leader) or not (in which case
+     * the applied config will be used as is).
+     */
+    public @Nullable Long externallyEnforcedConfigIndex() {
+        return externallyEnforcedConfigIndex;
+    }
+
+    /**
+     * Sets externally enforced config index for the group.
+     *
+     * @param index Index to set.
+     * @return This object.
+     * @see #externallyEnforcedConfigIndex()
+     */
+    public RaftGroupOptions externallyEnforcedConfigIndex(@Nullable Long index) {
+        externallyEnforcedConfigIndex = index;
+        return this;
+    }
+
+    /**
+     * Set max clock skew.
+     *
+     * @param maxClockSkewMs The skew in milliseconds.
+     * @return This object.
+     */
+    public RaftGroupOptions maxClockSkew(int maxClockSkewMs) {
+        this.maxClockSkewMs = maxClockSkewMs;
+        return this;
+    }
+
+    /**
+     * Get max clock skew.
+     *
+     * @return The skew.
+     */
+    public int maxClockSkew() {
+        return maxClockSkewMs;
+    }
 }

@@ -142,8 +142,11 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchPreparedStmntRequest req
-                = new JdbcBatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs, conn.getAutoCommit(), queryTimeoutMillis);
+        long correlationToken = nextToken();
+
+        JdbcBatchPreparedStmntRequest req = new JdbcBatchPreparedStmntRequest(
+                conn.getSchema(), sql, batchedArgs, conn.getAutoCommit(), queryTimeoutMillis, correlationToken
+        );
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(conn.connectionId(), req).get();

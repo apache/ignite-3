@@ -447,7 +447,7 @@ public class PartitionAwarenessTests
         node.ClearOps();
         node2?.ClearOps();
 
-        ITransaction? tx = withTx ? new LazyTransaction(default) : null;
+        ITransaction? tx = withTx ? new LazyTransaction(default, 0) : null;
 
         await action(tx);
 

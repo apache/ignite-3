@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.partitionIds;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -36,13 +38,14 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,11 +53,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -63,6 +63,10 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -75,10 +79,36 @@ public class ZoneRebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ZoneRebalanceUtil.class);
 
+    /** Key prefix for pending assignments. */
+    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "zone.assignments.pending.";
+
+    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = PENDING_ASSIGNMENTS_QUEUE_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for stable assignments. */
+    public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
+
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for planned assignments. */
+    public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
+
+    /** Key prefix for switch reduce assignments. */
+    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for switch append assignments. */
+    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
+
+    /** Key prefix for change trigger keys. */
+    private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
+
+    static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+
+    public static final String ZONE_ASSIGNMENTS_CHAIN_PREFIX = "zone.assignments.chain.";
+
     /**
-     * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogZoneDescriptor, ZonePartitionId, Collection, int, long, MetaStorageManager, int, Set,
-     * HybridTimestamp)}.
+     * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
     public enum UpdateStatus {
         /**
@@ -130,8 +160,11 @@ public class ZoneRebalanceUtil {
      * @param zoneDescriptor Zone descriptor.
      * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions in a zone.
      * @param replicas Number of replicas for a zone.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
+     * @param timestamp Timestamp of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
      * @param zoneCfgPartAssignments Zone configuration assignments.
@@ -142,69 +175,131 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             ZonePartitionId zonePartitionId,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
+            int consensusGroupSize,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> zoneCfgPartAssignments,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes,
+            ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(zonePartitionId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(zonePartitionId);
 
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(zonePartitionId);
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                dataNodes,
+                partNum,
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
-        boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
+        Set<Assignment> targetAssignmentSet;
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentsTimestamp);
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            // All complicated logic here is needed because we want to return back to stable nodes
+            // that are returned back after majority is lost and stable was narrowed.
+            // Let's consider example:
+            // stable = [A, B, C], dataNodes = [A, B, C]
+            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
+            // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
+            // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes
+            // bypassing scale down mechanism. If node is offline and presented in previous stable, we won't remove that node.
 
-        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+            // First of all, we remove offline nodes from calculated assignments
+            Set<Assignment> resultingAssignments = calculatedAssignments
+                    .stream()
+                    .filter(a -> aliveNodes.contains(a.consistentId()))
+                    .collect(toSet());
+
+            // Here we re-introduce nodes that currently exist in the stable configuration
+            // but were previously removed without using the normal scale-down process.
+            for (Assignment assignment : zoneCfgPartAssignments) {
+                if (calculatedAssignments.contains(assignment)) {
+                    resultingAssignments.add(assignment);
+                }
+            }
+
+            targetAssignmentSet = resultingAssignments;
+        } else {
+            targetAssignmentSet = calculatedAssignments;
+        }
+
+        boolean isNewAssignments = !zoneCfgPartAssignments.equals(targetAssignmentSet);
+
+        Assignments targetAssignments = Assignments.of(targetAssignmentSet, assignmentsTimestamp);
+        AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
+                .stable(Assignments.of(zoneCfgPartAssignments, assignmentsTimestamp))
+                .target(targetAssignments)
+                .toQueue();
+
+        byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
+        byte[] partAssignmentsPendingBytes = partAssignmentsPendingQueue.toBytes();
+
+        //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
         //                  || (partition.assignments.stable != calcPartAssignments() && !empty(partition.assignments.stable))):
-        //            partition.assignments.pending = calcPartAssignments()
-        //            partition.change.trigger.revision = event.revision
+        //            partition.assignments.pending = partAssignmentsPendingQueue
+        //            partition.change.trigger = event.timestamp
         //        else:
-        //            if partition.assignments.pending != calcPartAssignments && !empty(partition.assignments.pending)
+        //            if partition.assignments.pending != partAssignmentsPendingQueue && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
-        //                partition.change.trigger.revision = event.revision
-        //            else if partition.assignments.pending == calcPartAssignments
+        //                partition.change.trigger = event.timestamp
+        //            else if partition.assignments.pending == partAssignmentsPendingQueue
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
         //        skip
 
-        Condition newAssignmentsCondition = exists(partAssignmentsStableKey).and(value(partAssignmentsStableKey).ne(partAssignmentsBytes));
+        Condition newAssignmentsCondition = exists(partAssignmentsStableKey)
+                .and(value(partAssignmentsStableKey).ne(partAssignmentsPlannedBytes));
 
         if (isNewAssignments) {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(longToBytesKeepingOrder(revision))),
+        byte[] timestampBytes = longToBytesKeepingOrder(timestamp.longValue());
+
+        Iif iif = iif(
+                or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(timestampBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
-                                put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                put(partAssignmentsPendingKey, partAssignmentsPendingBytes),
+                                put(partChangeTriggerKey, timestampBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
+                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingBytes), exists(partAssignmentsPendingKey)),
                                 ops(
-                                        put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                        put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                        put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
+                                        put(partChangeTriggerKey, timestampBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
-                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
-                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
+                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingBytes),
+                                        ops(
+                                                remove(partAssignmentsPlannedKey),
+                                                put(partChangeTriggerKey, timestampBytes)
+                                        ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
-                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
+                                                ops(
+                                                        remove(partAssignmentsPlannedKey),
+                                                        put(partChangeTriggerKey, timestampBytes)
+                                                ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal()));
@@ -213,16 +308,16 @@ public class ZoneRebalanceUtil {
             switch (UpdateStatus.valueOf(sr.getAsInt())) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key [key={}, partition={}, zone={}/{}, newVal={}]",
+                            "Update metastore pending partitions key [key={}, partition={}, zone={}/{}, newVal={}, timestamp={}]",
                             partAssignmentsPendingKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments);
+                            partAssignmentsPendingQueue, timestamp);
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, zone={}/{}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -230,7 +325,7 @@ public class ZoneRebalanceUtil {
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -239,7 +334,7 @@ public class ZoneRebalanceUtil {
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -247,7 +342,7 @@ public class ZoneRebalanceUtil {
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, zone={}/{}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, zoneDescriptor.id(), zoneDescriptor.name(),
-                            partAssignments
+                            targetAssignmentSet
                     );
 
                     break;
@@ -272,6 +367,7 @@ public class ZoneRebalanceUtil {
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
+     * @param storageTimestamp MetaStorage timestamp corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
      * @param busyLock Busy lock to use.
      * @param assignmentsTimestamp Time when the catalog version that the assignments were calculated against becomes active.
@@ -282,15 +378,16 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
+            HybridTimestamp storageTimestamp,
             MetaStorageManager metaStorageManager,
             IgniteSpinBusyLock busyLock,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes
     ) {
-        CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
+        CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneStableAssignments(
                 metaStorageManager,
                 zoneDescriptor.id(),
-                Set.of(),
-                zoneDescriptor.partitions()
+                partitionIds(zoneDescriptor.partitions())
         );
 
         CompletableFuture<?>[] partitionFutures = new CompletableFuture[zoneDescriptor.partitions()];
@@ -307,12 +404,17 @@ public class ZoneRebalanceUtil {
                         zoneDescriptor,
                         replicaGrpId,
                         dataNodes,
+                        zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         storageRevision,
+                        storageTimestamp,
                         metaStorageManager,
                         finalPartId,
                         zoneAssignments.get(finalPartId).nodes(),
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        aliveNodes,
+                        zoneDescriptor.consistencyMode()
                 );
             }));
         }
@@ -355,21 +457,6 @@ public class ZoneRebalanceUtil {
         return zoneDescriptor.id() + "/" + zoneDescriptor.name();
     }
 
-    /** Key prefix for pending assignments. */
-    public static final String PENDING_ASSIGNMENTS_PREFIX = "zone.assignments.pending.";
-
-    /** Key prefix for stable assignments. */
-    public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
-
-    /** Key prefix for planned assignments. */
-    public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
-
-    /** Key prefix for switch reduce assignments. */
-    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
-
-    /** Key prefix for switch append assignments. */
-    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
-
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -378,7 +465,18 @@ public class ZoneRebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray(zonePartitionId + "zone.pending.change.trigger");
+        return new ByteArray(ZONE_PENDING_CHANGE_TRIGGER_PREFIX + zonePartitionId);
+    }
+
+    /**
+     * Key for the graceful restart in HA mode.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
+     */
+    public static ByteArray assignmentsChainKey(ZonePartitionId partId) {
+        return new ByteArray(ZONE_ASSIGNMENTS_CHAIN_PREFIX + partId);
     }
 
     /**
@@ -388,8 +486,8 @@ public class ZoneRebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + zonePartitionId);
+    public static ByteArray pendingPartAssignmentsQueueKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(PENDING_ASSIGNMENTS_QUEUE_PREFIX + zonePartitionId);
     }
 
     /**
@@ -437,51 +535,16 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Extract zone id from a metastorage key of partition.
+     * Converts the given {@code key}, stripping it off the given {@code prefix}, into a {@link ZonePartitionId}.
      *
-     * @param key Key.
+     * @param key Metastorage key.
      * @param prefix Key prefix.
-     * @return Table id.
+     * @return {@link ZonePartitionId} that was encoded in the key.
      */
-    public static int extractZoneId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
+    public static ZonePartitionId extractZonePartitionId(byte[] key, byte[] prefix) {
+        var zonePartitionIdString = toStringWithoutPrefix(key, prefix.length);
 
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
-    }
-
-    /**
-     * Extract zone id from a metastorage key {@link DistributionZonesUtil#zoneDataNodesKey()}.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    public static int extractZoneIdDataNodes(byte[] key) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
-    }
-
-    /**
-     * Extract partition number from the rebalance key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    public static int extractPartitionNumber(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
-    }
-
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return true;
+        return ZonePartitionId.fromString(zonePartitionIdString);
     }
 
     /**
@@ -522,7 +585,7 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Returns partition assignments from meta storage locally.
+     * Returns stable partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
@@ -537,13 +600,13 @@ public class ZoneRebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)), revision);
-
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        Assignments assignments =
+                zoneStableAssignmentsGetLocally(metaStorageManager, new ZonePartitionId(zoneId, partitionNumber), revision);
+        return assignments == null ? null : assignments.nodes();
     }
 
     /**
-     * Returns zone assignments for all zone partitions from meta storage locally. Assignments must be present.
+     * Returns zone stable assignments for all zone partitions from meta storage locally. Assignments must be present.
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
@@ -559,13 +622,56 @@ public class ZoneRebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)), revision);
+                    Assignments assignments =
+                            zoneStableAssignmentsGetLocally(metaStorageManager, new ZonePartitionId(zoneId, p), revision);
 
-                    assert e != null && !e.empty() && !e.tombstone() : e;
+                    assert assignments != null : "No assignments found for " + new ZonePartitionId(zoneId, p);
 
-                    return Assignments.fromBytes(e.value());
+                    return assignments;
                 })
                 .collect(toList());
+    }
+
+    /**
+     * Returns zone pending assignments for all zone partitions from meta storage locally. Assignments must be present.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<@Nullable Assignments> zonePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, p)), revision);
+
+                    return e != null && !e.empty() && !e.tombstone() ? AssignmentsQueue.fromBytes(e.value()).poll() : null;
+                })
+                .collect(toList());
+    }
+
+    /**
+     * Returns stable partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Table ID.
+     * @param partitionId Partition ID.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> zonePartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     /**
@@ -573,49 +679,82 @@ public class ZoneRebalanceUtil {
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
-     * @param partitionIds IDs of partitions to get assignments for. If empty, get all partition assignments.
-     * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
+     * @param partitionIds IDs of partitions to get assignments for.
      * @return Future with zone assignments as a value.
      */
-    private static CompletableFuture<Map<Integer, Assignments>> zoneAssignments(
+    public static CompletableFuture<Map<Integer, Assignments>> zoneStableAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,
-            Set<Integer> partitionIds,
-            int numberOfPartitions
+            int[] partitionIds
     ) {
-        Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
+        return metastoreAssignments(
+                metaStorageManager,
+                partitionIds,
+                partitionId -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId))
+        ).whenComplete((assignmentsMap, throwable) -> {
+            if (throwable == null) {
+                int numberOfMsPartitions = assignmentsMap.size();
 
-        Collection<Integer> ids = partitionIds.isEmpty()
-                ? IntStream.range(0, numberOfPartitions).boxed().collect(toList())
-                : partitionIds;
+                assert numberOfMsPartitions == 0 || numberOfMsPartitions == partitionIds.length
+                        : "Invalid number of partition entries received from meta storage [received="
+                        + numberOfMsPartitions + ", numberOfPartitions=" + partitionIds.length + ", zoneId=" + zoneId + "].";
+            }
+        });
+    }
 
-        for (Integer partId : ids) {
-            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId)), partId);
-        }
+    /**
+     * Returns partition assignments from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param revision Revision.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable Assignments zoneStableAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId), revision);
 
-        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
-                .thenApply(entries -> {
-                    if (entries.isEmpty()) {
-                        return Map.of();
-                    }
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value());
+    }
 
-                    Map<Integer, Assignments> result = new HashMap<>();
-                    int numberOfMsPartitions = 0;
+    /**
+     * Returns assignments chains for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<AssignmentsChain> zoneAssignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> assignmentsChainGetLocally(metaStorageManager, new ZonePartitionId(zoneId, p), revision))
+                .collect(toList());
+    }
 
-                    for (var mapEntry : entries.entrySet()) {
-                        Entry entry = mapEntry.getValue();
+    /**
+     * Returns assignments chain from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param revision Revision.
+     * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            long revision
+    ) {
+        Entry e = metaStorageManager.getLocally(assignmentsChainKey(zonePartitionId), revision);
 
-                        if (!entry.empty() && !entry.tombstone()) {
-                            result.put(partitionKeysToPartitionNumber.get(mapEntry.getKey()), Assignments.fromBytes(entry.value()));
-                            numberOfMsPartitions++;
-                        }
-                    }
-
-                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == entries.size()
-                            : "Invalid number of stable partition entries received from meta storage [received="
-                            + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", zoneId=" + zoneId + "].";
-
-                    return numberOfMsPartitions == 0 ? Map.of() : result;
-                });
+        return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
     }
 }

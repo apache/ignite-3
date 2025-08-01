@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import java.io.Serializable;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /** Replica lease meta. */
-public interface ReplicaMeta extends Serializable {
+public interface ReplicaMeta {
     /** Gets a leaseholder node consistent ID (assigned to a node once), {@code null} if nothing holds the lease. */
     @Nullable String getLeaseholder();
 
     /** Gets a leaseholder node ID (changes on every node startup), {@code null} if nothing holds the lease. */
-    @Nullable String getLeaseholderId();
+    @Nullable UUID getLeaseholderId();
 
     /** Gets a lease start timestamp. */
     HybridTimestamp getStartTime();

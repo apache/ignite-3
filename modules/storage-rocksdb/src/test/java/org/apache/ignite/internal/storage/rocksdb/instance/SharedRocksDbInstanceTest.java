@@ -41,19 +41,22 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -66,8 +69,11 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 
 /** Contains tests for {@link SharedRocksDbInstance}. */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class SharedRocksDbInstanceTest extends IgniteAbstractTest {
+    private static final String NODE_NAME = "test";
+
     private RocksDbStorageEngine engine;
 
     private RocksDbStorageProfile storageProfile;
@@ -77,11 +83,19 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
-            @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
             StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine(
+                NODE_NAME,
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 
@@ -104,25 +118,25 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     }
 
     private SharedRocksDbInstance createDb() throws Exception {
-        return new SharedRocksDbInstanceCreator().create(engine, storageProfile, workDir);
+        return new SharedRocksDbInstanceCreator(mock(FailureProcessor.class), NODE_NAME).create(engine, storageProfile, workDir);
     }
 
     @Test
     void testSortedIndexCfCaching() {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true, false)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] quuxName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
@@ -161,19 +175,19 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @Test
     void testSortedIndexRecovery() throws Exception {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true, false)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] quuxName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
@@ -258,7 +272,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @RepeatedTest(10)
     void testConcurrentSortedIndexReadAndCreate() {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         rocksDb.getOrCreateSortedIndexCf(fooName, 0, 0);
@@ -299,7 +313,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         int indexId = 0;
 
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily cf = rocksDb.getOrCreateSortedIndexCf(fooName, indexId, tableId);
@@ -314,7 +328,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         int tableId = 0;
 
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         rocksDb.getOrCreateSortedIndexCf(fooName, 0, tableId);

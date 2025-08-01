@@ -23,14 +23,13 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 dependencies {
     api project(':ignite-api')
     api libs.fastutil.core
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation testFixtures(project(':ignite-core'))
 }
 

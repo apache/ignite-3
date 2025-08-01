@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
+    implementation project(':ignite-rest-api')
     openapiSpec(project(path: ':ignite-rest-api', configuration: 'openapiSpec'))
 
     implementation libs.tree.sitter
@@ -79,10 +80,7 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-sql-engine')
-    testImplementation(testFixtures(project(":ignite-core")))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.test
     testImplementation libs.assertj.core
@@ -96,7 +94,7 @@ dependencies {
     testFixturesImplementation libs.micronaut.inject
     testFixturesImplementation libs.micronaut.picocli
     testFixturesImplementation libs.micronaut.junit5
-    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -108,11 +106,11 @@ dependencies {
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
-    integrationTestImplementation testFixtures(project(":ignite-core"))
-    integrationTestImplementation testFixtures(project(":ignite-schema"))
-    integrationTestImplementation testFixtures(project(":ignite-api"))
-    integrationTestImplementation testFixtures(project(":ignite-runner"))
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
+    integrationTestImplementation testFixtures(project(':ignite-api'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
     integrationTestImplementation libs.mock.server.junit
@@ -121,8 +119,6 @@ dependencies {
     integrationTestImplementation libs.assertj.core
     integrationTestImplementation libs.jline.console
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.hamcrest.core
-    integrationTestImplementation libs.hamcrest.optional
     integrationTestImplementation libs.micronaut.inject
 }
 
@@ -135,7 +131,7 @@ configurations {
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
-task copyOpenapiDefinition(type: Copy) {
+def copyOpenapiDefinition = tasks.register('copyOpenapiDefinition', Copy) {
     from configurations.openapiSpec
     into(layout.buildDirectory.dir("customOpenapiDefinition"))
 }
@@ -144,25 +140,25 @@ pmdMain {
     excludes = ["**/org/apache/ignite/rest/client/**"]
 }
 
-task generateApiClient(type: GenerateTask) {
-    generatorName="java"
+tasks.register('generateApiClient', GenerateTask) {
+    dependsOn copyOpenapiDefinition
+
+    generatorName = "java"
     inputs.dir layout.buildDirectory.dir("customOpenapiDefinition")
-    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
-    apiPackage="org.apache.ignite.rest.client.api"
-    invokerPackage="org.apache.ignite.rest.client.invoker"
-    modelPackage="org.apache.ignite.rest.client.model"
+    inputSpec = layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
+    apiPackage = "org.apache.ignite.rest.client.api"
+    invokerPackage = "org.apache.ignite.rest.client.invoker"
+    modelPackage = "org.apache.ignite.rest.client.model"
     outputDir = generatedClientDir.get().asFile.toString()
-    generateModelTests=false
-    generateApiTests=false
-    languageSpecificPrimitives=["boolean", "int", "float", "double", "char", "byte", "short", "long"]
+    generateModelTests = false
+    generateApiTests = false
+    languageSpecificPrimitives = ["boolean", "int", "float", "double", "char", "byte", "short", "long"]
     configOptions = [
-        "openApiNullable": "false",
-        "supportStreaming": "false",
-        "library": "okhttp-gson"
+            "openApiNullable" : "false",
+            "supportStreaming": "false",
+            "library"         : "okhttp-gson"
     ]
 }
-
-generateApiClient.dependsOn copyOpenapiDefinition
 
 idea.module {
     sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
@@ -176,7 +172,7 @@ compileJava {
     source generatedClientDir.get().dir('src/main/java')
 }
 
-task generateAutocompletionScript(type: JavaExec) {
+def generateAutocompletionScript = tasks.register('generateAutocompletionScript', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set("picocli.AutoComplete")
     systemProperty("picocli.autocomplete.systemExitOnError", "")

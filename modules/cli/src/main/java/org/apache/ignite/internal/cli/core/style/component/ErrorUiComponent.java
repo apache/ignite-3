@@ -83,20 +83,26 @@ public class ErrorUiComponent implements UiComponent {
 
     @Override
     public String render() {
-        return ansi(
-                (errorCode == null ? "" : fg(Color.GRAY).mark(errorCode))
-                        + traceDetails()
-                        + fg(Color.RED).with(Style.BOLD).mark(ansi(UiString.format(header, headerUiElements)))
-                        + (details == null ? "" : System.lineSeparator() + UiString.format(details, detailsUiElements))
-                        + verboseDetails()
-        );
+        return ansi(renderErrorCode() + renderTrace() + renderHeader() + renderDetails() + renderVerbose());
     }
 
-    private String traceDetails() {
+    private String renderErrorCode() {
+        return errorCode == null ? "" : fg(Color.GRAY).mark(errorCode);
+    }
+
+    private String renderTrace() {
         return traceId == null ? "" : fg(Color.GRAY).mark(" Trace ID: " + traceId + System.lineSeparator());
     }
 
-    private String verboseDetails() {
+    private String renderHeader() {
+        return header == null ? "" : fg(Color.RED).with(Style.BOLD).mark(ansi(UiString.format(header, headerUiElements)));
+    }
+
+    private String renderDetails() {
+        return details == null ? "" : System.lineSeparator() + UiString.format(details, detailsUiElements);
+    }
+
+    private String renderVerbose() {
         return verbose == null || !CliLoggers.isVerbose() ? "" : System.lineSeparator() + UiString.format(verbose, verboseUiElements);
     }
 

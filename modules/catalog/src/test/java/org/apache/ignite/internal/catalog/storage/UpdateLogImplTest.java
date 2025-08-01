@@ -25,7 +25,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,23 +45,29 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
-import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdateSerializers.VersionedUpdateSerializerV1;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,21 +80,23 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     private MetaStorageManager metastore;
 
+    private final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
     @BeforeEach
     void setUp() {
-        keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
+        keyValueStorage = new SimpleInMemoryKeyValueStorage("test", readOperationForCompactionTracker);
 
-        metastore = StandaloneMetaStorageManager.create(keyValueStorage);
+        metastore = StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
 
         keyValueStorage.start();
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         closeAll(
-                metastore == null ? null : () -> assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
-                keyValueStorage == null ? null : keyValueStorage::close
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -94,7 +105,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         // First, let's append a few entries to the update log.
         UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
 
-        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+        deployWatchesAndAwaitInitialUpdates();
 
         List<VersionedUpdate> expectedUpdates = List.of(singleEntryUpdateOfVersion(1), singleEntryUpdateOfVersion(2));
 
@@ -122,7 +133,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         // First, let's append a few entries to the update log.
         UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
 
-        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+        deployWatchesAndAwaitInitialUpdates();
 
         List<VersionedUpdate> updates = List.of(
                 singleEntryUpdateOfVersion(1),
@@ -156,6 +167,36 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
+    @Test
+    public void saveSnapshotMultipleTimesToAdvanceItsVersion() throws Exception {
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+        deployWatchesAndAwaitInitialUpdates();
+
+        {
+            List<VersionedUpdate> updates = List.of(
+                    singleEntryUpdateOfVersion(1),
+                    singleEntryUpdateOfVersion(2),
+                    singleEntryUpdateOfVersion(3)
+            );
+
+            appendUpdates(updateLogImpl, updates);
+
+            compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
+        }
+
+        {
+            List<VersionedUpdate> updates = List.of(
+                    singleEntryUpdateOfVersion(4),
+                    singleEntryUpdateOfVersion(5)
+            );
+
+            appendUpdates(updateLogImpl, updates);
+
+            compactCatalog(updateLogImpl, snapshotEntryOfVersion(4));
+        }
+    }
+
     private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotEntry update) throws InterruptedException {
         long revisionBeforeAppend = metastore.appliedRevision();
         assertThat(updateLogImpl.saveSnapshot(update), willCompleteSuccessfully());
@@ -166,7 +207,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore, new UpdateLogMarshallerImpl(new TestEntrySerializerProvider()));
+        return new UpdateLogImpl(metastore, new NoOpFailureManager(), new UpdateLogMarshallerImpl(new TestEntrySerializerProvider()));
     }
 
     private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {
@@ -196,10 +237,10 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         assertThat(metastore.stopAsync(componentContext), willCompleteSuccessfully());
 
-        metastore = StandaloneMetaStorageManager.create(keyValueStorage);
+        metastore = StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
         assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
 
-        assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
+        assertThat(metastore.recoveryFinishedFuture().thenApply(Revisions::revision), willBe(recoverRevision));
     }
 
     @Test
@@ -226,7 +267,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         List<Long> causalityTokens = new ArrayList<>();
 
         updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
-            appliedVersions.add(((VersionedUpdate) update).version());
+            appliedVersions.add(((VersionedUpdate) update).version() + 1);
             causalityTokens.add(causalityToken);
 
             return nullCompletedFuture();
@@ -236,7 +277,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         assertThat(updateLog.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+        deployWatchesAndAwaitInitialUpdates();
 
         // first update should always be successful
         assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion)), willBe(true));
@@ -256,11 +297,11 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         // now the gap is filled, thus update should be accepted as well
         assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2)), willBe(true));
 
-        List<Integer> expectedVersions = List.of(startVersion, startVersion + 1, startVersion + 2);
-        List<Long> expectedTokens = List.of(revisionBefore + 1, revisionBefore + 5, revisionBefore + 6);
+        List<Integer> expectedVersions = List.of(startVersion + 1, startVersion + 2, startVersion + 3);
+        List<Long> expectedTokens = List.of(revisionBefore + 2, revisionBefore + 6, revisionBefore + 7);
 
         // No-op operation also increases the revision.
-        int revisionsUpdateCount = 6;
+        int revisionsUpdateCount = 7;
         // wait till necessary revision is applied
         assertTrue(
                 waitForCondition(
@@ -279,7 +320,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         UpdateLog updateLog = createAndStartUpdateLogImpl((update, metaStorageUpdateTimestamp, causalityToken) -> onUpdateHandlerFuture);
 
-        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+        deployWatchesAndAwaitInitialUpdates();
 
         long metastoreRevision = metastore.appliedRevision();
 
@@ -306,7 +347,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             return onUpdateHandlerFuture;
         });
 
-        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+        deployWatchesAndAwaitInitialUpdates();
 
         long metastoreRevision = metastore.appliedRevision();
 
@@ -320,6 +361,43 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         // Assert that causality token from OnUpdateHandler is the same as the revision of this update in metastorage.
         assertTrue(waitForCondition(() -> metastore.appliedRevision() == causalityTokenFromHandler.get(), 200));
+    }
+
+    @Test
+    void writeProductKeyOnStartup() throws InterruptedException {
+        ByteArray key = ByteArray.fromString("catalog.product");
+        byte[] modifiedValue;
+
+        {
+            UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+            deployWatchesAndAwaitInitialUpdates();
+
+            Entry defaultKeyEntry = metastore.get(key).join();
+            assertFalse(defaultKeyEntry.empty());
+
+            byte[] initialValue = defaultKeyEntry.value();
+            assertNotNull(initialValue);
+
+            // Update value
+            modifiedValue = Arrays.copyOf(initialValue, initialValue.length);
+            modifiedValue[0] = (byte) (modifiedValue[0] + 1);
+            metastore.put(key, modifiedValue).join();
+
+            // Stop the log
+            updateLogImpl.stopAsync().join();
+        }
+
+        {
+            // Restart the log
+            UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+            assertNotNull(updateLogImpl);
+
+            // Expect the key has not been overwritten with default value,
+            Entry defaultKeyEntry = metastore.get(key).join();
+            assertFalse(defaultKeyEntry.empty());
+            assertArrayEquals(modifiedValue, defaultKeyEntry.value());
+        }
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
@@ -345,7 +423,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+        public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
             return catalog;
         }
 
@@ -379,36 +457,48 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    private void deployWatchesAndAwaitInitialUpdates() throws InterruptedException {
+        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+
+        // Wait until initial updates are applied.
+        assertTrue(waitForCondition(() -> metastore.appliedRevision() > 0, 500));
+    }
+
     private static class TestEntrySerializerProvider implements CatalogEntrySerializerProvider {
         @Override
-        public CatalogObjectSerializer<MarshallableEntry> get(int id) {
+        public CatalogObjectSerializer<MarshallableEntry> get(int versionNotUsed, int id) {
             CatalogObjectSerializer<? extends MarshallableEntry> serializer;
 
             if (id < 0) {
                 serializer = new CatalogObjectSerializer<>() {
                     @Override
-                    public MarshallableEntry readFrom(IgniteDataInput input) throws IOException {
-                        int length = input.readInt();
+                    public MarshallableEntry readFrom(CatalogObjectDataInput input) throws IOException {
+                        int length = input.readVarIntAsInt();
                         byte[] data = input.readByteArray(length);
 
                         return ByteUtils.fromBytes(data);
                     }
 
                     @Override
-                    public void writeTo(MarshallableEntry value, IgniteDataOutput output) throws IOException {
+                    public void writeTo(MarshallableEntry value, CatalogObjectDataOutput output) throws IOException {
                         byte[] bytes = ByteUtils.toBytes(value);
 
-                        output.writeInt(bytes.length);
+                        output.writeVarInt(bytes.length);
                         output.writeByteArray(bytes);
                     }
                 };
             } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
-                serializer = new VersionedUpdateSerializer(this);
+                serializer = new VersionedUpdateSerializerV1(this);
             } else {
-                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(id);
+                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(2, id);
             }
 
             return (CatalogObjectSerializer<MarshallableEntry>) serializer;
+        }
+
+        @Override
+        public int latestSerializerVersion(int typeId) {
+            return 2;
         }
     }
 }

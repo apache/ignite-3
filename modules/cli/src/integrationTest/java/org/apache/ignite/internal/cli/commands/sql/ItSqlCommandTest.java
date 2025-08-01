@@ -53,6 +53,46 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     }
 
     @Test
+    @DisplayName("Output should show aliases for columns in sql output")
+    void showColumnAliases() {
+        execute("sql", "select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "SALARY + 1"),
+                this::assertErrOutputIsEmpty
+        );
+
+        execute("sql", "select id as col_1, name as col_2, salary as col_3, salary + 1 as col_4 from person", "--jdbc-url", JDBC_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIsSqlResultWithColumns("COL_1", "COL_2", "COL_3", "COL_4"),
+                this::assertErrOutputIsEmpty
+        );
+
+    }
+
+    @Test
+    @DisplayName("Should execute sequence of statements without error")
+    void createSelectAlterSelect() {
+        String[] statements = {
+                "CREATE TABLE test(id INT PRIMARY KEY, val1 INT, val2 INT)",
+                "SELECT * FROM test",
+                "ALTER TABLE test DROP COLUMN val2",
+                "SELECT * FROM test",
+        };
+
+        for (String statement : statements) {
+            execute("sql", statement, "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertOutputIsNotEmpty,
+                    this::assertErrOutputIsEmpty
+            );
+        }
+    }
+
+    @Test
     @DisplayName("Should display readable error when wrong jdbc is given")
     void wrongJdbcUrl() {
         execute("sql", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
@@ -73,18 +113,6 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Failed to parse query: Encountered \"<EOF>\" at line 1, column 6")
-        );
-    }
-
-    @Test
-    @DisplayName("Should display readable error when wrong option is given on CREATE TABLE")
-    void incorrectEngineOnCreate() {
-        execute("sql", "create table mytable1(i int, j int, primary key (i)) with notexist='nusuch'", "--jdbc-url", JDBC_URL);
-
-        assertAll(
-                () -> assertExitCodeIs(1),
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Unexpected table option [option=NOTEXIST")
         );
     }
 
@@ -144,5 +172,76 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
                 () -> assertOutputContains("3"),
                 this::assertErrOutputIsEmpty
         );
+    }
+
+    @Test
+    void exceptionHandler() {
+        execute("sql", "SELECT 1/0;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Division by zero"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+
+        execute("sql", "SELECT * FROM NOTEXISTEDTABLE;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+    }
+
+    @Test
+    @DisplayName("An error should be displayed indicating that the script transaction was not completed by the script.")
+    void scriptTxNotFinishedByScript() {
+        String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
+
+        {
+            execute("sql", "START TRANSACTION;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
     }
 }

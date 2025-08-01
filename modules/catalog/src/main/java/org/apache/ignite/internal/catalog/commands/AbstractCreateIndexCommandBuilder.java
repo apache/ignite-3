@@ -32,7 +32,4 @@ interface AbstractCreateIndexCommandBuilder<T extends AbstractIndexCommandBuilde
 
     /** List of the columns to index. There must be at least one column. */
     T columns(List<String> columns);
-
-    /** Flag indicating that this index has been created at the same time as its table. */
-    T isCreatedWithTable(boolean isCreatedWithTable);
 }

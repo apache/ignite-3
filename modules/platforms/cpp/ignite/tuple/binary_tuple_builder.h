@@ -157,6 +157,11 @@ public:
 
     /**
      * @brief Assigns a binary value for the next element.
+     */
+    void claim_uuid() noexcept { claim(gauge_uuid()); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
      *
      * @param value Element value.
      */
@@ -437,9 +442,7 @@ private:
         static_assert(std::is_signed_v<SRC>);
         static_assert(std::is_signed_v<TGT>);
         static_assert(sizeof(TGT) < sizeof(SRC));
-        // Check if TGT::min <= value <= TGT::max.
-        return std::make_unsigned_t<SRC>(value + std::numeric_limits<TGT>::max() + 1)
-            <= std::numeric_limits<std::make_unsigned_t<TGT>>::max();
+        return std::numeric_limits<TGT>::min() <= value && value <= std::numeric_limits<TGT>::max();
     }
 
     /**
@@ -543,7 +546,14 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_uuid(const uuid & /*value*/) noexcept { return 16; }
+    static tuple_size_t gauge_uuid() noexcept { return 16; }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @return Required size.
+     */
+    static tuple_size_t gauge_uuid(const uuid & /*value*/) noexcept { return gauge_uuid(); }
 
     /**
      * @brief Computes required binary size for a given value.

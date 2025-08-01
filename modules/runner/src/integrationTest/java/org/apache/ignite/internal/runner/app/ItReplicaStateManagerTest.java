@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -30,17 +31,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.jetbrains.annotations.Nullable;
@@ -51,9 +56,9 @@ import org.junit.jupiter.api.Test;
  */
 public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     private static final String[] ATTRIBUTES = {
-            "{region:{attribute:\"REG0\"}}",
-            "{region:{attribute:\"REG1\"}}",
-            "{region:{attribute:\"REG2\"}}"
+            "{ region: REG0 }",
+            "{ region: REG1 }",
+            "{ region: REG2 }"
     };
 
     private static final String ZONE_NAME = "TEST_ZONE";
@@ -73,21 +78,24 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
 
         node0.sql().execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         ZONE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE));
 
         node0.sql().execute(null,
-                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'", tableName,
+                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) ZONE %s", tableName,
                         ZONE_NAME
                 )
         );
 
         TableImpl tbl = unwrapTableImpl(node0.tables().table("TEST"));
-        int tableId = tbl.tableId();
 
         // Get the current primary replica.
         HybridTimestamp now = node0.clock().now();
-        var partId = new TablePartitionId(tableId, 0);
+
+        PartitionGroupId partId = colocationEnabled()
+                ? new ZonePartitionId(tbl.zoneId(), 0)
+                : new TablePartitionId(tbl.tableId(), 0);
+
         CompletableFuture<ReplicaMeta> replicaFut =
                 node0.placementDriver().awaitPrimaryReplica(partId, now, 30, TimeUnit.SECONDS);
         assertThat(replicaFut, willCompleteSuccessfully());
@@ -100,7 +108,9 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         // Excluding the current primary from assignments. The replica should stay alive.
         node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
-        ByteArray stableAssignmentsKey = stablePartAssignmentsKey(partId);
+        ByteArray stableAssignmentsKey = colocationEnabled()
+                ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                : stablePartAssignmentsKey((TablePartitionId) partId);
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount - 1);
 
@@ -149,10 +159,10 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
-    private static String filterForNodes(List<IgniteImpl> nodes, @Nullable String excludeId) {
+    private static String filterForNodes(List<IgniteImpl> nodes, @Nullable UUID excludeId) {
         StringBuilder attrs = new StringBuilder();
 
         for (int idx = 0; idx < nodes.size(); idx++) {

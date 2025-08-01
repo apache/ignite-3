@@ -31,9 +31,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
-import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -92,14 +92,23 @@ public class ExecutionTargetFactorySelfTest {
     @MethodSource("clusterFactory")
     void invalidTargets(ExecutionTargetFactory f) {
         List<String> invalidNodeSet = List.of("node100");
-        List<String> partiallyInvalidNodeSet = CollectionUtils.concat(SINGLE_NODE_SET, invalidNodeSet);
 
-        assertThrows(AssertionError.class, () -> f.allOf(invalidNodeSet), "invalid node");
-        assertThrows(AssertionError.class, () -> f.someOf(invalidNodeSet), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.oneOf(invalidNodeSet), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(invalidNodeSet)), "No partition node found");
+        assertThrows(MappingException.class, () -> f.allOf(invalidNodeSet), "Mandatory node was excluded from mapping: node100");
+        assertThrows(MappingException.class, () -> f.someOf(invalidNodeSet), "Mandatory nodes was excluded from mapping: [node100]");
+        assertThrows(MappingException.class, () -> f.oneOf(invalidNodeSet), "Mandatory nodes was excluded from mapping: [node100]");
+        assertThrows(MappingException.class, () -> f.partitioned(
+                assignmentFromPrimaries(invalidNodeSet)), "Mandatory nodes was excluded from mapping: [node100]");
+    }
 
-        assertThrows(Throwable.class, () -> f.allOf(partiallyInvalidNodeSet), "invalid node");
+    @ParameterizedTest
+    @MethodSource("clusterFactory")
+    void partiallyInvalidTargets(ExecutionTargetFactory f) {
+        List<String> partiallyInvalidNodeSet = CollectionUtils.concat(SINGLE_NODE_SET, List.of("node100"));
+
+        // AllOf requires all provided node to be used
+        assertThrows(MappingException.class, () -> f.allOf(partiallyInvalidNodeSet), "Mandatory node was excluded from mapping: node100");
+
+        // rest of the targets can be executed on subset of the nodes
         assertThat(f.resolveNodes(f.someOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
         assertThat(f.resolveNodes(f.oneOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
         assertThat(f.resolveNodes(f.partitioned(assignment(partiallyInvalidNodeSet, partiallyInvalidNodeSet))), equalTo(SINGLE_NODE_SET));

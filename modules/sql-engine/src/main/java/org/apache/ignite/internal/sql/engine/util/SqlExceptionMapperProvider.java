@@ -32,8 +32,10 @@ import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.RemoteFragmentExecutionException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.codehaus.commons.compiler.InternalCompilerException;
 
 /**
  * SQL module exception mapper.
@@ -70,6 +72,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
 
         mappers.add(unchecked(CatalogValidationException.class,
                 err -> new SqlException(err.traceId(), STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
+
+        mappers.add(unchecked(InternalCompilerException.class,
+                err -> new SqlException(Common.INTERNAL_ERR, "Expression compiler error. " + err.getMessage(), err)));
 
         return mappers;
     }

@@ -21,6 +21,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Collections.newSetFromMap;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.PrintWriter;
@@ -33,8 +34,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -333,6 +336,130 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method follows includes {@link Throwable#getSuppressed()}
+     * into check.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCauseOrSuppressed(
+            @Nullable Throwable throwable,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCauseOrSuppressed(throwable, null, clazz);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method follows includes {@link Throwable#getSuppressed()}
+     * into check.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param message Error message fragment that should be in error message.
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCauseOrSuppressed(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), true);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method IGNORES {@link Throwable#getSuppressed()}.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCause(
+            @Nullable Throwable throwable,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCause(throwable, null, clazz);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method IGNORES {@link Throwable#getSuppressed()}.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param message Error message fragment that should be in error message.
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCause(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), false);
+    }
+
+    /**
+     * Internal method that does what is described in {@link #hasCauseOrSuppressed(Throwable, String, Class[])}, but protects against an
+     * infinite loop. It can also consider or ignore suppressed exceptions.
+     */
+    private static boolean hasCauseOrSuppressedInternal(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable [] clazz,
+            Set<Throwable> dejaVu,
+            boolean considerSuppressed
+    ) {
+        if (throwable == null || clazz == null || clazz.length == 0) {
+            return false;
+        }
+
+        for (Throwable th = throwable; th != null; th = th.getCause()) {
+            if (!dejaVu.add(th)) {
+                break;
+            }
+
+            for (Class<?> c : clazz) {
+                if (c.isAssignableFrom(th.getClass())) {
+                    if (message != null) {
+                        if (th.getMessage() != null && th.getMessage().contains(message)) {
+                            return true;
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            if (considerSuppressed) {
+                for (Throwable n : th.getSuppressed()) {
+                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, considerSuppressed)) {
+                        return true;
+                    }
+                }
+            }
+
+            if (th.getCause() == th) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
      *
      * @param e Throwable.
@@ -341,6 +468,31 @@ public final class ExceptionUtils {
     public static Throwable unwrapCause(Throwable e) {
         while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
             e = e.getCause();
+        }
+
+        return e;
+    }
+
+    /**
+     * Unwraps the root cause of the given exception.
+     *
+     * @param e The exception to unwrap.
+     * @return The root cause of the exception, or the exception itself if no cause is found.
+     */
+    public static Throwable unwrapRootCause(Throwable e) {
+        Throwable th = e.getCause();
+
+        if (th == null) {
+            return e;
+        }
+
+        while (th != e) {
+            Throwable t = th;
+            th = t.getCause();
+
+            if (th == t || th == null) {
+                return t;
+            }
         }
 
         return e;

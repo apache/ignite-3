@@ -92,12 +92,18 @@ public class CompletableFutureAssert {
         try {
             normalResult = future.get(timeout, timeUnit);
         } catch (TimeoutException e) {
-            return fail("Expected the future to be completed with an exception of class in time, but it did not");
+            if (expectedExceptionClass.isInstance(e)) {
+                // The user actually expects this exception, let's return it.
+                return expectedExceptionClass.cast(e);
+            }
+
+            return fail("Expected the future to be completed with an exception of class "
+                    + expectedExceptionClass + " in time, but it did not");
         } catch (Throwable e) {
             Throwable unwrapped = unwrapThrowable(e);
 
             if (expectedExceptionClass.isInstance(unwrapped)) {
-                return (X) unwrapped;
+                return expectedExceptionClass.cast(unwrapped);
             } else {
                 return fail(
                         "Expected the future to be completed with an exception of class " + expectedExceptionClass.getName() + ", but got "

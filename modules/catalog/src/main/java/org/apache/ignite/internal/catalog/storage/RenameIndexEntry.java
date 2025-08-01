@@ -23,9 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -33,16 +31,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Entry representing a rename of an index. */
 public class RenameIndexEntry implements UpdateEntry {
-    public static final CatalogObjectSerializer<RenameIndexEntry> SERIALIZER = new RenameIndexEntrySerializer();
-
     private final int indexId;
 
     private final String newIndexName;
@@ -52,20 +46,28 @@ public class RenameIndexEntry implements UpdateEntry {
         this.newIndexName = newIndexName;
     }
 
+    public int indexId() {
+        return indexId;
+    }
+
+    public String newIndexName() {
+        return newIndexName;
+    }
+
     @Override
     public int typeId() {
         return MarshallableEntryType.RENAME_INDEX.id();
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogIndexDescriptor indexDescriptor = indexOrThrow(catalog, indexId);
 
         CatalogTableDescriptor tableDescriptor = tableOrThrow(catalog, indexDescriptor.tableId());
 
         CatalogSchemaDescriptor schemaDescriptor = schemaOrThrow(catalog, tableDescriptor.schemaId());
 
-        CatalogIndexDescriptor newIndexDescriptor = changeIndexName(indexDescriptor, causalityToken);
+        CatalogIndexDescriptor newIndexDescriptor = changeIndexName(indexDescriptor, timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -77,7 +79,7 @@ public class RenameIndexEntry implements UpdateEntry {
         );
     }
 
-    private CatalogIndexDescriptor changeIndexName(CatalogIndexDescriptor indexDescriptor, long causalityToken) {
+    private CatalogIndexDescriptor changeIndexName(CatalogIndexDescriptor indexDescriptor, HybridTimestamp timestamp) {
         CatalogIndexDescriptor newIndexDescriptor;
 
         if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
@@ -85,10 +87,10 @@ public class RenameIndexEntry implements UpdateEntry {
         } else if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
             newIndexDescriptor = changeSortedIndexName((CatalogSortedIndexDescriptor) indexDescriptor);
         } else {
-            throw new CatalogValidationException(format("Unsupported index type '{}' {}", indexDescriptor.id(), indexDescriptor));
+            throw new CatalogValidationException("Unsupported index type '{}' {}", indexDescriptor.id(), indexDescriptor);
         }
 
-        newIndexDescriptor.updateToken(causalityToken);
+        newIndexDescriptor.updateTimestamp(timestamp);
 
         return newIndexDescriptor;
     }
@@ -120,22 +122,5 @@ public class RenameIndexEntry implements UpdateEntry {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    private static class RenameIndexEntrySerializer implements CatalogObjectSerializer<RenameIndexEntry> {
-        @Override
-        public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
-
-            String newIndexName = input.readUTF();
-
-            return new RenameIndexEntry(indexId, newIndexName);
-        }
-
-        @Override
-        public void writeTo(RenameIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId);
-            out.writeUTF(entry.newIndexName);
-        }
     }
 }

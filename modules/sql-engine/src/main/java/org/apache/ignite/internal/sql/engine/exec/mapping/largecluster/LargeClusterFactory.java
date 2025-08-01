@@ -22,11 +22,13 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.BitSet;
 import java.util.List;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingException;
 
 /**
  * A factory that able to create targets for cluster with up to 64 nodes.
@@ -55,7 +57,9 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
-            assert id >= 0 : "invalid node";
+            if (id == -1) {
+                throw new MappingException("Mandatory node was excluded from mapping: " + name);
+            }
 
             nodesSet.set(id);
         }
@@ -85,13 +89,18 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
-                // TODO Ignore unknown node until IGNITE-22969
                 if (node != -1) {
                     nodes.set(node);
                 }
             }
 
-            assert !nodes.isEmpty() : "No partition node found";
+            if (nodes.isEmpty()) {
+                List<String> nodes0 = assignment.nodes().stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toList());
+
+                throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes0);
+            }
 
             finalised = finalised && nodes.cardinality() < 2;
 
@@ -122,15 +131,20 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
     }
 
     private BitSet nodeListToMap(List<String> nodes) {
+        assert !nodes.isEmpty() : "Empty target is not allowed";
+
         BitSet nodesSet = new BitSet(nodeNameToId.size());
 
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
 
-            // TODO Ignore unknown node until IGNITE-22969
-            if (id != -1) {
+            if (id >= 0) {
                 nodesSet.set(id);
             }
+        }
+
+        if (nodesSet.isEmpty()) {
+            throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
         }
 
         return nodesSet;

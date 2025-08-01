@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 
@@ -26,6 +27,19 @@ import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
  */
 @PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
 public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    /** Export period, in milliseconds. */
     @Value(hasDefault = true)
-    public int period = 30_000;
+    @PublicName(legacyNames = "period")
+    public long periodMillis = 30_000;
+
+    /** Whether to print metrics of one metric source in single log line. */
+    @Value(hasDefault = true)
+    public boolean oneLinePerMetricSource = true;
+
+    /**
+     * List of enabled metric sources. If not empty, metric sources that are not enumerated will be not printed.
+     * Wildcard '*' can be used in the end of each item.
+     */
+    @Value(hasDefault = true)
+    public String[] enabledMetrics = { };
 }

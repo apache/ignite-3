@@ -39,9 +39,11 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -54,27 +56,27 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     private static final IgniteSchema TABLE_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_NULLABLE_C2 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.INT32, true)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
             .addColumn("C3", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2_NULLABLE_C3 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
             .addColumn("C3", NativeTypes.INT32, true)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_C2_C3 = createSchema(TestBuilders.table().name("T")
@@ -82,33 +84,39 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .addKeyColumn("C2", NativeTypes.INT32)
             .addKeyColumn("C3", NativeTypes.INT32)
             .addColumn("C4", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1, 2), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1, 2), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_BOOL_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addColumn("C2", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_BOOL_C1_C3 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addKeyColumn("C2", NativeTypes.BOOLEAN)
             .addColumn("C3", NativeTypes.INT32, false)
-            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0, 1), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_C1_BOOLS = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addColumn("C2", NativeTypes.BOOLEAN, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
 
     private static final IgniteSchema TABLE_ALL_BOOLS_C1 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.BOOLEAN)
             .addColumn("C2", NativeTypes.BOOLEAN, false)
-            .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+            .distribution(TestBuilders.affinity(List.of(0), 1, 2))
             .build());
+
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
 
     /** Basic test cases for partition pruning metadata extractor, select case. */
     @ParameterizedTest(name = "SELECT: {0}")
@@ -158,12 +166,14 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         // meta is compiled partially from Project rel and partially from single tuple Values rel
         CASE_5l("t SELECT 10, x, x FROM (VALUES (1)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
-        CASE_5dp("t SELECT ?, x, x FROM (VALUES (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_5dp("t SELECT ?, x, x FROM (VALUES (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]"),
 
         // meta is compiled partially from Project rel and partially from multi-tuple Values rel
         CASE_6l("t SELECT 10, x, x FROM (VALUES (1), (2)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel. Also plan contains UnionAll rel
-        CASE_6dp("t SELECT ?, x, x FROM (VALUES (?::INT), (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_6dp("t SELECT ?, x, x FROM (VALUES (?::INT), (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
 
         // simple plan with explicit UnionAll rel
         CASE_7l("t SELECT 1, 10 UNION ALL SELECT 2, 20", TABLE_C1, "[c1=1]", "[c1=2]"),
@@ -172,19 +182,19 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         // UnionAll rel with project on top. Meta is compiled partially from project on top, partially from every input of UnionAll rel
         CASE_8l("t SELECT 10, x, x FROM (SELECT 1 UNION ALL SELECT 2) s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
-        CASE_8dp("t SELECT ?, x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_8dp("t SELECT ?, x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
 
         // mixed case, where only one branch contains additional projection
-        CASE_9l_dp("t SELECT ?, x, x FROM (SELECT 1 UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=1]", "[c1=?0, c2=?1]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_9l_dp("t SELECT ?, x, x FROM (SELECT 1 UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=1]", "[c1=?0, c2=?1]"),
 
         // one of the UnionAll branches contains ALWAYS FALSE predicate, thus must be ignored
         CASE_10l("t SELECT x, x FROM (SELECT 1 UNION ALL SELECT 2 FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT 3) s(x)",
                 TABLE_C1, "[c1=1]", "[c1=3]"),
-        CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT ?::INT) s(x)",
-                TABLE_C1, "[c1=?0]", "[c1=?2]"),
-
-        // single tuple insert with implicit cast
-        CASE_11("t VALUES ('1', 10)", TABLE_C1, "[c1=1]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL "
+        //        + "SELECT ?::INT) s(x)", TABLE_C1, "[c1=?0]", "[c1=?2]"),
 
         // single tuple insert with explicit cast
         CASE_12("t VALUES ('1'::smallint, 10)", TABLE_C1, "[c1=1]"),
@@ -405,8 +415,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         NO_META_5e("c1 = 42 AND c1 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
         NO_META_5f("c1 = 42 AND c2 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
 
-        // No constant folding
-        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1),
+        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1, "[c1=14]"),
         CONST_FOLDING_1b("c1 = ? + 4", TABLE_C1),
 
         // 0s removed by Calcite.

@@ -73,7 +73,7 @@ public class LongOperationAsyncExecutor {
 
         CompletableFuture<Void> future = new CompletableFuture<>();
 
-        IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName, null) {
+        IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName) {
             @Override
             protected void body() {
                 readWriteLock.writeLock().lock();

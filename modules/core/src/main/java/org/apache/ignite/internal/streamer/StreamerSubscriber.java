@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.streamer;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.table.DataStreamerException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,7 +72,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
     // We don't expect thousands of node failures, so it should be fine.
-    private final ConcurrentHashMap<P, StreamerBuffer<V>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<P, StreamerBuffer<E>> buffers = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<P, CompletableFuture<Collection<R>>> pendingRequests = new ConcurrentHashMap<>();
 
@@ -75,6 +81,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private final StreamerMetricSink metrics;
 
     private final ScheduledExecutorService flushExecutor;
+
+    private final Set<E> failedItems = Collections.synchronizedSet(new HashSet<>());
 
     private @Nullable Flow.Subscription subscription;
 
@@ -165,14 +173,18 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         T key = keyFunc.apply(item);
         P partition = partitionAwarenessProvider.partition(key);
 
-        StreamerBuffer<V> buf = buffers.computeIfAbsent(
+        StreamerBuffer<E> buf = buffers.computeIfAbsent(
                 partition,
-                p -> new StreamerBuffer<>(options.pageSize(), (items, deleted) -> enlistBatch(p, items, deleted)));
+                p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
-        V payload = payloadFunc.apply(item);
-        boolean delete = deleteFunc.apply(item);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Streamer is closed, can't add items.");
+            }
 
-        buf.add(payload, delete);
+            buf.add(item);
+        }
+
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
@@ -199,7 +211,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return completionFut;
     }
 
-    private void enlistBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private CompletableFuture<Collection<R>> enlistBatch(P partition, List<E> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -207,21 +219,37 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
 
-        pendingRequests.compute(
+        return pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
-                (part, fut) -> fut == null ? sendBatch(part, batch, deleted) : fut.thenCompose(v -> sendBatch(part, batch, deleted))
+                (part, fut) -> fut == null
+                        ? sendBatch(part, batch)
+                        : fut.whenComplete((res, err) -> {
+                            if (err != null) {
+                                failedItems.addAll(batch);
+                            }
+                        }).thenCompose(v -> sendBatch(part, batch))
         );
     }
 
-    private CompletableFuture<Collection<R>> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
+    private CompletableFuture<Collection<R>> sendBatch(P partition, List<E> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
+            var items = new ArrayList<V>();
+            var deleted = new BitSet(batch.size());
+
+            for (E e : batch) {
+                items.add(payloadFunc.apply(e));
+                deleted.set(items.size() - 1, deleteFunc.apply(e));
+            }
+
+            return batchSender.sendAsync(partition, items, deleted).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
+
+                    failedItems.addAll(batch);
                     close(err);
                 } else {
                     int batchSize = batch.size();
@@ -244,8 +272,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                     invokeResultSubscriber(res);
                 }
             });
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
+
+            failedItems.addAll(batch);
             close(e);
             return CompletableFuture.failedFuture(e);
         }
@@ -275,14 +305,31 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return resultSubscription;
     }
 
-    private synchronized void close(@Nullable Throwable throwable) {
-        if (flushTask != null) {
-            flushTask.cancel(false);
+    private void close(@Nullable Throwable throwable) {
+        Subscription subscription0;
+        ScheduledFuture<?> flushTask0;
+
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+            subscription0 = subscription;
+            flushTask0 = flushTask;
         }
 
-        var sub = subscription;
-        if (sub != null) {
-            sub.cancel();
+        if (flushTask0 != null) {
+            flushTask0.cancel(false);
+        }
+
+        if (subscription0 != null) {
+            try {
+                // User code: call outside of lock, handle exceptions.
+                subscription0.cancel();
+            } catch (Throwable e) {
+                log.error("Failed to cancel subscription: " + e.getMessage(), e);
+            }
         }
 
         if (throwable == null) {
@@ -290,13 +337,9 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete((v, e) -> {
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> {
                 if (e != null) {
-                    if (resultSubscriber != null) {
-                        resultSubscriber.onError(e);
-                    }
-
-                    completionFut.completeExceptionally(e);
+                    completeWithError(e);
                 } else {
                     if (resultSubscriber != null) {
                         resultSubscriber.onComplete();
@@ -304,36 +347,57 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
                     completionFut.complete(null);
                 }
-            });
+            }, flushExecutor);
         } else {
-            completionFut.completeExceptionally(throwable);
+            // Collect failed/non-delivered items from failed requests and pending buffers.
+            var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            if (resultSubscriber != null) {
-                resultSubscriber.onError(throwable);
-            }
+            CompletableFuture.allOf(futs).whenCompleteAsync((v, e) -> completeWithError(throwable), flushExecutor);
         }
-
-        closed = true;
     }
 
-    private synchronized void requestMore() {
-        if (closed || subscription == null) {
-            return;
+    private void completeWithError(Throwable throwable) {
+        buffers.values().forEach(buf -> buf.forEach(failedItems::add));
+        DataStreamerException streamerErr = new DataStreamerException(failedItems, throwable);
+
+        completionFut.completeExceptionally(streamerErr);
+
+        if (resultSubscriber != null) {
+            resultSubscriber.onError(streamerErr);
+        }
+    }
+
+    private void requestMore() {
+        int toRequest;
+        Subscription subscription0;
+
+        synchronized (this) {
+            if (closed || subscription == null) {
+                return;
+            }
+
+            // This method controls backpressure. We won't get more items than we requested.
+            // The idea is to have perPartitionParallelOperations batches in flight for every connection.
+            var pending = pendingItemCount.get();
+            var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
+            var inFlight = inFlightItemCount.get();
+            toRequest = desiredInFlight - inFlight - pending;
+
+            if (toRequest <= 0) {
+                return;
+            }
+
+            pendingItemCount.addAndGet(toRequest);
+            subscription0 = subscription;
         }
 
-        // This method controls backpressure. We won't get more items than we requested.
-        // The idea is to have perPartitionParallelOperations batches in flight for every connection.
-        var pending = pendingItemCount.get();
-        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
-        var inFlight = inFlightItemCount.get();
-        var count = desiredInFlight - inFlight - pending;
-
-        if (count <= 0) {
-            return;
+        try {
+            // User code: call outside of lock, handle exceptions.
+            subscription0.request(toRequest);
+        } catch (Throwable e) {
+            log.error("Failed to request more items: " + e.getMessage(), e);
+            close(e);
         }
-
-        subscription.request(count);
-        pendingItemCount.addAndGet(count);
     }
 
     private synchronized void initFlushTimer() {
@@ -347,11 +411,15 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             return;
         }
 
-        flushTask = flushExecutor.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
+        flushTask = flushExecutor.scheduleWithFixedDelay(this::onAutoFlushInterval, interval, interval, TimeUnit.MILLISECONDS);
     }
 
-    private void flushBuffers() {
-        buffers.values().forEach(StreamerBuffer::flush);
+    private void onAutoFlushInterval() {
+        long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
+
+        for (StreamerBuffer<E> buf : buffers.values()) {
+            buf.autoFlush(intervalNanos);
+        }
     }
 
     private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {

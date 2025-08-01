@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -64,6 +67,10 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final ReplicaService replicaService;
 
+    private final FailureProcessor failureProcessor;
+
+    private final NodeProperties nodeProperties;
+
     private final Map<IndexBuildTaskId, IndexBuildTask> indexBuildTaskById = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -73,9 +80,11 @@ class IndexBuilder implements ManuallyCloseable {
     private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
-    IndexBuilder(Executor executor, ReplicaService replicaService) {
-        this.replicaService = replicaService;
+    IndexBuilder(Executor executor, ReplicaService replicaService, FailureProcessor failureProcessor, NodeProperties nodeProperties) {
         this.executor = executor;
+        this.replicaService = replicaService;
+        this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -90,6 +99,7 @@ class IndexBuilder implements ManuallyCloseable {
      *     will be notified.</li>
      * </ul>
      *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -100,13 +110,15 @@ class IndexBuilder implements ManuallyCloseable {
      *      to the replica.
      */
     public void scheduleBuildIndex(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -117,20 +129,23 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    failureProcessor,
+                    nodeProperties,
                     executor,
                     busyLock,
                     BATCH_SIZE,
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    false
+                    false,
+                    initialOperationTimestamp
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -151,6 +166,7 @@ class IndexBuilder implements ManuallyCloseable {
      *     notified.</li>
      * </ul>
      *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -161,53 +177,41 @@ class IndexBuilder implements ManuallyCloseable {
      *         message goes to the replica.
      */
     public void scheduleBuildIndexAfterDisasterRecovery(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ClusterNode node,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    failureProcessor,
+                    nodeProperties,
                     executor,
                     busyLock,
                     BATCH_SIZE,
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    true
+                    true,
+                    initialOperationTimestamp
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
-        });
-    }
-
-    /**
-     * Stops index building if it is in progress.
-     *
-     * @param tableId Table ID.
-     * @param partitionId Partition ID.
-     * @param indexId Index ID.
-     */
-    public void stopBuildIndex(int tableId, int partitionId, int indexId) {
-        inBusyLockSafe(busyLock, () -> {
-            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
-
-            if (removed != null) {
-                removed.stop();
-            }
         });
     }
 
@@ -217,8 +221,19 @@ class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildingIndexes(int tableId, int partitionId) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    public void stopBuildingTableIndexes(int tableId, int partitionId) {
         stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    }
+
+    /**
+     * Stops building indexes for the given distribution zone and partition if they are in progress.
+     *
+     * @param zoneId Zone ID.
+     * @param partitionId Partition ID.
+     */
+    public void stopBuildingZoneIndexes(int zoneId, int partitionId) {
+        stopBuildingIndexes(taskId -> zoneId == taskId.getZoneId() && partitionId == taskId.getPartitionId());
     }
 
     /**

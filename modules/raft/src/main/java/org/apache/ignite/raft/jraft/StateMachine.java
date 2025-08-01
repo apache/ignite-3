@@ -102,8 +102,10 @@ public interface StateMachine {
      * {@link #onConfigurationCommitted(Configuration)} as full configuration entry is provided.
      *
      * @param conf committed configuration
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
      */
-    default void onRawConfigurationCommitted(ConfigurationEntry conf) {
+    default void onRawConfigurationCommitted(ConfigurationEntry conf, long lastAppliedIndex, long lastAppliedTerm) {
         // No-op.
     }
 

@@ -17,51 +17,92 @@
 
 package org.apache.ignite.internal.storage.pagememory.engine;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link PersistentPageMemoryStorageEngine#ENGINE_NAME} engine.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
-    @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0}")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
+@ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
+public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentStorageEngineTest {
+    @InjectConfiguration("mock.profiles.default.engine = aipersist")
     private StorageConfiguration storageConfig;
+
+    @InjectExecutorService
+    ExecutorService executorService;
 
     @WorkDirectory
     private Path workDir;
 
     @Override
     protected StorageEngine createEngine() {
+        return createEngine(storageConfig);
+    }
+
+    private StorageEngine createEngine(StorageConfiguration configuration) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfig,
-                storageConfig,
+                mock(MetricManager.class),
+                configuration,
+                null,
                 ioRegistry,
                 workDir,
                 null,
-                mock(FailureProcessor.class),
+                mock(FailureManager.class),
                 logSyncer,
+                executorService,
                 clock
         );
+    }
+
+    @Test
+    void dataRegionSizeGetsInitialized() {
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+        }
+    }
+
+    @Test
+    void dataRegionSizeUsedWhenSet(
+            @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = 12345}")
+            StorageConfiguration storageConfig
+    ) {
+        StorageEngine anotherEngine = createEngine(storageConfig);
+
+        anotherEngine.start();
+
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
+        }
+    }
+
+    @Override
+    protected void persistTableDestructionIfNeeded() {
+        // No-op as table destruction is durable for this engine.
     }
 }

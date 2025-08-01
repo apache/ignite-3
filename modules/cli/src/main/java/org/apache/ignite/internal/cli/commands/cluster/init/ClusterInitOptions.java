@@ -32,11 +32,15 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STO
 import static org.apache.ignite.internal.cli.commands.Options.Constants.META_STORAGE_NODE_NAME_PARAM_LABEL;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -62,17 +66,17 @@ public class ClusterInitOptions {
      * "--cluster-management-group" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
     @Option(names = META_STORAGE_NODE_NAME_OPTION,
-            required = true,
             description = META_STORAGE_NODE_NAME_OPTION_DESC,
             split = ",",
             paramLabel = META_STORAGE_NODE_NAME_PARAM_LABEL,
             order = 1,
             preprocessor = SingleOccurrenceMetastorageConsumer.class
     )
-    private List<String> metaStorageNodes;
+    private List<String> metaStorageNodes = new ArrayList<>();
 
     /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
+     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group. If the
+     * "--metastorage-group" parameter is omitted, the same nodes will also host the Meta Storage.
      */
     @Option(names = CMG_NODE_NAME_OPTION,
             description = CMG_NODE_NAME_OPTION_DESC,
@@ -87,14 +91,19 @@ public class ClusterInitOptions {
     private ClusterConfigOptions clusterConfigOptions;
 
     private static class ClusterConfigOptions {
-        @Option(names = CLUSTER_CONFIG_OPTION, order = 3, description = CLUSTER_CONFIG_OPTION_DESC)
+        @Option(names = CLUSTER_CONFIG_OPTION,
+                description = CLUSTER_CONFIG_OPTION_DESC,
+                order = 3,
+                defaultValue = Option.NULL_VALUE
+        )
         private String config;
 
         @Option(names = CLUSTER_CONFIG_FILE_OPTION,
                 description = CLUSTER_CONFIG_FILE_OPTION_DESC,
                 split = ",",
                 order = 4,
-                paramLabel = CLUSTER_CONFIG_FILE_PARAM_LABEL
+                paramLabel = CLUSTER_CONFIG_FILE_PARAM_LABEL,
+                defaultValue = Option.NULL_VALUE
         )
         private List<File> files;
     }
@@ -137,7 +146,14 @@ public class ClusterInitOptions {
         if (clusterConfigOptions == null) {
             return null;
         } else if (clusterConfigOptions.config != null) {
-            return clusterConfigOptions.config;
+            String config = clusterConfigOptions.config;
+            if (tryParseConfig(config)) {
+                return config;
+            }
+            if (checkConfigAsPath(config)) {
+                throw new ConfigAsPathException(config);
+            }
+            return config;
         } else if (clusterConfigOptions.files != null) {
             Config config = ConfigFactory.empty();
 
@@ -147,7 +163,9 @@ public class ClusterInitOptions {
 
                     config = config.withFallback(ConfigFactory.parseString(content));
                 } catch (IOException e) {
-                    throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.files, e);
+                    throw new IgniteCliException("Couldn't read cluster configuration file " + file, e);
+                } catch (ConfigException e) {
+                    throw new ConfigFileParseException("Couldn't parse cluster configuration file " + file, e);
                 }
             }
 
@@ -157,6 +175,38 @@ public class ClusterInitOptions {
         }
     }
 
+    String readConfigAsPath() {
+        if (clusterConfigOptions == null || clusterConfigOptions.config == null) {
+            throw new ConfigFileParseException("Couldn't parse cluster configuration file.");
+        }
+        Path file = Paths.get(clusterConfigOptions.config);
+        try {
+            String content = Files.readString(file);
+            return ConfigFactory.parseString(content).root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
+        } catch (IOException e) {
+            throw new IgniteCliException("Couldn't read cluster configuration file " + file, e);
+        } catch (ConfigException e) {
+            throw new ConfigFileParseException("Couldn't parse cluster configuration file " + file, e);
+        }
+    }
+
+    private static boolean tryParseConfig(String config) {
+        try {
+            ConfigFactory.parseString(config);
+            return true;
+        } catch (ConfigException e) {
+            return false;
+        }
+    }
+
+    private static boolean checkConfigAsPath(String config) {
+        try {
+            Path path = Paths.get(config);
+            return Files.exists(path);
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
 
     private static class DuplicatesChecker {
         private final String optionToCheck;
@@ -165,9 +215,9 @@ public class ClusterInitOptions {
             this.optionToCheck = optionToCheck;
         }
 
-        private boolean hasDuplicate(Stack<String> args) {
-            var arr = args.toArray(String[]::new);
-            for (var str : arr) {
+        private boolean hasDuplicate(List<String> args) {
+            String[] arr = args.toArray(String[]::new);
+            for (String str : arr) {
                 if (optionToCheck.equals(str.trim())) {
                     return true;
                 }

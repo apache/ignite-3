@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -82,7 +81,7 @@ public class CheckpointPagesWriterFactory {
      * Returns instance of page checkpoint writer.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
+     * @param dirtyPartitionQueue Checkpoint dirty partition ID queue to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
      * @param doneWriteFut Write done future.
@@ -92,7 +91,7 @@ public class CheckpointPagesWriterFactory {
      */
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
             ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneWriteFut,
@@ -103,7 +102,7 @@ public class CheckpointPagesWriterFactory {
     ) {
         return new CheckpointPagesWriter(
                 tracker,
-                dirtyPageIdQueue,
+                dirtyPartitionQueue,
                 pageMemoryList,
                 updatedPartitions,
                 doneWriteFut,

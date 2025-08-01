@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 
 /** Extract partition based on supplied row.  */
 public class TablePartitionExtractor<RowT> implements RowPartitionExtractor<RowT> {
@@ -50,9 +50,8 @@ public class TablePartitionExtractor<RowT> implements RowPartitionExtractor<RowT
         for (int i = 0; i < fields.length; i++) {
             Object value = rowHandler.get(fields[i], row);
 
-            NativeTypeSpec nativeTypeSpec = tableDescriptor.columnDescriptor(colocationColumns[i]).physicalType().spec();
-            Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
-            value = TypeUtils.fromInternal(value, storageType);
+            ColumnType type = tableDescriptor.columnDescriptor(colocationColumns[i]).physicalType().spec();
+            value = value == null ? null : TypeUtils.fromInternal(value, type);
             partitionCalculator.append(value);
         }
 

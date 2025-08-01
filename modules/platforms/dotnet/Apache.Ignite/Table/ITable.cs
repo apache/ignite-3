@@ -28,6 +28,11 @@ namespace Apache.Ignite.Table
         public string Name { get; }
 
         /// <summary>
+        /// Gets the table qualified name.
+        /// </summary>
+        public QualifiedName QualifiedName { get; }
+
+        /// <summary>
         /// Gets the record binary view.
         /// </summary>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }

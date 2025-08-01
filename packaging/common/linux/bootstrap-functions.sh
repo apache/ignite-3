@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-. @LIB_DIR@/@SETUP_JAVA_FILE_NAME@
+. ${LIBS_DIR}/@SETUP_JAVA_FILE_NAME@
 
 # used by rpm, deb, zip and docker distributions
 export COMMON_JAVA_OPTS="
@@ -28,15 +28,21 @@ export COMMON_JAVA_OPTS="
     -XX:+ExitOnOutOfMemoryError"
 
 export LOGGING_JAVA_OPTS="
-    -Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties \
-    -XX:HeapDumpPath=@LOG_DIR@ \
-    -Xlog:gc=info:file=@LOG_DIR@/${JVM_GC_LOG_NAME}::filecount=${JVM_GC_NUM_LOGS},filesize=${JVM_GC_LOG_SIZE}"
+    -Djava.util.logging.config.file=${CONF_DIR}/ignite.java.util.logging.properties \
+    -XX:HeapDumpPath=${LOG_DIR} \
+    -Xlog:gc=info:file=${LOG_DIR}/${JVM_GC_LOG_NAME}::filecount=${JVM_GC_NUM_LOGS},filesize=${JVM_GC_LOG_SIZE}"
 
-export CLASSPATH="-classpath @INSTALL_DIR@/lib/@APP_JAR@:@INSTALL_DIR@/lib/* @MAIN_CLASS@"
+export CLASSPATH="-classpath ${LIBS_DIR}/@APP_JAR@:${LIBS_DIR}/* @MAIN_CLASS@"
+
+export JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
+
+export JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
 
 export JAVA_CMD_WITH_ARGS="${JAVACMD} \
   ${COMMON_JAVA_OPTS} \
   ${LOGGING_JAVA_OPTS} \
+  ${JAVA_MEMORY_OPTIONS} \
+  ${JAVA_GC_OPTIONS} \
   ${IGNITE3_EXTRA_JVM_ARGS} \
   ${CLASSPATH}"
 

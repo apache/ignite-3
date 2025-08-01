@@ -44,8 +44,10 @@ import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -70,7 +72,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    protected long queryTimeoutMillis;
+    long queryTimeoutMillis;
 
     /** Rows limit. */
     private int maxRows;
@@ -89,6 +91,8 @@ public class JdbcStatement implements Statement {
 
     /** Current result index. */
     private int curRes;
+
+    private volatile @Nullable Long lastCorrelationToken;
 
     /**
      * Creates new statement.
@@ -136,10 +140,13 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
+        long correlationToken = nextToken();
+
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement, queryTimeoutMillis);
+                conn.getAutoCommit(), multiStatement, queryTimeoutMillis, correlationToken, conn.observableTimestamp());
 
         JdbcQueryExecuteResponse res;
+
         try {
             res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
         } catch (InterruptedException e) {
@@ -305,7 +312,25 @@ public class JdbcStatement implements Statement {
     public void cancel() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLException("Cancellation is not supported.");
+        Long correlationToken = lastCorrelationToken;
+
+        if (correlationToken == null) {
+            return;
+        }
+
+        try {
+            JdbcQueryCancelResult res = conn.handler().cancelAsync(conn.connectionId(), correlationToken).get();
+
+            if (res.status() != Response.STATUS_SUCCESS) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+        } catch (CancellationException e) {
+            throw new SQLException("Request to cancel the statement has been canceled.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Request to cancel the statement has failed.", e);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -565,7 +590,11 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis);
+        long correlationToken = nextToken();
+
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(
+                conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis, correlationToken
+        );
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
@@ -726,6 +755,8 @@ public class JdbcStatement implements Statement {
             resSets = null;
             curRes = 0;
         }
+
+        lastCorrelationToken = null;
     }
 
     /**
@@ -770,6 +801,14 @@ public class JdbcStatement implements Statement {
         }
 
         this.queryTimeoutMillis = timeout;
+    }
+
+    long nextToken() {
+        long correlationToken = conn.nextToken();
+
+        lastCorrelationToken = correlationToken;
+
+        return correlationToken;
     }
 
     private static SQLException toSqlException(ExecutionException e) {

@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
@@ -31,19 +31,17 @@ public class ClientJdbcFetchRequest {
      * Processes remote {@code JdbcQueryFetchRequest}.
      *
      * @param in      Client message unpacker.
-     * @param out     Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             JdbcQueryCursorHandler handler
     ) {
         var req = new JdbcFetchQueryResultsRequest();
 
         req.readBinary(in);
 
-        return handler.fetchAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.fetchAsync(req).thenApply(res -> res::writeBinary);
     }
 }

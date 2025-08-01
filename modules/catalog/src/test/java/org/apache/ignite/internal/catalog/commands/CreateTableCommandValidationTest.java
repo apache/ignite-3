@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -334,7 +335,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).zone(null).build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "The zone is not specified. Please specify zone explicitly or set default one."
         );
@@ -364,7 +365,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -384,6 +385,18 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsNotThrownIfSchemaIsReservedButValidationFlagSet(String schema) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .validateSystemSchemas(false) // This flag disables the schema name validation.
+                .schemaName(schema);
+
+        assertDoesNotThrow(builder::build);
+    }
+
     @Test
     void exceptionIsThrownIfZoneNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
@@ -393,7 +406,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Distribution zone with name 'Default_UNK' not found"
         );
@@ -408,7 +421,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' already exists"
         );
@@ -423,7 +436,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST_IDX").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST_IDX' already exists"
         );
@@ -438,7 +451,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST_PK' already exists"
         );
@@ -453,7 +466,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("FOO").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.FOO_PK' already exists"
         );
@@ -472,7 +485,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).zone(zoneName).storageProfile(tableProfile).build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Zone with name '{}' does not contain table's storage profile [storageProfile='{}']", zoneName, tableProfile)
         );
@@ -481,11 +494,11 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
             // Let's check the success case.
             Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
 
-            command.get(newCatalog);
+            command.get(new UpdateContext(newCatalog));
         });
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
     //  Remove this after interval type support is added.
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)

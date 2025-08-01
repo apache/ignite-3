@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -41,12 +42,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -93,9 +95,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
     private static final ClusterNode ROOT_NODE =
-            new ClusterNodeImpl(ROOT_NODE_NAME, ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
+            new ClusterNodeImpl(randomUUID(), ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
     private static final ClusterNode ANOTHER_NODE =
-            new ClusterNodeImpl(ANOTHER_NODE_NAME, ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
+            new ClusterNodeImpl(randomUUID(), ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
     private static final int SOURCE_FRAGMENT_ID = 0;
     private static final int TARGET_FRAGMENT_ID = 1;
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
@@ -135,7 +137,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     @ParameterizedTest(name = "rowCount={0}, prefetch={1}, ordered={2}")
     @MethodSource("testArgs")
     public void test(int rowCount, boolean prefetch, boolean ordered) {
-        UUID queryId = UUID.randomUUID();
+        UUID queryId = randomUUID();
 
         List<Outbox<?>> sourceFragments = new ArrayList<>();
 
@@ -238,14 +240,14 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      */
     @Test
     public void racesBetweenRewindAndBatchesFromPreviousRequest() throws InterruptedException {
-        UUID queryId = UUID.randomUUID();
+        UUID queryId = randomUUID();
         String dataNode1Name = "DATA_NODE_1";
         String dataNode2Name = "DATA_NODE_2";
 
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
 
         TestDataProvider node1DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode1 = new ClusterNodeImpl(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode1 = new ClusterNodeImpl(randomUUID(), dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
         createSourceFragment(
                 queryId,
                 dataNode1,
@@ -254,7 +256,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         );
 
         TestDataProvider node2DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode2 = new ClusterNodeImpl(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        ClusterNode dataNode2 = new ClusterNodeImpl(randomUUID(), dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
         createSourceFragment(
                 queryId,
                 dataNode2,
@@ -321,13 +323,13 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      */
     @Test
     public void outboxRewindability() {
-        UUID queryId = UUID.randomUUID();
+        UUID queryId = randomUUID();
         String dataNodeName = "DATA_NODE";
 
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(1200);
-        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -388,13 +390,13 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      */
     @Test
     public void racesBetweenRewindAndBatchesRequestWithCorrelates() {
-        UUID queryId = UUID.randomUUID();
+        UUID queryId = randomUUID();
         String dataNodeName = "DATA_NODE";
 
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(8000);
-        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -523,7 +525,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         AbstractNode<Object[]> node = inbox;
 
         if (limit > 0) {
-            node = new LimitNode<>(targetCtx, () -> 0, () -> 1);
+            node = new LimitNode<>(targetCtx, 0, 1);
             node.register(List.of(inbox));
         }
 
@@ -624,7 +626,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClockService clockService = new TestClockService(clock);
 
         MessageService messageService = new MessageServiceImpl(
-                clusterService.topologyService().localMember().name(),
+                clusterService.topologyService().localMember(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock(),
@@ -645,8 +647,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
-            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
+            var failureProcessor = new FailureManager(new NoOpFailureHandler());
+            var metricManager = new NoOpMetricManager();
+            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor, metricManager);
 
             executor.start();
 

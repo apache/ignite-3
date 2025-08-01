@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.commands;
 
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -36,8 +37,12 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
 
     @BeforeAll
     @Override
-    protected void beforeAll(TestInfo testInfo) {
-        CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
+    protected void startCluster(TestInfo testInfo) {
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate())
+                .build();
+
+        CLUSTER = new Cluster(clusterConfiguration);
 
         for (int i = 0; i < initialNodes(); i++) {
             CLUSTER.startEmbeddedNode(i);

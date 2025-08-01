@@ -103,12 +103,12 @@ public class VersatileReadWriteLock {
     private volatile int pendingWriteLocks;
 
     /** Futures to be completed when read locks (one per future) are acquired after a write lock is released. */
-    private final Set<CompletableFuture<Void>> readLockSolicitors = ConcurrentHashMap.newKeySet();
+    private final Set<CompletableFuture<Void>> readLockWaitSet = ConcurrentHashMap.newKeySet();
 
-    /** Futures to be completed when a write lock (one per future) is acquired after an impeding lock is released. */
-    private final Set<CompletableFuture<Void>> writeLockSolicitors = ConcurrentHashMap.newKeySet();
+    /** Futures to be completed when a write lock (one per future) is acquired after a conflicting lock is released. */
+    private final Set<CompletableFuture<Void>> writeLockWaitSet = ConcurrentHashMap.newKeySet();
 
-    /** In this pool {@link #readLockSolicitors} and {@link #writeLockSolicitors} will be completed. */
+    /** In this pool {@link #readLockWaitSet} and {@link #writeLockWaitSet} will be completed. */
     private final Executor asyncContinuationExecutor;
 
     /**
@@ -214,7 +214,7 @@ public class VersatileReadWriteLock {
             if (STATE_VH.compareAndSet(this, curState, state(writeLocked, readLocks - 1))) {
                 if (readLocks == 1) {
                     // We released the final read lock.
-                    notifyWriteLockSolicitors();
+                    notifyWriteLockWaitSet();
                 }
 
                 return;
@@ -338,57 +338,82 @@ public class VersatileReadWriteLock {
      * @throws IllegalMonitorStateException thrown if the write lock is not acquired.
      */
     public void writeUnlock() {
-        int curState = state;
-        // There could still be some read locks if the write lock was taken forcefully.
-        int readLocks = readLocks(curState);
-
-        if (!writeLocked(curState)) {
-            throw new IllegalMonitorStateException();
-        }
-
         while (true) {
-            if (STATE_VH.compareAndSet(this, state, state(false, readLocks))) {
+            int curState = state;
+
+            if (!writeLocked(curState)) {
+                throw new IllegalMonitorStateException();
+            }
+
+            // There could still be some read locks if the write lock was taken forcefully.
+            int readLocks = readLocks(curState);
+
+            if (STATE_VH.compareAndSet(this, curState, state(false, readLocks))) {
                 break;
             }
         }
 
-        notifyWriteLockSolicitors();
-        notifyReadLockSolicitors();
+        notifyWriteLockWaitSet();
+        notifyReadLockWaitSet();
     }
 
-    private void notifyWriteLockSolicitors() {
-        if (writeLockSolicitors.isEmpty()) {
+    /**
+     * Notifies the members of the {@link #writeLockWaitSet} that they could try to acquire the write lock (as either a write lock or
+     * the last read lock was released).
+     */
+    private void notifyWriteLockWaitSet() {
+        if (writeLockWaitSet.isEmpty()) {
             return;
         }
 
-        for (Iterator<CompletableFuture<Void>> iterator = writeLockSolicitors.iterator(); iterator.hasNext(); ) {
-            CompletableFuture<Void> future = iterator.next();
-
+        for (Iterator<CompletableFuture<Void>> iterator = writeLockWaitSet.iterator(); iterator.hasNext(); ) {
             if (!tryWriteLock()) {
-                // Someone has already acquired an impeding lock, we're too late, let's wait for next opportunity.
+                // Someone has already acquired a conflicting lock, we're too late, let's wait for next opportunity.
                 break;
             }
 
-            decrementPendingWriteLocks();
+            // We were able to acquire the write lock. It might be that lock intent corresponding to this future has already been
+            // handled by another thread (and the lock has already been released), so we need to check this; if this is true,
+            // we will need to release the lock.
+            // We can use non-atomic pattern 'check whether future is done, and if not, finalize acquisition and complete the future'
+            // because this is done in the critical section (under protection 'holding the write lock' invariant).
 
-            asyncContinuationExecutor.execute(() -> future.complete(null));
+            CompletableFuture<Void> future = iterator.next();
 
+            // Removing as soon as possible to avoid an infinite recursion in the #writeUnlock() call that follows.
             iterator.remove();
+
+            if (!future.isDone()) {
+                // First finalize the acquisition.
+                decrementPendingWriteLocks();
+
+                asyncContinuationExecutor.execute(() -> future.complete(null));
+            } else {
+                // The one who added this future has already taken the write lock for us (and it has already been released
+                // [as we could take it again]; as they have completed the future, this is us who needs to unlock the excess.
+                // They also decremented pending write locks, so we don't need to do it again.
+                writeUnlock();
+            }
         }
     }
 
-    private void notifyReadLockSolicitors() {
-        if (readLockSolicitors.isEmpty()) {
+    /**
+     * Notifies the members of the {@link #readLockWaitSet} that they could try to acquire a read lock as the write lock has been released.
+     */
+    private void notifyReadLockWaitSet() {
+        if (readLockWaitSet.isEmpty()) {
             return;
         }
 
-        for (Iterator<CompletableFuture<Void>> iterator = readLockSolicitors.iterator(); iterator.hasNext(); ) {
-            CompletableFuture<Void> future = iterator.next();
-
+        for (Iterator<CompletableFuture<Void>> iterator = readLockWaitSet.iterator(); iterator.hasNext(); ) {
             if (!tryReadLock()) {
                 // Someone has already acquired a write lock, we're too late, let's wait for next opportunity.
                 break;
             }
+
+            CompletableFuture<Void> future = iterator.next();
+
+            iterator.remove();
 
             asyncContinuationExecutor.execute(() -> {
                 if (!future.complete(null)) {
@@ -397,8 +422,6 @@ public class VersatileReadWriteLock {
                     readUnlock();
                 }
             });
-
-            iterator.remove();
         }
     }
 
@@ -421,14 +444,14 @@ public class VersatileReadWriteLock {
         }
 
         CompletableFuture<Void> future = new CompletableFuture<>();
-        readLockSolicitors.add(future);
+        readLockWaitSet.add(future);
 
         // Let's check again as the lock might have been released before we added the future.
         if (tryReadLock()) {
-            readLockSolicitors.remove(future);
+            readLockWaitSet.remove(future);
 
             if (!future.complete(null)) {
-                // The one who processes the solicitors set has already taken the read lock for us; as they have completed the
+                // The one who processes the wait set has already taken the read lock for us; as they have completed the
                 // future, this is us who needs to unlock the excess.
                 readUnlock();
             }
@@ -458,14 +481,29 @@ public class VersatileReadWriteLock {
         incrementPendingWriteLocks();
 
         CompletableFuture<Void> future = new CompletableFuture<>();
-        writeLockSolicitors.add(future);
+        writeLockWaitSet.add(future);
 
         // Let's check again as the lock might have been released before we added the future.
         if (tryWriteLock()) {
-            decrementPendingWriteLocks();
-            writeLockSolicitors.remove(future);
+            // We were able to acquire the write lock. It might be that lock intent corresponding to this future has already been
+            // handled by another thread (and the lock has already been released), so we need to check this; if this is true,
+            // we will need to release the lock.
+            // We can use non-atomic pattern 'check whether future is done, and if not, finalize acquisition and complete the future'
+            // because this is done in the critical section (under protection 'holding the write lock' invariant).
 
-            future.complete(null);
+            writeLockWaitSet.remove(future);
+
+            if (!future.isDone()) {
+                // First finalize the acquisition.
+                decrementPendingWriteLocks();
+
+                future.complete(null);
+            } else {
+                // The one who processes the wait set has already taken the write lock for us (and it has already been released
+                // [as we could take it again]; as they have completed the future, this is us who needs to unlock the excess.
+                // They also decremented pending write locks, so we don't need to do it again.
+                writeUnlock();
+            }
         }
 
         return future;
@@ -479,6 +517,20 @@ public class VersatileReadWriteLock {
     @TestOnly
     int pendingWriteLocksCount() {
         return pendingWriteLocks;
+    }
+
+    /**
+     * Returns whether the write lock is currently held by someone.
+     */
+    boolean isWriteLocked() {
+        return writeLocked(state);
+    }
+
+    /**
+     * Returns number of read locks currently held by someone.
+     */
+    int readLocksHeld() {
+        return readLocks(state);
     }
 
     @Override

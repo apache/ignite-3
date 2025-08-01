@@ -17,13 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -34,8 +29,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
@@ -59,9 +52,9 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
-        Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
-        Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
+    public ResolvedDependencies resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
+        Int2ObjectMap<ExecutableTable> tableMap = new Int2ObjectOpenHashMap<>();
+        Int2ObjectMap<ScannableDataSource> dataSources = new Int2ObjectOpenHashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
             @Override
@@ -121,10 +114,8 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             }
 
             private void resolveDistributionFunction(IgniteDistribution distribution) {
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    int tableId = ((AffinityDistribution) function).tableId();
+                if (distribution.isTableDistribution()) {
+                    int tableId = distribution.tableId();
 
                     resolveTable(catalogVersion, tableId);
                 }
@@ -139,15 +130,6 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             shuttle.visit(rel);
         }
 
-        List<CompletableFuture<ExecutableTable>> fs = new ArrayList<>(tableMap.values());
-
-        return CompletableFuture.allOf(fs.toArray(new CompletableFuture<?>[0]))
-                .thenApply(r -> {
-                    Map<Integer, ExecutableTable> map = tableMap.entrySet()
-                            .stream()
-                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().join()));
-
-                    return new ResolvedDependencies(map, dataSources);
-                });
+        return new ResolvedDependencies(tableMap, dataSources);
     }
 }

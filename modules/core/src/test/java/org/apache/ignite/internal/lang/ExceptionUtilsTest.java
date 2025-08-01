@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.lang;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -137,6 +142,189 @@ public class ExceptionUtilsTest {
         );
 
         assertThat(translated.code(), is(Transactions.TX_COMMIT_ERR));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithoutMessage() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException(ex0);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, Exception.class));
+        assertFalse(hasCauseOrSuppressed(ex0, RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithMessage() {
+        var ex0 = new Exception("ex0");
+        var ex1 = new RuntimeException("ex1", ex0);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertFalse(hasCauseOrSuppressed(ex0, "foo", Exception.class));
+        assertFalse(hasCauseOrSuppressed(ex1, "bar", RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, "e", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, "ex", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, "ex0", Exception.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, "ex", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "e", RuntimeException.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "ex", RuntimeException.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "ex1", RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithCyclicDependency() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException(ex0);
+
+        ex0.initCause(ex1);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithoutMessageInSuppressed() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException();
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, Exception.class));
+        assertFalse(hasCauseOrSuppressed(ex0, RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithMessageInSuppressed() {
+        var ex0 = new Exception("ex0");
+        var ex1 = new RuntimeException("ex1", ex0);
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertFalse(hasCauseOrSuppressed(ex0, "foo", Exception.class));
+        assertFalse(hasCauseOrSuppressed(ex1, "bar", RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, "e", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, "ex", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, "ex0", Exception.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, "ex", Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "e", RuntimeException.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "ex", RuntimeException.class));
+        assertTrue(hasCauseOrSuppressed(ex1, "ex1", RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseOrSuppressedWithCyclicDependencyInSuppressed() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException(ex0);
+
+        ex0.addSuppressed(ex1);
+
+        assertFalse(hasCauseOrSuppressed(ex0, AssertionError.class));
+        assertFalse(hasCauseOrSuppressed(ex1, AssertionError.class));
+
+        assertTrue(hasCauseOrSuppressed(ex0, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex0, RuntimeException.class));
+
+        assertTrue(hasCauseOrSuppressed(ex1, Exception.class));
+        assertTrue(hasCauseOrSuppressed(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseWithoutMessage() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException(ex0);
+
+        assertFalse(hasCause(ex0, AssertionError.class));
+        assertFalse(hasCause(ex1, AssertionError.class));
+
+        assertTrue(hasCause(ex0, Exception.class));
+        assertFalse(hasCause(ex0, RuntimeException.class));
+
+        assertTrue(hasCause(ex1, Exception.class));
+        assertTrue(hasCause(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseWithMessage() {
+        var ex0 = new Exception("ex0");
+        var ex1 = new RuntimeException("ex1", ex0);
+
+        assertFalse(hasCause(ex0, AssertionError.class));
+        assertFalse(hasCause(ex1, AssertionError.class));
+
+        assertFalse(hasCause(ex0, "foo", Exception.class));
+        assertFalse(hasCause(ex1, "bar", RuntimeException.class));
+
+        assertTrue(hasCause(ex0, "e", Exception.class));
+        assertTrue(hasCause(ex0, "ex", Exception.class));
+        assertTrue(hasCause(ex0, "ex0", Exception.class));
+
+        assertTrue(hasCause(ex1, "ex", Exception.class));
+        assertTrue(hasCause(ex1, "e", RuntimeException.class));
+        assertTrue(hasCause(ex1, "ex", RuntimeException.class));
+        assertTrue(hasCause(ex1, "ex1", RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseWithCyclicDependency() {
+        var ex0 = new Exception();
+        var ex1 = new RuntimeException(ex0);
+
+        ex0.initCause(ex1);
+
+        assertFalse(hasCause(ex0, AssertionError.class));
+        assertFalse(hasCause(ex1, AssertionError.class));
+
+        assertTrue(hasCause(ex0, Exception.class));
+        assertTrue(hasCause(ex0, RuntimeException.class));
+
+        assertTrue(hasCause(ex1, Exception.class));
+        assertTrue(hasCause(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseWithoutMessageIgnoresSuppressed() {
+        var ex0 = new IOException();
+        var ex1 = new RuntimeException();
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCause(ex1, IOException.class));
+    }
+
+    @Test
+    void hasCauseWithMessageIgnoresSuppressed() {
+        var ex0 = new IOException("Suppressed");
+        var ex1 = new RuntimeException();
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCause(ex1, "Suppressed", IOException.class));
     }
 
     /** Test exception class. */

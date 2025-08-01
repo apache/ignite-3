@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
@@ -37,14 +40,20 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
     private static final String TEST_SINK = "testSink";
 
-    @InjectConfiguration
+    @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class)
     private EventLogConfiguration cfg;
+
+    private InMemoryCollectionSink inMemoryCollectionSink;
 
     private ConfigurationBasedSinkRegistry registry;
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedSinkRegistry(cfg, new LogSinkFactory(new EventSerializerFactory().createEventSerializer()));
+        inMemoryCollectionSink = new InMemoryCollectionSink();
+        SinkFactoryImpl defaultFactory = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(),
+                UUID::randomUUID, "default");
+
+        registry = new ConfigurationBasedSinkRegistry(cfg, new TestSinkFactory(defaultFactory, inMemoryCollectionSink));
     }
 
     @Test
@@ -53,38 +62,44 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void addNewConfigurationEntry() throws Exception {
+    void addNewConfigurationEntry() {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
-            s.changeChannel(TEST_CHANNEL);
-        })).get();
+        assertThat(
+                cfg.sinks().change(c -> c.create(TEST_SINK, s -> s.changeChannel(TEST_CHANNEL))),
+                willCompleteSuccessfully()
+        );
 
         // Then configuration is updated.
         assertThat(registry.getByName(TEST_SINK), not(nullValue()));
+        assertThat(inMemoryCollectionSink.getStopCounter(), equalTo(0));
     }
 
     @Test
     void removeConfigurationEntry() throws Exception {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
-            s.changeChannel(TEST_CHANNEL);
-        })).get();
+        assertThat(
+                cfg.sinks().change(c -> c.create(TEST_SINK, s -> s.convert(InMemoryCollectionSinkChange.class)
+                        .changeChannel(TEST_CHANNEL))),
+                willCompleteSuccessfully()
+        );
 
         assertThat(registry.getByName(TEST_SINK), not(nullValue()));
 
         // When configuration is removed.
-        cfg.sinks().change(c -> c.delete(TEST_SINK)).get();
+        assertThat(cfg.sinks().change(c -> c.delete(TEST_SINK)), willCompleteSuccessfully());
 
         // Then sink is removed from registry .
         assertThat(registry.getByName(TEST_SINK), nullValue());
+        assertThat(inMemoryCollectionSink.getStopCounter(), equalTo(1));
     }
 
     @Test
     void updateConfigurationEntry() throws Exception  {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
-            s.changeChannel("some");
-        })).get();
+        assertThat(
+                cfg.sinks().change(c -> c.create(TEST_SINK, s -> s.changeChannel("some"))),
+                willCompleteSuccessfully()
+        );
 
         assertThat(registry.getByName(TEST_SINK), not(nullValue()));
 
@@ -92,19 +107,21 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
         assertThat(registry.findAllByChannel("some"), hasSize(1));
 
         // When the channel is updated.
-        cfg.sinks().change(c -> c.update(TEST_SINK, s -> {
-            s.changeChannel(TEST_CHANNEL);
-        })).get();
+        assertThat(
+                cfg.sinks().change(c -> c.update(TEST_SINK, s -> s.changeChannel(TEST_CHANNEL))),
+                willCompleteSuccessfully()
+        );
 
         // Then then the sink can not be found by previous channel.
-        assertThat(registry.findAllByChannel("some"), hasSize(0));
+        assertThat(registry.findAllByChannel("some"), nullValue());
         // And the sink can be found by new channel.
         assertThat(registry.findAllByChannel(TEST_CHANNEL), hasSize(1));
 
         // When add one more sink with the same channel.
-        cfg.sinks().change(c -> c.create("newSink", s -> {
-            s.changeChannel(TEST_CHANNEL);
-        })).get();
+        assertThat(
+                cfg.sinks().change(c -> c.create("newSink", s -> s.changeChannel(TEST_CHANNEL))),
+                willCompleteSuccessfully()
+        );
 
         // Then the sink can be found by new channel.
         assertThat(registry.findAllByChannel(TEST_CHANNEL), hasSize(2));

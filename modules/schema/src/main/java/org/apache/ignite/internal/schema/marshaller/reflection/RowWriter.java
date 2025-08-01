@@ -23,7 +23,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
-import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerWriter;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 
@@ -120,10 +119,5 @@ class RowWriter implements MarshallerWriter {
     @Override
     public void writeDateTime(LocalDateTime val) {
         rowAssembler.appendDateTimeNotNull(val);
-    }
-
-    @Override
-    public void writeValue(MarshallerColumn col, Object val) {
-        rowAssembler.appendValue(val);
     }
 }

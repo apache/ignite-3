@@ -16,10 +16,10 @@
  */
 
 #include "ignite/client/detail/ignite_client_impl.h"
-
-#include <ignite/protocol/utils.h>
+#include "ignite/client/detail/utils.h"
 
 namespace ignite::detail {
+
 
 void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback) {
     auto reader_func = [](protocol::reader &reader) -> std::vector<cluster_node> {
@@ -28,15 +28,7 @@ void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<clu
         nodes.reserve(std::size_t(size));
 
         for (std::int32_t node_idx = 0; node_idx < size; ++node_idx) {
-            auto fields_count = reader.read_int32();
-            assert(fields_count >= 4);
-
-            auto id = reader.read_string();
-            auto name = reader.read_string();
-            auto host = reader.read_string();
-            auto port = reader.read_uint16();
-
-            nodes.emplace_back(std::move(id), std::move(name), end_point{std::move(host), port});
+            nodes.emplace_back(read_cluster_node(reader));
         }
 
         return nodes;

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.ClusterSta
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
@@ -77,6 +78,7 @@ class CmgMessageHandlerTest extends BaseIgniteAbstractTest {
                 new IgniteSpinBusyLock(),
                 cmgMessagesFactory,
                 clusterService,
+                new NoOpFailureManager(),
                 callback
         );
 

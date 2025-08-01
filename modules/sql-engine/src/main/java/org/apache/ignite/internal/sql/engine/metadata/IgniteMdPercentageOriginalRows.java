@@ -28,6 +28,7 @@ import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.BuiltInMethod;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 
 /**
  * See {@link org.apache.calcite.rel.metadata.RelMdPercentageOriginalRows}.
@@ -52,6 +53,24 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
         // aggregation does not apply any filtering, so it does not modify the
         // percentage.  That's very much oversimplified.
         return mq.getPercentageOriginalRows(rel.getInput());
+    }
+
+    /**
+     * Estimates the percentage of the number of rows actually produced by a
+     * relational expression out of the number of rows it would produce if all
+     * single-table filter conditions were removed.
+     *
+     * @return estimated percentage (between 0.0 and 1.0), or null if no reliable estimate can be determined
+     */
+    public Double getPercentageOriginalRows(ProjectableFilterableTableScan rel, RelMetadataQuery mq) {
+        Double tableRowCount = rel.getTable().getRowCount();
+        Double relRowCount = mq.getRowCount(rel);
+
+        if (tableRowCount == null || relRowCount == null) {
+            return null;
+        }
+
+        return quotientForPercentage(relRowCount, tableRowCount);
     }
 
     /**
@@ -158,7 +177,7 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
      * GetPercentageOriginalRows.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private static Double quotientForPercentage(
+    public static Double quotientForPercentage(
             Double numerator,
             Double denominator) {
         if ((numerator == null) || (denominator == null)) {

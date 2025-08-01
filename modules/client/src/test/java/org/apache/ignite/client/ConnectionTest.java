@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client connection to various addresses.
  */
+@WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
 public class ConnectionTest extends AbstractClientTest {
     @Test
     public void testEmptyNodeAddress() {
@@ -79,7 +80,7 @@ public class ConnectionTest extends AbstractClientTest {
 
         // It does not seem possible to verify that it's a 'Connection refused' exception because with different
         // user locales the message differs, so let's just check that the message ends with the known suffix.
-        assertThat(errMsg, endsWith(" [endpoint=127.0.0.1:47500]"));
+        assertThat(errMsg, endsWith(":47500]"));
     }
 
     @Test
@@ -96,12 +97,13 @@ public class ConnectionTest extends AbstractClientTest {
     @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() {
-        Function<Integer, Integer> responseDelay = x -> 500;
+        // Delay should be more than TimeoutWorker#sleepInterval.
+        Function<Integer, Integer> responseDelay = x -> 1000;
 
-        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
+        try (var srv = new TestServer(3000, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(50);
 
             assertThrowsWithCause(builder::build, TimeoutException.class);
@@ -110,14 +112,13 @@ public class ConnectionTest extends AbstractClientTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
-    @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
     public void testNoResponseFromServerWithinOperationTimeoutThrowsException() {
-        Function<Integer, Integer> responseDelay = x -> x > 2 ? 100 : 0;
+        Function<Integer, Integer> responseDelay = x -> x > 2 ? 600 : 0;
 
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .operationTimeout(30);
 
             try (IgniteClient client = builder.build()) {
@@ -137,17 +138,17 @@ public class ConnectionTest extends AbstractClientTest {
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
         try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false, null)) {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(500);
 
             assertThrowsWithCause(
                     clientBuilder::build,
                     IgniteClientConnectionException.class,
-                    "Handshake timeout [endpoint=127.0.0.1:" + testServer.port() + "]"
+                    "Handshake timeout [endpoint=127.0.0.1"
             );
 
             testServer.enableClientRequestHandling();
@@ -165,11 +166,11 @@ public class ConnectionTest extends AbstractClientTest {
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
         try (TestServer testServer =
-                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false)) {
+                new TestServer(0, ignite, null, null, nodeName, UUID.randomUUID(), null, null, null, false, null)) {
 
             Builder clientBuilder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + testServer.port())
-                    .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                    .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .connectTimeout(30_000);
 
             CountDownLatch syncLatch = new CountDownLatch(1);

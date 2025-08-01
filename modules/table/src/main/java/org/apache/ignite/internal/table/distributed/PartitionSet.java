@@ -48,7 +48,7 @@ public interface PartitionSet {
 
         @Override
         public PartitionSet copy() {
-            return this;
+            return new BitSetPartitionSet();
         }
 
         @Override
@@ -64,6 +64,11 @@ public interface PartitionSet {
         @Override
         public boolean equals(Object obj) {
             return isEqual(obj);
+        }
+
+        @Override
+        public String toString() {
+            return "PartitionSet(empty)";
         }
     };
 

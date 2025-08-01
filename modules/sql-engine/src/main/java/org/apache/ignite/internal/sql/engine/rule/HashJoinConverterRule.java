@@ -19,34 +19,38 @@ package org.apache.ignite.internal.sql.engine.rule;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinInfo;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexVisitor;
-import org.apache.calcite.rex.RexVisitorImpl;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Hash join converter.
  */
 public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJoin> {
+    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(JoinRelType.INNER, JoinRelType.SEMI);
+
     public static final RelOptRule INSTANCE = new HashJoinConverterRule();
 
     /**
      * Creates a converter.
      */
-    public HashJoinConverterRule() {
+    private HashJoinConverterRule() {
         super(LogicalJoin.class, "HashJoinConverter");
     }
 
@@ -55,41 +59,47 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
     public boolean matches(RelOptRuleCall call) {
         LogicalJoin logicalJoin = call.rel(0);
 
-        return !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
-                && logicalJoin.analyzeCondition().isEqui() && acceptableConditions(logicalJoin.getCondition());
+        return matches(logicalJoin);
     }
 
-    private static boolean acceptableConditions(RexNode node) {
-        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
-            @Override
-            public Void visitCall(RexCall call) {
-                SqlKind opKind = call.getOperator().getKind();
-                if (opKind != SqlKind.EQUALS && opKind != SqlKind.AND) {
-                    throw Util.FoundOne.NULL;
-                }
-                return super.visitCall(call);
-            }
-        };
+    /** Returns {@code true} if this rule can be applied to given join node, returns {@code false} otherwise. */
+    public static boolean matches(LogicalJoin join) {
+        JoinInfo joinInfo = Commons.getNonStrictEquiJoinCondition(join);
 
-        try {
-            node.accept(v);
-
-            return true;
-        } catch (Util.FoundOne e) {
+        if (nullOrEmpty(joinInfo.pairs())) {
             return false;
         }
+
+        List<Boolean> filterNulls = new ArrayList<>();
+        RelOptUtil.splitJoinCondition(
+                join.getLeft(), join.getRight(), join.getCondition(),
+                new ArrayList<>(), new ArrayList<>(), filterNulls
+        );
+
+        // IS NOT DISTINCT currently not supported by HashJoin
+        if (filterNulls.stream().anyMatch(filter -> !filter)) {
+            return false;
+        }
+
+        //noinspection RedundantIfStatement
+        if (!joinInfo.isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(join.getJoinType())) {
+            // Joins which emits unmatched left or right part requires special handling of `nonEquiCondition`
+            // on execution level. As of now it's known limitations.
+            return false;
+        }
+
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalJoin rel) {
         RelOptCluster cluster = rel.getCluster();
-        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelNode left = convert(rel.getLeft(), leftInTraits);
-        RelNode right = convert(rel.getRight(), rightInTraits);
+        RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single());
+        RelNode left = convert(rel.getLeft(), traits);
+        RelNode right = convert(rel.getRight(), traits);
 
-        return new IgniteHashJoin(cluster, outTraits, left, right, rel.getCondition(), rel.getVariablesSet(), rel.getJoinType());
+        return new IgniteHashJoin(cluster, traits, left, right, rel.getCondition(), rel.getVariablesSet(), rel.getJoinType());
     }
 }

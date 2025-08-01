@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +25,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -54,69 +54,137 @@ public interface MetaStorageManager extends IgniteComponent {
     long appliedRevision();
 
     /**
-     * Retrieves an entry for the given key.
+     * Returns a future of getting the latest version of an entry by key from the metastorage leader.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param key Key.
      */
     CompletableFuture<Entry> get(ByteArray key);
 
     /**
-     * Retrieves an entry for the given key and the revision upper bound.
+     * Returns a future of getting an entry for the given key and the revision upper bound from the metastorage leader.
+     *
+     * <p>Future may complete with exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link CompactedException} - if the requested entry was not found and the {@code revUpperBound} is less than or equal to the
+     *     last compacted one. For examples see {@link #getLocally(ByteArray, long)}.</li>
+     * </ul>
+     *
+     * @param key Key.
+     * @param revUpperBound Upper bound of revision (inclusive).
+     * @see #getLocally(ByteArray, long)
      */
     CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
 
     /**
-     * Returns all entries corresponding to the given key and bounded by given revisions.
-     * All these entries are ordered by revisions and have the same key.
-     * The lower bound and the upper bound are inclusive.
+     * Returns a latest entry for the given key locally. See also {@link #getLocally(ByteArray, long)}.
      *
-     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
-     * up to user to wait for the appropriate time to call this method.
-     * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
-     *
-     * @param key The key.
-     * @param revLowerBound The lower bound of revision.
-     * @param revUpperBound The upper bound of revision.
-     * @return Entries corresponding to the given key.
+     * @param key Key.
+     * @return Entry.
      */
-    @Deprecated
-    List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
+    Entry getLocally(ByteArray key);
 
     /**
-     * Returns an entry by the given key and bounded by the given revision. The entry is obtained
-     * from the local storage.
+     * Returns an entry for the given key and the revision upper bound locally.
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
      * up to user to wait for the appropriate time to call this method.
      *
-     * @param key The key.
-     * @param revUpperBound The upper bound of revision.
-     * @return Value corresponding to the given key.
+     * <p>Let's consider examples of the work of the method and compaction of the metastorage. Let's assume that we have keys with revisions
+     * "foo" [1, 2] and "bar" [1, 2 (tombstone)], and the key "some" has never been in the metastorage.</p>
+     * <ul>
+     *     <li>Compaction revision is {@code 1}.
+     *     <ul>
+     *         <li>getLocally("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>getLocally("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>getLocally("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("bar", 2) - will return a single value with revision 2.</li>
+     *         <li>getLocally("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>getLocally("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 2) - will return an empty value.</li>
+     *         <li>getLocally("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 2}.
+     *     <ul>
+     *         <li>getLocally("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>getLocally("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>getLocally("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("bar", 3) - will return a single value with revision 2.</li>
+     *         <li>getLocally("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 3) - will return an empty value.</li>
+     *     </ul>
+     *     </li>
+     *     <li>Compaction revision is {@code 3}.
+     *     <ul>
+     *         <li>getLocally("foo", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("foo", 2) - will return a single value with revision 2.</li>
+     *         <li>getLocally("foo", 3) - will return a single value with revision 2.</li>
+     *         <li>getLocally("bar", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("bar", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("bar", 3) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 1) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 2) - a {@link CompactedException} will be thrown.</li>
+     *         <li>getLocally("some", 3) - a {@link CompactedException} will be thrown.</li>
+     *     </ul>
+     *     </li>
+     * </ul>
+     *
+     * @param key Key.
+     * @param revUpperBound Upper bound of revision (inclusive).
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the requested entry was not found and the {@code revUpperBound} is less than or equal to the last
+     *      compacted one.
      */
     Entry getLocally(ByteArray key, long revUpperBound);
 
     /**
-     * Returns cursor by entries which correspond to the given keys range and bounded by revision number. The entries in the cursor
-     * are obtained from the local storage.
+     * Returns cursor by entries which correspond to the given keys range and bounded by revision number locally.
+     *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     *
+     * <p>Cursor methods never throw {@link CompactedException}.</p>
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
-     * up to user to wait for the appropriate time to call this method.
+     * up to user to wait for the appropriate time to call this method.</p>
      *
      * @param startKey Start key of range (inclusive).
-     * @param endKey Last key of range (exclusive).
-     * @param revUpperBound Upper bound of revision.
-     * @return Cursor by entries which correspond to the given keys range.
+     * @param endKey Last key of range (exclusive), {@code null} represents an unbound range.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last compacted one.
      */
-    Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound);
+    Cursor<Entry> getLocally(ByteArray startKey, @Nullable ByteArray endKey, long revUpperBound);
 
     /**
-     * Returns cursor by entries which correspond to the given key prefix and bounded by revision number. The entries in the cursor
-     * are obtained from the local storage.
+     * Returns a future of getting latest entries corresponding to the given keys from the metastorage locally.
+     *
+     * @param keys List of keys (must not be empty).
+     */
+    List<Entry> getAllLocally(List<ByteArray> keys);
+
+    /**
+     * Returns cursor by entries which correspond to the given key prefix and bounded by revision number locally.
+     *
+     * <p>Cursor will iterate over a snapshot of keys and their revisions at the time the method was invoked.</p>
+     *
+     * <p>Cursor methods never throw {@link CompactedException}.</p>
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
-     * up to user to wait for the appropriate time to call this method.
+     * up to user to wait for the appropriate time to call this method.</p>
      *
      * @param keyPrefix Key prefix.
-     * @param revUpperBound Upper bound of revision.
-     * @return Cursor by entries which correspond to the given key prefix.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the {@code revUpperBound} is less than or equal to the last compacted one.
      */
     Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound);
 
@@ -124,13 +192,23 @@ public interface MetaStorageManager extends IgniteComponent {
      * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
      * revision is available in the local storage. This method always operates locally.
      *
+     * <p>Requested revision is expected to be less than or equal to the current metastorage revision.</p>
+     *
      * @param revision Revision by which to do a lookup.
      * @return Timestamp corresponding to the revision.
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     * @throws CompactedException If the requested revision has been compacted.
      */
-    HybridTimestamp timestampByRevision(long revision);
+    HybridTimestamp timestampByRevisionLocally(long revision);
 
     /**
-     * Retrieves entries for given keys.
+     * Returns a future of getting the latest version of entries corresponding to the given keys from the metastorage leader.
+     *
+     * <p>Never completes with a {@link CompactedException}.</p>
+     *
+     * <p>Future may complete with {@link NodeStoppingException} if the node is in the process of stopping.</p>
+     *
+     * @param keys Set of keys (must not be empty).
      */
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys);
 
@@ -155,48 +233,54 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
     /**
-     * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
-     * {@code revUpperBound = LATEST_REVISION}.
+     * Removes entries by the given prefix.
+     */
+    CompletableFuture<Void> removeByPrefix(ByteArray prefix);
+
+    /**
+     * Returns a publisher for getting the latest version of an entries for the given key prefix from the metastorage leader.
      *
-     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Publisher that will provide entries corresponding to the given prefix. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Never fail with a {@link CompactedException}.</p>
+     *
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     * </ul>
+     *
+     * @param keyPrefix Key prefix.
      */
     Publisher<Entry> prefix(ByteArray keyPrefix);
 
     /**
-     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
-     * number.
+     * Returns a publisher for getting an entries for the given key prefix and the revision upper bound from the metastorage leader.
      *
-     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @param revUpperBound The upper bound for entry revision or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
-     * @return Publisher that will provide entries corresponding to the given prefix and revision. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     *     <li>{@link CompactedException} - if the {@code revUpperBound} is less than or equal to the last compacted one on metastorage
+     *     leader, can occur while processing any batch of entries.</li>
+     * </ul>
+     *
+     * @param keyPrefix Key prefix.
+     * @param revUpperBound Upper bound of revision (inclusive) for each key.
      */
     Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound);
 
     /**
-     * Retrieves entries for the given key range in lexicographic order.
+     * Returns a publisher for getting the latest version of an entries for the given keys range from the metastorage leader.
      *
-     * @param keyFrom Range lower bound (inclusive).
-     * @param keyTo Range upper bound (exclusive), {@code null} represents an unbound range.
-     * @return Publisher that will provide entries corresponding to the given range. This Publisher may also fail (by calling
-     *     {@link Subscriber#onError}) with one of the following exceptions:
-     *     <ul>
-     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
-     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
-     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
-     *     </ul>
+     * <p>Never fail with a {@link CompactedException}.</p>
+     *
+     * <p>Publisher may fail (by calling {@link Subscriber#onError}) with one of the following exceptions:</p>
+     * <ul>
+     *     <li>{@link NodeStoppingException} - if the node is in the process of stopping.</li>
+     *     <li>{@link OperationTimeoutException} - if the operation is timed out.</li>
+     * </ul>
+     *
+     * @param keyFrom Start key of range (inclusive).
+     * @param keyTo Last key of range (exclusive), {@code null} represents an unbound range.
      */
     Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
@@ -208,7 +292,7 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Updates an entry for the given key conditionally.
      */
-    CompletableFuture<Boolean> invoke(Condition cond, Collection<Operation> success, Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements.
@@ -263,13 +347,26 @@ public interface MetaStorageManager extends IgniteComponent {
 
     /**
      * Returns a future which completes when MetaStorage manager finished local recovery.
-     * The value of the future is the revision which must be used for state recovery by other components.
+     * The value of the future is the revisions which must be used for state recovery by other components.
      */
-    CompletableFuture<Long> recoveryFinishedFuture();
+    CompletableFuture<Revisions> recoveryFinishedFuture();
 
     /** Registers a Meta Storage revision update listener. */
     void registerRevisionUpdateListener(RevisionUpdateListener listener);
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Registers a Meta Storage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /**
+     * Returns the local compaction revision that was set or restored from a metastorage snapshot, {@code -1} if it has never been updated.
+     *
+     * @throws IgniteInternalException with cause {@link NodeStoppingException} if the node is in the process of stopping.
+     */
+    long getCompactionRevisionLocally();
 }

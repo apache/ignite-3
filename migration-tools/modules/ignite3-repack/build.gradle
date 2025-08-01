@@ -1,0 +1,109 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+apply plugin: 'signing'
+apply from: "$rootDir/buildscripts/publishing-repos.gradle"
+apply from: "$rootDir/buildscripts/java-core.gradle"
+
+description = 'migration-tools-ignite3-repack'
+
+dependencies {
+    runtimeOnly project(":ignite-client")
+    runtimeOnly project(":ignite-api")
+    runtimeOnly project(":ignite-core")
+    runtimeOnly project(":ignite-configuration")
+    runtimeOnly project(":ignite-configuration-api")
+    runtimeOnly project(":ignite-page-memory")
+    runtimeOnly project(":ignite-client-handler")
+    runtimeOnly project(":ignite-runner")
+    runtimeOnly project(":ignite-catalog")
+    runtimeOnly project(":ignite-catalog-dsl")
+    runtimeOnly project(":ignite-network")
+    runtimeOnly project(":ignite-placement-driver-api")
+    runtimeOnly project(":ignite-schema")
+    runtimeOnly project(":ignite-security")
+    runtimeOnly project(":ignite-sql-engine")
+    runtimeOnly project(":ignite-table")
+    runtimeOnly project(":ignite-transactions")
+    runtimeOnly project(":ignite-metastorage-api")
+    runtimeOnly project(":ignite-client-common")
+    runtimeOnly project(":ignite-metrics")
+    runtimeOnly project(":ignite-binary-tuple")
+    runtimeOnly project(":ignite-marshaller-common")
+    runtimeOnly project(":ignite-bytecode")
+    runtimeOnly project(":ignite-network-api")
+    runtimeOnly project(":ignite-vault")
+    runtimeOnly project(":ignite-rocksdb-common")
+    runtimeOnly project(":ignite-replicator")
+    runtimeOnly project(":ignite-raft-api")
+    runtimeOnly project(":ignite-distribution-zones")
+    runtimeOnly project(":ignite-raft")
+    runtimeOnly project(":ignite-partition-distribution")
+    runtimeOnly project(":ignite-cluster-management")
+    runtimeOnly project(":ignite-index")
+    runtimeOnly project(":ignite-storage-api")
+    runtimeOnly project(":ignite-system-view")
+    runtimeOnly project(":ignite-cli")
+
+    // TODO: All the transitive deps should be made into shadow
+    shadow libs.asm.core
+    shadow libs.asm.tree
+    shadow libs.asm.util
+    shadow libs.fastutil.core
+    shadow libs.caffeine
+    shadow libs.netty.common
+    shadow libs.netty.buffer
+    shadow libs.netty.codec
+    shadow libs.netty.handler
+    shadow libs.msgpack.core
+    shadow "org.msgpack:jackson-dataformat-msgpack:0.8.24"
+    shadow libs.auto.service.annotations
+    shadow libs.typesafe.config
+}
+
+jar {
+    dependsOn(tasks.shadowJar)
+    enabled = false
+}
+
+shadowJar {
+    archiveClassifier.set("")
+    //configurations = [project.configurations.implementation]
+    mergeServiceFiles()
+    append 'META-INF/transferable.messages'
+    dependencies {
+        include(dependency(project.group + '::'))
+    }
+    exclude "ignite.properties"
+    relocate('org.apache.ignite', 'org.apache.ignite3')
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) {
+            from components.shadow
+        }
+    }
+}
+
+signing {
+    sign publishing.publications
+}

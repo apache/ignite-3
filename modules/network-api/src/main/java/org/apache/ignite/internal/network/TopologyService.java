@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for obtaining physical cluster topology information.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface TopologyService extends ClusterNodeResolver {
+public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
     /**
      * Returns information about the current node.
      *
@@ -42,11 +42,25 @@ public interface TopologyService extends ClusterNodeResolver {
     Collection<ClusterNode> allMembers();
 
     /**
+     * Returns a list of all logical topology members, including the local member.
+     *
+     * @return List of logical topology members.
+     */
+    Collection<ClusterNode> logicalTopologyMembers();
+
+    /**
      * Registers a handler for physical topology change events.
      *
      * @param handler Physical topology event handler.
      */
     void addEventHandler(TopologyEventHandler handler);
+
+    /**
+     * Unregisters a handler for physical topology change events.
+     *
+     * @param handler Physical topology event handler.
+     */
+    void removeEventHandler(TopologyEventHandler handler);
 
     /**
      * Returns a cluster node specified by its network address in the 'host:port' format.

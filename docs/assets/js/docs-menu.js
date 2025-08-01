@@ -39,6 +39,15 @@ const toggleMenu = (force) => {
     emit(eventTypes[body.classList.contains(HIDE_CLASS) ? 'hide' : 'show'])
 }
 
+export const scrollLeftNavToActive = () => {
+    let activeItem = document.querySelector('.left-nav .active');
+    if(activeItem){
+        var topPos = activeItem.offsetTop;
+        document.querySelector('.left-nav').scrollTop = topPos-10;
+    }
+}
+
+
 export const hideLeftNav = () => {
     toggleMenu(true, false)
 }

@@ -26,8 +26,6 @@ import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
-import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
-import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -161,15 +159,13 @@ public class ReplExecutorImpl implements ReplExecutor {
         }
     }
 
-    private void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
         if (repl.isTailTipWidgetsEnabled()) {
             createTailTipWidgets(registry, reader);
         } else if (repl.isAutosuggestionsWidgetsEnabled()) {
             AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
             widgets.enable();
         }
-
-        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
     private LineReader createReader(Completer completer, Highlighter highlighter, Parser parser) {

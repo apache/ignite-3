@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -48,20 +49,24 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.TestWrappers;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
@@ -77,6 +82,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test of index building. */
 public class ItBuildIndexTest extends BaseSqlIntegrationTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -102,7 +109,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        assertQuery(format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE i1 > 0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
@@ -155,7 +162,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         createAndPopulateTable(nodes, 1);
 
-        var tableGroupId = new TablePartitionId(tableId(TABLE_NAME), 0);
+        var tableGroupId = replicationGroupId(TABLE_NAME, 0);
 
         IgniteImpl primary = primaryReplica(tableGroupId);
 
@@ -168,6 +175,20 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         assertThat(sendBuildIndexCommandFuture, willBe(indexId(INDEX_NAME)));
 
         return primary;
+    }
+
+    private static ReplicationGroupId replicationGroupId(String tableName, int partitionIndex) {
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        HybridClock clock = node.clock();
+        CatalogManager catalogManager = node.catalogManager();
+
+        CatalogTableDescriptor tableDescriptor = catalogManager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
+
+        assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
+
+        return colocationEnabled() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
+                : new TablePartitionId(tableDescriptor.id(), partitionIndex);
     }
 
     private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
@@ -184,7 +205,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         // Let's change the primary replica for partition 0.
         NodeUtils.transferPrimary(
                 CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                new TablePartitionId(tableId(TABLE_NAME), 0),
+                replicationGroupId(TABLE_NAME, 0),
                 nextPrimary.name()
         );
 
@@ -201,12 +222,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+        sql(format("CREATE ZONE IF NOT EXISTS {} (REPLICAS {}, PARTITIONS {}) STORAGE PROFILES ['{}']",
                 ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 
         sql(format(
-                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
+                "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         ));
 
@@ -303,21 +324,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Returns the table ID from the catalog.
-     *
-     * @param tableName Table name.
-     */
-    private static int tableId(String tableName) {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
-
-        assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
-
-        return tableDescriptor.id();
-    }
-
-    /**
      * Waits for the index to be built on all nodes.
      *
      * @param tableName Table name.
@@ -365,7 +371,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridTimestamp now = node.clock().now();
 
         for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-            var tableGroupId = new TablePartitionId(internalTable.tableId(), partitionId);
+            var tableGroupId = replicationGroupId(tableName, partitionId);
 
             CompletableFuture<TokenizedAssignments> assignmentsFuture = placementDriver.getAssignments(tableGroupId, now);
 
@@ -406,6 +412,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param indexName Index name.
      */
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
-        return node.catalogManager().aliveIndex(indexName, node.clock().nowLong());
+        HybridClock clock = node.clock();
+        CatalogManager catalogManager = node.catalogManager();
+        return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
     }
 }

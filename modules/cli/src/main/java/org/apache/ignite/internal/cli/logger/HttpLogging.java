@@ -39,21 +39,31 @@ class HttpLogging {
      * Starts logging HTTP requests/responses to specified {@code PrintWriter}.
      *
      * @param output Print writer to print logs to.
+     * @param verbose Boolean array. Should be non-empty. Number of elements represent verbosity level.
      */
-    void startHttpLogging(PrintWriter output) {
+    void startHttpLogging(PrintWriter output, boolean[] verbose) {
         if (interceptor == null) {
             Builder builder = client.getHttpClient().newBuilder();
 
             interceptor = new HttpLoggingInterceptor(output::println);
-            interceptor.setLevel(Level.BASIC);
+            interceptor.setLevel(verbosityLevel(verbose));
             builder.interceptors().add(interceptor);
 
             client.setHttpClient(builder.build());
         }
     }
 
+    private static Level verbosityLevel(boolean[] verbose) {
+        if (verbose.length > 2) {
+            return Level.BODY;
+        } else if (verbose.length > 1) {
+            return Level.HEADERS;
+        }
+        return Level.BASIC;
+    }
+
     /**
-     * Stops logging previously started by {@link HttpLogging#startHttpLogging(PrintWriter)}.
+     * Stops logging previously started by {@link HttpLogging#startHttpLogging(PrintWriter, boolean[])}.
      */
     void stopHttpLogging() {
         if (interceptor != null) {

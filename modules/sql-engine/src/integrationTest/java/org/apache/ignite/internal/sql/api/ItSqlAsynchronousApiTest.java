@@ -18,35 +18,47 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Tests for asynchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
     public void pageSequence() {
@@ -95,6 +107,146 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         }
     }
 
+    @Test
+    @Override
+    public void cancelQueryString() throws InterruptedException {
+        IgniteSql sql = igniteSql();
+        String query = "SELECT * FROM system_range(0, 10000000000)";
+
+        // no transaction
+        executeAndCancel((token) -> {
+            return sql.executeAsync(null, token, query);
+        });
+
+        // with transaction
+        executeAndCancel((token) -> {
+            Transaction transaction = igniteTx().begin();
+
+            return sql.executeAsync(transaction, token, query);
+        });
+    }
+
+    @Test
+    @Override
+    public void cancelStatement() throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        String query = "SELECT * FROM system_range(0, 10000000000)";
+
+        // no transaction
+        executeAndCancel((token) -> {
+            Statement statement = sql.statementBuilder()
+                    .query(query)
+                    .build();
+
+            return sql.executeAsync(null, token, statement);
+        });
+
+        // with transaction
+        executeAndCancel((token) -> {
+            Statement statement = sql.statementBuilder()
+                    .query(query)
+                    .build();
+
+            Transaction transaction = igniteTx().begin();
+
+            return sql.executeAsync(transaction, token, statement);
+        });
+    }
+
+    @Override
+    @Test
+    public void cancelBatch() throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            args.add(i, i);
+        }
+
+        String query = "UPDATE TEST SET val = ? + (SELECT COUNT(*) FROM system_range(?, 10000000000))";
+
+        // no transaction
+        executeBatchAndCancel((token) -> sql.executeBatchAsync(null, token, query, args));
+
+        // with transaction
+        executeBatchAndCancel((token) -> {
+            Transaction transaction = igniteTx().begin();
+
+            return sql.executeBatchAsync(transaction, token, query, args);
+        });
+    }
+
+    private void executeAndCancel(
+            Function<CancellationToken, CompletableFuture<AsyncResultSet<SqlRow>>> execute
+    ) throws InterruptedException {
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CountDownLatch firstResultSetLatch = new CountDownLatch(1);
+
+        CompletableFuture<AsyncResultSet<SqlRow>> resultSetFut = execute.apply(cancelHandle.token());
+
+        // Wait for the first result set to become available and then cancel the query
+        resultSetFut.whenComplete((r, t) -> firstResultSetLatch.countDown());
+        firstResultSetLatch.await();
+
+        cancelHandle.cancelAsync();
+
+        CompletionException err = assertThrows(CompletionException.class, new DrainResultSet(resultSetFut));
+        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
+
+        await(cancelHandle.cancelAsync());
+
+        // Expect all transactions to be rolled back.
+        waitUntilActiveTransactionsCount(is(0));
+    }
+
+    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        // Run statement in another thread
+        CompletableFuture<long[]> f = execute.apply(cancelHandle.token());
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+        assertThat(f.isDone(), is(false));
+
+        cancelHandle.cancelAsync();
+
+        CompletionException err = assertThrows(CompletionException.class, f::join);
+        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
+
+        await(cancelHandle.cancelAsync());
+
+        // Expect all transactions to be rolled back.
+        waitUntilActiveTransactionsCount(is(0));
+    }
+
+    private static class DrainResultSet implements Executable {
+        CompletableFuture<? extends AsyncResultSet<SqlRow>> rs;
+
+        DrainResultSet(CompletableFuture<? extends AsyncResultSet<SqlRow>> rs) {
+            this.rs = rs;
+        }
+
+        @Override
+        public void execute() {
+            AsyncResultSet<SqlRow> current;
+            do {
+                current = rs.join();
+                if (current.hasRowSet() && current.hasMorePages()) {
+                    rs = current.fetchNextPage();
+                } else {
+                    return;
+                }
+
+            } while (current.hasMorePages());
+        }
+    }
+
     @Override
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Transaction tx, Statement statement, Object... args) {
         return new SyncResultSetAdapter(await(sql.executeAsync(tx, statement, args)));
@@ -119,8 +271,23 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query) {
+        sql.execute(tx, token, query);
+    }
+
+    @Override
+    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, Statement statement, Object... args) {
+        return new SyncResultSetAdapter<>(await(sql.executeAsync(null, token, statement, args)));
+    }
+
+    @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         await(sql.executeScriptAsync(query, args));
+    }
+
+    @Override
+    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+        await(sql.executeScriptAsync(cancellationToken, query, args));
     }
 
     @Override

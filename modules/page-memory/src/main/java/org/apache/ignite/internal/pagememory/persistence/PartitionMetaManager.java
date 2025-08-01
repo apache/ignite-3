@@ -126,7 +126,7 @@ public class PartitionMetaManager {
 
         assert pageIdx == 0 : pageIdx;
 
-        filePageStore.write(partitionMetaPageId, buffer.rewind(), true);
+        filePageStore.write(partitionMetaPageId, buffer.rewind());
 
         filePageStore.sync();
 

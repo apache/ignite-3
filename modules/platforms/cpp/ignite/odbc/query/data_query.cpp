@@ -82,19 +82,28 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
         case ignite_type::DATETIME:
             return buffer.put_date_time(value.get<ignite_date_time>());
 
-        case ignite_type::BITMASK:
-            return buffer.put_bitmask(value.get<bit_array>());
-
         case ignite_type::BYTE_ARRAY:
             return buffer.put_binary_data(value.get<std::vector<std::byte>>());
 
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
-        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-19969 implement support for period, duration and big_integer
             return conversion_result::AI_UNSUPPORTED_CONVERSION;
     }
+}
+
+std::vector<bytes_view> read_rows(protocol::reader &reader) {
+    auto size = reader.read_int32();
+
+    std::vector<bytes_view> rows;
+    rows.reserve(size);
+
+    for (std::int32_t row_idx = 0; row_idx < size; ++row_idx) {
+        rows.emplace_back(reader.read_binary());
+    }
+
+    return rows;
 }
 
 } // anonymous namespace
@@ -120,7 +129,7 @@ sql_result data_query::execute() {
     return make_request_execute();
 }
 
-const column_meta_vector *data_query::get_meta() {
+const protocol::column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
         update_meta();
 
@@ -131,7 +140,7 @@ const column_meta_vector *data_query::get_meta() {
     return &m_result_meta;
 }
 
-const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
+const sql_parameter *data_query::get_sql_param(std::int16_t idx) const {
     if (idx > 0 && static_cast<std::size_t>(idx) <= m_params_meta.size())
         return &m_params_meta.at(idx - 1);
 
@@ -172,7 +181,7 @@ sql_result data_query::fetch_next_row() {
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
     auto res = fetch_next_row();
-    if (res != ignite::sql_result::AI_SUCCESS && res != ignite::sql_result::AI_SUCCESS_WITH_INFO) {
+    if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO) {
         return res;
     }
 
@@ -327,25 +336,28 @@ sql_result data_query::make_request_execute() {
         m_connection.mark_transaction_non_empty();
 
         auto &response = res.first;
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        m_query_id = reader->read_object_nullable<std::int64_t>();
+        protocol::reader reader(response.get_bytes_view());
+        m_query_id = reader.read_object_nullable<std::int64_t>();
 
-        m_has_rowset = reader->read_bool();
-        m_has_more_pages = reader->read_bool();
-        m_was_applied = reader->read_bool();
+        m_has_rowset = reader.read_bool();
+        m_has_more_pages = reader.read_bool();
+        m_was_applied = reader.read_bool();
+
         if (single) {
-            m_rows_affected = reader->read_int64();
+            m_rows_affected = reader.read_int64();
 
             if (m_has_rowset) {
-                auto columns = read_result_set_meta(*reader);
+                auto columns = read_result_set_meta(reader);
                 set_resultset_meta(std::move(columns));
-                auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+                auto rows = read_rows(reader);
+
+                auto page = std::make_unique<result_page>(std::move(response), std::move(rows));
                 m_cursor = std::make_unique<cursor>(std::move(page));
             }
 
             m_executed = true;
         } else {
-            auto affected_rows = reader->read_int64_array();
+            auto affected_rows = reader.read_int64_array();
             process_affected_rows(affected_rows);
         }
     });
@@ -396,8 +408,11 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
         response = m_connection.sync_request(protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
 
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        page = std::make_unique<result_page>(std::move(response), std::move(reader));
+        protocol::reader reader(response.get_bytes_view());
+        auto rows = read_rows(reader);
+        m_has_more_pages = reader.read_bool();
+
+        page = std::make_unique<result_page>(std::move(response), std::move(rows));
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
@@ -504,12 +519,12 @@ sql_result data_query::process_conversion_result(
     return sql_result::AI_ERROR;
 }
 
-void data_query::set_resultset_meta(column_meta_vector value) {
+void data_query::set_resultset_meta(protocol::column_meta_vector value) {
     m_result_meta = std::move(value);
     m_result_meta_available = true;
 
     for (size_t i = 0; i < m_result_meta.size(); ++i) {
-        column_meta &meta = m_result_meta.at(i);
+        protocol::column_meta &meta = m_result_meta.at(i);
         LOG_MSG("[" << i << "] SchemaName: " << meta.get_schema_name());
         LOG_MSG("[" << i << "] TableName:  " << meta.get_table_name());
         LOG_MSG("[" << i << "] ColumnName: " << meta.get_column_name());

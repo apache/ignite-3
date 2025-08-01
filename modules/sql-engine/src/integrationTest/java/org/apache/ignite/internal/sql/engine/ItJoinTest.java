@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Check JOIN on basic cases.
  */
+@SuppressWarnings("ConcatenationWithEmptyString")
 public class ItJoinTest extends BaseSqlIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
@@ -1018,6 +1019,23 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         //    .check();
     }
 
+    @Test
+    public void testNonColocatedNaturalJoin() {
+        sqlScript("CREATE TABLE tbl1 (a INTEGER, b INTEGER,  PRIMARY KEY(b));"
+                + "CREATE TABLE tbl2 (a INTEGER, c INTEGER,  PRIMARY KEY(c));"
+                + "CREATE TABLE tbl3 (a INTEGER, b INTEGER, c INTEGER, PRIMARY KEY(a))");
+
+        sql("INSERT INTO tbl1 VALUES (1, 2)");
+        sql("INSERT INTO tbl2 VALUES (1, 3), (2, 4)");
+        sql("INSERT INTO tbl3 VALUES (1, 2, 3)");
+
+        gatherStatistics();
+
+        assertQuery("SELECT * FROM tbl1 NATURAL JOIN tbl2 NATURAL JOIN tbl3")
+                .returns(1, 2, 3)
+                .check();
+    }
+
     /** Check IS NOT DISTINCT execution correctness and IndexSpool presence. */
     @ParameterizedTest(name = "join algo : {0}, index present: {1}")
     @MethodSource("joinTypes")
@@ -1067,12 +1085,30 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(value = JoinType.class, names = {"NESTED_LOOP", "HASH"}, mode = Mode.INCLUDE)
+    void partiallyEquiJoin(JoinType type) {
+        assertQuery(""
+                + "SELECT t1.c1, t1.c2, t2.c1, t2.c2 FROM"
+                + "  (SELECT x::integer AS c1, x % 2 AS c2 FROM system_range(1, 10)) AS t1"
+                + " JOIN"
+                + "  (SELECT x::integer AS c1, x % 3 AS c2 FROM system_range(1, 10)) t2"
+                + "   ON t1.c1 = t2.c1 AND t1.c2 < t2.c2", type
+        )
+                .returns(2, 0, 2, 2)
+                .returns(4, 0, 4, 1)
+                .returns(5, 1, 5, 2)
+                .returns(8, 0, 8, 2)
+                .returns(10, 0, 10, 1)
+                .check();
+    }
+
     private static Stream<Arguments> joinTypes() {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
                 .filter(type -> type != JoinType.CORRELATED)
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22074 hash join to make a deal with "is not distinct" expression
-                .filter(type -> type != JoinType.HASHJOIN)
+                .filter(type -> type != JoinType.HASH)
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;
@@ -1085,7 +1121,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
             sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
             sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
 
-            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause " 
+            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause "
                     + "has incompatible types in this context: 'INTEGER' to 'BIGINT'";
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij NATURAL JOIN t2_ij"));
@@ -1110,5 +1146,20 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
             sql("DROP TABLE t1_ij");
             sql("DROP TABLE t2_ij");
         }
+    }
+
+    @Test
+    public void testUnsupportedAsofJoin() {
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Unsupported join type: ASOF", () -> sql("SELECT *\n"
+                + " FROM (VALUES (NULL, 0)) AS t1(k, t)\n"
+                + " ASOF JOIN (VALUES (1, NULL)) AS t2(k, t)\n"
+                + " MATCH_CONDITION t2.t < t1.t\n"
+                + " ON t1.k = t2.k"));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Unsupported join type: LEFT ASOF", () -> sql("SELECT *\n"
+                + " FROM (VALUES (NULL, 0)) AS t1(k, t)\n"
+                + " LEFT ASOF JOIN (VALUES (1, NULL)) AS t2(k, t)\n"
+                + " MATCH_CONDITION t2.t < t1.t\n"
+                + " ON t1.k = t2.k"));
     }
 }

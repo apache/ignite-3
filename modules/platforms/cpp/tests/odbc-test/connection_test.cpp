@@ -63,7 +63,7 @@ TEST_F(connection_test, dbms_cluster_name) {
 
 TEST_F(connection_test, timezone_passed) {
     EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string() + "timezone=UTC+5;"));
-    auto ret = exec_query("SELECT CURRENT_TIMESTAMP");
+    auto ret = exec_query("SELECT CURRENT_TIMESTAMP::VARCHAR");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR buffer[1024];
@@ -81,7 +81,7 @@ TEST_F(connection_test, timezone_passed) {
     odbc_clean_up();
 
     EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string() + "timezone=UTC-8;"));
-    ret = exec_query("SELECT CURRENT_TIMESTAMP");
+    ret = exec_query("SELECT CURRENT_TIMESTAMP::VARCHAR");
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     ret = SQLBindCol(m_statement, 1, SQL_C_CHAR, &buffer, column_len, &column_len);

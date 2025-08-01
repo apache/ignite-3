@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 
@@ -29,15 +28,12 @@ import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 public class CommandIdGenerator {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
-    /** Supplies nodeId for command id generation. */
-    private final Supplier<String> nodeIdSupplier;
-
-    private volatile UUID nodeId;
+    private final UUID localNodeId;
 
     private final AtomicLong counter = new AtomicLong();
 
-    public CommandIdGenerator(Supplier<String> nodeIdSupplier) {
-        this.nodeIdSupplier = nodeIdSupplier;
+    public CommandIdGenerator(UUID localNodeId) {
+        this.localNodeId = localNodeId;
     }
 
     /**
@@ -46,17 +42,8 @@ public class CommandIdGenerator {
      * @return New command id.
      */
     public CommandId newId() {
-        if (nodeId == null) {
-            synchronized (this) {
-                if (nodeId == null) {
-                    String nodeIdString = nodeIdSupplier.get();
-                    nodeId = UUID.fromString(nodeIdString);
-                }
-            }
-        }
-
         return MSG_FACTORY.commandId()
-                .nodeId(nodeId)
+                .nodeId(localNodeId)
                 .counter(counter.getAndIncrement())
                 .build();
     }

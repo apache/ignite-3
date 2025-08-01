@@ -297,4 +297,23 @@ public partial class LinqTests
 
         Assert.AreEqual("Sequence contains no elements", ex!.Message);
     }
+
+    [Test]
+    public void TestDecimalMaterialization()
+    {
+        var query = PocoBigDecimalView.AsQueryable();
+
+        var key = new BigDecimal(6);
+
+        BigDecimal? primitive = query
+            .Where(x => x.Key == key)
+            .Select(x => x.Val)
+            .Single();
+
+        PocoBigDecimal poco = query.Single(x => x.Key == key);
+
+        Assert.AreEqual(key, primitive);
+        Assert.AreEqual(key, poco.Key);
+        Assert.AreEqual(key, poco.Val);
+    }
 }

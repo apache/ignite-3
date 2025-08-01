@@ -77,11 +77,11 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
             String regionName = "default_" + engine;
-            sql(String.format("create zone %s with partitions=1, replicas=3, storage_profiles = '%s';",
+            sql(String.format("create zone %s (partitions 1, replicas 3) storage profiles ['%s'];",
                     testZoneName, regionName, regionName));
 
             sql(String.format(
-                    "create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s', storage_profile='%s'",
+                    "create table %s (ID int, NAME varchar, primary key(ID, NAME)) zone %s storage profile '%s'",
                     tableName(engine),
                     testZoneName,
                     regionName
@@ -259,7 +259,8 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
-        String sqlInsert = "insert into " + tab.name() + " values (%d, '%s')";
+        String tableName = tab.name();
+        String sqlInsert = "insert into " + tableName + " values (%d, '%s')";
         String[] names = {"a", "b", "c", "d"};
 
         RecordView<Tuple> recordView = tab.recordView();
@@ -315,12 +316,12 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
 
                         assertTrue(binView.contains(tx, key));
 
-                        assertQuery(
-                                (InternalTransaction) tx, format("select * from {} where ID={} and NAME='{}'", tab.name(), i, names[i]))
+                        String message = format("select * from {} where ID={} and NAME='{}'", tableName, i, names[i]);
+                        assertQuery((InternalTransaction) tx, message)
                                 .returns(i, names[i]).check();
                     }
 
-                    assertQuery((InternalTransaction) tx, "select count(*) from " + tab.name()).returns(4L).check();
+                    assertQuery((InternalTransaction) tx, "select count(*) from " + tableName).returns(4L).check();
                 }
         );
     }
@@ -350,7 +351,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     }
 
     private static String tableName(String engineName) {
-        return "test_" + engineName;
+        return "\"test_" + engineName + '"';
     }
 
     private static class KeyObject {

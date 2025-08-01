@@ -20,6 +20,7 @@ package org.apache.ignite.catalog;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -109,7 +110,7 @@ import org.apache.ignite.table.Table;
  * <pre>
  *    CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=1, REPLICAS=3, STORAGE_PROFILES='default';
  *    CREATE TABLE IF NOT EXISTS table_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a', \
- *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';
+ *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;
  *    CREATE INDEX IF NOT EXISTS ix_pojo ON table_test (f_name, l_name desc);
  * </pre>
  * And here's the equivalent definition using builders:
@@ -192,6 +193,42 @@ public interface IgniteCatalog {
     Table createTable(TableDefinition definition);
 
     /**
+     * Returns definition of the table with provided name or {@code null} if table doesn't exist.
+     *
+     * @param tableName Table name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
+     */
+    default CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
+        return tableDefinitionAsync(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Returns definition of the table with provided {@link QualifiedName} or {@code null} if table doesn't exist.
+     *
+     * @param name Qualified name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
+     */
+    CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName name);
+
+    /**
+     * Returns definition of the table with provided name or {@code null} if table doesn't exist.
+     *
+     * @param tableName Table name.
+     * @return Table definition with provided name.
+     */
+    default TableDefinition tableDefinition(String tableName) {
+        return tableDefinition(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Returns definition of the table with provided {@link QualifiedName} or {@code null} if table doesn't exist.
+     *
+     * @param name Qualified name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
+     */
+    TableDefinition tableDefinition(QualifiedName name);
+
+    /**
      * Creates a query object from the zone definition.
      *
      * @param definition Zone definition.
@@ -206,6 +243,22 @@ public interface IgniteCatalog {
     void createZone(ZoneDefinition definition);
 
     /**
+     * Returns definition of the zone with provided name or {@code null} if zone doesn't exist.
+     *
+     * @param zoneName Zone name.
+     * @return Future with zone definition with provided name or {@code null} if zone doesn't exist.
+     */
+    CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName);
+
+    /**
+     * Returns definition of the zone with provided name or {@code null} if zone doesn't exist.
+     *
+     * @param zoneName Zone name.
+     * @return Zone definition with provided name.
+     */
+    ZoneDefinition zoneDefinition(String zoneName);
+
+    /**
      * Creates a {@code DROP TABLE} query object from the table definition.
      *
      * @param definition Table definition.
@@ -217,7 +270,16 @@ public interface IgniteCatalog {
      *
      * @param name Table name.
      */
-    CompletableFuture<Void> dropTableAsync(String name);
+    default CompletableFuture<Void> dropTableAsync(String name) {
+        return dropTableAsync(QualifiedName.parse(name));
+    }
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the {@link QualifiedName}.
+     *
+     * @param name Qualified name.
+     */
+    CompletableFuture<Void> dropTableAsync(QualifiedName name);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
@@ -229,9 +291,18 @@ public interface IgniteCatalog {
     /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
-     * @param name Table name.
+     * @param tableName Table name.
      */
-    void dropTable(String name);
+    default void dropTable(String tableName) {
+        dropTable(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the {@link QualifiedName}.
+     *
+     * @param name Qualified name.
+     */
+    void dropTable(QualifiedName name);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone definition.

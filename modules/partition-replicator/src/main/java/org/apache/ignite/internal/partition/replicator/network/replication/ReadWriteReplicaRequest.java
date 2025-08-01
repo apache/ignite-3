@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.jetbrains.annotations.Nullable;
 
 /** Read-write replica request. */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
@@ -31,7 +34,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    String coordinatorId();
+    UUID coordinatorId();
 
     /**
      * Return {@code true} if this is a full transaction.
@@ -39,5 +42,29 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     boolean full();
 
     /** Commit partition ID. */
-    TablePartitionIdMessage commitPartitionId();
+    ReplicationGroupIdMessage commitPartitionId();
+
+    /**
+     * Get write request flag.
+     *
+     * @return {@code true} if this is write request (requires replication layer).
+     */
+    default boolean isWrite() {
+        return false;
+    }
+
+    /**
+     * Get delayed ack processor.
+     *
+     * @return The processor.
+     */
+    @Transient
+    @Nullable BiConsumer<Object, Throwable> delayedAckProcessor();
+
+    /**
+     * Disable delayed ack optimization.
+     *
+     * @return {@code True} to disable the delayed ack optimization.
+     */
+    boolean skipDelayedAck();
 }

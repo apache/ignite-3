@@ -34,6 +34,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 
 /**
  * Relational operator for table function scan.
@@ -147,5 +148,10 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer.addInvocation(getCall());
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network;
 
-import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,7 +24,7 @@ import java.util.regex.Pattern;
 /**
  * Representation of a network address that includes a host name and a port.
  */
-public class NetworkAddress implements Serializable {
+public class NetworkAddress {
     /** Regexp for parsing strings in the "host:port" format. */
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):(\\d+)");
 

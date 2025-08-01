@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -54,6 +53,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -224,7 +224,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
@@ -246,8 +246,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         for (Bound leftBound : Bound.values()) {
             for (Bound rightBound : Bound.values()) {
-                params.add(Arguments.of(NoOpTransaction.readOnly("RO"), leftBound, rightBound));
-                params.add(Arguments.of(NoOpTransaction.readWrite("RW"), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readOnly("RO", false), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readWrite("RW", false), leftBound, rightBound));
             }
         }
 
@@ -264,8 +264,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -290,7 +289,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     nullable(BinaryTuplePrefix.class),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields),
+                    isNull(),
                     eq(tx.coordinatorId())
             );
         } else {
@@ -300,13 +299,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     nullable(BinaryTuplePrefix.class),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields)
+                    isNull()
             );
         }
 
@@ -327,8 +326,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -412,7 +410,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     prefix.capture(),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields),
+                    isNull(),
                     eq(tx.coordinatorId())
             );
         } else {
@@ -422,13 +420,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     prefix.capture(),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields)
+                    isNull()
             );
         }
 
@@ -477,7 +475,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -502,8 +500,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -530,7 +527,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -574,8 +571,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> transactions() {
         return Stream.of(
-                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW")))
+                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO", false))),
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW", false)))
         );
     }
 
@@ -585,13 +582,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final TestInput input;
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
-        BitSet requiredFields;
+        int[] requiredFields;
 
         Tester(TestInput input) {
             this.input = input;
-            rowConverter = new RowCollectingTableRwoConverter(input);
+            rowConverter = new RowCollectingTableRowConverter(input);
             scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
@@ -601,13 +598,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             if (tx.isReadOnly()) {
                 doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), anyString());
+                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), any(UUID.class));
             } else {
                 doAnswer(invocation -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         isNull(),
                         isNull(),
@@ -650,13 +647,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         nullable(BinaryTuplePrefix.class),
                         anyInt(),
                         nullable(BitSet.class),
-                        anyString());
+                        any(UUID.class));
             } else {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
@@ -697,18 +694,18 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         any(ClusterNode.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
-                        nullable(BitSet.class),
-                        anyString());
+                        isNull(),
+                        any(UUID.class));
             } else {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
-                        nullable(BitSet.class));
+                        isNull());
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
@@ -806,13 +803,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     }
 
     // Collects rows received from an input source.
-    static class RowCollectingTableRwoConverter implements TableRowConverter {
+    static class RowCollectingTableRowConverter implements TableRowConverter {
 
         final TestInput testInput;
 
         final List<BinaryRow> converted = new ArrayList<>();
 
-        RowCollectingTableRwoConverter(TestInput testData) {
+        RowCollectingTableRowConverter(TestInput testData) {
             this.testInput = testData;
         }
 
@@ -846,9 +843,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final AtomicReference<Throwable> err = new AtomicReference<>();
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
-        ResultCollector(Publisher<?> input, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, RowCollectingTableRowConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
 

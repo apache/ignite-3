@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,25 +37,29 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -100,7 +103,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
+    private static ReplicationConfiguration replicationConfiguration;
 
     @BeforeAll
     static void beforeAll() {
@@ -132,7 +138,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
-                storageUpdateConfiguration);
+                systemDistributedConfiguration,
+                replicationConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
@@ -140,12 +147,18 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class), -1);
+        table = new TableImpl(intTable, schemaRegistry, lockManager(), schemaVersions, mock(IgniteSql.class), -1);
 
         kvBinView = table.keyValueView();
         kvView =  table.keyValueView(Mapper.of(Long.class, "id"), Mapper.of(Value.class));
         rBinView = table.recordView();
         rView = table.recordView(Mapper.of(Row.class));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /**
@@ -381,38 +394,54 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             String colName = col.name();
             NativeType type = col.type();
 
-            if (NativeTypes.BOOLEAN.equals(type)) {
-                res.set(colName, id % 2 == 0);
-            } else if (NativeTypes.INT8.equals(type)) {
-                res.set(colName, (byte) id);
-            } else if (NativeTypes.INT16.equals(type)) {
-                res.set(colName, (short) id);
-            } else if (NativeTypes.INT32.equals(type)) {
-                res.set(colName, id);
-            } else if (NativeTypes.INT64.equals(type)) {
-                res.set(colName, (long) id);
-            } else if (NativeTypes.FLOAT.equals(type)) {
-                res.set(colName, (float) id);
-            } else if (NativeTypes.DOUBLE.equals(type)) {
-                res.set(colName, (double) id);
-            } else if (NativeTypes.BYTES.equals(type)) {
-                res.set(colName, String.valueOf(id).getBytes(StandardCharsets.UTF_8));
-            } else if (NativeTypes.STRING.equals(type)) {
-                res.set(colName, String.valueOf(id));
-            } else if (NativeTypes.UUID.equals(type)) {
-                res.set(colName, new UUID(0L, (long) id));
-            } else if (NativeTypes.DATE.equals(type)) {
-                res.set(colName, LocalDate.ofYearDay(2021, id));
-            } else if (NativeTypes.time(0).equals(type)) {
-                res.set(colName, LocalTime.ofSecondOfDay(id));
-            } else if (NativeTypes.datetime(6).equals(type)) {
-                res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
-                res.set(colName, Instant.ofEpochSecond(id));
-            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
-                res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
-            } else {
-                fail("Unable to fullfill value of type " + type);
+            switch (type.spec()) {
+                case INT8:
+                    res.set(colName, (byte) id);
+                    break;
+                case INT16:
+                    res.set(colName, (short) id);
+                    break;
+                case INT32:
+                    res.set(colName, id);
+                    break;
+                case INT64:
+                    res.set(colName, (long) id);
+                    break;
+                case FLOAT:
+                    res.set(colName, (float) id);
+                    break;
+                case DOUBLE:
+                    res.set(colName, (double) id);
+                    break;
+                case DECIMAL:
+                    res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
+                    break;
+                case UUID:
+                    res.set(colName, new UUID(0L, id));
+                    break;
+                case STRING:
+                    res.set(colName, String.valueOf(id));
+                    break;
+                case BYTE_ARRAY:
+                    res.set(colName, String.valueOf(id).getBytes(StandardCharsets.UTF_8));
+                    break;
+                case DATE:
+                    res.set(colName, LocalDate.ofYearDay(2021, id));
+                    break;
+                case TIME:
+                    res.set(colName, LocalTime.ofSecondOfDay(id));
+                    break;
+                case DATETIME:
+                    res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
+                    break;
+                case TIMESTAMP:
+                    res.set(colName, Instant.ofEpochSecond(id));
+                    break;
+                case BOOLEAN:
+                    res.set(colName, id % 2 == 0);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + type);
             }
         }
 
@@ -441,43 +470,58 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
             String colName = col.name();
             NativeType type = col.type();
+            ColumnType typeSpec = type.spec();
 
-            if (NativeTypes.BOOLEAN.equals(type)) {
-                assertEquals(expected.booleanValue(colName), t.booleanValue(colName));
-            } else if (NativeTypes.INT8.equals(type)) {
-                assertEquals(expected.byteValue(colName), t.byteValue(colName));
-            } else if (NativeTypes.INT16.equals(type)) {
-                assertEquals(expected.shortValue(colName), t.shortValue(colName));
-            } else if (NativeTypes.INT32.equals(type)) {
-                assertEquals(expected.intValue(colName), t.intValue(colName));
-            } else if (NativeTypes.INT64.equals(type)) {
-                assertEquals(expected.longValue(colName), t.longValue(colName));
-            } else if (NativeTypes.FLOAT.equals(type)) {
-                assertEquals(expected.floatValue(colName), t.floatValue(colName));
-            } else if (NativeTypes.DOUBLE.equals(type)) {
-                assertEquals(expected.doubleValue(colName), t.doubleValue(colName));
-            } else if (NativeTypes.BYTES.equals(type)) {
-                assertArrayEquals((byte[]) expected.value(colName), (byte[]) t.value(colName));
-            } else if (NativeTypes.STRING.equals(type)) {
-                assertEquals(expected.stringValue(colName), t.stringValue(colName));
-            } else if (NativeTypes.UUID.equals(type)) {
-                assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
-            } else if (NativeTypes.DATE.equals(type)) {
-                assertEquals(expected.dateValue(colName), t.dateValue(colName));
-            } else if (NativeTypes.time(0).equals(type)) {
-                assertEquals(expected.timeValue(colName), t.timeValue(colName));
-            } else if (NativeTypes.datetime(6).equals(type)) {
-                assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
-                assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
-            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
-                assertEquals((BigDecimal) expected.value(colName), t.value(colName));
-            } else {
-                fail("Unable to validate value of type " + type);
+            switch (typeSpec) {
+                case BOOLEAN:
+                    assertEquals(expected.booleanValue(colName), t.booleanValue(colName));
+                    break;
+                case INT8:
+                    assertEquals(expected.byteValue(colName), t.byteValue(colName));
+                    break;
+                case INT16:
+                    assertEquals(expected.shortValue(colName), t.shortValue(colName));
+                    break;
+                case INT32:
+                    assertEquals(expected.intValue(colName), t.intValue(colName));
+                    break;
+                case INT64:
+                    assertEquals(expected.longValue(colName), t.longValue(colName));
+                    break;
+                case FLOAT:
+                    assertEquals(expected.floatValue(colName), t.floatValue(colName));
+                    break;
+                case DOUBLE:
+                    assertEquals(expected.doubleValue(colName), t.doubleValue(colName));
+                    break;
+                case BYTE_ARRAY:
+                    assertArrayEquals(expected.value(colName), (byte[]) t.value(colName));
+                    break;
+                case STRING:
+                    assertEquals(expected.stringValue(colName), t.stringValue(colName));
+                    break;
+                case UUID:
+                    assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
+                    break;
+                case DATE:
+                    assertEquals(expected.dateValue(colName), t.dateValue(colName));
+                    break;
+                case TIME:
+                    assertEquals(expected.timeValue(colName), t.timeValue(colName));
+                    break;
+                case DATETIME:
+                    assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
+                    break;
+                case TIMESTAMP:
+                    assertEquals(expected.timestampValue(colName), t.timestampValue(colName));
+                    break;
+                case DECIMAL:
+                    assertEquals(expected.decimalValue(colName), t.decimalValue(colName));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Expected type: " + type);
             }
         }
-
-        assertTrue(!nulls ^ expected.equals(t), "nulls = " + nulls + ", id = " + id);
     }
 
     /**
@@ -502,8 +546,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private UUID fuuidN;
         private String fstring;
         private String fstringN;
-        private byte[] fbytes;
-        private byte[] fbytesN;
+        //CHECKSTYLE:OFF
+        private byte[] fbyte_array;
+        private byte[] fbyte_arrayN;
+        //CHECKSTYLE:ON
         private LocalDate fdate;
         private LocalDate fdateN;
         private LocalTime ftime;
@@ -538,8 +584,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fuuidN = (nulls) ? fuuid : null;
             fstring = String.valueOf(id);
             fstringN = (nulls) ? String.valueOf(id) : null;
-            fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
-            fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+            fbyte_array = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
+            fbyte_arrayN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
             fdate = LocalDate.ofYearDay(2021, id);
             fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
             ftime = LocalTime.ofSecondOfDay(id);
@@ -568,8 +614,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fint32N, value.fint32N) && Objects.equals(fint64N, value.fint64N)
                     && Objects.equals(ffloatN, value.ffloatN) && Objects.equals(fdoubleN, value.fdoubleN)
                     && Objects.equals(fuuid, value.fuuid) && Objects.equals(fuuidN, value.fuuidN) && Objects.equals(
-                    fstring, value.fstring) && Objects.equals(fstringN, value.fstringN) && Arrays.equals(fbytes, value.fbytes)
-                    && Arrays.equals(fbytesN, value.fbytesN) && Objects.equals(fdate, value.fdate) && Objects.equals(
+                    fstring, value.fstring) && Objects.equals(fstringN, value.fstringN) && Arrays.equals(fbyte_array, value.fbyte_array)
+                    && Arrays.equals(fbyte_arrayN, value.fbyte_arrayN) && Objects.equals(fdate, value.fdate) && Objects.equals(
                     fdateN, value.fdateN) && Objects.equals(ftime, value.ftime) && Objects.equals(ftimeN, value.ftimeN)
                     && Objects.equals(fdatetime, value.fdatetime) && Objects.equals(fdatetimeN, value.fdatetimeN)
                     && Objects.equals(ftimestamp, value.ftimestamp) && Objects.equals(ftimestampN, value.ftimestampN)
@@ -597,8 +643,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fuuidN,
                     fstring,
                     fstringN,
-                    fbytes,
-                    fbytesN,
+                    fbyte_array,
+                    fbyte_arrayN,
                     fdate,
                     fdateN,
                     ftime,
@@ -636,8 +682,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private UUID fuuidN;
         private String fstring;
         private String fstringN;
-        private byte[] fbytes;
-        private byte[] fbytesN;
+        //CHECKSTYLE:OFF
+        private byte[] fbyte_array;
+        private byte[] fbyte_arrayN;
+        //CHECKSTYLE:ON
         private LocalDate fdate;
         private LocalDate fdateN;
         private LocalTime ftime;
@@ -675,8 +723,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fstring = String.valueOf(id);
             fstringN = (nulls) ? String.valueOf(id) : null;
 
-            fbytes = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
-            fbytesN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
+            fbyte_array = String.valueOf(id).getBytes(StandardCharsets.UTF_8);
+            fbyte_arrayN = (nulls) ? String.valueOf(id).getBytes(StandardCharsets.UTF_8) : null;
 
             fdate = LocalDate.ofYearDay(2021, id);
             fdateN = (nulls) ? LocalDate.ofYearDay(2021, id) : null;
@@ -706,7 +754,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fint32N, row.fint32N) && Objects.equals(fint64N, row.fint64N) && Objects.equals(ffloatN, row.ffloatN)
                     && Objects.equals(fdoubleN, row.fdoubleN) && Objects.equals(fuuid, row.fuuid) && Objects.equals(
                     fuuidN, row.fuuidN) && Objects.equals(fstring, row.fstring) && Objects.equals(fstringN, row.fstringN)
-                    && Arrays.equals(fbytes, row.fbytes) && Arrays.equals(fbytesN, row.fbytesN) && Objects.equals(
+                    && Arrays.equals(fbyte_array, row.fbyte_array) && Arrays.equals(fbyte_arrayN, row.fbyte_arrayN) && Objects.equals(
                     fdate, row.fdate) && Objects.equals(fdateN, row.fdateN) && Objects.equals(ftime, row.ftime)
                     && Objects.equals(ftimeN, row.ftimeN) && Objects.equals(fdatetime, row.fdatetime)
                     && Objects.equals(fdatetimeN, row.fdatetimeN) && Objects.equals(ftimestamp, row.ftimestamp)
@@ -736,8 +784,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fuuidN,
                     fstring,
                     fstringN,
-                    fbytes,
-                    fbytesN,
+                    fbyte_array,
+                    fbyte_arrayN,
                     fdate,
                     fdateN,
                     ftime,

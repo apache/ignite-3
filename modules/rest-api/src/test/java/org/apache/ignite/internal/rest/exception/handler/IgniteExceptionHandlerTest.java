@@ -25,16 +25,12 @@ import static org.mockito.Mockito.mock;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.ValidationIssue;
-import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,15 +44,9 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> igniteExceptions() {
         UUID traceId = UUID.randomUUID();
-        String humanReadableCode = ErrorGroup.ERR_PREFIX + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(INTERNAL_ERR);
-
-        var invalidParams = List.of(
-                new InvalidParam("key1", "Some issue1"),
-                new InvalidParam("key2", "Some issue2"));
-
-        var validationIssues = List.of(
-                new ValidationIssue("key1", "Some issue1"),
-                new ValidationIssue("key2", "Some issue2"));
+        String humanReadableCode = ErrorGroups.IGNITE_ERR_PREFIX + "-"
+                + COMMON_ERR_GROUP.name() + '-'
+                + Short.toUnsignedInt(extractErrorCode(INTERNAL_ERR));
 
         return Stream.of(
                 Arguments.of(
@@ -87,21 +77,7 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
                                 .title("Bad Request")
                                 .code(humanReadableCode)
                                 .traceId(traceId)
-                                .detail("Illegal value")),
-                Arguments.of(
-                        // given
-                        new IgniteException(
-                                traceId,
-                                INTERNAL_ERR,
-                                new ConfigurationValidationException(validationIssues)),
-                        // expected
-                        Problem.builder()
-                                .status(400)
-                                .title("Bad Request")
-                                .detail("Validation did not pass for keys: [key1, Some issue1], [key2, Some issue2]")
-                                .code(humanReadableCode)
-                                .traceId(traceId)
-                                .invalidParams(invalidParams))
+                                .detail("Illegal value"))
         );
     }
 
@@ -113,7 +89,7 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("igniteExceptions")
-    void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder<? extends Problem, ?> expectedProblem) {
+    void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder expectedProblem) {
         HttpResponse<? extends Problem> response = exceptionHandler.handle(request, givenIgniteException);
 
         Problem problem = response.body();

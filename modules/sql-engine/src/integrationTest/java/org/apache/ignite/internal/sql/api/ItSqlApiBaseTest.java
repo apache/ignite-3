@@ -19,32 +19,48 @@ package org.apache.ignite.internal.sql.api;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -62,7 +78,6 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
@@ -71,6 +86,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -83,10 +100,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
     @AfterEach
-    public void dropTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+    public void dropTablesAndSchemas() {
+        dropAllTables();
+        dropAllSchemas();
     }
 
     @Test
@@ -224,7 +240,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of implicit and explicit transactions. */
@@ -285,7 +301,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        assertEquals(0, txManagerInternal.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -366,7 +382,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
@@ -536,7 +552,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
 
         checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -602,8 +618,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // Check that data are inserted OK
-        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).get(0)));
+        List<SqlRow> res = execute(igniteSql(), "SELECT ID FROM TEST ORDER BY ID").result();
+        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).intValue((0))));
 
         BatchedArguments args = BatchedArguments.of(-1, -1);
 
@@ -628,8 +644,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 SqlBatchException.class,
-                Sql.SCHEMA_NOT_FOUND_ERR,
-                "Schema not found [schemaName=NON_EXISTING_SCHEMA]",
+                Sql.STMT_VALIDATION_ERR,
+                "Object 'TEST' not found",
                 () -> executeBatch(statement, args));
     }
 
@@ -756,7 +772,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         execute(1, sql, "SELECT * FROM TEST");
 
-        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /**
@@ -794,7 +810,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, execute(sql, "SELECT ID FROM TEST WHERE ID = -1").result().size());
         }
 
-        assertEquals(0, txManager().pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test
@@ -813,9 +829,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .build();
 
         ResultSet<?> rs = executeForRead(sql, statement);
-        assertEquals(1, txManager().pending());
+        waitUntilActiveTransactionsCount(is(1));
+
         rs.close();
-        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test
@@ -884,17 +902,19 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .query("SELECT CURRENT_TIMESTAMP")
                 .timeZoneId(zoneId);
 
+        long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
         ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
         SqlRow row = resultSet.next();
 
-        LocalDateTime ts = row.value(0);
+        long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        Instant ts = row.value(0);
         assertNotNull(ts);
 
-        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float nowMillis = LocalDateTime.now(zoneId).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float deltaMillis = 5000;
+        long tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        assertEquals(nowMillis, tsMillis, deltaMillis);
+        assertTrue(momentBefore <= tsMillis && momentAfter >= tsMillis);
     }
 
     @Test
@@ -927,6 +947,119 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 resultSet.next();
             }
         });
+    }
+
+    @Test
+    public void cancelScript() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY);");
+
+        // DML is used because the cursor will be closed as soon as the first page is ready.
+        String script =
+                "INSERT INTO test SELECT x FROM system_range(0, 10000000000);"
+                + "SELECT 1;";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        // Wait until FIRST script statement is started to execute.
+        waitUntilRunningQueriesCount(greaterThan(1));
+
+        assertThat(scriptFut.isDone(), is(false));
+
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(scriptFut));
+
+        waitUntilRunningQueriesCount(is(0));
+        waitUntilActiveTransactionsCount(is(0));
+
+        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
+        expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
+
+        waitUntilRunningQueriesCount(is(0));
+        waitUntilActiveTransactionsCount(is(0));
+    }
+
+    @Test
+    public void cancelLongRunningStatement() throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY)");
+
+        // Long running DML query uses implicit RW transaction.
+        String query = "INSERT INTO test SELECT x FROM system_range(0, 10000000000);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        // Run long DML query.
+
+        CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
+
+        // Wait until the query starts executing.
+        waitUntilRunningQueriesCount(greaterThan(0));
+        // Wait a bit more to improve failure rate.
+        Thread.sleep(500);
+
+        // Wait for query cancel.
+        cancelHandle.cancel();
+
+        // Query was actually cancelled.
+        waitUntilRunningQueriesCount(is(0));
+        expectQueryCancelled(() -> await(f));
+        waitUntilActiveTransactionsCount(is(0));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT", "RIGHT", "FULL"})
+    public void cancelLongRunningJoinStatement(JoinRelType joinType) throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql.executeScript("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
+        for (int i = 0; i < 10; i++) {
+            sql.executeScript("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        String join10x = String.format("SELECT count(*) FROM ("
+                + "SELECT "
+                + "t1.ID AS ID1, t2.ID AS ID2, t3.ID AS ID3, t4.ID AS ID4, t5.ID AS ID5, "
+                + "t6.ID AS ID6, t7.ID AS ID7, t8.ID AS ID8, t9.ID AS ID9, t10.ID AS ID10 "
+                + "FROM TEST t1 "
+                + "%s JOIN TEST t2  ON 1 = 1 "
+                + "%s JOIN TEST t3  ON 1 = 1 "
+                + "%s JOIN TEST t4  ON 1 = 1 "
+                + "%s JOIN TEST t5  ON 1 = 1 "
+                + "%s JOIN TEST t6  ON 1 = 1 "
+                + "%s JOIN TEST t7  ON 1 = 1 "
+                + "%s JOIN TEST t8  ON 1 = 1 "
+                + "%s JOIN TEST t9  ON 1 = 1 "
+                + "%s JOIN TEST t10 ON 1 = 1 "
+                + ")", joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType, joinType);
+
+        {
+            Statement statement = sql.statementBuilder()
+                    .query(join10x)
+                    .build();
+
+            CancelHandle cancelHandle = CancelHandle.create();
+            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+
+            // Wait until the query starts executing.
+            waitUntilRunningQueriesCount(greaterThan(0));
+            // Wait a bit more to improve failure rate.
+            Thread.sleep(500);
+
+            cancelHandle.cancel();
+
+            // Query was actually cancelled.
+            waitUntilRunningQueriesCount(is(0));
+            expectQueryCancelled(() -> await(fut));
+            waitUntilActiveTransactionsCount(is(0));
+        }
     }
 
     @Test
@@ -993,6 +1126,236 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         });
     }
 
+    @Test
+    public void testKillCommand() {
+        IgniteSql sql = igniteSql();
+
+        try (ResultSet<SqlRow> rs = executeLazy(sql, null, "SELECT x FROM system_range(0, 100000)")) {
+            assertThat(rs.hasNext(), is(true));
+
+            List<QueryInfo> queries = queryProcessor().runningQueries();
+
+            assertThat(queries, hasSize(1));
+
+            UUID existingQuery = queries.get(0).id();
+
+            String killQuery = "KILL QUERY '" + existingQuery + '\'';
+
+            // Kill existing query.
+            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+                assertThat(killResultset.hasRowSet(), is(false));
+                assertThat(killResultset.wasApplied(), is(true));
+            }
+
+            waitUntilRunningQueriesCount(is(0));
+
+            assertThrowsSqlException(
+                    Sql.EXECUTION_CANCELLED_ERR,
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> {
+                        while (rs.hasNext()) {
+                            rs.next();
+                        }
+                    }
+            );
+
+            // Kill non-existing query.
+            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+                assertThat(killResultset.hasRowSet(), is(false));
+                assertThat(killResultset.wasApplied(), is(false));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchema() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.t1 VALUES (1, 1), (2, 2)");
+
+        // Schema 2 has t1 as well
+
+        sql("CREATE SCHEMA schema2");
+        sql("CREATE TABLE schema2.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema2.t1 VALUES (1, 1), (2, 2), (3, 3)");
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .query("SELECT COUNT(*) FROM schema1.t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema2")
+                    .query(format("SELECT COUNT(*) FROM t1"))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchemaWithQuotedName() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.\"T 1\" VALUES (1, 1), (2, 2)");
+
+        // Schema 2 has T1 as well
+
+        sql("CREATE SCHEMA \"ScheMa1\"");
+        sql("CREATE TABLE \"ScheMa1\".\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO \"ScheMa1\".\"T 1\" VALUES (1, 1), (2, 2), (3, 3)");
+
+        // Check schema 1
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM \"T 1\"")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("\"ScheMa1\"")
+                    .query(format("SELECT COUNT(*) FROM \"T 1\""))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
+            }
+        }
+    }
+
+    @Test
+    public void rowToString() {
+        SqlRow row = executeForRead(igniteSql(), "SELECT 1 as COL_A, '2' as COL_B").next();
+
+        assertEquals(row.getClass().getSimpleName() + " [COL_A=1, COL_B=2]", row.toString());
+    }
+
+    @Test
+    public abstract void cancelStatement() throws InterruptedException;
+
+    @Test
+    public abstract void cancelQueryString() throws InterruptedException;
+
+    @Test
+    public abstract void cancelBatch() throws InterruptedException;
+
+    @Test
+    public void cancelQueryBeforeExecution() {
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> executeLazy(igniteSql(), token, "SELECT 1"));
+    }
+
+    @Test
+    public void cancelMultipleQueriesUsingSameToken() {
+        IgniteSql sql = igniteSql();
+        Statement statement = sql.statementBuilder()
+                .query("SELECT * FROM system_range(0, 10000000000)")
+                .pageSize(1)
+                .build();
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        ResultSet<SqlRow> query1rs = executeLazy(sql, token, statement);
+        ResultSet<SqlRow> query2rs = executeLazy(sql, token, statement);
+        ResultSet<SqlRow> query3rs = executeLazy(sql, token, statement);
+
+        CompletableFuture<Void> cancelFut = cancelHandle.cancelAsync();
+
+        expectQueryCancelled(() -> query1rs.forEachRemaining(r -> {}));
+        expectQueryCancelled(() -> query2rs.forEachRemaining(r -> {}));
+        expectQueryCancelled(() -> query3rs.forEachRemaining(r -> {}));
+
+        await(cancelFut);
+    }
+
+    /**
+     * The test ensures that in the case of an asynchronous cancellation call (either before or after the query is started),
+     * the query will either not be started or will be cancelled. That is, it is impossible for a remote cancellation request
+     * to be processed by the server before the query itself is started.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void cancelQueryDuringExecution() throws Exception {
+        IgniteSql sql = igniteSql();
+        String query = "SELECT * FROM system_range(0, 10000000000)";
+
+        int triesCount = 10;
+        CyclicBarrier startBarrier = new CyclicBarrier(2);
+
+        for (int i = triesCount - 1; i >= 0; i--) {
+            CancelHandle cancelHandle = CancelHandle.create();
+            CancellationToken token = cancelHandle.token();
+            long delay = i;
+
+            CompletableFuture<Void> cancelFut = IgniteTestUtils.runAsync(() -> {
+                startBarrier.await();
+
+                if (delay > 0) {
+                    Thread.sleep(delay);
+                }
+
+                cancelHandle.cancel();
+            });
+
+            startBarrier.await();
+
+            try (ResultSet<SqlRow> rs = executeLazy(sql, token, query)) {
+                expectQueryCancelled(() -> {
+                    while (rs.hasNext()) {
+                        rs.next();
+                    }
+                });
+            } catch (SqlException e) {
+                assertEquals(Sql.EXECUTION_CANCELLED_ERR, e.code());
+
+                continue;
+            }
+
+            await(cancelFut);
+
+            startBarrier.reset();
+        }
+    }
+
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
         return executeForRead(sql, null, query, args);
     }
@@ -1007,14 +1370,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     protected abstract ResultSet<SqlRow> executeForRead(IgniteSql sql, @Nullable Transaction tx, Statement statement, Object... args);
 
-    protected SqlException checkSqlError(
+    protected void checkSqlError(
             int code,
             String msg,
             IgniteSql sql,
             String query,
             Object... args
     ) {
-        return assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
+        assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
     }
 
     protected abstract long[] executeBatch(String query, BatchedArguments args);
@@ -1039,7 +1402,21 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         return execute(null, null, sql, query, args);
     }
 
+    protected abstract void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query);
+
+    /** Executes query but only fetches the first page. */
+    private ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, String query, Object... args) {
+        Statement statement = sql.statementBuilder().query(query).build();
+
+        return executeLazy(sql, token, statement, args);
+    }
+
+    /** Executes statement but only fetches the first page. */
+    protected abstract ResultSet<SqlRow> executeLazy(IgniteSql sql, @Nullable CancellationToken token, Statement statement, Object... args);
+
     protected abstract void executeScript(IgniteSql sql, String query, Object... args);
+
+    protected abstract void executeScript(IgniteSql sql, CancellationToken token, String query, Object... args);
 
     protected abstract void rollback(Transaction outerTx);
 

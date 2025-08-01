@@ -27,6 +27,8 @@
 
 using namespace ignite;
 
+#define TEST_TABLE_NAME "tbl1"
+
 /**
  * Test suite.
  */
@@ -68,7 +70,7 @@ TEST_F(transactions_test, empty_transaction_commit) {
 }
 
 TEST_F(transactions_test, commit_updates_data) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -86,7 +88,7 @@ TEST_F(transactions_test, commit_updates_data) {
 }
 
 TEST_F(transactions_test, rollback_does_not_update_data) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -102,7 +104,7 @@ TEST_F(transactions_test, rollback_does_not_update_data) {
 
 // TODO https://issues.apache.org/jira/browse/IGNITE-22057
 TEST_F(transactions_test, DISABLED_destruction_does_not_update_data) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     {
         auto tx = m_client.get_transactions().begin();
@@ -117,7 +119,7 @@ TEST_F(transactions_test, DISABLED_destruction_does_not_update_data) {
 }
 
 TEST_F(transactions_test, non_committed_data_visible_for_tx) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -133,11 +135,11 @@ TEST_F(transactions_test, non_committed_data_visible_for_tx) {
 }
 
 TEST_F(transactions_test, sql_commit) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+    m_client.get_sql().execute(&tx, nullptr, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
         {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.commit();
@@ -151,11 +153,11 @@ TEST_F(transactions_test, sql_commit) {
 }
 
 TEST_F(transactions_test, sql_rollback) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+    m_client.get_sql().execute(&tx, nullptr, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
         {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.rollback();
@@ -194,7 +196,7 @@ TEST_F(transactions_test, rollback_after_rollback_works) {
 }
 
 TEST_F(transactions_test, record_view_upsert_all) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -217,7 +219,7 @@ TEST_F(transactions_test, record_view_upsert_all) {
 }
 
 TEST_F(transactions_test, record_view_get_and_upsert) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -241,7 +243,7 @@ TEST_F(transactions_test, record_view_get_and_upsert) {
 }
 
 TEST_F(transactions_test, record_view_insert) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -263,7 +265,7 @@ TEST_F(transactions_test, record_view_insert) {
 }
 
 TEST_F(transactions_test, record_view_insert_all) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -286,7 +288,7 @@ TEST_F(transactions_test, record_view_insert_all) {
 }
 
 TEST_F(transactions_test, record_view_replace) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -305,7 +307,7 @@ TEST_F(transactions_test, record_view_replace) {
 }
 
 TEST_F(transactions_test, record_view_replace_exact) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -324,7 +326,7 @@ TEST_F(transactions_test, record_view_replace_exact) {
 }
 
 TEST_F(transactions_test, record_view_get_and_replace) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto tx = m_client.get_transactions().begin();
 
@@ -346,7 +348,7 @@ TEST_F(transactions_test, record_view_get_and_replace) {
 }
 
 TEST_F(transactions_test, record_view_remove) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto value0 = get_tuple(42, "Lorem ipsum");
     record_view.insert(nullptr, value0);
@@ -362,7 +364,7 @@ TEST_F(transactions_test, record_view_remove) {
 }
 
 TEST_F(transactions_test, record_view_remove_exact) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto value0 = get_tuple(42, "Lorem ipsum");
     record_view.insert(nullptr, value0);
@@ -378,7 +380,7 @@ TEST_F(transactions_test, record_view_remove_exact) {
 }
 
 TEST_F(transactions_test, record_view_get_and_remove) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto value0 = get_tuple(42, "Lorem ipsum");
     record_view.insert(nullptr, value0);
@@ -402,7 +404,7 @@ TEST_F(transactions_test, record_view_get_and_remove) {
 }
 
 TEST_F(transactions_test, record_view_remove_all) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto value0 = get_tuple(42, "Lorem ipsum");
     record_view.insert(nullptr, value0);
@@ -418,7 +420,7 @@ TEST_F(transactions_test, record_view_remove_all) {
 }
 
 TEST_F(transactions_test, record_view_remove_all_exact) {
-    auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
     auto value0 = get_tuple(42, "Lorem ipsum");
     record_view.insert(nullptr, value0);

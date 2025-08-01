@@ -29,6 +29,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -41,20 +42,21 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on a single node. If the node leaves the cluster, it will be restarted on one of the
      * candidate nodes.
      *
-     * @param <R> Job result type.
      * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
-     * @param payload Arguments of the job.
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return CompletableFuture Job result.
      */
-    <R> JobExecution<R> executeAsyncWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Object payload
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -66,28 +68,41 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
-     * @param payload Arguments of the job.
-     * @param <R> Job result type.
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job execution object.
      */
-    <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object payload);
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
 
     /**
-     * Wraps the given future into a job execution object.
+     * Submits a job of the given class for the execution on the node where the given partition's primary replica is located.
      *
-     * @param fut Future to wrap.
-     * @param <R> Job result type.
+     * @param table Table whose partition is used to determine the node to execute the job on.
+     * @param partitionId Partition identifier.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param options job execution options (priority, max retries).
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> wrapJobExecutionFuture(CompletableFuture<JobExecution<R>> fut) {
-        return new JobExecutionFutureWrapper<>(fut);
-    }
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> submitPartitionedInternal(
+            TableViewInternal table,
+            int partitionId,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
 
     /**
      * Retrieves the current state of all jobs on all nodes in the cluster.

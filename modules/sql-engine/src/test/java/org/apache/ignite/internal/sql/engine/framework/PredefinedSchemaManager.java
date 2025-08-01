@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 
@@ -42,7 +43,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
  * @see SqlSchemaManager
  */
 public class PredefinedSchemaManager implements SqlSchemaManager {
-    private final SchemaPlus root;
+    private final IgniteSchemas root;
     private final Int2ObjectMap<IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
@@ -51,12 +52,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     /** Constructs schema manager from a collection of schemas. */
-    PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
-        this.root = Frameworks.createRootSchema(false);
+    public PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
+        SchemaPlus schemaPlus = Frameworks.createRootSchema(false);
         this.tableById = new Int2ObjectOpenHashMap<>();
 
         for (IgniteSchema schema : schemas) {
-            root.add(schema.getName(), schema);
+            schemaPlus.add(schema.getName(), schema);
 
             tableById.putAll(
                     schema.getTableNames().stream()
@@ -65,18 +66,26 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
                             .collect(toIntMapCollector(IgniteTable::id, identity()))
             );
         }
+
+        root = new IgniteSchemas(schemaPlus, 0);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int catalogVersion) {
+    public IgniteSchemas schemas(int catalogVersion) {
         return root;
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(long timestamp) {
+    public IgniteSchemas schemas(long timestamp) {
         return root;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int catalogVersion(long timestamp) {
+        return root.catalogVersion();
     }
 
     /** {@inheritDoc} */

@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
@@ -38,6 +45,13 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     @AfterAll
     public void stopClient() {
         client.close();
+    }
+
+    @AfterEach
+    public void checkResourceCleanup() {
+        ClientInboundMessageHandler handler = unwrapIgniteImpl(CLUSTER.aliveNode()).clientInboundMessageHandler();
+
+        Awaitility.await().untilAsserted(() -> assertThat(handler.cancelHandlesCount(), is(0)));
     }
 
     @Override

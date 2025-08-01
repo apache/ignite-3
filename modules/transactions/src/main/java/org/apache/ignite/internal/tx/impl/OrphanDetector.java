@@ -18,24 +18,27 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.ConfigurationValue;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -81,11 +84,10 @@ public class OrphanDetector {
     /** Lock conflict events listener. */
     private final EventListener<LockEventParameters> lockConflictListener = this::lockConflictListener;
 
-    /**
-     * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
-     * not finalized.
-     */
-    private long checkTxStateInterval;
+    /** The executor is used to send a transaction resolution message to the commit partition for an orphan transaction. */
+    private final Executor partitionOperationsExecutor;
+
+    private volatile Supplier<Long> checkTxStateIntervalProvider;
 
     /** Local transaction state storage. */
     private VolatileTxStateMetaStorage txLocalStateStorage;
@@ -97,17 +99,20 @@ public class OrphanDetector {
      * @param replicaService Replica service.
      * @param placementDriverHelper Placement driver helper.
      * @param lockManager Lock manager.
+     * @param partitionOperationsExecutor Executor is used to start resolution procedure.
      */
     public OrphanDetector(
             TopologyService topologyService,
             ReplicaService replicaService,
             PlacementDriverHelper placementDriverHelper,
-            LockManager lockManager
+            LockManager lockManager,
+            Executor partitionOperationsExecutor
     ) {
         this.topologyService = topologyService;
         this.replicaService = replicaService;
         this.placementDriverHelper = placementDriverHelper;
         this.lockManager = lockManager;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
     /**
@@ -116,15 +121,9 @@ public class OrphanDetector {
      * @param txLocalStateStorage Local transaction state storage.
      * @param checkTxStateIntervalProvider Global provider of configuration check state interval.
      */
-    public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
+    public void start(VolatileTxStateMetaStorage txLocalStateStorage, Supplier<Long> checkTxStateIntervalProvider) {
         this.txLocalStateStorage = txLocalStateStorage;
-        this.checkTxStateInterval = checkTxStateIntervalProvider.value();
-
-        checkTxStateIntervalProvider.listen(ctx -> {
-            this.checkTxStateInterval = ctx.newValue();
-
-            return nullCompletedFuture();
-        });
+        this.checkTxStateIntervalProvider = checkTxStateIntervalProvider;
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
@@ -144,7 +143,13 @@ public class OrphanDetector {
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params) {
         if (busyLock.enterBusy()) {
             try {
-                return checkTxOrphanedInternal(params.lockHolderTx());
+                ArrayList<CompletableFuture<Boolean>> futs = new ArrayList<>(params.lockHolderTxs().size());
+
+                for (UUID txId : params.lockHolderTxs()) {
+                    futs.add(checkTxOrphanedInternal(txId));
+                }
+
+                return allOf(futs).thenApply(unused -> false);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -175,7 +180,9 @@ public class OrphanDetector {
                     txState.txCoordinatorId()
             );
 
-            sendTxRecoveryMessage(txState.commitPartitionId(), txId);
+            // We can path the work to another thread without any condition, because it is a very rare scenario in which the transaction
+            // coordinator left topology.
+            partitionOperationsExecutor.execute(() -> sendTxRecoveryMessage(txState.commitPartitionId(), txId));
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
@@ -189,7 +196,7 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sendTxRecoveryMessage(TablePartitionId cmpPartGrp, UUID txId) {
+    private void sendTxRecoveryMessage(ReplicationGroupId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
@@ -205,7 +212,7 @@ public class OrphanDetector {
                     }
 
                     return replicaService.invoke(commitPartPrimaryNode, TX_MESSAGES_FACTORY.txRecoveryMessage()
-                            .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
+                            .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, cmpPartGrp))
                             .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .txId(txId)
                             .build());
@@ -267,7 +274,7 @@ public class OrphanDetector {
     }
 
     /**
-     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateInterval} millis ago).
+     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateIntervalProvider} millis ago).
      *
      * @param txState Transaction state metadata.
      * @return True if the state recently updated to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
@@ -281,6 +288,6 @@ public class OrphanDetector {
 
         var txStateAbandoned = (TxStateMetaAbandoned) txState;
 
-        return txStateAbandoned.lastAbandonedMarkerTs() + checkTxStateInterval >= coarseCurrentTimeMillis();
+        return txStateAbandoned.lastAbandonedMarkerTs() + checkTxStateIntervalProvider.get() >= coarseCurrentTimeMillis();
     }
 }

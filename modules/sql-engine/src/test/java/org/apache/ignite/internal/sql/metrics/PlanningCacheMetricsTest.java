@@ -69,19 +69,18 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         try {
             checkCachePlanStatistics("SELECT * FROM T", prepareService, 0, 2);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, 1, 2);
 
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 0, 4);
             checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 1, 4);
             checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 2, 4);
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2", prepareService, 3, 4);
 
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, 4, 4);
-
-            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, 4, 6);
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 3, 4);
 
             // Here, the very first plan has been evicted from cache.
+            checkCachePlanStatistics("SELECT * FROM T t1, T t2, T t3", prepareService, 3, 6);
+
+            checkCachePlanStatistics("SELECT * FROM T", prepareService, 3, 8);
             checkCachePlanStatistics("SELECT * FROM T", prepareService, 4, 8);
-            checkCachePlanStatistics("SELECT * FROM T", prepareService, 5, 8);
         } finally {
             prepareService.stop();
         }
@@ -95,7 +94,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         await(prepareService.prepareAsync(parsedResult, ctx));
 
-        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlPlanCacheMetricSource.NAME);
+        MetricSet metricSet = metricManager.metricSnapshot().metrics().get(SqlPlanCacheMetricSource.NAME);
 
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString(), "Hits");
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString(), "Misses");

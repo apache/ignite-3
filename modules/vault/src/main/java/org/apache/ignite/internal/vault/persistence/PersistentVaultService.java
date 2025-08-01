@@ -75,6 +75,7 @@ public class PersistentVaultService implements VaultService {
                 .setLevelCompactionDynamicLevelBytes(true)
                 .setBytesPerSync(1024 * 1024)
                 .setCompactionPriority(CompactionPriority.MinOverlappingRatio)
+                .setUseFsync(true)
                 .setTableFormatConfig(
                         new BlockBasedTableConfig()
                                 .setBlockSize(16 * 1024)
@@ -166,7 +167,7 @@ public class PersistentVaultService implements VaultService {
     public void putAll(Map<ByteArray, byte[]> vals) {
         try (
                 var writeBatch = new WriteBatch();
-                var writeOpts = new WriteOptions()
+                var writeOpts = new WriteOptions().setSync(true)
         ) {
             for (var entry : vals.entrySet()) {
                 if (entry.getValue() == null) {

@@ -21,17 +21,21 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ScriptContext maintains the state of a script execution and provides access
@@ -57,6 +61,9 @@ final class ScriptContext {
     /** String presentation of null's. */
     String nullLbl = NULL;
 
+    /** Time zone to use. */
+    @Nullable ZoneId timeZone;
+
     /** Equivalent results store. */
     final Map<String, Collection<String>> eqResStorage = new HashMap<>();
 
@@ -78,9 +85,16 @@ final class ScriptContext {
     List<List<?>> executeQuery(String sql) {
         sql = replaceVars(sql);
 
-        log.info("Execute: " + sql);
+        log.info("Execute: {}", sql);
 
-        try (ResultSet<SqlRow> rs = ignSql.execute(null, sql)) {
+        long startNanos = System.nanoTime();
+
+        Statement.StatementBuilder statement = ignSql.statementBuilder().query(sql);
+        if (timeZone != null) {
+            statement = statement.timeZoneId(timeZone);
+        }
+
+        try (ResultSet<SqlRow> rs = ignSql.execute(null, statement.build())) {
             if (rs.hasRowSet()) {
                 List<List<?>> out = new ArrayList<>();
 
@@ -100,6 +114,9 @@ final class ScriptContext {
             } else {
                 return Collections.singletonList(Collections.singletonList(rs.wasApplied()));
             }
+        } finally {
+            long tookNanos = System.nanoTime() - startNanos;
+            log.info("Execution took {} ms", TimeUnit.NANOSECONDS.toMillis(tookNanos));
         }
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -52,12 +54,14 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,12 +73,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class OrphanDetectorTest extends BaseIgniteAbstractTest {
-
     private static final ClusterNode LOCAL_NODE =
-            new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
     private static final ClusterNode REMOTE_NODE =
-            new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private TopologyService topologyService;
@@ -85,11 +88,13 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     @Mock
     private PlacementDriver placementDriver;
 
-    private final HeapLockManager lockManager = new HeapLockManager();
+    private final LockManager lockManager = lockManager();
 
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClockService clockService = new TestClockService(clock);
+
+    private final AtomicInteger resolutionCount = new AtomicInteger();
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
@@ -98,19 +103,43 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private TransactionIdGenerator idGenerator;
 
+    private OrphanDetector orphanDetector;
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
+    }
+
     @BeforeEach
     public void setup() {
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
-        OrphanDetector orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
+        resolutionCount.set(0);
+
+        orphanDetector = new OrphanDetector(
+                topologyService,
+                replicaService,
+                placementDriverHelper,
+                lockManager,
+                run -> {
+                    resolutionCount.incrementAndGet();
+                    run.run();
+                }
+        );
 
         txStateMetaStorage = new VolatileTxStateMetaStorage();
 
         txStateMetaStorage.start();
 
-        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
+        orphanDetector.start(txStateMetaStorage, () -> 30_000L);
+    }
+
+    @AfterEach
+    void cleanup() {
+        orphanDetector.stop();
     }
 
     @Test
@@ -135,6 +164,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertNull(orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -152,7 +183,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now());
+        TxStateMeta committedState = new TxStateMeta(TxState.COMMITTED, LOCAL_NODE.id(), tpId, clock.now(), null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> committedState);
 
@@ -165,6 +196,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(committedState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -182,7 +215,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta abortedState = new TxStateMeta(TxState.ABORTED, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> abortedState);
 
@@ -195,6 +228,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(abortedState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -209,7 +244,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta finishingState = new TxStateMeta(TxState.FINISHING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> finishingState);
 
@@ -225,6 +260,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(finishingState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -239,7 +276,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -254,6 +291,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(pendingState, orphanState);
 
         verifyNoInteractions(replicaService);
+
+        assertEquals(0, resolutionCount.get());
     }
 
     @Test
@@ -271,7 +310,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         UUID concurrentTxId = idGenerator.transactionIdFor(clock.now());
 
-        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null);
+        TxStateMeta pendingState = new TxStateMeta(TxState.PENDING, LOCAL_NODE.id(), tpId, null, null, null);
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
@@ -290,5 +329,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         verify(replicaService).invoke(any(ClusterNode.class), any());
 
         assertThat(acquire, willThrow(LockException.class, "Failed to acquire an abandoned lock due to a possible deadlock"));
+
+        assertEquals(1, resolutionCount.get());
     }
 }

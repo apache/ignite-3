@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 
 /**
  * Partition awareness provider for data streamer.
@@ -39,7 +40,7 @@ class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractClientStre
 
         for (Column c : schema.colocationColumns()) {
             // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
-            Object val = item.getKey().valueOrDefault(c.name(), null);
+            Object val = TupleHelper.valueOrDefault(item.getKey(), c.name(), null);
             ColocationUtils.append(hashCalc, val, c.type());
         }
 

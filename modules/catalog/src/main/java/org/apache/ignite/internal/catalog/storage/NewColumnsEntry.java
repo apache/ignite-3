@@ -22,10 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSc
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
-import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
-import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -34,19 +31,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes addition of new columns.
  */
 public class NewColumnsEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<NewColumnsEntry> SERIALIZER = new NewColumnsEntrySerializer();
-
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
 
@@ -87,7 +80,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
@@ -95,7 +88,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                 table.name(),
                 table.tableVersion() + 1,
                 CollectionUtils.concat(table.columns(), descriptors),
-                causalityToken,
+                timestamp,
                 table.storageProfile()
         );
 
@@ -112,24 +105,5 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link NewColumnsEntry}.
-     */
-    private static class NewColumnsEntrySerializer implements CatalogObjectSerializer<NewColumnsEntry> {
-        @Override
-        public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
-            List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, in);
-            int tableId = in.readInt();
-
-            return new NewColumnsEntry(tableId, columns);
-        }
-
-        @Override
-        public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
-            writeList(entry.descriptors(), CatalogTableColumnDescriptor.SERIALIZER, out);
-            out.writeInt(entry.tableId());
-        }
     }
 }

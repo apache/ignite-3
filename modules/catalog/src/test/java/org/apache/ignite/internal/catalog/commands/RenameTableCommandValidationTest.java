@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -81,17 +82,18 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaDoesNotExist() {
         Catalog catalog = catalogWithDefaultZone();
 
-        CatalogCommand command = RenameTableCommand.builder()
+        RenameTableCommandBuilder builder = RenameTableCommand.builder()
                 .schemaName("TEST")
                 .tableName("TEST")
-                .newTableName("TEST2")
-                .build();
+                .newTableName("TEST2");
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' not found"
         );
+
+        builder.ifTableExists(true).build().get(new UpdateContext(catalog)); // No exception
     }
 
     @Test
@@ -106,7 +108,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }
@@ -126,7 +128,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TEST2' already exists"
         );
     }
@@ -162,7 +164,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 String.format("Index with name 'PUBLIC.%s' already exists", pkIndexName("TEST2"))
         );
     }

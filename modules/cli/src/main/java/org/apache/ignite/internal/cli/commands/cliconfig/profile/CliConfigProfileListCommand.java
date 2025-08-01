@@ -23,7 +23,6 @@ import org.apache.ignite.internal.cli.call.cliconfig.profile.CliConfigProfileLis
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.EmptyCallInput;
-import org.apache.ignite.internal.cli.decorators.ProfileListDecorator;
 import picocli.CommandLine;
 
 /**
@@ -39,7 +38,6 @@ public class CliConfigProfileListCommand extends BaseCommand implements Callable
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(EmptyCallInput::new)
-                .decorator(new ProfileListDecorator())
         );
     }
 }

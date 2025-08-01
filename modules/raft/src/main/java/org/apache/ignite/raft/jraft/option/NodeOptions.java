@@ -18,13 +18,14 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
@@ -36,13 +37,17 @@ import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -272,11 +277,61 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     private RaftMetricSource raftMetrics;
 
+    /** Node manager. */
+    private NodeManager nodeManager;
+
+    /**
+     * Externally enforced config index.
+     *
+     * <p>If it's not {@code null}, then the Raft node abstains from becoming a leader in configurations whose index precedes
+     * the externally enforced index..
+     *
+     * <p>The idea is that, if a Raft group was forcefully repaired (because it lost majority) using resetPeers(),
+     * the old majority nodes might come back online. If this happens and we do nothing, they might elect a leader from the old majority
+     * that could hijack leadership and cause havoc in the repaired group.
+     *
+     * <p>To prevent this, on a starup or subsequent config changes, current voting set (aka peers) of the repaired group may be 'broken'
+     * to make it impossible for the current node to become a leader. This is enabled by setting a non-null value to
+     * {@link NodeOptions#getExternallyEnforcedConfigIndex ()}. When it's set, on each change of configuration (happening to this.conf),
+     * including the one at startup, we check whether the applied config precedes the externally enforced
+     * config (in which case this.conf.peers will be 'broken' to make sure current node does not become a leader) or not (in which case
+     * the applied config will be used as is).
+     */
+    private @Nullable Long externallyEnforcedConfigIndex;
+
+    /**
+     * If the group is declared as a system group, certain threads are dedicated specifically for that one.
+     */
+    private boolean isSystemGroup = false;
+
+    /**
+     * Shared pool of {@link ByteBufferCollector} for sending log entries for replication.
+     *
+     * <p>Used to prevent a large number of {@link ByteBufferCollector} from being accumulated across all threads that are involved in
+     * sending log entries, see {@link ByteBufferCollector#allocateByRecyclers}.</p>
+     */
+    private ByteBufferCollectorPool appendEntriesByteBufferCollectorPool = new ConcurrentLinkedLifoByteBufferCollectorPool(
+            Utils.MAX_COLLECTOR_SIZE_PER_SERVER
+    );
+
     /** Use virtual threads flag. */
     private boolean useVirtualThreads;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
+    }
+
+    /**
+    * Gets a system group flag.
+    *
+    * @return System group flag.
+    */
+    public boolean isSystemGroup() {
+        return isSystemGroup;
+    }
+
+    public void setSystemGroup(boolean systemGroup) {
+        isSystemGroup = systemGroup;
     }
 
     /**
@@ -290,6 +345,24 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setRaftMetrics(RaftMetricSource raftMetrics) {
         this.raftMetrics = raftMetrics;
+    }
+
+    /**
+     * Gets a node manager.
+     *
+     * @return Node manager.
+     */
+    public NodeManager getNodeManager() {
+        return nodeManager;
+    }
+
+    /**
+     * Sets a node manager.
+     *
+     * @param nodeManager Node manager.
+     */
+    public void setNodeManager(NodeManager nodeManager) {
+        this.nodeManager = nodeManager;
     }
 
     /**
@@ -721,6 +794,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setStripes(this.getStripes());
         nodeOptions.setLogStripesCount(this.getLogStripesCount());
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
+        nodeOptions.setNodeManager(this.getNodeManager());
+        nodeOptions.setAppendEntriesByteBufferCollectorPool(appendEntriesByteBufferCollectorPool);
         nodeOptions.setUseVirtualThreads(this.isUseVirtualThreads());
 
         return nodeOptions;
@@ -768,6 +843,25 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setCommandsMarshaller(Marshaller commandsMarshaller) {
         this.commandsMarshaller = commandsMarshaller;
+    }
+
+    @Nullable
+    public Long getExternallyEnforcedConfigIndex() {
+        return externallyEnforcedConfigIndex;
+    }
+
+    public void setExternallyEnforcedConfigIndex(@Nullable Long index) {
+        this.externallyEnforcedConfigIndex = index;
+    }
+
+    /** Returns shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
+    public ByteBufferCollectorPool getAppendEntriesByteBufferCollectorPool() {
+        return appendEntriesByteBufferCollectorPool;
+    }
+
+    /** Sets shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
+    public void setAppendEntriesByteBufferCollectorPool(ByteBufferCollectorPool appendEntriesByteBufferCollectorPool) {
+        this.appendEntriesByteBufferCollectorPool = appendEntriesByteBufferCollectorPool;
     }
 
     public boolean isUseVirtualThreads() {

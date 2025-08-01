@@ -20,6 +20,7 @@ project(ignite-protocol)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    sql/column_meta.cpp sql/column_meta.h
     bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
     extension_types.h
@@ -32,7 +33,7 @@ set(SOURCES
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} ignite-common msgpack-c-static)
+target_link_libraries(${TARGET} ignite-common msgpack-c)
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)

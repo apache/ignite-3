@@ -52,15 +52,6 @@ public interface ITaskExecution<T>
     Task<TaskState?> GetStateAsync();
 
     /// <summary>
-    /// Cancels the task execution.
-    /// </summary>
-    /// <returns>
-    /// Returns <c>true</c> if the task was successfully cancelled, <c>false</c> if the task has already finished,
-    /// <c>null</c> if the task was not found (no longer exists due to exceeding the retention time limit).
-    /// </returns>
-    Task<bool?> CancelAsync();
-
-    /// <summary>
     /// Changes the task priority. After priority change the task will be the last in the queue of tasks with the same priority.
     /// </summary>
     /// <param name="priority">New priority.</param>

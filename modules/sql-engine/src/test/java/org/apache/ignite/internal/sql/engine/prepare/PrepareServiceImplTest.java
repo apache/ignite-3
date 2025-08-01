@@ -276,7 +276,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
 
-        ColumnType columnType = nativeType.spec().asColumnType();
+        ColumnType columnType = nativeType.spec();
         assertEquals(columnType, parameterType.columnType(), "Column type does not match: " + parameterType);
         assertEquals(precision, parameterType.precision(), "Precision does not match: " + parameterType);
         assertEquals(scale, parameterType.scale(), "Scale does not match: " + parameterType);
@@ -350,6 +350,24 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertTrue(empty, "Cache is not empty: " + cache.size());
     }
 
+    @Test
+    public void testDoNotFailPlanningOnMissingSchemaThatIsNotUsed() {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
+
+        PrepareService service = createPlannerService(schema);
+
+        await(service.prepareAsync(
+                parse("SELECT * FROM test.t WHERE c = 1"),
+                operationContext().defaultSchemaName("MISSING").build()
+        ));
+    }
+
     private static Stream<Arguments> parameterTypes() {
         int noScale = ColumnMetadata.UNDEFINED_SCALE;
         int noPrecision = ColumnMetadata.UNDEFINED_PRECISION;
@@ -362,14 +380,15 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(NativeTypes.INT64, noPrecision, noScale),
                 Arguments.of(NativeTypes.FLOAT, noPrecision, noScale),
                 Arguments.of(NativeTypes.DOUBLE, noPrecision, noScale),
-                Arguments.of(NativeTypes.decimalOf(10, 2), Short.MAX_VALUE, 0),
+                Arguments.of(NativeTypes.decimalOf(10, 2),
+                        IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION, IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE),
                 Arguments.of(NativeTypes.stringOf(42), -1, noScale),
                 Arguments.of(NativeTypes.blobOf(42), -1, noScale),
                 Arguments.of(NativeTypes.UUID, noPrecision, noScale),
                 Arguments.of(NativeTypes.DATE, noPrecision, noScale),
-                Arguments.of(NativeTypes.time(2), 0, noScale),
-                Arguments.of(NativeTypes.datetime(2), 6, noScale),
-                Arguments.of(NativeTypes.timestamp(2), 6, noScale)
+                Arguments.of(NativeTypes.time(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.datetime(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.timestamp(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale)
         );
     }
 
@@ -410,10 +429,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 1000);
     }
 
-    private static PrepareServiceImpl createPlannerService(IgniteSchema schema, CacheFactory cacheFactory, int timeoutMillis) {
+    private static PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, int timeoutMillis) {
         PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schema));
+                new PredefinedSchemaManager(schemas));
 
         createdServices.add(service);
 

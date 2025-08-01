@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
@@ -33,7 +34,8 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long delayDuration = 500;
+    @PublicName(legacyNames = "delayDuration")
+    public long delayDurationMillis = 500;
 
     /**
      * Max physical clock skew (ms) that is tolerated by the cluster. If difference between physical clocks of 2 nodes of a cluster
@@ -42,5 +44,6 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long maxClockSkew = 500;
+    @PublicName(legacyNames = "maxClockSkew")
+    public long maxClockSkewMillis = 500;
 }

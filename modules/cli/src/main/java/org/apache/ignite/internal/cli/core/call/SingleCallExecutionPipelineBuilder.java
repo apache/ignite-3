@@ -26,14 +26,13 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
-import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 
 /** Builder for {@link CallExecutionPipeline}. */
 public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implements CallExecutionPipelineBuilder<I, T> {
 
     private final Call<I, T> call;
 
-    private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
+    private ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
 
     private Supplier<I> inputProvider;
 
@@ -41,9 +40,9 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     private PrintWriter errOutput = wrapOutputStream(System.err);
 
-    private Decorator<T, TerminalOutput> decorator = new DefaultDecorator<>();
+    private Decorator<T, TerminalOutput> decorator;
 
-    private boolean verbose;
+    private boolean[] verbose = new boolean[0];
 
     SingleCallExecutionPipelineBuilder(Call<I, T> call) {
         this.call = call;
@@ -93,13 +92,26 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
         return this;
     }
 
+    /**
+     * Replaces the default exception handler.
+     * All the handlers previously added will be readded to the provided handler.
+     *
+     * @param defaultExceptionHandler The new default exception handler.
+     * @return The same instance of this builder.
+     */
+    public SingleCallExecutionPipelineBuilder<I, T> defaultExceptionHandler(ExceptionHandlers defaultExceptionHandler) {
+        defaultExceptionHandler.addExceptionHandlers(this.exceptionHandlers);
+        this.exceptionHandlers = defaultExceptionHandler;
+        return this;
+    }
+
     public SingleCallExecutionPipelineBuilder<I, T> decorator(Decorator<T, TerminalOutput> decorator) {
         this.decorator = decorator;
         return this;
     }
 
     @Override
-    public SingleCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
+    public SingleCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
         this.verbose = verbose;
         return this;
     }

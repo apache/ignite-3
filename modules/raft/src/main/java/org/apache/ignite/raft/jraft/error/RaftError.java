@@ -238,12 +238,7 @@ public enum RaftError {
     /**
      * Permission denied
      */
-    EACCES(1016),
-
-    /**
-     * Command reordering detected. This is not the original JRAFT error code, but an Ignite specific one.
-     */
-    EREORDER(2017);
+    EACCES(1016);
 
     private static final Map<Integer, RaftError> RAFT_ERROR_MAP = new HashMap<>();
 

@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.util.UUID;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -56,7 +57,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
     public void test() throws Exception {
         MetricManager metricManager = new MetricManagerImpl();
 
-        metricManager.configure(metricConfiguration);
+        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
 
         TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
 
@@ -87,6 +88,33 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
             assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        }
+    }
+
+    @Test
+    public void shouldChangePeriod() throws Exception {
+        MetricManager metricManager = new MetricManagerImpl();
+
+        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
+
+        TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
+
+        metricManager.registerSource(src);
+
+        metricManager.enable(src.name());
+
+        try (OutputStream pushOutputStream = new ByteArrayOutputStream()) {
+            TestPushMetricExporter.setOutputStream(pushOutputStream);
+
+            assertEquals(0, pushOutputStream.toString().length());
+
+            assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            src.inc();
+
+            waitForOutput(pushOutputStream, "TestMetricsSource:\nMetric:1");
+
+
         }
     }
 

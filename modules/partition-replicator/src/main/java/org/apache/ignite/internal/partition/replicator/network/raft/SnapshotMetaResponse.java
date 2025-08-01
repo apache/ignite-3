@@ -20,11 +20,10 @@ package org.apache.ignite.internal.partition.replicator.network.raft;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
 /** Snapshot meta response message. */
 @Transferable(PartitionReplicationMessageGroup.SNAPSHOT_META_RESPONSE)
 public interface SnapshotMetaResponse extends NetworkMessage {
     /** Snapshot meta. */
-    SnapshotMeta meta();
+    PartitionSnapshotMeta meta();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.util;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.Collections.singletonMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -61,9 +62,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Spliterators;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
@@ -465,17 +468,19 @@ public class ConfigurationUtilTest {
                 Map.of(ParentConfiguration.KEY, newNodeInstance(ParentConfigurationSchema.class))
         );
 
-        assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, node -> {
-        }), is(anEmptyMap()));
+        assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> {}), is(anEmptyMap()));
 
-        assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+        Map<String, Serializable> flattenedMap =
+                flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> ((ParentChange) node)
                         .changeElements(elements -> elements
                                 .create("name", element -> element
                                         .changeChild(child -> child.changeStr("foo"))
                                 )
                         )
-                ),
+                );
+
+        assertThat(
+                flattenedMap,
                 is(allOf(
                         aMapWithSize(4),
                         hasEntry(matchesPattern("root[.]elements[.]<ids>[.]name"), hasToString(matchesPattern("[-\\w]{36}"))),
@@ -486,14 +491,14 @@ public class ConfigurationUtilTest {
         );
 
         assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+                flattenedMap(superRoot, ParentConfiguration.KEY, new TreeMap<>(flattenedMap), node -> ((ParentChange) node)
                         .changeElements(elements1 -> elements1.delete("void"))
                 ),
                 is(anEmptyMap())
         );
 
         assertThat(
-                flattenedMap(superRoot, ParentConfiguration.KEY, node -> ((ParentChange) node)
+                flattenedMap(superRoot, ParentConfiguration.KEY, new TreeMap<>(flattenedMap), node -> ((ParentChange) node)
                         .changeElements(elements -> elements.delete("name"))
                 ),
                 is(allOf(
@@ -508,7 +513,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testCheckConfigurationTypeMixedTypes() {
-        List<RootKey<?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
+        List<RootKey<?, ?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -908,7 +913,7 @@ public class ConfigurationUtilTest {
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
 
         Class<?> schemaClass = InternalWithoutSuperclassConfigurationSchema.class;
-        RootKey<?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
+        RootKey<?, ?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
 
         generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
@@ -1020,7 +1025,11 @@ public class ConfigurationUtilTest {
 
         Map<String, Object> exp = new HashMap<>();
 
-        exp.put("0", Map.of("first", "1"));
+        Map<String, Object> expMapZero = new HashMap<>();
+        expMapZero.put("first", "1");
+        expMapZero.put("second", null);
+
+        exp.put("0", expMapZero);
         exp.put("1", null);
         exp.put("2", Map.of("strVal", "foo", "intVal", 10));
 
@@ -1035,13 +1044,14 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
         final Map<String, Serializable> act = flattenedMap(
                 superRoot,
                 rootKey,
+                emptyNavigableMap(),
                 node -> ((PolymorphicRootChange) node).changePolymorphicSubCfg(c -> c.convert(SecondPolymorphicInstanceChange.class))
         );
 
@@ -1069,13 +1079,16 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
-        final Map<String, Serializable> act = flattenedMap(
+        var storageData = new TreeMap<>(flattenedMap(superRoot, rootKey, emptyNavigableMap(), node -> {}));
+
+        Map<String, Serializable> act = flattenedMap(
                 superRoot,
                 rootKey,
+                storageData,
                 node -> ((PolymorphicRootChange) node).changePolymorphicNamedCfg(c ->
                         c.createOrUpdate("0", c1 -> c1.convert(SecondPolymorphicInstanceChange.class)))
         );
@@ -1170,12 +1183,14 @@ public class ConfigurationUtilTest {
      * method execution is completed.
      *
      * @param superRoot Super root to patch.
-     * @param patch     Closure to change inner node.
+     * @param storageData Full storage data.
+     * @param patch Closure to change inner node.
      * @return Flat map with all changes from the patch.
      */
-    private Map<String, Serializable> flattenedMap(
+    private static Map<String, Serializable> flattenedMap(
             SuperRoot superRoot,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
+            NavigableMap<String, ? extends Serializable> storageData,
             Consumer<InnerNode> patch
     ) {
         // Preserve a copy of the super root to use it as a golden source of data.
@@ -1188,7 +1203,7 @@ public class ConfigurationUtilTest {
         patch.accept(superRoot.getRoot(rootKey));
 
         // Create flat diff between two super trees.
-        return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
+        return createFlattenedUpdatesMap(originalSuperRoot, superRoot, storageData);
     }
 
     /**

@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -45,6 +47,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * IgniteServer interface tests.
@@ -82,7 +86,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10800,\n"
-                        + "  rest.port: 10300\n"
+                        + "  rest.port: 10300,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
 
@@ -96,7 +101,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10801,\n"
-                        + "  rest.port: 10301\n"
+                        + "  rest.port: 10301,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
 
@@ -110,7 +116,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10802,\n"
-                        + "  rest.port: 10302\n"
+                        + "  rest.port: 10302,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
     }
@@ -130,7 +137,7 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
     @Test
     void testNodesStartWithBootstrapConfiguration() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNode(e.getKey(), name -> startNode(name, e.getValue()));
+            startAndRegisterNode(e.getKey(), name -> startNode(name, e.getValue()));
         }
 
         assertThat(startedIgniteServers, hasSize(3));
@@ -148,7 +155,7 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
     @Test
     void testNodesStartWithBootstrapConfigurationInitializedCluster() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
-            startNode(e.getKey(), name -> startNode(name, e.getValue()));
+            startAndRegisterNode(e.getKey(), name -> startNode(name, e.getValue()));
         }
 
         assertThat(startedIgniteServers, hasSize(3));
@@ -184,11 +191,32 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void startNode(String nodeName, Function<String, IgniteServer> starter) {
+    @ParameterizedTest
+    @EnumSource
+    void differentStartKindsWork(StartKind startKind) {
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startAndRegisterNode(e.getKey(), name -> startNode(name, e.getValue(), startKind));
+        }
+
+        assertThat(startedIgniteServers, hasSize(3));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(igniteServer)
+                .clusterName("cluster")
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
+    }
+
+    private void startAndRegisterNode(String nodeName, Function<String, IgniteServer> starter) {
         startedIgniteServers.add(starter.apply(nodeName));
     }
 
     private IgniteServer startNode(String name, String config) {
+        return startNode(name, config, IgniteServer::start);
+    }
+
+    private IgniteServer startNode(String name, String config, Starter starter) {
         Path nodeWorkDir = workDir.resolve(name);
         Path configPath = nodeWorkDir.resolve("ignite-config.conf");
         try {
@@ -197,7 +225,50 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
-        return IgniteServer.start(name, configPath, nodeWorkDir);
+        return starter.start(name, configPath, nodeWorkDir);
     }
 
+    @FunctionalInterface
+    private interface Starter {
+        IgniteServer start(String name, Path config, Path workDir);
+    }
+
+    enum StartKind implements Starter {
+        START {
+            @Override
+            public IgniteServer start(String name, Path config, Path workDir) {
+                return IgniteServer.start(name, config, workDir);
+            }
+        },
+        START_ASYNC_JOIN {
+            @Override
+            public IgniteServer start(String name, Path config, Path workDir) {
+                return interruptibleJoin(IgniteServer.startAsync(name, config, workDir));
+            }
+        },
+        BUILD_START {
+            @Override
+            public IgniteServer start(String name, Path config, Path workDir) {
+                IgniteServer server = IgniteServer.builder(name, config, workDir).build();
+                server.start();
+                return server;
+            }
+        },
+        BUILD_START_ASYNC_JOIN {
+            @Override
+            public IgniteServer start(String name, Path config, Path workDir) {
+                IgniteServer server = IgniteServer.builder(name, config, workDir).build();
+                interruptibleJoin(server.startAsync());
+                return server;
+            }
+        };
+
+        private static <T> T interruptibleJoin(CompletableFuture<T> future) {
+            try {
+                return future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 }

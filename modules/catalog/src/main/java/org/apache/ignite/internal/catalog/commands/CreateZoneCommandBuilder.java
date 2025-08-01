@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,6 +46,14 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
      * @return This instance.
      */
     CreateZoneCommandBuilder replicas(@Nullable Integer replicas);
+
+    /**
+     * Sets the quorum size.
+     *
+     * @param quorumSize Optional quorum size, it should be in the range from 1 to the {@code Math.floor((replicas + 1)/2) }.
+     * @return This instance.
+     */
+    CreateZoneCommandBuilder quorumSize(@Nullable Integer quorumSize);
 
     /**
      * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -85,4 +94,12 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
      * @return This instance.
      */
     CreateZoneCommandBuilder storageProfilesParams(List<StorageProfileParams> params);
+
+    /**
+     * Sets consistency mode.
+     *
+     * @param params Optional consistency mode params.
+     * @return This instance.
+     */
+    CreateZoneCommandBuilder consistencyModeParams(@Nullable ConsistencyMode params);
 }

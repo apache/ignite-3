@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,19 +40,19 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Test utility class.
  */
 public final class SchemaTestUtils {
     /** Min year boundary. */
-    private static final int MIN_YEAR = -(1 << 14);
+    private static final int MIN_YEAR = 1;
 
     /** Max year boundary. */
-    private static final int MAX_YEAR = (1 << 14) - 1;
+    private static final int MAX_YEAR = 9999;
 
     /** All types for tests. */
     public static final List<NativeType> ALL_TYPES = List.of(
@@ -107,7 +108,7 @@ public final class SchemaTestUtils {
             case STRING:
                 return IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
 
             case DECIMAL:
@@ -125,19 +126,11 @@ public final class SchemaTestUtils {
                 return LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
                         normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType) type).precision()));
 
-            case DATETIME: {
-                Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
-
-                LocalDate date = LocalDate.ofYearDay(year.getValue(), rnd.nextInt(year.length()) + 1);
-                LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60),
-                        normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType) type).precision()));
-
-                return LocalDateTime.of(date, time);
-            }
+            case DATETIME:
+                return LocalDateTime.ofInstant(generateInstant(rnd, (TemporalNativeType) type), ZoneOffset.UTC);
 
             case TIMESTAMP:
-                return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                        .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType) type).precision()));
+                return generateInstant(rnd, (TemporalNativeType) type);
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
@@ -145,7 +138,7 @@ public final class SchemaTestUtils {
     }
 
     /** Creates a native type from given type spec. */
-    public static NativeType specToType(NativeTypeSpec spec) {
+    public static NativeType specToType(ColumnType spec) {
         switch (spec) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
@@ -175,7 +168,7 @@ public final class SchemaTestUtils {
                 return NativeTypes.stringOf(8);
             case UUID:
                 return NativeTypes.UUID;
-            case BYTES:
+            case BYTE_ARRAY:
                 return NativeTypes.blobOf(8);
             default:
                 throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
@@ -183,15 +176,15 @@ public final class SchemaTestUtils {
     }
 
     /**
-     * Ensure specified columns contains all type spec, presented in NativeTypeSpec.
+     * Ensure specified columns contains all type spec, presented in ColumnType.
      *
      * @param allColumns Columns to test.
      */
     public static void ensureAllTypesChecked(Stream<Column> allColumns) {
-        Set<NativeTypeSpec> testedTypes = allColumns.map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = allColumns.map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
@@ -211,5 +204,13 @@ public final class SchemaTestUtils {
         }
 
         return new BinaryRowImpl(schema.version(), rowAssembler.build().tupleSlice());
+    }
+
+    private static Instant generateInstant(Random rnd, TemporalNativeType type) {
+        long minTs = SchemaUtils.TIMESTAMP_MIN.toEpochMilli();
+        long maxTs = SchemaUtils.TIMESTAMP_MAX.toEpochMilli();
+
+        return Instant.ofEpochMilli(minTs + (long) (rnd.nextDouble() * (maxTs - minTs))).truncatedTo(ChronoUnit.SECONDS)
+                .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), type.precision()));
     }
 }

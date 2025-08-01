@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
@@ -102,7 +102,8 @@ public class CreateSystemViewCommand implements CatalogCommand {
      * {@inheritDoc}
      */
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         int id = catalog.objectIdGenState();
 
         CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, CatalogManager.SYSTEM_SCHEMA_NAME);
@@ -130,18 +131,18 @@ public class CreateSystemViewCommand implements CatalogCommand {
         validateIdentifier(name, "Name of the system view");
 
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("System view should have at least one column");
+            throw new CatalogValidationException("System view should have at least one column.");
         }
 
         if (systemViewType == null) {
-            throw new CatalogValidationException("System view type is not specified");
+            throw new CatalogValidationException("System view type is not specified.");
         }
 
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
         }
     }

@@ -88,6 +88,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
 
+        protected IRecordView<PocoAllColumnsBigDecimal> PocoAllColumnsBigDecimalView { get; private set; } = null!;
+
         protected IRecordView<PocoAllColumnsNullable> PocoAllColumnsNullableView { get; private set; } = null!;
 
         protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
@@ -110,6 +112,7 @@ namespace Apache.Ignite.Tests
 
             var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
             PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
+            PocoAllColumnsBigDecimalView = tableAllColumnsNotNull.GetRecordView<PocoAllColumnsBigDecimal>();
 
             var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
             PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();

@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -98,7 +99,7 @@ public class ConnectionTests
     private static async Task TestGetClusterNodes(EndPoint endpoint)
     {
         var clusterNode = new ClusterNode(
-            id: "node-id",
+            id: Guid.NewGuid(),
             name: "node-name",
             endpoint: endpoint);
 

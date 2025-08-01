@@ -49,7 +49,6 @@ import java.util.Map;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -59,7 +58,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
     @Override
     MetaStorageManager createMetastore() {
-        return StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
+        return StandaloneMetaStorageManager.create(NODE_NAME, clock);
     }
 
     @Override

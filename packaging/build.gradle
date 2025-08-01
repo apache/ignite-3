@@ -35,6 +35,7 @@ configurations {
     cliArtifacts
     cliZip
     dbZip
+    dotNetClient
     release
     localDefaults
 }
@@ -45,6 +46,7 @@ dependencies {
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     release project(path: ':packaging-cli', configuration: 'cliRelease')
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
@@ -53,7 +55,7 @@ dependencies {
 }
 
 // Task that generates start script for cli
-task cliStartScript(type: CreateStartScripts) {
+def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     // Will be passed to exec "java ... <mainClassName>"
     mainClass = "org.apache.ignite.internal.cli.Main"
     // Forms a classpath string that will be passed to exec "java -cp <classpath> .."
@@ -74,15 +76,17 @@ def tokens = [
         ADD_OPENS           : project.addOpens.join(' ')
 ]
 
-task replaceVars(type: Copy) {
+def replaceVars = tasks.register('replaceVars', Copy) {
     from "$rootDir/packaging/common/linux"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
+ext.docker_image_name = "apacheignite/ignite"
+
 docker {
-    name 'apacheignite/ignite3'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
 
     copySpec.into 'dist', {
@@ -111,6 +115,9 @@ docker {
                 from "$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME"
                 from "$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME"
             }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
+            }
         }
         into('cli') {
             into('') {
@@ -132,6 +139,7 @@ docker {
 dockerPrepare.dependsOn replaceVars
 
 // create an uber zip with all distributions
+// This task cannot be converted to lazy configuration due to some weird incompatibility with distribution plugin
 task allDistZip(type: Zip) {
     archiveBaseName = "ignite3"
     dependsOn configurations.cliZip, configurations.dbZip
@@ -142,7 +150,8 @@ task allDistZip(type: Zip) {
     }
 }
 
-task allSrcZip(type: Exec) {
+// Don't assign local variable so that automatic task reference works in other tasks
+tasks.register('allSrcZip', Exec) {
     workingDir rootDir
 
     def outFile = "$buildDir/distributions/apache-ignite-${project.version}-src.zip"
@@ -153,26 +162,24 @@ task allSrcZip(type: Exec) {
     outputs.file outFile
 }
 
-task createChecksums(type: Checksum) {
-    dependsOn allDistZip, allSrcZip
-
-    inputFiles.from allDistZip.outputs.files, allSrcZip.outputs.files
+def createChecksums = tasks.register('createChecksums', Checksum) {
+    inputFiles.from allDistZip, allSrcZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
 // Need to create a separate task since signing single file doesn't automatically create a task
-task signAllSrcZip(type: Sign) {
+def signAllSrcZip = tasks.register('signAllSrcZip', Sign) {
     dependsOn allSrcZip
 
     sign allSrcZip.outputs.files.singleFile
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signAllDistZip', Sign) {
+def signAllDistZip = tasks.register('signAllDistZip', Sign) {
     sign allDistZip
 }
 
-tasks.register('prepareRelease', Copy) {
+def prepareRelease = tasks.register('prepareRelease', Copy) {
     from configurations.release
     dependsOn createChecksums, signAllSrcZip, signAllDistZip
     from file("$buildDir/distributions")

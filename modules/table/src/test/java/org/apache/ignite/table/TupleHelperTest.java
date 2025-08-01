@@ -52,7 +52,7 @@ class TupleHelperTest extends IgniteAbstractTest {
             TupleHelper.valueOrDefault(tuple, columnName, defaultValue);
 
             // in case of other implementations regular method must be invoked, but column name must be quoted
-            verify(tuple).valueOrDefault(eq(IgniteNameUtils.quote(columnName)), eq(defaultValue));
+            verify(tuple).valueOrDefault(eq(IgniteNameUtils.quoteIfNeeded(columnName)), eq(defaultValue));
             verifyNoMoreInteractions(tuple);
         }
     }

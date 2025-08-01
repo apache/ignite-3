@@ -29,9 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,12 +44,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +65,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * For testing {@link MvGc}.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, FailureManagerExtension.class})
 public class MvGcTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
 
@@ -75,7 +80,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
     }
@@ -254,6 +259,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void testRemoveStorageWithError() {
         CompletableFuture<Void> startInvokeVacuumMethodFuture = new CompletableFuture<>();
         CompletableFuture<Void> finishInvokeVacuumMethodFuture = new CompletableFuture<>();
@@ -315,7 +321,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.close();
 
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
 
@@ -370,11 +376,27 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         assertThat(invokeVacuumMethodFuture, willSucceedFast());
     }
 
+    @Test
+    void testRemoveStorageWithSafeTimeUpdateStuck() {
+        var startAwaitSafeTimeFuture = new CompletableFuture<Void>();
+
+        GcUpdateHandler gcUpdateHandler = createWithSafeTimeUpdateStuck(startAwaitSafeTimeFuture);
+        TablePartitionId tablePartitionId = createTablePartitionId();
+
+        gc.addStorage(tablePartitionId, gcUpdateHandler);
+
+        assertThat(lowWatermark.updateAndNotify(new HybridTimestamp(10, 10)), willCompleteSuccessfully());
+        assertThat(startAwaitSafeTimeFuture, willCompleteSuccessfully());
+        assertThat(gc.removeStorage(tablePartitionId), willCompleteSuccessfully());
+
+        verify(gcUpdateHandler, never()).vacuumBatch(any(), anyInt(), anyBoolean());
+    }
+
     private TablePartitionId createTablePartitionId() {
         return new TablePartitionId(nextTableId.getAndIncrement(), PARTITION_ID);
     }
 
-    private GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
+    private static GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
         completeFutureOnVacuum(gcUpdateHandler, future, exp);
@@ -382,7 +404,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         return gcUpdateHandler;
     }
 
-    private void completeFutureOnVacuum(
+    private static void completeFutureOnVacuum(
             GcUpdateHandler gcUpdateHandler,
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
@@ -404,7 +426,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
+    private static GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
         when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
@@ -416,7 +438,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         return gcUpdateHandler;
     }
 
-    private GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
+    private static GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
         when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
@@ -436,7 +458,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         assertEquals(GarbageCollector.CLOSED_ERR, exception.code());
     }
 
-    private GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
+    private static GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
         GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
         when(gcUpdateHandler.vacuumBatch(any(HybridTimestamp.class), anyInt(), eq(true))).then(invocation -> {
@@ -453,6 +475,22 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         GcUpdateHandler gcUpdateHandler = mock(GcUpdateHandler.class);
 
         when(gcUpdateHandler.getSafeTimeTracker()).thenReturn(new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE));
+
+        return gcUpdateHandler;
+    }
+
+    private static GcUpdateHandler createWithSafeTimeUpdateStuck(CompletableFuture<Void> startAwaitSafeTimeFuture) {
+        GcUpdateHandler gcUpdateHandler = mock(GcUpdateHandler.class);
+
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = mock(PendingComparableValuesTracker.class);
+
+        when(safeTimeTracker.waitFor(any())).then(invocation -> {
+            startAwaitSafeTimeFuture.complete(null);
+
+            return new CompletableFuture<Void>();
+        });
+
+        when(gcUpdateHandler.getSafeTimeTracker()).thenReturn(safeTimeTracker);
 
         return gcUpdateHandler;
     }

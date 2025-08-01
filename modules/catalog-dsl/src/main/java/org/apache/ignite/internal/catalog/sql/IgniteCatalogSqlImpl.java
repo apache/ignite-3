@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import static org.apache.ignite.internal.catalog.sql.Option.name;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -83,11 +88,23 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
+        TableDefinitionCollector collector = new TableDefinitionCollector(tableName, sql);
+
+        return collector.collectDefinition();
+    }
+
+    @Override
+    public TableDefinition tableDefinition(QualifiedName tableName) {
+        return join(tableDefinitionAsync(tableName));
+    }
+
+    @Override
     public CompletableFuture<Void> createZoneAsync(ZoneDefinition definition) {
         return new CreateFromDefinitionImpl(sql)
                 .from(definition)
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -96,21 +113,62 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
-        return new DropTableImpl(sql)
-                .name(definition.schemaName(), definition.tableName())
-                .ifExists()
+    public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
+        List<String> zoneViewColumns = List.of(
+                "ZONE_PARTITIONS",
+                "ZONE_REPLICAS",
+                "ZONE_QUORUM_SIZE",
+                "DATA_NODES_AUTO_ADJUST_SCALE_UP",
+                "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
+                "DATA_NODES_FILTER",
+                "ZONE_CONSISTENCY_MODE"
+        );
+        return new SelectFromView<>(sql, zoneViewColumns, "ZONES", name(zoneName), row -> toZoneDefinitionBuilder(zoneName, row))
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(zoneDefinitions -> {
+                    if (zoneDefinitions.isEmpty()) {
+                        return null;
+                    }
+                    assert zoneDefinitions.size() == 1;
+
+                    return zoneDefinitions.get(0);
+                })
+                .thenCompose(
+                        zoneDefinition -> {
+                            if (zoneDefinition == null) {
+                                return CompletableFutures.nullCompletedFuture();
+                            }
+                            return new SelectFromView<>(sql,
+                                    List.of("STORAGE_PROFILE"),
+                                    "ZONE_STORAGE_PROFILES",
+                                    Option.zoneName(zoneName),
+                                    row -> row.stringValue("STORAGE_PROFILE")
+                            ).executeAsync()
+                                    .thenApply(profiles -> zoneDefinition.storageProfiles(String.join(", ", profiles)).build());
+                        });
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
+    public ZoneDefinition zoneDefinition(String zoneName) {
+        return join(zoneDefinitionAsync(zoneName));
+    }
+
+    @Override
+    public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
+        return new DropTableImpl(sql)
+                .name(definition.qualifiedName())
+                .ifExists()
+                .executeAsync()
+                .thenApply(unused -> null);
+    }
+
+    @Override
+    public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return new DropTableImpl(sql)
                 .name(name)
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -119,7 +177,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public void dropTable(String name) {
+    public void dropTable(QualifiedName name) {
         join(dropTableAsync(name));
     }
 
@@ -129,7 +187,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(definition.zoneName())
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -138,7 +196,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
                 .name(name)
                 .ifExists()
                 .executeAsync()
-                .thenRun(() -> {});
+                .thenApply(unused -> null);
     }
 
     @Override
@@ -149,6 +207,25 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public void dropZone(String name) {
         join(dropZoneAsync(name));
+    }
+
+    private static ZoneDefinition.Builder toZoneDefinitionBuilder(String zoneName, SqlRow row) {
+        int partitions = row.intValue("ZONE_PARTITIONS");
+        int replicas = row.intValue("ZONE_REPLICAS");
+        int quorumsSize = row.intValue("ZONE_QUORUM_SIZE");
+        int dataNodesAutoAdjustScaleUp = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_UP");
+        int dataNodesAutoAdjustScaleDown = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
+        String filter = row.stringValue("DATA_NODES_FILTER");
+        String consistencyMode = row.stringValue("ZONE_CONSISTENCY_MODE");
+
+        return ZoneDefinition.builder(zoneName)
+                .partitions(partitions)
+                .replicas(replicas)
+                .quorumSize(quorumsSize)
+                .dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp)
+                .dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown)
+                .filter(filter)
+                .consistencyMode(consistencyMode);
     }
 
     private static <R> R join(CompletableFuture<R> future) {

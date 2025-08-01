@@ -29,6 +29,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 
@@ -84,16 +85,6 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *      <td>connectionTimeout</td>
  *      <td>Number of milliseconds JDBC client will waits for server to response. Zero means there is no limits.
  *          <br>By default no any timeout.</td>
- *   </tr>
- *   <tr>
- *      <td>reconnectThrottlingPeriod</td>
- *      <td>Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.
- *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_PERIOD}.</td>
- *   </tr>
- *   <tr>
- *      <td>reconnectThrottlingRetries</td>
- *      <td>Sets the reconnect throttling retries. Zero means there is no limits.
- *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_THROTTLING_RETRIES}.</td>
  *   </tr>
  *   <tr>
  *       <th colspan="2">Basic authentication</th>
@@ -171,6 +162,15 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /**
+     * Tracker of the latest time observed by client.
+     *
+     * <p>All connections created by this driver use the same tracker.
+     * This is done so that read-only transactions from different connections can observe changes made in other connections,
+     * which in turn ensures visibility of changes when working through the jdbc connection pool.
+     */
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
+
     /** {@inheritDoc} */
     @Override
     public Connection connect(String url, Properties props) throws SQLException {
@@ -182,12 +182,12 @@ public class IgniteJdbcDriver implements Driver {
 
         connProps.init(url, props);
 
-        return new JdbcConnection(connProps);
+        return new JdbcConnection(connProps, observableTimeTracker);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean acceptsURL(String url) throws SQLException {
+    public boolean acceptsURL(String url) {
         return url.startsWith(URL_PREFIX);
     }
 

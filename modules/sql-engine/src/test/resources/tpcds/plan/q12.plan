@@ -1,0 +1,48 @@
+Sort
+    collation: [I_CATEGORY ASC, I_CLASS ASC, I_ITEM_ID ASC, I_ITEM_DESC ASC, REVENUERATIO ASC]
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE, REVENUERATIO]
+      projection: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE, /(*(ITEMREVENUE, 100), CASE(>(COUNT(ITEMREVENUE) OVER (PARTITION BY I_CLASS), 0), CAST(SUM(ITEMREVENUE) OVER (PARTITION BY I_CLASS)):DECIMAL(32767, 2), null:DECIMAL(32767, 2)))]
+      est: (rows=91982)
+    ColocatedHashAggregate
+        fieldNames: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE]
+        group: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE]
+        aggregation: [SUM(WS_EXT_SALES_PRICE)]
+        est: (rows=91982)
+      Project
+          fieldNames: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, WS_EXT_SALES_PRICE]
+          projection: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, WS_EXT_SALES_PRICE]
+          est: (rows=136813)
+        HashJoin
+            predicate: =(WS_ITEM_SK, I_ITEM_SK)
+            type: inner
+            est: (rows=136813)
+          HashJoin
+              predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
+              type: inner
+              est: (rows=179846)
+            Exchange
+                distribution: single
+                est: (rows=719384)
+              TableScan
+                  table: PUBLIC.WEB_SALES
+                  fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_SALES_PRICE]
+                  est: (rows=719384)
+            Exchange
+                distribution: single
+                est: (rows=18262)
+              TableScan
+                  table: PUBLIC.DATE_DIM
+                  predicate: SEARCH(D_DATE, Sarg[[1998-01-06..1998-02-05]])
+                  fieldNames: [D_DATE_SK, D_DATE]
+                  est: (rows=18262)
+          Exchange
+              distribution: single
+              est: (rows=13693)
+            TableScan
+                table: PUBLIC.ITEM
+                predicate: SEARCH(I_CATEGORY, Sarg[_UTF-8'Books':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Electronics':VARCHAR(50) CHARACTER SET "UTF-8", _UTF-8'Women':VARCHAR(50) CHARACTER SET "UTF-8"]:VARCHAR(50) CHARACTER SET "UTF-8")
+                fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_DESC, I_CURRENT_PRICE, I_CLASS, I_CATEGORY]
+                est: (rows=13693)

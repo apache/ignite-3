@@ -21,21 +21,28 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMATCH_ERR;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -45,7 +52,9 @@ import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,11 +99,15 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <T, R> Class<ComputeJob<T, R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
-            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load job class by name '" + jobClassName + "'", e);
+            String message = "Cannot load job class by name '" + jobClassName + "'";
+            if (jobClassLoader.units().isEmpty()) {
+                throw new ComputeException(CLASS_INITIALIZATION_ERR, message + ". Deployment units list is empty.", e);
+            }
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, message, e);
         }
     }
 
@@ -219,16 +232,15 @@ public class ComputeUtils {
      * Extract Compute job result from execute response.
      *
      * @param jobResultResponse Job execution result message response.
-     * @param <R> Compute job return type.
      * @return Completable future with result.
      */
-    public static <R> CompletableFuture<R> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
+    public static CompletableFuture<ComputeJobDataHolder> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
         Throwable throwable = jobResultResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture((R) jobResultResponse.result());
+        return completedFuture(jobResultResponse.result());
     }
 
     /**
@@ -326,8 +338,108 @@ public class ComputeUtils {
     private static Throwable mapToComputeException(Throwable origin) {
         if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
             return origin;
+        } else if (origin instanceof CancellationException) {
+            return new ComputeException(COMPUTE_JOB_CANCELLED_ERR, "Job execution cancelled", origin);
         } else {
             return new ComputeException(COMPUTE_JOB_FAILED_ERR, "Job execution failed: " + origin, origin);
         }
+    }
+
+    /**
+     * Unmarshals the input using provided marshaller if input is a byte array. If no marshaller is provided, then, if the input is a
+     * {@link Tuple} and provided pojo type is not {@code null} and not a {@link Tuple}, unmarshals the input as a pojo using the provided
+     * pojo type. If the input is a {@link ComputeJobDataHolder}, extracts the data from it and unmarshals using the same strategy.
+     *
+     * @param marshaller Optional marshaller to unmarshal the input.
+     * @param input Input object.
+     * @param pojoType Pojo type to use when unmarshalling as a pojo.
+     * @param <T> Result type.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalOrNotIfNull(
+            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Object input,
+            @Nullable Class<?> pojoType
+    ) {
+        if (input == null) {
+            return null;
+        }
+
+        if (input instanceof ComputeJobDataHolder) {
+            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType);
+        }
+
+        if (marshaller == null) {
+            if (input instanceof Tuple) {
+                // If input was marshalled as Tuple and argument type is not tuple then it's a pojo.
+                if (pojoType != null && pojoType != Tuple.class) {
+                    return (T) SharedComputeUtils.unmarshalPojo(pojoType, (Tuple) input);
+                }
+            }
+            return (T) input;
+        }
+
+        if (input instanceof byte[]) {
+            try {
+                return marshaller.unmarshal((byte[]) input);
+            } catch (Exception ex) {
+                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
+            }
+        }
+
+        throw new ComputeException(
+                MARSHALLING_TYPE_MISMATCH_ERR,
+                "Marshaller is defined, expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
+                        + "If you want to use default marshalling strategy, "
+                        + "then you should not define your marshaller in the job. "
+                        + "If you would like to use your own marshaller, then double-check "
+                        + "that both of them are defined in the client and in the server."
+        );
+    }
+
+    /**
+     * Finds the second argument type of the {@link ComputeJob#executeAsync(JobExecutionContext, T)} method in the provided job class.
+     *
+     * @param jobClass Job class to introspect.
+     * @param <T> Type of the job argument.
+     * @param <R> Type of the job result.
+     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
+     */
+    public static <T, R> @Nullable Class<?> getJobExecuteArgumentType(Class<? extends ComputeJob<T, R>> jobClass) {
+        for (Method method : jobClass.getDeclaredMethods()) {
+            if (method.getParameterCount() == 2
+                    && method.getParameterTypes()[0] == JobExecutionContext.class
+                    && method.getParameterTypes()[1] != Object.class // skip type erased method
+                    && method.getReturnType() == CompletableFuture.class
+                    && "executeAsync".equals(method.getName())
+            ) {
+                return method.getParameterTypes()[1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds the second argument type of the {@link MapReduceTask#splitAsync(TaskExecutionContext, I)} method in the provided task class.
+     *
+     * @param taskClass Task class to introspect.
+     * @param <I> Split task (I)nput type.
+     * @param <M> (M)ap job input type.
+     * @param <T> Map job output (T)ype and reduce job input (T)ype.
+     * @param <R> Reduce (R)esult type.
+     * @return Type of the second argument of the method or {@code null} if no corresponding method is found.
+     */
+    public static <I, M, T, R> @Nullable Class<?> getTaskSplitArgumentType(Class<? extends MapReduceTask<I, M, T, R>> taskClass) {
+        for (Method method : taskClass.getDeclaredMethods()) {
+            if (method.getParameterCount() == 2
+                    && method.getParameterTypes()[0] == TaskExecutionContext.class
+                    && method.getParameterTypes()[1] != Object.class // skip type erased method
+                    && method.getReturnType() == CompletableFuture.class
+                    && "splitAsync".equals(method.getName())
+            ) {
+                return method.getParameterTypes()[1];
+            }
+        }
+        return null;
     }
 }

@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,7 +37,7 @@ public abstract class AbstractDeadlockPreventionTest extends AbstractLockingTest
 
     @Override
     protected LockManager lockManager() {
-        return new HeapLockManager(deadlockPreventionPolicy());
+        return lockManager(deadlockPreventionPolicy());
     }
 
     @Test

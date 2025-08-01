@@ -26,7 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -34,10 +34,11 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,11 +62,18 @@ public interface InternalTable extends ManuallyCloseable {
     int tableId();
 
     /**
+     * Returns the zone ID that the table belongs to.
+     *
+     * @return Zone id.
+     */
+    int zoneId();
+
+    /**
      * Gets a name of the table.
      *
      * @return Table name.
      */
-    String name();
+    QualifiedName name();
 
     /**
      * Sets the name of the table.
@@ -92,6 +100,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
+    // TODO: remove get() methods which do not accept InternalTransaction, see IGNITE-24120.
     /**
      * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
      *
@@ -100,9 +109,29 @@ public interface InternalTable extends ManuallyCloseable {
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
      */
+    default CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
+    ) {
+        return get(keyRow, readTimestamp, null, null, recipientNode);
+    }
+
+    /**
+     * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
+     *
+     * @param keyRow        Row with key columns set.
+     * @param readTimestamp Read timestamp.
+     * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @return Future representing pending completion of the operation.
+     */
     CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     );
 
@@ -117,6 +146,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
 
+    // TODO: remove getAll() methods which do not accept InternalTransaction, see IGNITE-24120.
     /**
      * Asynchronously get rows from the table for the proposed read timestamp.
      *
@@ -127,12 +157,33 @@ public interface InternalTable extends ManuallyCloseable {
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
      *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<List<BinaryRow>> getAll(
+    default CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
-    );
+    ) {
+        return getAll(keyRows, readTimestamp, null, null, recipientNode);
+    }
 
+    /**
+     * Asynchronously get rows from the table for the proposed read timestamp.
+     *
+     * @param keyRows       Rows with key columns set.
+     * @param readTimestamp Read timestamp.
+     * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
+     */
+    CompletableFuture<List<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
+            ClusterNode recipientNode
+    );
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
@@ -185,9 +236,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows to insert into the table.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is inserted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result.
+     *         If a record is inserted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -252,9 +302,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows with key columns set.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is deleted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -263,19 +312,10 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows to delete.
      * @param tx The transaction.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is deleted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
-
-    /**
-     * Returns a partition for a key.
-     *
-     * @param keyRow The key.
-     * @return The partition.
-     */
-    int partition(BinaryRowEx keyRow);
 
     /**
      * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
@@ -305,7 +345,7 @@ public interface InternalTable extends ManuallyCloseable {
             UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
-            String txCoordinatorId
+            UUID txCoordinatorId
     ) {
         return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
     }
@@ -335,7 +375,7 @@ public interface InternalTable extends ManuallyCloseable {
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     );
 
     /**
@@ -355,8 +395,8 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
-            String txCoordinatorId,
+            ReplicationGroupId commitPartition,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -407,7 +447,7 @@ public interface InternalTable extends ManuallyCloseable {
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
-            String txCoordinatorId
+            UUID txCoordinatorId
     );
 
     /**
@@ -427,8 +467,8 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
-            String txCoordinatorId,
+            ReplicationGroupId commitPartition,
+            UUID txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -447,7 +487,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Transaction states' storage.
      */
-    TxStateTableStorage txStateStorage();
+    // TODO: remove this method as a part of https://issues.apache.org/jira/browse/IGNITE-22522.
+    TxStateStorage txStateStorage();
 
     // TODO: IGNITE-14488. Add invoke() methods.
 
@@ -481,10 +522,10 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param partitionId Replication group ID.
+     * @param partitionIndex Partition index.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId);
+    CompletableFuture<ClusterNode> partitionLocation(int partitionIndex);
 
     /**
      * Returns the <em>estimated size</em> of this table.
@@ -503,4 +544,12 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    /**
+     * Gets a replication group id for this table.
+     *
+     * @param partId Partition id.
+     * @return The id.
+     */
+    ReplicationGroupId targetReplicationGroupId(int partId);
 }

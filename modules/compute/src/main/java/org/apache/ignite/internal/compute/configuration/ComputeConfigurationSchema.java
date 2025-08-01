@@ -37,6 +37,7 @@ public class ComputeConfigurationSchema {
     /** Job thread pool stop timeout (milliseconds). */
     @Range(min = 1)
     @Value(hasDefault = true)
+    @Deprecated
     public final long threadPoolStopTimeoutMillis = 10_000;
 
     /**

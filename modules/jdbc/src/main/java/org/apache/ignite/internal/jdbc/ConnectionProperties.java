@@ -19,7 +19,6 @@ package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
 import java.time.ZoneId;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPort;
 
 /**
@@ -87,36 +86,6 @@ public interface ConnectionProperties {
     /**
      * Note: zero value means there is no limits.
      *
-     * @return Reconnect throttling period.
-     */
-    Long getReconnectThrottlingPeriod();
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @param reconnectThrottlingPeriod Reconnect throttling period.
-     * @throws SQLException On error.
-     */
-    void setReconnectThrottlingPeriod(Long reconnectThrottlingPeriod) throws SQLException;
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @return Reconnect throttling retries.
-     */
-    Integer getReconnectThrottlingRetries();
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @param reconnectThrottlingRetries Reconnect throttling retries.
-     * @throws SQLException On error.
-     */
-    void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) throws SQLException;
-
-    /**
-     * Note: zero value means there is no limits.
-     *
      * @return Connection timeout in milliseconds.
      */
     int getConnectionTimeout();
@@ -142,20 +111,6 @@ public interface ConnectionProperties {
      * @param enabled true if SSL is enabled.
      */
     void setSslEnabled(boolean enabled);
-
-    /**
-     * SSL client authentication. Can be NONE, REQUIRE, and OPTIONAL.
-     *
-     * @param clientAuth SSL client authentication.
-     */
-    void setClientAuth(ClientAuthenticationMode clientAuth);
-
-    /**
-     * SSL client authentication.
-     *
-     * @return SSL client authentication.
-     */
-    ClientAuthenticationMode getClientAuth();
 
     /**
      * SSL ciphers.

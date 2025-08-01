@@ -22,11 +22,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.Comparator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.TxIdPriorityComparator;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,17 +53,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
 
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicy() {
-            @Override
-            public @Nullable Comparator<UUID> txIdComparator() {
-                return new TxIdPriorityComparator().reversed();
-            }
-
-            @Override
-            public long waitTimeout() {
-                return 0;
-            }
-        };
+        return new DeadlockPreventionPolicyImpl(TxIdComparators.REVERSED, 0);
     }
 
     @Test

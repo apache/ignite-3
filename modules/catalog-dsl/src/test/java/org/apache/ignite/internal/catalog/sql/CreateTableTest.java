@@ -18,117 +18,152 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.catalog.ColumnType.INTEGER;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
+import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 class CreateTableTest {
     @Test
     void ifNotExists() {
-        Query query1 = createTable().ifNotExists().name("table1").addColumn("col1", INTEGER);
+        Query query1 = createTable().ifNotExists().name(QualifiedName.parse("table1")).addColumn("col1", INTEGER);
         String sql = query1.toString();
-        assertThat(sql, is("CREATE TABLE IF NOT EXISTS table1 (col1 int);"));
+        assertThat(sql, is("CREATE TABLE IF NOT EXISTS PUBLIC.TABLE1 (COL1 INT);"));
     }
 
     @Test
     void names() {
-        Query query5 = createTable().name("", "table1").addColumn("col1", INTEGER);
-        String sql = query5.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int);"));
+        Query query1 = createTable().name(QualifiedName.parse("table1")).addColumn("col1", INTEGER);
+        String sql = query1.toString();
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT);"));
 
-        Query query4 = createTable().name(null, "table1").addColumn("col1", INTEGER);
-        sql = query4.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int);"));
+        Query query2 = createTable().name(QualifiedName.parse("public.table1")).addColumn("col1", INTEGER);
+        sql = query2.toString();
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT);"));
 
-        Query query3 = createTable().name("public", "table1").addColumn("col1", INTEGER);
+        Query query3 = createTable().name(QualifiedName.parse("PUBLIC.\"Tabl e\"")).addColumn("col1", INTEGER);
         sql = query3.toString();
-        assertThat(sql, is("CREATE TABLE public.table1 (col1 int);"));
-    }
+        assertThat(sql, is("CREATE TABLE PUBLIC.\"Tabl e\" (COL1 INT);"));
 
-    @Test
-    void invalidNames() {
-        assertThrows(NullPointerException.class, () -> createTable().name((String[]) null));
+        Query query4 = createTable().name(QualifiedName.parse("\"PUB lic\".\"Tabl e\"")).addColumn("col1", INTEGER);
+        sql = query4.toString();
+        assertThat(sql, is("CREATE TABLE \"PUB lic\".\"Tabl e\" (COL1 INT);"));
 
-        assertThrows(IllegalArgumentException.class, () -> createTable().name("table;1--test\n\r\t;"));
+        Query query5 = createTable().name(QualifiedName.parse("\"PUB lic\".\"MyTable\"")).addColumn("col1", INTEGER);
+        sql = query5.toString();
+        assertThat(sql, is("CREATE TABLE \"PUB lic\".\"MyTable\" (COL1 INT);"));
     }
 
     @Test
     void columns() {
-        Query query3 = createTable().name("table1")
+        Query query3 = createTable().name(QualifiedName.fromSimple("table1"))
                 .addColumn("col", INTEGER);
         String sql = query3.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col int);"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL INT);"));
 
-        Query query2 = createTable().name("table1")
+        Query query2 = createTable().name(QualifiedName.fromSimple("table1"))
                 .addColumn("col1", INTEGER)
                 .addColumn("col2", INTEGER);
         sql = query2.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int, col2 int);"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT, COL2 INT);"));
     }
 
     @Test
     void primaryKey() {
-        Query query5 = createTable().name("table1")
+        Query query5 = createTable().name(QualifiedName.fromSimple("table1"))
                 .addColumn("col", INTEGER)
-                .primaryKey("col");
+                .primaryKey(List.of("col"));
         String sql = query5.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col int, PRIMARY KEY (col));"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL INT, PRIMARY KEY (COL));"));
 
-        Query query4 = createTable().name("table1")
+        Query query4 = createTable().name(QualifiedName.fromSimple("table1"))
                 .addColumn("col1", INTEGER)
                 .addColumn("col2", INTEGER)
-                .primaryKey("col1, col2");
+                .primaryKey(List.of("col1", "col2"));
         sql = query4.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int, col2 int, PRIMARY KEY (col1, col2));"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT, COL2 INT, PRIMARY KEY (COL1, COL2));"));
 
-        Query query3 = createTable().name("table1")
+        Query query3 = createTable().name(QualifiedName.fromSimple("table1"))
                 .addColumn("col1", INTEGER)
-                .primaryKey(IndexType.SORTED, "col1 ASC    nUlls First  ");
+                .primaryKey(IndexType.SORTED, List.of(ColumnSorted.column("col1", SortOrder.ASC_NULLS_FIRST)));
         sql = query3.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int, PRIMARY KEY USING SORTED (col1 asc nulls first));"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT, PRIMARY KEY USING SORTED (COL1 ASC NULLS FIRST));"));
     }
 
     @Test
     void colocateBy() {
-        Query query5 = createTable().name("table1").addColumn("col1", INTEGER)
+        Query query5 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
                 .colocateBy("col1");
         String sql = query5.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int) COLOCATE BY (col1);"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT) COLOCATE BY (COL1);"));
 
-        Query query4 = createTable().name("table1").addColumn("col1", INTEGER)
+        Query query4 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
                 .colocateBy("col1", "col2");
         sql = query4.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int) COLOCATE BY (col1, col2);"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT) COLOCATE BY (COL1, COL2);"));
 
-        Query query3 = createTable().name("table1").addColumn("col1", INTEGER)
-                .colocateBy("col1, col2");
+        Query query3 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
+                .colocateBy("col1", "col2");
         sql = query3.toString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int) COLOCATE BY (col1, col2);"));
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT) COLOCATE BY (COL1, COL2);"));
     }
 
     @Test
     void withOptions() {
-        Query query1 = createTable().name("table1").addColumn("col1", INTEGER)
+        Query query1 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
                 .zone("zone1");
         String sql = query1.toString(); // zone param is lowercase
-        assertThat(sql, is("CREATE TABLE table1 (col1 int) WITH PRIMARY_ZONE='ZONE1';")); // zone result is uppercase
+        assertThat(sql, is("CREATE TABLE PUBLIC.TABLE1 (COL1 INT) ZONE ZONE1;")); // zone result is uppercase
     }
 
     @Test
     void index() {
-        Query query3 = createTable().name("table1").addColumn("col1", INTEGER)
-                .addIndex("ix_test1", "col1, COL2_UPPER desc nulls last");
+        Query query3 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
+                .addIndex("ix_test1", IndexType.SORTED,
+                        List.of(
+                                ColumnSorted.column("col1"),
+                                ColumnSorted.column("COL2_UPPER", SortOrder.DESC_NULLS_LAST)
+                        )
+                );
         String sql = query3.toString();
-        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS ix_test1 ON table1 (col1, COL2_UPPER desc nulls last);"));
+        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS IX_TEST1 ON PUBLIC.TABLE1 USING SORTED (COL1, COL2_UPPER DESC NULLS LAST);"));
 
-        Query query2 = createTable().name("table1").addColumn("col1", INTEGER)
-                .addIndex("ix_test1", IndexType.HASH, "col1");
+        Query query2 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
+                .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1")));
         sql = query2.toString();
-        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS ix_test1 ON table1 USING HASH (col1);"));
+        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS IX_TEST1 ON PUBLIC.TABLE1 USING HASH (COL1);"));
+
+        Query query4 = createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
+                .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1", SortOrder.DEFAULT)));
+        sql = query4.toString();
+        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS IX_TEST1 ON PUBLIC.TABLE1 USING HASH (COL1);"));
+
+        SortOrder[] invalidSortOrders = {
+                SortOrder.DESC,
+                SortOrder.DESC_NULLS_FIRST,
+                SortOrder.DESC_NULLS_LAST,
+                SortOrder.ASC,
+                SortOrder.ASC_NULLS_FIRST,
+                SortOrder.ASC_NULLS_LAST,
+                SortOrder.NULLS_FIRST,
+                SortOrder.NULLS_LAST
+        };
+
+        for (SortOrder order : invalidSortOrders) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> createTable().name(QualifiedName.fromSimple("table1")).addColumn("col1", INTEGER)
+                            .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1", order))),
+                    "Index columns must not define a sort order in hash indexes."
+            );
+        }
     }
 
     private static CreateTableImpl createTable() {

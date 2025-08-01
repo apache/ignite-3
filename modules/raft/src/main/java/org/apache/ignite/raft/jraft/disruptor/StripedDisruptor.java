@@ -43,7 +43,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.jetbrains.annotations.Nullable;
 
@@ -94,33 +94,37 @@ public class StripedDisruptor<T extends INodeIdAware> {
     private final boolean sharedStripe;
 
     /**
+     * Creates a disruptor for the specific RAFT group.
+     * This type of disruption is intended for only one group.
+     *
      * @param nodeName Name of the Ignite node.
      * @param poolName Name of the pool.
+     * @param threadFactorySupplier Function that produces a thread factory given stripe name.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
-     * @param stripes Amount of stripes.
-     * @param sharedStripe If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      * @param metrics Metrics.
+     * @return A disruptor instance.
+     * @param <U> Type of disruptor events.
      */
-    public StripedDisruptor(
+    public static <U extends NodeIdAware> StripedDisruptor<U> createSerialDisruptor(
             String nodeName,
             String poolName,
+            BiFunction<String, IgniteLogger, ThreadFactory> threadFactorySupplier,
             int bufferSize,
-            EventFactory<T> eventFactory,
-            int stripes,
-            boolean sharedStripe,
+            EventFactory<U> eventFactory,
             boolean useYieldStrategy,
             @Nullable DisruptorMetrics metrics
+
     ) {
-        this(
+        return new StripedDisruptor<>(
                 nodeName,
                 poolName,
-                (igniteName, stripeName) -> NamedThreadFactory.create(igniteName, stripeName, true, LOG),
+                threadFactorySupplier,
                 bufferSize,
                 eventFactory,
-                stripes,
-                sharedStripe,
+                1,
+                true,
                 useYieldStrategy,
                 metrics
         );
@@ -140,7 +144,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
     public StripedDisruptor(
             String nodeName,
             String poolName,
-            BiFunction<String, String, ThreadFactory> threadFactorySupplier,
+            BiFunction<String, IgniteLogger, ThreadFactory> threadFactorySupplier,
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
@@ -153,7 +157,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
-        this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
+        this.name = IgniteThread.threadPrefix(nodeName, poolName);
         this.sharedStripe = sharedStripe;
         this.metrics = raftMetrics;
 
@@ -163,7 +167,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                     .setRingBufferSize(bufferSize)
                     .setEventFactory(eventFactory)
-                    .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
+                    .setThreadFactory(threadFactorySupplier.apply(stripeName, LOG))
                     .setProducerType(ProducerType.MULTI)
                     .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
                     .build();

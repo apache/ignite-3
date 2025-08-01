@@ -43,8 +43,12 @@ import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
@@ -81,7 +85,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
-                List.of()
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
         ConfigurationManager configurationManager = new ConfigurationManager(
                 List.of(NodeConfiguration.KEY),
@@ -98,7 +102,17 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
-        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+            @Override
+            public void log(Event event) {
+
+            }
+
+            @Override
+            public void log(String type, Supplier<Event> eventProvider) {
+
+            }
+        });
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
                 configurationManager,

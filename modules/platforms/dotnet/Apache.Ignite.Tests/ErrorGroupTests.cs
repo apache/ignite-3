@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
@@ -187,6 +188,20 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(ErrorGroups.UnknownGroupName, ErrorGroups.GetGroupName(9999));
         }
 
+        [Test]
+        public void TestExceptionProperties()
+        {
+            var ex = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, "msg");
+
+            Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
+
+            Assert.AreEqual(-1, ex.ErrorCode);
+            Assert.AreEqual("IGN-CMN-65535", ex.CodeAsString);
+
+            Assert.AreEqual(1, ex.GroupCode);
+            Assert.AreEqual("CMN", ex.GroupName);
+        }
+
         private static IEnumerable<(short Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
                 .Select(x => ((short) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
 
@@ -197,7 +212,8 @@ namespace Apache.Ignite.Tests
 
                     return groupClass
                         .GetFields()
-                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName")
+                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName" && x.Name != "ErrorPrefix" &&
+                                    x.GetCustomAttributes(typeof(ObsoleteAttribute), false).Length == 0)
                         .Select(errCode => ((int)errCode.GetValue(null)!, groupCode, errCode.Name));
                 });
     }

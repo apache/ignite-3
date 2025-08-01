@@ -111,13 +111,13 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
 
             long pageId0 = createDataPageId(filePageStore2::allocatePage);
 
-            filePageStore2.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
+            filePageStore2.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE));
 
             assertEquals(1, filePageStore2.pages());
 
             long pageId1 = createDataPageId(filePageStore2::allocatePage);
 
-            filePageStore2.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
+            filePageStore2.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE));
 
             assertEquals(2, filePageStore2.pages());
         }
@@ -268,9 +268,9 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
             long pageId1 = createDataPageId(filePageStore::allocatePage);
             long pageId2 = createDataPageId(filePageStore::allocatePage);
 
-            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
-            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
-            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE), true);
+            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE));
+            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE));
+            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE));
 
             filePageStoreIo.sync();
             deltaIo0.sync();
@@ -331,9 +331,9 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
             long pageId1 = createDataPageId(filePageStore::allocatePage);
             long pageId2 = createDataPageId(filePageStore::allocatePage);
 
-            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
-            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
-            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE), true);
+            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE));
+            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE));
+            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE));
 
             filePageStoreIo.sync();
             deltaIo0.sync();

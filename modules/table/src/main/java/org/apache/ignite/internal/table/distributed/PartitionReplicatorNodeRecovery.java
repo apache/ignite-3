@@ -37,8 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -48,9 +46,11 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.message.DataPresence;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.TransientReplicaStartException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -128,15 +128,16 @@ class PartitionReplicatorNodeRecovery {
         if (table != null) {
             MvTableStorage storage = table.internalTable().storage();
 
-            MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
+            try {
+                MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
 
-            if (mvPartition != null) {
-                try {
+                if (mvPartition != null) {
+
                     dataPresence = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null
-                            ? DataPresence.HAS_DATA : DataPresence.EMPTY;
-                } catch (StorageClosedException | StorageRebalanceException ignored) {
-                    // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
+                        ? DataPresence.HAS_DATA : DataPresence.EMPTY;
                 }
+            } catch (StorageClosedException | StorageRebalanceException ignored) {
+                // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
             }
         }
 
@@ -160,20 +161,23 @@ class PartitionReplicatorNodeRecovery {
      * @param tablePartitionId ID of the table partition.
      * @param internalTable Table we are working with.
      * @param newConfiguration New configuration that is going to be applied if we'll start the group.
-     * @param localMemberAssignment Assignment of this node in this group.
+     * @param localAssignment Assignment of this node in this group.
      * @return A future that completes with a decision: should we start the corresponding group locally or not.
      */
     CompletableFuture<Boolean> initiateGroupReentryIfNeeded(
             TablePartitionId tablePartitionId,
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment,
+            Assignment localAssignment,
             long assignmentsTimestamp
     ) {
+        if (!localAssignment.isPeer()) {
+            return trueCompletedFuture();
+        }
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
         if (mightNeedGroupRecovery(internalTable)) {
-            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment, assignmentsTimestamp);
+            return performGroupRecovery(tablePartitionId, newConfiguration, localAssignment, assignmentsTimestamp);
         }
 
         return trueCompletedFuture();
@@ -188,7 +192,7 @@ class PartitionReplicatorNodeRecovery {
     private CompletableFuture<Boolean> performGroupRecovery(
             TablePartitionId tablePartitionId,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment,
+            Assignment localPeerAssignment,
             long assignmentsTimestamp
     ) {
         int tableId = tablePartitionId.tableId();
@@ -207,15 +211,15 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager, assignmentsTimestamp);
+                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localPeerAssignment, metaStorageManager, assignmentsTimestamp);
 
                         return false;
                     } else {
                         // No majority and not a full partition restart - need to restart nodes
                         // with current partition.
-                        String msg = "Unable to start partition " + partId + ". Majority not available.";
+                        String msg = "Unable to start partition " + tablePartitionId + ". Majority not available.";
 
-                        throw new IgniteInternalException(msg);
+                        throw new TransientReplicaStartException(msg);
                     }
                 });
     }

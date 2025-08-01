@@ -18,30 +18,34 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Local partition state.
  */
 public class LocalPartitionState {
-    @IgniteToStringInclude
-    public final String tableName;
+    public final int zoneId;
 
-    @IgniteToStringInclude
     public final String zoneName;
 
-    @IgniteToStringInclude
     public final int partitionId;
 
-    @IgniteToStringInclude
     public final LocalPartitionStateEnum state;
 
-    LocalPartitionState(String tableName, String zoneName, int partitionId, LocalPartitionStateEnum state) {
-        this.tableName = tableName;
+    public final long estimatedRows;
+
+    LocalPartitionState(
+            int zoneId,
+            String zoneName,
+            int partitionId,
+            LocalPartitionStateEnum state,
+            long estimatedRows
+    ) {
+        this.zoneId = zoneId;
         this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
+        this.estimatedRows = estimatedRows;
     }
 
     @Override

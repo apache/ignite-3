@@ -24,6 +24,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
-    private static final VarHandle CURRENT;
+    protected static final VarHandle CURRENT;
 
     private static final VarHandle CLOSE_GUARD;
 
@@ -54,16 +55,16 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
     /** Current value along with associated result. */
     @SuppressWarnings("FieldMayBeFinal") // Changed through CURRENT VarHandle.
-    private volatile Map.Entry<T, @Nullable R> current;
+    protected volatile Map.Entry<T, @Nullable R> current;
 
     /** Prevents double closing. */
     @SuppressWarnings("unused")
     private volatile boolean closeGuard;
 
     /** Busy lock to close synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final IgniteStripedBusyLock busyLock = new IgniteStripedBusyLock();
 
-    private final Comparator<Map.Entry<T, @Nullable R>> comparator;
+    protected final Comparator<Map.Entry<T, @Nullable R>> comparator;
 
     /**
      * Constructor with initial value.
@@ -86,7 +87,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      */
     public void update(T newValue, @Nullable R futureResult) {
         while (true) {
-            if (!busyLock.enterBusy()) {
+            if (!enterBusy()) {
                 throw new TrackerClosedException();
             }
 
@@ -104,7 +105,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
                     break;
                 }
             } finally {
-                busyLock.leaveBusy();
+                leaveBusy();
             }
         }
     }
@@ -118,18 +119,20 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      * @param valueToWait Value to wait.
      */
     public CompletableFuture<R> waitFor(T valueToWait) {
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             return failedFuture(new TrackerClosedException());
         }
 
         try {
-            if (current.getKey().compareTo(valueToWait) >= 0) {
-                return completedFuture(current.getValue());
+            Entry<T, @Nullable R> currentKeyValue = current;
+
+            if (currentKeyValue.getKey().compareTo(valueToWait) >= 0) {
+                return completedFuture(currentKeyValue.getValue());
             }
 
             return addNewWaiter(valueToWait);
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
@@ -139,26 +142,34 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      * @throws TrackerClosedException if the tracker is closed.
      */
     public T current() {
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             throw new TrackerClosedException();
         }
 
         try {
             return current.getKey();
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
     @Override
     public void close() {
+        close(new TrackerClosedException());
+    }
+
+    /**
+     * Closes the tracker with a specific exception.
+     * All uncompleted waiters are closed exceptionally from the method parameters.
+     *
+     * @param trackerClosedException Exception to close the tracker.
+     */
+    public void close(Exception trackerClosedException) {
         if (!CLOSE_GUARD.compareAndSet(this, false, true)) {
             return;
         }
 
-        busyLock.block();
-
-        TrackerClosedException trackerClosedException = new TrackerClosedException();
+        blockBusy();
 
         cleanupWaitersOnClose(trackerClosedException);
     }
@@ -185,8 +196,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return future;
     }
 
-    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
-        valueFutures.values().forEach(future -> future.completeExceptionally(trackerClosedException));
+    protected void cleanupWaitersOnClose(Exception waiterCompletionException) {
+        valueFutures.values().forEach(future -> future.completeExceptionally(waiterCompletionException));
 
         valueFutures.clear();
     }
@@ -198,5 +209,17 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     /** Returns true if this tracker contains no waiters. */
     public boolean isEmpty() {
         return valueFutures.isEmpty();
+    }
+
+    protected final boolean enterBusy() {
+        return busyLock.enterBusy();
+    }
+
+    protected final void leaveBusy() {
+        busyLock.leaveBusy();
+    }
+
+    private void blockBusy() {
+        busyLock.block();
     }
 }

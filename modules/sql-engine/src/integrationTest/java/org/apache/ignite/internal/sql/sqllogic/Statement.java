@@ -25,9 +25,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.google.common.base.Strings;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -97,10 +100,23 @@ final class Statement extends Command {
             if ("PRAGMA".equals(toks[0])) {
                 String[] pragmaParams = toks[1].split("=");
 
-                if ("null".equals(pragmaParams[0])) {
-                    ctx.nullLbl = pragmaParams[1];
-                } else {
-                    ctx.log.info("Ignore: " + Arrays.toString(pragmaParams));
+                switch (pragmaParams[0]) {
+                    case "null": {
+                        ctx.nullLbl = pragmaParams[1];
+                        break;
+                    }
+                    case "time_zone": {
+                        String pragmaParamValue = pragmaParams[1];
+
+                        if (!"none".equals(pragmaParamValue)) {
+                            ctx.timeZone = ZoneId.of(pragmaParamValue);
+                        } else {
+                            ctx.timeZone = null;
+                        }
+                        break;
+                    }
+                    default:
+                        ctx.log.info("Ignore: " + Arrays.toString(pragmaParams));
                 }
 
                 continue;
@@ -113,15 +129,26 @@ final class Statement extends Command {
                     Assertions.fail("Not expected result at: " + posDesc + ". Statement: " + qry, e);
                 }
             } else {
+                IgniteStringBuilder detailsBuilder = new IgniteStringBuilder("Not expected result at: ")
+                        .app(posDesc).app('.').nl()
+                        .app('\t').app("Statement: ").app(qry).app('.').nl()
+                        .app('\t').app("Loop variables: ").app(ctx.loopVars).nl()
+                        .app('\t').app("Expected: ");
+
                 Throwable err = Assertions.assertThrows(
                         Throwable.class,
                         () -> ctx.executeQuery(qry),
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". No error occurred");
+                        () -> detailsBuilder.app("error, but none was occurred.").toString()
+                );
 
                 Matcher<String> errorMatcher = expected.errorMatcher(ctx);
 
+                detailsBuilder.app(expected.errorMessage).nl()
+                        .app('\t').app("Actual: ").nl()
+                        .app(ExceptionUtils.getFullStackTrace(err));
+
                 assertThat(
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
+                        detailsBuilder.toString(),
                         err.getMessage(), errorMatcher);
             }
         }

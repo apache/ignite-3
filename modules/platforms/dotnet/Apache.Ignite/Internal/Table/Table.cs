@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -38,6 +39,10 @@ namespace Apache.Ignite.Internal.Table
     /// <summary>
     /// Table API.
     /// </summary>
+    [SuppressMessage(
+        "Design",
+        "CA1001:Types that own disposable fields should be disposable",
+        Justification = "SemaphoreSlim.m_waitHandle is not used.")]
     internal sealed class Table : ITable
     {
         /// <summary>
@@ -83,19 +88,19 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
-        /// <param name="name">Table name.</param>
+        /// <param name="qualifiedName">Table name.</param>
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
+        public Table(QualifiedName qualifiedName, int id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
 
-            Name = name;
+            QualifiedName = qualifiedName;
             Id = id;
 
-            _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
+            _logger = socket.Configuration.Configuration.LoggerFactory.CreateLogger<Table>();
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -115,7 +120,10 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public string Name { get; }
+        public string Name => QualifiedName.CanonicalName;
+
+        /// <inheritdoc/>
+        public QualifiedName QualifiedName { get; }
 
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
@@ -397,7 +405,14 @@ namespace Apache.Ignite.Internal.Table
                 var r = resBuf.GetReader();
 
                 var count = r.ReadInt32();
-                Debug.Assert(count > 0, $"Invalid partition count: {count}");
+                if (count <= 0)
+                {
+                    throw new IgniteException(
+                        Guid.NewGuid(),
+                        ErrorGroups.Common.Internal,
+                        "Invalid partition count returned by the server: " + count);
+                }
+
                 var res = new string?[count];
 
                 var assignmentAvailable = r.ReadBoolean();

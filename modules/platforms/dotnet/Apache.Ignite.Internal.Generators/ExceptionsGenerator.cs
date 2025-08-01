@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Generators
                 .Where(x => !exclude.Any(x.Contains))
                 .Select(File.ReadAllText)
                 .Select(x => (
-                    Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
+                    Class: Regex.Match(x, @"public(?:\s\w+)? class (\w+) extends (\w+)"),
                     Source: x))
                 .Where(x => x.Class.Success)
                 .Where(x => !x.Class.Value.Contains("RaftException")) // Ignore duplicate RaftException.
@@ -148,7 +148,7 @@ namespace Apache.Ignite.Internal.Generators
 
         private static string GetXmlDoc(string javaClassName, string javaSource)
         {
-            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/\s+public class", RegexOptions.Singleline);
+            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/(\s+@(?:\w+))?\s+public(?:\s\w+)? class", RegexOptions.Singleline);
 
             if (!javaDocMatch.Success)
             {

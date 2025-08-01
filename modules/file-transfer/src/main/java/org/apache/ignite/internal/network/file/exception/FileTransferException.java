@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file.exception;
 
-import static org.apache.ignite.internal.network.file.exception.ErrorCodes.FILE_TRANSFER_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.FILE_TRANSFER_ERR;
 
 import org.apache.ignite.lang.IgniteException;
 

@@ -33,12 +33,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
@@ -51,6 +52,8 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("resource")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
+
+    private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST";
 
@@ -105,9 +108,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone " + ZONE_NAME;
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -117,7 +119,10 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void transferLeadershipsTo(int nodeIndex) throws InterruptedException {
         cluster.transferLeadershipTo(nodeIndex, MetastorageGroupId.INSTANCE);
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
+
+        ReplicationGroupId solePartitionId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+        cluster.transferLeadershipTo(nodeIndex, solePartitionId);
+        cluster.transferPrimaryTo(nodeIndex, solePartitionId);
     }
 
     private CompletableFuture<?> rejectionDueToMetadataLagTriggered() {

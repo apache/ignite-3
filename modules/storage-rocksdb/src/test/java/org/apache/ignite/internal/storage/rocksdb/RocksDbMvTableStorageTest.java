@@ -28,9 +28,11 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -38,7 +40,9 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -50,6 +54,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests for the {@link RocksDbTableStorage}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     private RocksDbStorageEngine engine;
@@ -57,13 +62,20 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.flushDelayMillis = 0")
-            RocksDbStorageEngineConfiguration engineConfig,
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
-            @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
-            StorageConfiguration storageConfiguration
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
+            StorageConfiguration storageConfiguration,
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 
@@ -139,14 +151,13 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 
         RowId rowId0 = new RowId(PARTITION_ID);
-        long leaseStartTime = 1234567;
-        String primaryReplicaNodeId = UUID.randomUUID().toString();
-        String primaryReplicaNodeName = primaryReplicaNodeId + "name";
+
+        var leaseInfo = new LeaseInfo(1234567, UUID.randomUUID(), "name");
 
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            partitionStorage0.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+            partitionStorage0.updateLease(leaseInfo);
             return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
@@ -163,9 +174,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
 
-        assertEquals(leaseStartTime, tableStorage.getMvPartition(PARTITION_ID).leaseStartTime());
-        assertEquals(primaryReplicaNodeId, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeId());
-        assertEquals(primaryReplicaNodeName, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeName());
+        assertEquals(leaseInfo, tableStorage.getMvPartition(PARTITION_ID).leaseInfo());
     }
 
     @Test

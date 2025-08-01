@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.disaster.system;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,8 +39,12 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
     private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
+    private static final ByteArray WITNESSED_METASTORAGE_REPAIR_CLUSTER_ID_VAULT_KEY
+            = new ByteArray("systemRecovery.witnessedMetastorageRepairClusterId");
 
     private final VaultManager vault;
+
+    private volatile ResetClusterMessage volatileResetClusterMessage;
 
     /** Constructor. */
     public SystemDisasterRecoveryStorage(VaultManager vault) {
@@ -45,7 +53,8 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
 
     @Override
     public @Nullable ResetClusterMessage readResetClusterMessage() {
-        return readFromVault(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+        VaultEntry entry = vault.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+        return entry != null ? VersionedSerialization.fromBytes(entry.value(), ResetClusterMessagePersistentSerializer.INSTANCE) : null;
     }
 
     @Override
@@ -53,18 +62,25 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
         vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
     }
 
-    /** Reads cluster state. */
-    public @Nullable ClusterState readClusterState() {
-        return readFromVault(CLUSTER_STATE_VAULT_KEY);
+    @Override
+    public void saveVolatileResetClusterMessage(ResetClusterMessage message) {
+        volatileResetClusterMessage = message;
     }
 
-    private <T> @Nullable T readFromVault(ByteArray key) {
-        VaultEntry entry = vault.get(key);
-        return entry != null ? ByteUtils.fromBytes(entry.value()) : null;
+    /**
+     * Reads cluster state from the Vault. This is used for cases when it may be needed to read it during node startup (and the usual
+     * CMG state storage might be empty at those moments).
+     *
+     * @return Cluster state saved to the Vault or {@code null} if it was not saved yet (which means that the node has never joined
+     *     the cluster yet).
+     */
+    public @Nullable ClusterState readClusterState() {
+        VaultEntry entry = vault.get(CLUSTER_STATE_VAULT_KEY);
+        return entry != null ? VersionedSerialization.fromBytes(entry.value(), ClusterStatePersistentSerializer.INSTANCE) : null;
     }
 
     void saveClusterState(ClusterState clusterState) {
-        vault.put(CLUSTER_STATE_VAULT_KEY, ByteUtils.toBytes(clusterState));
+        vault.put(CLUSTER_STATE_VAULT_KEY, VersionedSerialization.toBytes(clusterState, ClusterStatePersistentSerializer.INSTANCE));
     }
 
     boolean isInitConfigApplied() {
@@ -77,6 +93,25 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     }
 
     void saveResetClusterMessage(ResetClusterMessage message) {
-        vault.put(RESET_CLUSTER_MESSAGE_VAULT_KEY, ByteUtils.toBytes(message));
+        vault.put(
+                RESET_CLUSTER_MESSAGE_VAULT_KEY,
+                VersionedSerialization.toBytes(message, ResetClusterMessagePersistentSerializer.INSTANCE)
+        );
+    }
+
+    @Override
+    public @Nullable ResetClusterMessage readVolatileResetClusterMessage() {
+        return volatileResetClusterMessage;
+    }
+
+    @Override
+    public @Nullable UUID readWitnessedMetastorageRepairClusterId() {
+        VaultEntry entry = vault.get(WITNESSED_METASTORAGE_REPAIR_CLUSTER_ID_VAULT_KEY);
+        return entry != null ? ByteUtils.bytesToUuid(entry.value()) : null;
+    }
+
+    @Override
+    public void saveWitnessedMetastorageRepairClusterId(UUID repairClusterId) {
+        vault.put(WITNESSED_METASTORAGE_REPAIR_CLUSTER_ID_VAULT_KEY, uuidToBytes(repairClusterId));
     }
 }

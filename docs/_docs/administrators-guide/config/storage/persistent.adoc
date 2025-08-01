@@ -16,10 +16,14 @@
 
 == Overview
 
-Apache Ignite Persistence is designed to provide a quick and responsive persistent storage.
+Ignite Persistence is designed to provide a quick and responsive persistent storage.
 When using the persistent storage, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
 
 When persistence is enabled, Ignite stores each partition in a separate file on disk. In addition to data partitions, Ignite stores indexes and metadata.
+
+== Profile Configuration
+
+Each Ignite storage engine can have several storage profiles.
 
 == Checkpointing
 
@@ -29,49 +33,34 @@ After a checkpoint is created, all changes are persisted to disk and will be ava
 
 Checkpointing is designed to ensure durability of data and recovery in case of a node failure.
 
+This process helps you utilize disk space frugally by keeping pages in the most up-to-date state on disk.
 
-This process helps to utilize disk space frugally by keeping pages in the most up-to-date state on disk.
+== Storage Configuration
 
+In Ignite 3, you can create and maintain configuration in either HOCON or JSON. The configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node. The example below shows sample Ignite cluster configuration with persistence and checkpoints:
 
-== Configuration Properties
-
-The following table describes some properties of persistent data storage:
-
-[cols="1,1,3",opts="header", stripes=none]
-|===
-|Property|Default|Description
-
-|name|| The name of the data region.
-|size|`256 * 1024 * 1024`| Sets the space allocated to the data region, in bytes.
-|replacementMode|`CLOCK`| Sets the page replacement algorithm.
-|pageSize|16384| The size of pages in the storage, in bytes.
-|===
-
-The table below describes checkpoint configuration:
-
-[cols="1,1,3",opts="header", stripes=none]
-|===
-|Property|Default|Description
-|checkpointDelayMillis|200| Delay before staring a checkpoint after receiving the command.
-|checkpointThreads|4| Number of CPU threads dedicated to checkpointing.
-|compactionThreads|4| Number of CPU threads dedicated to data compaction.
-|interval|180000|Interval between checkpoints in milliseconds.
-|intervalDeviation|40| Allowed deviation in checkpoint interval, percent.
-|logReadLockThresholdTimeout|0| Threshold for logging long read locks, in milliseconds.
-|readLockTimeout|10000| Timeout for checkpoint read lock acquisition, in milliseconds.
-|useAsyncFileIoFactory|true| If Ignite uses asynchronous file I/O operations provider.
-|===
-
-== Configuration Example
-
-The example below shows how to configure one data region that uses Ignite persistence:
-
+[source, json]
 ----
-ignite config set --type cluster \
-"{
-    aipersist.regions: [{
-        name: btree_persistent_region,
-        maxSize: 256000000
-    }]
-}"
+{
+  "ignite" : {
+    "storage" : {
+      "engines" : {
+        "aipersist" : {
+          "checkpoint" : {
+            "checkpointDelayMillis" : 100
+          }
+        }
+      },
+      "profiles:" : [
+        {
+          "name" : "clock_aipersist",
+          "engine": "aipersist",
+          "replacementMode" : "CLOCK"
+        }
+      ]
+    }
+  }
+}
 ----
+
+You can then use the profile (in this case, `clock_aipersist`) in your distribution zone configuration.

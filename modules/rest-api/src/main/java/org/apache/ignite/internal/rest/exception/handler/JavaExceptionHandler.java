@@ -29,16 +29,16 @@ import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link Exception} and represents it as an application/problem+json response. This will catch all unhandled exceptions since all
+ * Handles {@link Throwable} and represents it as an application/problem+json response. This will catch all unhandled exceptions since all
  * REST endpoints are marked as producing problem json.
  */
 @Singleton
-@Requires(classes = {Exception.class, ExceptionHandler.class})
-public class JavaExceptionHandler implements ExceptionHandler<Exception, HttpResponse<? extends Problem>> {
+@Requires(classes = {Throwable.class, ExceptionHandler.class})
+public class JavaExceptionHandler implements ExceptionHandler<Throwable, HttpResponse<? extends Problem>> {
     private static final IgniteLogger LOG = Loggers.forClass(JavaExceptionHandler.class);
 
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, Exception exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, Throwable exception) {
         LOG.error("Unhandled exception", exception);
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.INTERNAL_SERVER_ERROR)

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
+import org.apache.ignite.configuration.annotation.InjectedValue;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for filling the configuration node.
@@ -48,4 +50,11 @@ public interface ConstructableTreeNode {
      * @return {@code true} if node became immutable, {@code false} if it has already been immutable before.
      */
     boolean makeImmutable();
+
+    /**
+     * Returns the name of the field annotated with {@link InjectedValue} or {@code null} if no such field exists.
+     */
+    default @Nullable String injectedValueFieldName() {
+        return null;
+    }
 }

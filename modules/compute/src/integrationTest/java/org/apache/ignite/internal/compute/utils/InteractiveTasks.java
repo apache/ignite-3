@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
@@ -148,7 +148,7 @@ public final class InteractiveTasks {
     /**
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, Object, Object, List<String>> {
+    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, String, String, List<String>> {
         // When listening for signal is interrupted, if this flag is true, then corresponding method will throw exception,
         // otherwise it will clean the interrupted status.
         private boolean throwExceptionOnInterruption = true;
@@ -169,7 +169,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, String args) {
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -187,9 +187,9 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case SPLIT_RETURN_ALL_NODES:
-                            return completedFuture(context.ignite().clusterNodes().stream().map(node ->
-                                    MapReduceJob.builder()
-                                            .jobDescriptor(JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build())
+                            return completedFuture(context.ignite().cluster().nodes().stream().map(node ->
+                                    MapReduceJob.<String, String>builder()
+                                            .jobDescriptor(InteractiveJobs.interactiveJobDescriptor())
                                             .nodes(Set.of(node))
                                             .build()
                             ).collect(toList()));
@@ -208,7 +208,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {
@@ -220,9 +220,7 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case REDUCE_RETURN:
-                            return completedFuture(results.values().stream()
-                                    .map(String.class::cast)
-                                    .collect(toList()));
+                            return completedFuture(new ArrayList<>(results.values()));
                         case CHECK_CANCEL:
                             if (context.isCancelled()) {
                                 throw new RuntimeException("Task is cancelled");

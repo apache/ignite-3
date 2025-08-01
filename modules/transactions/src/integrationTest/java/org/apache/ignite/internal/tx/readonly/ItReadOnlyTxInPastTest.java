@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.tx.readonly;
 
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -44,7 +51,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void prepareCluster() {
         // Setting idleSafeTimePropagationDuration to 1 second so that an RO tx has a potential to look before a table was created.
-        cluster.startAndInit(1, builder -> builder.clusterConfiguration("ignite.replication.idleSafeTimePropagationDuration: 1000"));
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration("ignite.replication.idleSafeTimePropagationDurationMillis: 1000"));
 
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
@@ -56,8 +63,18 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
      * table did not yet exist) even when the 'look in the past' optimization is enabled.
      */
     @Test
-    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
+    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
         Ignite node = cluster.node(0);
+
+        if (colocationEnabled()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+        }
+
+        // In case of empty assignments, SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this, assignments stabilization is needed, otherwise test may fail. Not related to colocation.
+        awaitAssignmentsStabilization(node, TABLE_NAME);
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {
@@ -79,5 +96,13 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
         long count = cluster.query(0, "SELECT COUNT(*) FROM " + TABLE_NAME, rs -> rs.next().longValue(0));
 
         assertThat(count, is(0L));
+    }
+
+    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
+
+        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
 }

@@ -46,7 +46,7 @@ abstract class AbstractSchemaChangeTest extends ClusterPerTestIntegrationTest {
      *
      */
     protected void createTable() {
-        executeSql("CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
+        executeSql("CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob VARBINARY,"
                 + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
     }
 

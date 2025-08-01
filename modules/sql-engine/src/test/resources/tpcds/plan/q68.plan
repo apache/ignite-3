@@ -1,0 +1,97 @@
+Sort
+    collation: [C_LAST_NAME ASC, SS_TICKET_NUMBER ASC]
+    fetch: 100
+    est: (rows=100)
+  Project
+      fieldNames: [C_LAST_NAME, C_FIRST_NAME, CA_CITY, BOUGHT_CITY, SS_TICKET_NUMBER, EXTENDED_PRICE, EXTENDED_TAX, LIST_PRICE]
+      projection: [C_LAST_NAME, C_FIRST_NAME, CA_CITY, BOUGHT_CITY, SS_TICKET_NUMBER, EXTENDED_PRICE, EXTENDED_TAX, LIST_PRICE]
+      est: (rows=42856)
+    HashJoin
+        predicate: AND(<>(CA_CITY, BOUGHT_CITY), =(C_CURRENT_ADDR_SK, CA_ADDRESS_SK))
+        type: inner
+        est: (rows=42856)
+      Exchange
+          distribution: single
+          est: (rows=50000)
+        TableScan
+            table: PUBLIC.CUSTOMER_ADDRESS
+            fieldNames: [CA_ADDRESS_SK, CA_CITY]
+            est: (rows=50000)
+      HashJoin
+          predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
+          type: inner
+          est: (rows=61223)
+        Exchange
+            distribution: single
+            est: (rows=100000)
+          TableScan
+              table: PUBLIC.CUSTOMER
+              fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK, C_FIRST_NAME, C_LAST_NAME]
+              est: (rows=100000)
+        Project
+            fieldNames: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, BOUGHT_CITY, EXTENDED_PRICE, LIST_PRICE, EXTENDED_TAX]
+            projection: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, BOUGHT_CITY, EXTENDED_PRICE, LIST_PRICE, EXTENDED_TAX]
+            est: (rows=61223)
+          ColocatedHashAggregate
+              fieldNames: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, SS_ADDR_SK, BOUGHT_CITY, EXTENDED_PRICE, LIST_PRICE, EXTENDED_TAX]
+              group: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, SS_ADDR_SK, BOUGHT_CITY]
+              aggregation: [SUM(SS_EXT_SALES_PRICE), SUM(SS_EXT_LIST_PRICE), SUM(SS_EXT_TAX)]
+              est: (rows=61223)
+            Project
+                fieldNames: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, SS_ADDR_SK, BOUGHT_CITY, SS_EXT_SALES_PRICE, SS_EXT_LIST_PRICE, SS_EXT_TAX]
+                projection: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, SS_ADDR_SK, CA_CITY, SS_EXT_SALES_PRICE, SS_EXT_LIST_PRICE, SS_EXT_TAX]
+                est: (rows=103698)
+              HashJoin
+                  predicate: =(SS_ADDR_SK, CA_ADDRESS_SK)
+                  type: inner
+                  est: (rows=103698)
+                HashJoin
+                    predicate: =(SS_STORE_SK, S_STORE_SK)
+                    type: inner
+                    est: (rows=103698)
+                  HashJoin
+                      predicate: =(SS_HDEMO_SK, HD_DEMO_SK)
+                      type: inner
+                      est: (rows=182417)
+                    HashJoin
+                        predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                        type: inner
+                        est: (rows=547798)
+                      Exchange
+                          distribution: single
+                          est: (rows=2880404)
+                        TableScan
+                            table: PUBLIC.STORE_SALES
+                            fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_HDEMO_SK, SS_ADDR_SK, SS_STORE_SK, SS_TICKET_NUMBER, SS_EXT_SALES_PRICE, SS_EXT_LIST_PRICE, SS_EXT_TAX]
+                            est: (rows=2880404)
+                      Exchange
+                          distribution: single
+                          est: (rows=13893)
+                        TableScan
+                            table: PUBLIC.DATE_DIM
+                            predicate: AND(SEARCH(D_DOM, Sarg[[1..2]]), SEARCH(D_YEAR, Sarg[1999, 2000, 2001]))
+                            fieldNames: [D_DATE_SK, D_YEAR, D_DOM]
+                            est: (rows=13893)
+                    Exchange
+                        distribution: single
+                        est: (rows=2398)
+                      TableScan
+                          table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
+                          predicate: OR(=(HD_DEP_COUNT, 4), =(HD_VEHICLE_COUNT, 0))
+                          fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
+                          est: (rows=2398)
+                  Exchange
+                      distribution: single
+                      est: (rows=7)
+                    TableScan
+                        table: PUBLIC.STORE
+                        predicate: SEARCH(S_CITY, Sarg[_UTF-8'Bethel':VARCHAR(60) CHARACTER SET "UTF-8", _UTF-8'Pleasant Hill':VARCHAR(60) CHARACTER SET "UTF-8"]:VARCHAR(60) CHARACTER SET "UTF-8")
+                        fieldNames: [S_STORE_SK, S_CITY]
+                        est: (rows=7)
+                Exchange
+                    distribution: single
+                    est: (rows=50000)
+                  TableScan
+                      table: PUBLIC.CUSTOMER_ADDRESS
+                      fieldNames: [CA_ADDRESS_SK, CA_CITY]
+                      est: (rows=50000)

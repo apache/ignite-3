@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -29,18 +30,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test for the REST endpoints in case cluster is not initialized.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
@@ -112,8 +111,11 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then.
         assertThat(response.statusCode(), is(200));
-        // And version is a semver.
-        assertThat(response.body(), matchesRegex(IgniteProductVersion.VERSION_PATTERN));
+        // And version contains product name and version which is a semver
+        assertAll(
+                () -> assertThat(response.body(), hasJsonPath("$.version", matchesRegex(IgniteProductVersion.VERSION_PATTERN))),
+                () -> assertThat(response.body(), hasJsonPath("$.product", is("Apache Ignite")))
+        );
     }
 
     @Test
@@ -122,7 +124,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -135,18 +137,15 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
         Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(400));
-        assertAll(
-                () -> assertThat(initProblem.status(), is(400)),
-                () -> assertThat(initProblem.title(), is("Bad Request")),
-                () -> assertThat(
-                        initProblem.detail(),
-                        containsString("Key 'qwe123' may not be followed")
-                )
+        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
+        assertThat(initProblem, isProblem()
+                .withStatus(HttpStatus.BAD_REQUEST.getCode())
+                .withTitle(HttpStatus.BAD_REQUEST.getReason())
+                .withDetail(containsString("Key 'qwe123' may not be followed"))
         );
 
         // And cluster is not initialized.
-        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
+        cluster.servers().forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 
     @Test
@@ -155,7 +154,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -168,17 +167,14 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
         Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(400));
-        assertAll(
-                () -> assertThat(initProblem.status(), is(400)),
-                () -> assertThat(initProblem.title(), is("Bad Request")),
-                () -> assertThat(
-                        initProblem.detail(),
-                        containsString("'boolean' is expected as a type for the 'ignite.security.enabled' configuration value")
-                )
+        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
+        assertThat(initProblem, isProblem()
+                .withStatus(HttpStatus.BAD_REQUEST.getCode())
+                .withTitle(HttpStatus.BAD_REQUEST.getReason())
+                .withDetail(containsString("'boolean' is expected as a type for the 'ignite.security.enabled' configuration value"))
         );
 
         // And cluster is not initialized.
-        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
+        cluster.servers().forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 }

@@ -19,7 +19,7 @@
     <PropertyGroup>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <WarningsAsErrors>CS8785</WarningsAsErrors>
-        <LangVersion>10</LangVersion>
+        <LangVersion>12</LangVersion>
         <Nullable>enable</Nullable>
         <AnalysisMode>All</AnalysisMode>
 
@@ -38,11 +38,21 @@
         <NuGetAudit>true</NuGetAudit>
         <NuGetAuditMode>all</NuGetAuditMode> <!-- Direct and transitive dependencies -->
         <NuGetAuditLevel>low</NuGetAuditLevel> <!-- Fail on low+ severity issues -->
+
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+        <GitVersionBaseDirectory>$(MSBuildThisFileDirectory)</GitVersionBaseDirectory>
+
+        <!-- Package Compatibility Checks -->
+        <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
+        <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
+        <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
+        <CompatibilitySuppressionFilePath>ApiCompatibilitySuppressions.xml</CompatibilitySuppressionFilePath>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0"/>
-        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all"/>
+        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
@@ -56,7 +66,7 @@
     <ItemGroup>
         <PackageReference Include="Nerdbank.GitVersioning">
             <PrivateAssets>all</PrivateAssets>
-            <Version>3.6.128</Version>
+            <Version>3.7.115</Version>
         </PackageReference>
     </ItemGroup>
 

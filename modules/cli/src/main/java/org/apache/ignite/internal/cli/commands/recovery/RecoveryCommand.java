@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.cli.commands.recovery;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.recovery.cluster.RecoveryClusterCommand;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionsCommand;
 import picocli.CommandLine.Command;
 
 /** Disaster recovery command. */
 @Command(name = "recovery",
         subcommands = {
-                PartitionsCommand.class
+                PartitionsCommand.class,
+                RecoveryClusterCommand.class
         },
         description = "Manages disaster recovery of Ignite cluster")
 public class RecoveryCommand extends BaseCommand {

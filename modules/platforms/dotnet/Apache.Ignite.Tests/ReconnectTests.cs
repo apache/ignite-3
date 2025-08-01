@@ -86,6 +86,7 @@ public class ReconnectTests
     }
 
     [Test]
+    [Timeout(30_000)]
     public async Task TestDroppedConnectionsAreRestoredInBackground()
     {
         var cfg = new IgniteClientConfiguration

@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,13 +32,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -64,6 +68,8 @@ public class PersistentTxStateVacuumizer {
 
     private final PlacementDriver placementDriver;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -71,17 +77,20 @@ public class PersistentTxStateVacuumizer {
      * @param localNode Local node.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
+     * @param failureProcessor Failure processor.
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
             ClusterNode localNode,
             ClockService clockService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            FailureProcessor failureProcessor
     ) {
         this.replicaService = replicaService;
         this.localNode = localNode;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -90,7 +99,11 @@ public class PersistentTxStateVacuumizer {
      * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of {@link VacuumizableTx}.
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
-    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(Map<TablePartitionId, Set<VacuumizableTx>> txIds) {
+    public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+            // Should be changed to ZonePartitionId.
+            Map<ReplicationGroupId, Set<VacuumizableTx>> txIds
+    ) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         AtomicInteger vacuumizedPersistentTxnStatesCount = new AtomicInteger();
@@ -117,9 +130,16 @@ public class PersistentTxStateVacuumizer {
                                 }
                             }
 
+                            if (filteredTxIds.isEmpty()) {
+                                // There is no need to send a request if there are no transaction metas to vacuum.
+                                return nullCompletedFuture();
+                            }
+
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
+                                    // Should be changed to ZonePartitionId.
+                                    .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)
                                     .build();
 
@@ -127,13 +147,17 @@ public class PersistentTxStateVacuumizer {
                                 if (e == null) {
                                     successful.addAll(filteredTxIds);
                                     vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
+                                } else if (expectedException(e)) {
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
-                                    // a part of regular flow and doesn't need to be logged.
-                                } else if (unwrapCause(e) instanceof PrimaryReplicaMissException) {
+                                    // a part of regular flow and doesn't need to be logged. NodeStoppingException should be ignored as
+                                    // vacuumization will be retried after restart.
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
-                                    LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Failed to vacuum tx states from the persistent storage."
+                                    ));
                                 }
                             });
                         } else {
@@ -148,6 +172,14 @@ public class PersistentTxStateVacuumizer {
 
         return allOf(futures)
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
+    }
+
+    private boolean expectedException(Throwable e) {
+        return hasCause(e,
+                PrimaryReplicaMissException.class,
+                NodeStoppingException.class,
+                GroupOverloadedException.class
+        );
     }
 
     /**

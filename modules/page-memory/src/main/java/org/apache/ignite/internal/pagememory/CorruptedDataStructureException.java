@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import static org.apache.ignite.lang.ErrorGroups.Storage.STORAGE_CORRUPTED_ERR;
+
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +42,7 @@ public abstract class CorruptedDataStructureException extends IgniteInternalChec
      * @param pageIds PageId's that can be corrupted.
      */
     protected CorruptedDataStructureException(String msg, @Nullable Throwable cause, int grpId, long[] pageIds) {
-        super(msg, cause);
+        super(STORAGE_CORRUPTED_ERR, msg, cause);
 
         this.grpId = grpId;
         this.pageIds = pageIds;
@@ -60,4 +62,3 @@ public abstract class CorruptedDataStructureException extends IgniteInternalChec
         return grpId;
     }
 }
-

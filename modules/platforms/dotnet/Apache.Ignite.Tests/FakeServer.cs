@@ -46,11 +46,11 @@ namespace Apache.Ignite.Tests
     {
         public const string Err = "Err!";
 
-        public const string ExistingTableName = "tbl1";
+        public const string ExistingTableName = "TBL1";
 
-        public const string CompositeKeyTableName = "tbl2";
+        public const string CompositeKeyTableName = "TBL2";
 
-        public const string CustomColocationKeyTableName = "tbl3";
+        public const string CustomColocationKeyTableName = "TBL3";
 
         public const string GetDetailsJob = "get-details";
 
@@ -85,8 +85,8 @@ namespace Apache.Ignite.Tests
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
-            PartitionAssignment = new[] { Node.Id };
+            Node = new ClusterNode(Guid.NewGuid(), nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
+            PartitionAssignment = new[] { nodeName };
             ClusterNodes = new[] { Node };
 
             if (!disableOpsTracking)
@@ -136,6 +136,8 @@ namespace Apache.Ignite.Tests
         public long LastClientObservableTimestamp { get; set; }
 
         public IList<IClusterNode> ClusterNodes { get; set; }
+
+        public bool DisableRandomHandshake { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -188,8 +190,24 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(4);
             handshakeWriter.Write("-abcd");
 
-            handshakeWriter.WriteBinaryHeader(0); // Features.
-            handshakeWriter.Write(0); // Extensions.
+            if (DisableRandomHandshake || Random.Shared.Next(2) == 1)
+            {
+                handshakeWriter.WriteBinaryHeader(0); // Features.
+                handshakeWriter.Write(0); // Extensions.
+            }
+            else
+            {
+                // Test that client skips those correctly.
+                handshakeWriter.WriteBinaryHeader(3); // Features.
+                handshakeWriter.Write([1, 2, 3]); // Random feature bits
+
+                handshakeWriter.Write(5); // Extensions.
+                for (int i = 0; i < 5; i++)
+                {
+                    handshakeWriter.Write("test-ext-" + i);
+                    handshakeWriter.Write(i);
+                }
+            }
 
             var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
             handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -241,6 +259,7 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
+                            arrayBufferWriter.MessageWriter.Write(tableName);
 
                             Send(handler, requestId, arrayBufferWriter);
 
@@ -309,6 +328,7 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.TxBegin:
                         reader.Skip(); // Read only.
+                        reader.Skip(); // TimeoutMillis.
                         LastClientObservableTimestamp = reader.ReadInt64();
 
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
@@ -328,7 +348,8 @@ namespace Apache.Ignite.Tests
                             rw.Write(1);
                         }
 
-                        rw.Write(Guid.NewGuid());
+                        rw.Write(Guid.NewGuid()); // Job id.
+                        WriteNode(Node, ref rw);
 
                         Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
@@ -400,7 +421,7 @@ namespace Apache.Ignite.Tests
 
                             writer.Write(index); // Partition id.
                             writer.Write(4); // Prop count.
-                            writer.Write(nodeId); // Id.
+                            writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.
                             writer.Write("localhost"); // Host.
                             writer.Write(10900 + index); // Port.
@@ -419,16 +440,7 @@ namespace Apache.Ignite.Tests
 
                         foreach (var node in ClusterNodes)
                         {
-                            writer.Write(4); // Field count.
-                            writer.Write(node.Id);
-                            writer.Write(node.Name);
-
-                            var addr = node.Address is IPEndPoint ip
-                                ? (ip.Address.ToString(), ip.Port)
-                                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
-
-                            writer.Write(addr.Item1);
-                            writer.Write(addr.Port);
+                            WriteNode(node, ref writer);
                         }
 
                         Send(handler, requestId, arrayBufferWriter);
@@ -450,6 +462,25 @@ namespace Apache.Ignite.Tests
             }
 
             handler.Disconnect(true);
+        }
+
+        private static (string Host, int Port) GetNodeAddress(IClusterNode node)
+        {
+            return node.Address is IPEndPoint ip
+                ? (ip.Address.ToString(), ip.Port)
+                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
+        }
+
+        private static void WriteNode(IClusterNode node, ref MsgPackWriter writer)
+        {
+            writer.Write(4); // Field count.
+
+            writer.Write(node.Id);
+            writer.Write(node.Name);
+
+            var (host, port) = GetNodeAddress(node);
+            writer.Write(host);
+            writer.Write(port);
         }
 
         private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)

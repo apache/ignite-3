@@ -18,45 +18,130 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.dateTime;
+import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.instant;
+import static org.apache.ignite.internal.sql.engine.ItIntervalTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.toSqlType;
+import static org.apache.ignite.sql.ColumnType.DATETIME;
+import static org.apache.ignite.sql.ColumnType.TIME;
+import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
+import org.apache.calcite.avatica.util.TimeUnit;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlIntervalLiteral;
+import org.apache.calcite.sql.SqlIntervalLiteral.IntervalValue;
+import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Interval coverage tests. */
 public class ItIntervalTest extends BaseSqlIntegrationTest {
+
+    private static final Set<SqlTypeName> DATETIME_TYPES = Set.of(
+            SqlTypeName.TIME,
+            SqlTypeName.DATE,
+            SqlTypeName.TIMESTAMP,
+            SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+    );
+
+    private static final Map<SqlTypeName, Set<SqlTypeName>> DATETIME_INTERVALS = Map.of(
+            SqlTypeName.TIME, Set.of(
+                    SqlTypeName.INTERVAL_DAY,
+                    SqlTypeName.INTERVAL_DAY_HOUR,
+                    SqlTypeName.INTERVAL_DAY_MINUTE,
+                    SqlTypeName.INTERVAL_DAY_SECOND,
+                    SqlTypeName.INTERVAL_HOUR,
+                    SqlTypeName.INTERVAL_HOUR_MINUTE,
+                    SqlTypeName.INTERVAL_HOUR_SECOND,
+                    SqlTypeName.INTERVAL_MINUTE,
+                    SqlTypeName.INTERVAL_MINUTE_SECOND,
+                    SqlTypeName.INTERVAL_SECOND
+            ),
+            SqlTypeName.DATE, SqlTypeName.INTERVAL_TYPES,
+            SqlTypeName.TIMESTAMP, SqlTypeName.INTERVAL_TYPES,
+            SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, SqlTypeName.INTERVAL_TYPES
+    );
+
     @Override
     protected int initialNodes() {
         return 1;
+    }
+
+    @BeforeAll
+    public void createDateTimeColumnsTable() {
+        sql("CREATE TABLE datetime_cols (id INT PRIMARY KEY, "
+                + "date0_col DATE, "
+
+                + "time0_col TIME(0), "
+                + "time1_col TIME(1), "
+                + "time2_col TIME(2), "
+                + "time3_col TIME(3), "
+                + "time_nullable TIME(0) NULL, "
+                + "time_not_nullable TIME(0) NOT NULL, "
+
+                + "timestamp0_col TIMESTAMP(0), "
+                + "timestamp1_col TIMESTAMP(1), "
+                + "timestamp2_col TIMESTAMP(2), "
+                + "timestamp3_col TIMESTAMP(3), "
+                + "timestamp_nullable TIMESTAMP(0) NULL, "
+                + "timestamp_not_nullable TIMESTAMP(0) NOT NULL, "
+
+                + "timestamp_with_local_time_zone0_col TIMESTAMP(0) WITH LOCAL TIME ZONE, "
+                + "timestamp_with_local_time_zone1_col TIMESTAMP(1) WITH LOCAL TIME ZONE, "
+                + "timestamp_with_local_time_zone2_col TIMESTAMP(2) WITH LOCAL TIME ZONE, "
+                + "timestamp_with_local_time_zone3_col TIMESTAMP(3) WITH LOCAL TIME ZONE, "
+                + "timestamp_with_local_time_zone_nullable TIMESTAMP(0) WITH LOCAL TIME ZONE NULL, "
+                + "timestamp_with_local_time_zone_not_nullable TIMESTAMP(0) WITH LOCAL TIME ZONE NOT NULL "
+                + ")");
+        sql("INSERT INTO datetime_cols (id, time_not_nullable, timestamp_not_nullable, timestamp_with_local_time_zone_not_nullable)"
+                + " VALUES (1, TIME '00:00:00', TIMESTAMP '1970-01-01 00:00:00', TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00')");
     }
 
     /**
@@ -249,11 +334,130 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("dateTimeIntervalTestCases")
-    public void testBasicDateTimeIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
-        assertQuery(testCase.query())
+    public void testDateTimeLiteralIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
+        Interval intervalVal = testCase.intervalVal;
+        SqlTypeName typeName = testCase.type.getSqlTypeName();
+
+        String query;
+        if (intervalVal.sign() > 0) {
+            query = format("SELECT {} '{}' + {}", typeName.getSpaceName(), testCase.sqlDateLiteral(), intervalVal.toLiteral());
+        } else {
+            query = format("SELECT {} '{}' - {}", typeName.getSpaceName(), testCase.sqlDateLiteral(), intervalVal.toLiteral());
+        }
+
+        assertQuery(query)
                 .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
                 .returns(testCase.expected())
                 .check();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("dateTimeIntervalTestCases")
+    public void testDateTimeDynamicParamIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
+        Interval intervalVal = testCase.intervalVal;
+
+        String query;
+        if (intervalVal.sign() > 0) {
+            query = format("SELECT ? + {}", intervalVal.toLiteral());
+        } else {
+            query = format("SELECT ? - {}", intervalVal.toLiteral());
+        }
+
+        assertQuery(query)
+                .withParams(testCase.dateTimeValue())
+                .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
+                .returns(testCase.expected())
+                .check();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("colDateTimeIntervalTestCases")
+    public void testDateTimeColumnIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
+        Interval intervalVal = testCase.intervalVal;
+        SqlTypeName typeName = testCase.type.getSqlTypeName();
+
+        String colName = typeName.getName() + testCase.type.getPrecision() + "_col";
+
+        String dml = format("UPDATE datetime_cols SET {} = {} '{}' WHERE id = 1",
+                colName,
+                typeName.getSpaceName(),
+                testCase.sqlDateLiteral()
+        );
+        assertQuery(dml)
+                .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
+                .returnSomething()
+                .check();
+
+        String query;
+        if (intervalVal.sign() > 0) {
+            query = format("SELECT {} + {} FROM datetime_cols", colName, intervalVal.toLiteral());
+        } else {
+            query = format("SELECT {} - {} FROM datetime_cols", colName, intervalVal.toLiteral());
+        }
+
+        assertQuery(query)
+                .withTimeZoneId(DateTimeIntervalBasicTestCase.TIME_ZONE_ID)
+                .returns(testCase.expected())
+                .check();
+    }
+
+    private static List<DateTimeIntervalBasicTestCase> colDateTimeIntervalTestCases() {
+        List<DateTimeIntervalBasicTestCase> testCases = new ArrayList<>();
+
+        BiConsumer<SqlTypeName, Integer> addVariants = (typeName, precision) -> {
+            Map<SqlTypeName, List<Interval>> intervalValues = createIntervalValues(typeName);
+
+            for (Map.Entry<SqlTypeName, List<Interval>> entry : intervalValues.entrySet()) {
+                for (Interval value : entry.getValue()) {
+                    if (precision != null) {
+                        testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, precision, value));
+                        testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, precision, value.negated()));
+                    } else {
+                        testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, value));
+                        testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, value.negated()));
+                    }
+                }
+            }
+        };
+
+        for (SqlTypeName typeName : DATETIME_TYPES) {
+            if (!typeName.allowsPrec()) {
+                addVariants.accept(typeName, null);
+            } else {
+                for (int p : new int[]{0, 1, 2, 3}) {
+                    addVariants.accept(typeName, p);
+                }
+            }
+        }
+
+        return testCases;
+    }
+
+    @Test
+    public void testRejectNotAllowedIntervalPlusMinusOperations() {
+        // TIME + INTERVAL / INTERVAL + TIME
+        BiConsumer<String, String> timePlus = (interval, type) -> {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                    "Cannot apply '+' to arguments of type '<TIME(0)> + " + type + "'",
+                    () -> sql("SELECT TIME '00:00:00' + " + interval));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                    "Cannot apply '+' to arguments of type '" + type + " + <TIME(0)>'",
+                    () -> sql("SELECT " + interval + " + TIME '00:00:00'"));
+        };
+
+        timePlus.accept("INTERVAL '1' YEAR", "<INTERVAL YEAR>");
+        timePlus.accept("INTERVAL '1' MONTH", "<INTERVAL MONTH>");
+        timePlus.accept("INTERVAL '1-1' YEAR TO MONTH", "<INTERVAL YEAR TO MONTH>");
+
+        // TIME - INTERVAL
+        BiConsumer<String, String> timeMinus = (interval, type) -> assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply '-' to arguments of type '<TIME(0)> - " + type + "'",
+                () -> sql("SELECT TIME '00:00:00' - " + interval));
+
+        timeMinus.accept("INTERVAL '1' YEAR", "<INTERVAL YEAR>");
+        timeMinus.accept("INTERVAL '1' MONTH", "<INTERVAL MONTH>");
+        timeMinus.accept("INTERVAL '1-1' YEAR TO MONTH", "<INTERVAL YEAR TO MONTH>");
     }
 
     /**
@@ -341,11 +545,469 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.123");
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.246");
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND", "2021-01-02T01:01:01.123");
+        timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
+    }
 
-        // TODO Enable this case after https://issues.apache.org/jira/browse/IGNITE-21557
-        if (sqlTypeName != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-            timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
+    @ParameterizedTest
+    @MethodSource("testDatetimePlusMinusIntervalWithFractionOfSecondLiteralArgs")
+    public void testDatetimePlusMinusIntervalWithFractionOfSecond(String expr, Temporal expected, ColumnType expType, int expPrecision) {
+        SqlTypeName sqlType = SqlTestUtils.columnType2SqlTypeName(expType);
+
+        assertQuery("SELECT " + expr)
+                .withTimeZoneId(ZoneOffset.UTC)
+                .columnMetadata(new MetadataMatcher().type(expType).precision(expPrecision))
+                .returns(expected)
+                .check();
+
+        Consumer<Integer> updateValidator = columnPrecision -> {
+            String columnPrefix = sqlType.getName();
+
+            assertQuery(format("UPDATE datetime_cols SET {}{}_col={}", columnPrefix, columnPrecision, expr))
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .check();
+
+            assertQuery(format("SELECT {}{}_col FROM datetime_cols", sqlType.getName(), columnPrecision))
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .columnMetadata(new MetadataMatcher().type(expType).precision(columnPrecision))
+                    .returns(SqlTestUtils.adjustTemporalPrecision(expType, expected, Math.min(expPrecision, columnPrecision)))
+                    .check();
+        };
+
+        // UPDATE column with precision 0-3.
+        updateValidator.accept(0);
+        updateValidator.accept(1);
+        updateValidator.accept(2);
+        updateValidator.accept(3);
+    }
+
+    private static Stream<Arguments> testDatetimePlusMinusIntervalWithFractionOfSecondLiteralArgs() {
+        return Stream.concat(
+                testDatetimePlusIntervalWithFractionOfSecondArgs()
+                        .flatMap(arg -> {
+                            Object[] args = arg.get();
+                            String literal = format("{} '{}'{}", toSqlType((ColumnType) args[4]), args[0], args[1]);
+
+                            return Stream.of(
+                                    // datetime + interval
+                                    Arguments.of(literal + " + " + args[2], args[3], args[4], args[5]),
+                                    // interval + datetime
+                                    Arguments.of(args[2] + " + " + literal, args[3], args[4], args[5]));
+                        }),
+                testDatetimeMinusIntervalWithFrartionOfSecondArgs()
+                        .map(arg -> {
+                            Object[] args = arg.get();
+                            String expression = format("{} '{}'{} - {}", toSqlType((ColumnType) args[4]), args[0], args[1], args[2]);
+
+                            // datetime - interval
+                            return Arguments.of(expression, args[3], args[4], args[5]);
+                        })
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("testDatetimePlusMinusIntervalWithFractionOfSecondDynParamArgs")
+    public void testDatetimePlusMinusIntervalWithFractionOfSecondDynParam(String expr, Temporal param, Temporal expected,
+            ColumnType expType, int expPrecision) {
+        SqlTypeName sqlType = SqlTestUtils.columnType2SqlTypeName(expType);
+
+        assertQuery("SELECT " + expr)
+                .withParam(param)
+                .withTimeZoneId(ZoneOffset.UTC)
+                .columnMetadata(new MetadataMatcher().type(expType).precision(expPrecision))
+                .returns(expected)
+                .check();
+
+        Consumer<Integer> updateValidator = columnPrecision -> {
+            String columnPrefix = sqlType.getName();
+
+            assertQuery(format("UPDATE datetime_cols SET {}{}_col={}", columnPrefix, columnPrecision, expr))
+                    .withParam(param)
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .check();
+
+            assertQuery(format("SELECT {}{}_col FROM datetime_cols", sqlType.getName(), columnPrecision))
+                    .withTimeZoneId(ZoneOffset.UTC)
+                    .columnMetadata(new MetadataMatcher().type(expType).precision(columnPrecision))
+                    .returns(SqlTestUtils.adjustTemporalPrecision(expType, expected, Math.min(expPrecision, columnPrecision)))
+                    .check();
+        };
+
+        // UPDATE column with precision 0-3.
+        updateValidator.accept(0);
+        updateValidator.accept(1);
+        updateValidator.accept(2);
+        updateValidator.accept(3);
+    }
+
+    private static Stream<Arguments> testDatetimePlusMinusIntervalWithFractionOfSecondDynParamArgs() {
+        BiFunction<String, ColumnType, Temporal> parser = (value, type) -> {
+            switch (type) {
+                case TIME:
+                    return time(value);
+
+                case DATETIME:
+                    return dateTime(value);
+
+                case TIMESTAMP:
+                    return instant(value);
+
+                default:
+                    throw new IllegalArgumentException("Unexpected type " + type);
+            }
+        };
+
+        return Stream.concat(
+                testDatetimePlusIntervalWithFractionOfSecondArgs()
+                        .flatMap(arg -> {
+                            Object[] args = arg.get();
+                            Temporal input = parser.apply((String) args[0], (ColumnType) args[4]);
+                            String paramExpr = format("?{}", args[1]);
+
+                            // The default precision of a dynamic parameter is different from a literal,
+                            // we need to override it if there was no explicit type cast.
+                            if (((String) args[1]).isEmpty()) {
+                                args[5] = IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+                            }
+
+                            return Stream.of(
+                                    // datetime + interval
+                                    Arguments.of(paramExpr + " + " + args[2], input, args[3], args[4], args[5]),
+                                    // interval + datetime
+                                    Arguments.of(args[2] + " + " + paramExpr, input, args[3], args[4], args[5]));
+                        }),
+                testDatetimeMinusIntervalWithFrartionOfSecondArgs()
+                        .map(arg -> {
+                            Object[] args = arg.get();
+                            Temporal input = parser.apply((String) args[0], (ColumnType) args[4]);
+                            String expression = format("?{} - {}", args[1], args[2]);
+
+                            // The default precision of a dynamic parameter is different from a literal,
+                            // we need to override it if there was no explicit type cast.
+                            if (((String) args[1]).isEmpty()) {
+                                args[5] = IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+                            }
+
+                            // datetime - interval
+                            return Arguments.of(expression, input, args[3], args[4], args[5]);
+                        })
+        );
+    }
+
+    private static Stream<Arguments> testDatetimePlusIntervalWithFractionOfSecondArgs() {
+        // DATETIME + INTERVAL
+        return Stream.of(
+                // SQL 2016 10.1 syntax rule 6 "interval fractional seconds precision" should be 6 by default
+                Arguments.of("00:00:00", "", "INTERVAL '1' SECOND", time("00:00:01"), TIME, 6),
+                Arguments.of("00:00:00", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND", time("00:01:01"), TIME, 6),
+                Arguments.of("00:00:00", "::TIME(9)", "INTERVAL '1:1' MINUTE TO SECOND", time("00:01:01"), TIME, 9),
+
+                // INTERVAL precision greater than the TIME precision.
+                Arguments.of("00:00:00", "", "INTERVAL '0.001' SECOND", time("00:00:00.001"), TIME, 6),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.2"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.11"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.101"), TIME, 3),
+
+                Arguments.of("00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("00:01:11.11"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)", time("00:01:11.111"), TIME, 3),
+
+                // TIME precision greater than the INTERVAL precision.
+                Arguments.of("00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)", time("00:00:01.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)", time("00:00:01.001"), TIME, 3),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("00:01:01.001"), TIME, 3),
+
+                // TIME literal and dyn param with explicit cast.
+                Arguments.of("00:00:00", "::TIME(0)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00", "::TIME(3)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 3),
+                Arguments.of("00:00:00", "::TIME(6)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 6),
+                Arguments.of("00:00:00", "::TIME(9)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 9),
+                Arguments.of("00:00:00.111", "::TIME(0)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01"), TIME, 0),
+                Arguments.of("00:00:00.111", "::TIME(1)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.1"), TIME, 1),
+                Arguments.of("00:00:00.111", "::TIME(2)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.11"), TIME, 2),
+                Arguments.of("00:00:00.111", "::TIME(3)", "INTERVAL '1' SECOND(1, 0)", time("00:00:01.111"), TIME, 3),
+
+                // TIMESTAMP
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        dateTime("1970-01-01 00:01:01"), DATETIME, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        dateTime("1970-01-01 00:00:00.001"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:00.2"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:00.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        dateTime("1970-01-01 00:00:00.101"), DATETIME, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        dateTime("1970-01-01 00:01:11.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
+                        dateTime("1970-01-01 00:01:11.111"), DATETIME, 3),
+
+                // TIMESTAMP precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:01.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:01.001"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1970-01-01 00:01:01.001"), DATETIME, 3),
+
+                // TIMESTAMP literal and dyn param with explicit cast
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(0)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(3)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(6)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(9)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 9),
+
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(0)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(1)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(2)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.11"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(3)", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:01.111"), DATETIME, 3),
+
+                // TIMESTAMP WITH LOCAL TIME ZONE
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        instant("1970-01-01 00:01:01"), TIMESTAMP, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        instant("1970-01-01 00:00:00.001"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:00.2"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:00.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        instant("1970-01-01 00:00:00.101"), TIMESTAMP, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        instant("1970-01-01 00:01:11.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.011' MINUTE TO SECOND(3)",
+                        instant("1970-01-01 00:01:11.111"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:01.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:01.001"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1970-01-01 00:01:01.001"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ literal and dyn param with explicit cast
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(0) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(3) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(6) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00", "::TIMESTAMP(9) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 9),
+
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(0) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(1) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(2) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.11"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.111", "::TIMESTAMP(3) WITH LOCAL TIME ZONE", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:01.111"), TIMESTAMP, 3)
+        );
+    }
+
+    private static Stream<Arguments> testDatetimeMinusIntervalWithFrartionOfSecondArgs() {
+        // DATETIME - INTERVAL
+        return Stream.of(
+                // TIME
+                Arguments.of("00:00:01", "", "INTERVAL '1' SECOND", time("00:00:00"), TIME, 6),
+                Arguments.of("00:00:01", "", "INTERVAL '1' SECOND(1, 0)", time("00:00:00"), TIME, 0),
+                Arguments.of("00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND", time("00:00:00"), TIME, 6),
+
+                // INTERVAL precision greater than the TIME precision.
+                Arguments.of("00:00:00", "", "INTERVAL '0.001' SECOND", time("23:59:59.999"), TIME, 6),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)", time("00:00:00.8"), TIME, 1),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)", time("00:00:00.89"), TIME, 2),
+                Arguments.of("00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)", time("00:00:00.899"), TIME, 3),
+
+                Arguments.of("00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)", time("23:58:58.9"), TIME, 1),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)", time("23:58:49.090"), TIME, 2),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)", time("23:58:49.099"), TIME, 3),
+
+                // TIME precision greater than the INTERVAL precision.
+                Arguments.of("00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)", time("23:59:59.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)", time("23:59:59.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)", time("23:59:59.001"), TIME, 3),
+                Arguments.of("00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.1"), TIME, 1),
+                Arguments.of("00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.01"), TIME, 2),
+                Arguments.of("00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)", time("23:58:59.001"), TIME, 3),
+
+                // TIMESTAMP
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 0),
+                Arguments.of("1970-01-01 00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        dateTime("1970-01-01 00:00:00"), DATETIME, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        dateTime("1969-12-31 23:59:59.999"), DATETIME, 6),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        dateTime("1970-01-01 00:00:00.8"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        dateTime("1970-01-01 00:00:00.89"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        dateTime("1970-01-01 00:00:00.899"), DATETIME, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:58.9"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        dateTime("1969-12-31 23:58:49.090"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)",
+                        dateTime("1969-12-31 23:58:49.099"), DATETIME, 3),
+
+                // TIMESTAMP precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        dateTime("1969-12-31 23:59:59.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        dateTime("1969-12-31 23:59:59.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        dateTime("1969-12-31 23:59:59.001"), DATETIME, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.1"), DATETIME, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.01"), DATETIME, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        dateTime("1969-12-31 23:58:59.001"), DATETIME, 3),
+
+                // TIMESTAMP_LTZ
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:01", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 0),
+                Arguments.of("1970-01-01 00:01:01", "", "INTERVAL '1:1' MINUTE TO SECOND",
+                        instant("1970-01-01 00:00:00"), TIMESTAMP, 6),
+
+                // INTERVAL precision greater than the TIMESTAMP_LTZ precision.
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '0.001' SECOND",
+                        instant("1969-12-31 23:59:59.999"), TIMESTAMP, 6),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.1' SECOND(1, 1)",
+                        instant("1970-01-01 00:00:00.8"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.01' SECOND(1, 2)",
+                        instant("1970-01-01 00:00:00.89"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.9", "", "INTERVAL '0.001' SECOND(1, 3)",
+                        instant("1970-01-01 00:00:00.899"), TIMESTAMP, 3),
+
+                Arguments.of("1970-01-01 00:00:00", "", "INTERVAL '1:1.1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:58.9"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.01' MINUTE TO SECOND(2)",
+                        instant("1969-12-31 23:58:49.090"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:11.001' MINUTE TO SECOND(3)",
+                        instant("1969-12-31 23:58:49.099"), TIMESTAMP, 3),
+
+                // TIMESTAMP_LTZ precision greater than the INTERVAL precision.
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1' SECOND(1, 0)",
+                        instant("1969-12-31 23:59:59.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1' SECOND(1, 1)",
+                        instant("1969-12-31 23:59:59.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1' SECOND(1, 2)",
+                        instant("1969-12-31 23:59:59.001"), TIMESTAMP, 3),
+                Arguments.of("1970-01-01 00:00:00.1", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.1"), TIMESTAMP, 1),
+                Arguments.of("1970-01-01 00:00:00.01", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.01"), TIMESTAMP, 2),
+                Arguments.of("1970-01-01 00:00:00.001", "", "INTERVAL '1:1' MINUTE TO SECOND(1)",
+                        instant("1969-12-31 23:58:59.001"), TIMESTAMP, 3)
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("testDatetimePlusMinusIntervalNullabilityArgs")
+    public void testDatetimePlusMinusIntervalNullability(String colNamePrefix, Temporal inputValue) {
+        String nullableColName = format("{}_nullable", colNamePrefix);
+        String notNullableColName = format("{}_not_nullable", colNamePrefix);
+
+        assertQuery(format("UPDATE datetime_cols SET {}=?, {}=?", nullableColName, notNullableColName))
+                .withParams(inputValue, inputValue)
+                .withTimeZoneId(ZoneOffset.UTC)
+                .check();
+
+        // NULLABLE
+        {
+            assertQuery(format("SELECT {} + INTERVAL '0.1' SECOND(1, 1) from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT INTERVAL '0.1' SECOND(1, 1) + {} from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT {} - INTERVAL '0.1' SECOND(1, 1) from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.minus(100, ChronoUnit.MILLIS))
+                    .check();
         }
+
+        // NOT NULLABLE
+        {
+            assertQuery(format("SELECT {} + INTERVAL '0.1' SECOND(1, 1) from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT INTERVAL '0.1' SECOND(1, 1) + {} from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT {} - INTERVAL '0.1' SECOND(1, 1) from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.minus(100, ChronoUnit.MILLIS))
+                    .check();
+        }
+    }
+
+    private static Stream<Arguments> testDatetimePlusMinusIntervalNullabilityArgs() {
+        return Stream.of(
+                Arguments.of("TIME", time("00:00:00")),
+                Arguments.of("TIMESTAMP", dateTime("1970-01-01 00:00:00")),
+                Arguments.of("TIMESTAMP_WITH_LOCAL_TIME_ZONE", instant("1970-01-01 00:00:00"))
+        );
     }
 
     @Test
@@ -449,41 +1111,14 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     }
 
     private static List<DateTimeIntervalBasicTestCase> dateTimeIntervalTestCases() {
-        SqlTypeName[] types = {
-                SqlTypeName.TIME,
-                SqlTypeName.DATE,
-                SqlTypeName.TIMESTAMP,
-                SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-        };
-
-        Map<ChronoUnit, int[]> timeUnitData = new LinkedHashMap<>();
-
-        timeUnitData.put(ChronoUnit.SECONDS, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
-        timeUnitData.put(ChronoUnit.MINUTES, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
-        timeUnitData.put(ChronoUnit.HOURS, new int[]{1, 23, 24, 25, 48, 96, 1_000, 10_000});
-        timeUnitData.put(ChronoUnit.DAYS, new int[]{1, 29, 30, 31, 100, 1_000, 10_000});
-        timeUnitData.put(ChronoUnit.MONTHS, new int[]{1, 11, 12, 13, 100, 1_000});
-        timeUnitData.put(ChronoUnit.YEARS, new int[]{1, 10, 100, 1_000});
-
         List<DateTimeIntervalBasicTestCase> testCases = new ArrayList<>();
 
-        for (SqlTypeName typeName : types) {
-            for (Entry<ChronoUnit, int[]> entry : timeUnitData.entrySet()) {
-                ChronoUnit unit = entry.getKey();
-                // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21557
-                if (typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                        && (unit == ChronoUnit.MONTHS || unit == ChronoUnit.YEARS)) {
-                    continue;
-                }
-
-                // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21589
-                if (typeName == SqlTypeName.TIME && (unit == ChronoUnit.HOURS || unit == ChronoUnit.DAYS)) {
-                    continue;
-                }
-
-                for (int amount : entry.getValue()) {
-                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, unit, amount));
-                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, unit, -amount));
+        for (SqlTypeName typeName : DATETIME_TYPES) {
+            Map<SqlTypeName, List<Interval>> intervalValues = createIntervalValues(typeName);
+            for (Map.Entry<SqlTypeName, List<Interval>> entry : intervalValues.entrySet()) {
+                for (Interval value : entry.getValue()) {
+                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, value));
+                    testCases.add(DateTimeIntervalBasicTestCase.newTestCase(typeName, value.negated()));
                 }
             }
         }
@@ -491,52 +1126,197 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         return testCases;
     }
 
+    private static Map<SqlTypeName, List<Interval>> createIntervalValues(SqlTypeName dateTypeType) {
+        Map<SqlTypeName, int[]> singleUnitData = new LinkedHashMap<>();
+
+        singleUnitData.put(SqlTypeName.INTERVAL_SECOND, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
+        singleUnitData.put(SqlTypeName.INTERVAL_MINUTE, new int[]{1, 59, 60, 61, 100, 1_000, 10_000});
+        singleUnitData.put(SqlTypeName.INTERVAL_HOUR, new int[]{1, 23, 24, 25, 48, 96, 1_000, 10_000});
+        singleUnitData.put(SqlTypeName.INTERVAL_DAY, new int[]{1, 29, 30, 31, 100, 1_000, 10_000});
+        singleUnitData.put(SqlTypeName.INTERVAL_MONTH, new int[]{1, 11, 12, 13, 100, 1_000});
+        singleUnitData.put(SqlTypeName.INTERVAL_YEAR, new int[]{1, 10, 100, 1_000});
+
+        Map<SqlTypeName, List<Interval>> intervalValues = new LinkedHashMap<>();
+
+        Consumer<SqlTypeName> convert = (type) -> {
+            if (!DATETIME_INTERVALS.get(dateTypeType).contains(type)) {
+                return;
+            }
+            List<Interval> vals = intervalValues.computeIfAbsent(type, (k) -> new ArrayList<>());
+            for (int val : singleUnitData.get(type)) {
+                String literal = format("INTERVAL '{}' {}", val, type.getName().replace("INTERVAL_", ""));
+                vals.add(Interval.parse(literal));
+            }
+        };
+
+        // YEAR MONTH intervals
+
+        convert.accept(SqlTypeName.INTERVAL_YEAR);
+        convert.accept(SqlTypeName.INTERVAL_MONTH);
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_YEAR_MONTH)) {
+            Interval[] yearMonth = {
+                    Interval.parse("INTERVAL '1-0' YEAR TO MONTH"),
+                    Interval.parse("INTERVAL '7-1' YEAR TO MONTH"),
+                    Interval.parse("INTERVAL '17-11' YEAR TO MONTH"),
+            };
+            for (Interval interval : yearMonth) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_YEAR_MONTH, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+
+        // DAY SECOND intervals
+
+        convert.accept(SqlTypeName.INTERVAL_DAY);
+        convert.accept(SqlTypeName.INTERVAL_HOUR);
+        convert.accept(SqlTypeName.INTERVAL_MINUTE);
+        convert.accept(SqlTypeName.INTERVAL_SECOND);
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_DAY_HOUR)) {
+            Interval[] dayHour = {
+                    Interval.parse("INTERVAL '0 0' DAY TO HOUR"),
+                    Interval.parse("INTERVAL '3 0' DAY TO HOUR"),
+                    Interval.parse("INTERVAL '3 17' DAY TO HOUR"),
+                    Interval.parse("INTERVAL '99 17' DAY TO HOUR"),
+            };
+            for (Interval interval : dayHour) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_DAY_HOUR, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_DAY_MINUTE)) {
+            Interval[] dayMinute = {
+                    Interval.parse("INTERVAL '0 00:00' DAY TO MINUTE"),
+                    Interval.parse("INTERVAL '0 03:58' DAY TO MINUTE"),
+                    Interval.parse("INTERVAL '3 17:58' DAY TO MINUTE"),
+                    Interval.parse("INTERVAL '99 17:58' DAY TO MINUTE"),
+            };
+            for (Interval interval : dayMinute) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_DAY_MINUTE, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_DAY_SECOND)) {
+            Interval[] daySecond = {
+                    Interval.parse("INTERVAL '0 00:00:00' DAY TO SECOND"),
+                    Interval.parse("INTERVAL '3 17:58:59' DAY TO SECOND"),
+                    Interval.parse("INTERVAL '3 17:58:59.891' DAY TO SECOND"),
+                    Interval.parse("INTERVAL '99 17:58:59.891' DAY TO SECOND"),
+            };
+            for (Interval interval : daySecond) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_DAY_SECOND, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_HOUR_MINUTE)) {
+            Interval[] hourMinute = {
+                    Interval.parse("INTERVAL '00:00' HOUR TO MINUTE"),
+                    Interval.parse("INTERVAL '00:59' HOUR TO MINUTE"),
+                    Interval.parse("INTERVAL '05:00' HOUR TO MINUTE"),
+                    Interval.parse("INTERVAL '15:37' HOUR TO MINUTE"),
+                    Interval.parse("INTERVAL '23:59' HOUR TO MINUTE")
+            };
+            for (Interval interval : hourMinute) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_HOUR_MINUTE, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_HOUR_SECOND)) {
+            Interval[] hourSecond = {
+                    Interval.parse("INTERVAL '00:00:00' HOUR TO SECOND"),
+                    Interval.parse("INTERVAL '00:58:59' HOUR TO SECOND"),
+                    Interval.parse("INTERVAL '05:37:19' HOUR TO SECOND"),
+                    Interval.parse("INTERVAL '17:58:59' HOUR TO SECOND"),
+                    Interval.parse("INTERVAL '17:58:59.891' HOUR TO SECOND"),
+            };
+            for (Interval interval : hourSecond) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_HOUR_SECOND, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        if (DATETIME_INTERVALS.get(dateTypeType).contains(SqlTypeName.INTERVAL_MINUTE_SECOND)) {
+            Interval[] minuteSecond = {
+                    Interval.parse("INTERVAL '00:00' MINUTE TO SECOND"),
+                    Interval.parse("INTERVAL '00:37' MINUTE TO SECOND"),
+                    Interval.parse("INTERVAL '17:59' MINUTE TO SECOND"),
+                    Interval.parse("INTERVAL '43:29' MINUTE TO SECOND"),
+                    Interval.parse("INTERVAL '58:59' MINUTE TO SECOND"),
+                    Interval.parse("INTERVAL '58:59.891' MINUTE TO SECOND"),
+            };
+
+            for (Interval interval : minuteSecond) {
+                intervalValues.computeIfAbsent(SqlTypeName.INTERVAL_MINUTE_SECOND, (k) -> new ArrayList<>()).add(interval);
+            }
+        }
+
+        return intervalValues;
+    }
+
     abstract static class DateTimeIntervalBasicTestCase {
         private static final ZoneId TIME_ZONE_ID = ZoneId.of("Asia/Nicosia");
         private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
         private static final String dateString = "1992-01-19 00:00:00.123";
         private static final LocalDateTime testLocalDate = LocalDateTime.parse(dateString, dateTimeFormatter);
+        private static final int DEFAULT_DATETIME_LITERAL_PRECISION = 3;
 
-        final SqlTypeName type;
-        final ChronoUnit unit;
-        final int amount;
+        final RelDataType type;
+        final Interval intervalVal;
 
-        private String query;
-
-        private DateTimeIntervalBasicTestCase(SqlTypeName type, ChronoUnit unit, int amount) {
+        private DateTimeIntervalBasicTestCase(RelDataType type, Interval intervalVal) {
             this.type = type;
-            this.unit = unit;
-            this.amount = amount;
+            this.intervalVal = intervalVal;
         }
 
         public abstract Temporal expected();
 
-        public String query() {
-            if (query == null) {
-                String intervalSubstring = (amount > 0 ? '+' : '-') + " interval (" + Math.abs(amount) + ") " + unit;
-                query = format("SELECT {} '{}'{}", type.getSpaceName(), sqlDateLiteral(), intervalSubstring);
-            }
-
-            return query;
-        }
+        public abstract Temporal dateTimeValue();
 
         String sqlDateLiteral() {
             return dateString;
         }
 
-        static DateTimeIntervalBasicTestCase newTestCase(SqlTypeName type, ChronoUnit unit, Integer amount) {
+        static DateTimeIntervalBasicTestCase newTestCase(SqlTypeName type, int precision, Interval value) {
             switch (type) {
                 case TIMESTAMP:
-                    return new SqlTimestampIntervalIntervalTestCase(unit, amount);
+                    return new SqlTimestampIntervalIntervalTestCase(Commons.typeFactory().createSqlType(type, precision), value);
 
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                    return new SqlTimestampTzIntervalIntervalTestCase(unit, amount);
+                    return new SqlTimestampLtzIntervalIntervalTestCase(Commons.typeFactory().createSqlType(type, precision), value);
 
                 case DATE:
-                    return new SqlDateIntervalIntervalTestCase(unit, amount);
+                    return new SqlDateIntervalIntervalTestCase(value);
 
                 case TIME:
-                    return new SqlTimeIntervalIntervalTestCase(unit, amount);
+                    return new SqlTimeIntervalIntervalTestCase(Commons.typeFactory().createSqlType(type, precision), value);
+
+                default:
+                    throw new UnsupportedOperationException("Not implemented: " + type);
+            }
+        }
+
+        static DateTimeIntervalBasicTestCase newTestCase(SqlTypeName type, Interval value) {
+            switch (type) {
+                case TIMESTAMP:
+                    return new SqlTimestampIntervalIntervalTestCase(
+                            Commons.typeFactory().createSqlType(type, DEFAULT_DATETIME_LITERAL_PRECISION),
+                            value
+                    );
+
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                    return new SqlTimestampLtzIntervalIntervalTestCase(
+                            Commons.typeFactory().createSqlType(type, DEFAULT_DATETIME_LITERAL_PRECISION),
+                            value
+                    );
+
+                case DATE:
+                    return new SqlDateIntervalIntervalTestCase(value);
+
+                case TIME:
+                    return new SqlTimeIntervalIntervalTestCase(
+                            Commons.typeFactory().createSqlType(type, DEFAULT_DATETIME_LITERAL_PRECISION),
+                            value
+                    );
 
                 default:
                     throw new UnsupportedOperationException("Not implemented: " + type);
@@ -545,41 +1325,88 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
 
         @Override
         public String toString() {
-            return query();
+            StringBuilder sb = new StringBuilder();
+            sb.append(type.getSqlTypeName().getName());
+            if (type.getSqlTypeName().allowsPrec()) {
+                sb.append("(");
+                sb.append(type.getPrecision());
+                sb.append(")");
+            }
+            sb.append(" '");
+            sb.append(sqlDateLiteral());
+            sb.append("' ");
+            if (intervalVal.sign() > 0) {
+                sb.append("+ ");
+            } else {
+                sb.append("- ");
+            }
+            sb.append(intervalVal.toLiteral());
+            sb.append(" = ");
+            sb.append(expected());
+            return sb.toString();
         }
 
         private static class SqlTimestampIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
-            private SqlTimestampIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
-                super(SqlTypeName.TIMESTAMP, unit, amount);
+
+            final LocalDateTime timestamp;
+
+            private SqlTimestampIntervalIntervalTestCase(RelDataType type, Interval intervalVal) {
+                super(type, intervalVal);
+
+                int precision = type.getPrecision();
+                long nanos = SqlTestUtils.adjustNanos(testLocalDate.getNano(), precision);
+                timestamp = testLocalDate.with(ChronoField.NANO_OF_SECOND, nanos);
             }
 
             @Override
             public LocalDateTime expected() {
-                return testLocalDate.plus(amount, unit);
+                return timestamp.plus(intervalVal.toTemporalAmount());
+            }
+
+            @Override
+            public Temporal dateTimeValue() {
+                return timestamp;
             }
         }
 
-        private static class SqlTimestampTzIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
-            private SqlTimestampTzIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
-                super(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, unit, amount);
+        private static class SqlTimestampLtzIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
+            final Instant initial;
+            final Instant result;
+
+            private SqlTimestampLtzIntervalIntervalTestCase(RelDataType type, Interval value) {
+                super(type, value);
+
+                int precision = type.getPrecision();
+                long nanos = SqlTestUtils.adjustNanos(testLocalDate.getNano(), precision);
+
+                // Instant only supports Month in jdk21+, so we do all calculations using
+                // LocalDateTime and adjust the result according to the required time zone.
+                LocalDateTime timestamp = testLocalDate.with(ChronoField.NANO_OF_SECOND, nanos);
+
+                initial = timestamp.atZone(TIME_ZONE_ID).toInstant();
+                result = LocalDateTime.ofInstant(initial, ZoneOffset.UTC)
+                        .plus(intervalVal.toTemporalAmount()).toInstant(ZoneOffset.UTC);
             }
 
             @Override
             public Temporal expected() {
-                return testLocalDate.atZone(TIME_ZONE_ID).toInstant().plus(amount, unit);
+                return result;
+            }
+
+            @Override
+            public Temporal dateTimeValue() {
+                return initial;
             }
         }
 
         private static class SqlDateIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
-            final LocalDateTime testLocalDateEndOfDay;
+            final LocalDateTime initDateTime;
 
-            SqlDateIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
-                super(SqlTypeName.DATE, unit, amount);
+            SqlDateIntervalIntervalTestCase(Interval value) {
+                super(Commons.typeFactory().createSqlType(SqlTypeName.DATE), value);
 
-                // DateTime + 23:59:59.999
-                testLocalDateEndOfDay = testLocalDate
-                        .plus(1, ChronoUnit.DAYS)
-                        .minus(1 + testLocalDate.get(ChronoField.MILLI_OF_SECOND), ChronoUnit.MILLIS);
+                // Reset a time component of LocalDateTime type for arithmetic operation to produce correct results
+                initDateTime = testLocalDate.truncatedTo(ChronoUnit.DAYS);
             }
 
             @Override
@@ -588,18 +1415,39 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
             }
 
             @Override
+            public Temporal dateTimeValue() {
+                return initDateTime.toLocalDate();
+            }
+
+            @Override
             public Temporal expected() {
-                return (amount < 0 ? testLocalDateEndOfDay : testLocalDate).plus(amount, unit).toLocalDate();
+                TemporalAmount amount = intervalVal.toTemporalAmount();
+
+                if (amount instanceof Period) {
+                    Period period = (Period) amount;
+                    return initDateTime.plus(period).toLocalDate();
+                } else {
+                    // DATE + INTERVAL = DATE + (INTERVAL_TYPE)::(INTERVAL IN DAYS)
+                    Duration duration = (Duration) amount;
+                    long daysNum = java.util.concurrent.TimeUnit.NANOSECONDS.toDays(duration.toNanos());
+                    Duration days = Duration.ofDays(daysNum);
+                    return initDateTime.plus(days).toLocalDate();
+                }
             }
         }
 
         private static class SqlTimeIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
             private final LocalTime initTime;
 
-            private SqlTimeIntervalIntervalTestCase(ChronoUnit unit, Integer amount) {
-                super(SqlTypeName.TIME, unit, amount);
+            private SqlTimeIntervalIntervalTestCase(RelDataType type, Interval value) {
+                super(type, value);
 
-                initTime = testLocalDate.toLocalTime();
+                LocalTime localTime = testLocalDate.toLocalTime();
+
+                int precision = type.getPrecision();
+                long nanos = SqlTestUtils.adjustNanos(localTime.getNano(), precision);
+
+                initTime = localTime.withNano((int) nanos);
             }
 
             @Override
@@ -608,13 +1456,101 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
             }
 
             @Override
-            public LocalTime expected() {
-                if (initTime.isSupported(unit)) {
-                    return initTime.plus(amount, unit);
-                }
-
+            public Temporal dateTimeValue() {
                 return initTime;
             }
+
+            @Override
+            public LocalTime expected() {
+                TemporalAmount temporalAmount = intervalVal.toTemporalAmount();
+                return initTime.plus(temporalAmount);
+            }
+        }
+    }
+
+    private static class Interval {
+
+        final SqlIntervalLiteral.IntervalValue value;
+
+        final int sign;
+
+        private Interval(IntervalValue value, int sign) {
+            this.value = value;
+            this.sign = sign;
+        }
+
+        static Interval parse(String literal) {
+            SqlParser sqlParser = SqlParser.create(literal, IgniteSqlParser.PARSER_CONFIG);
+            SqlIntervalLiteral.IntervalValue intervalValue;
+
+            try {
+                SqlIntervalLiteral expr = (SqlIntervalLiteral) sqlParser.parseExpression();
+                intervalValue = (SqlIntervalLiteral.IntervalValue) expr.getValue();
+                Objects.requireNonNull(intervalValue, "intervalValue");
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid interval literal: " + e.getMessage());
+            }
+
+            if (intervalValue.getSign() == -1) {
+                String error = format("Interval literal sign should positive. Interval {} ", literal);
+                throw new IllegalArgumentException(error);
+            }
+
+            return new Interval(intervalValue, 1);
+        }
+
+        boolean hasType(TimeUnit unit) {
+            return value.getIntervalQualifier().getStartUnit() == unit;
+        }
+
+        int sign() {
+            return sign;
+        }
+
+        Interval negated() {
+            return new Interval(value, -sign);
+        }
+
+        String toLiteral() {
+            // Literal is always positive
+            return SqlIntervalLiteral.createInterval(1,
+                    value.getIntervalLiteral(),
+                    value.getIntervalQualifier(),
+                    SqlParserPos.ZERO).toString();
+        }
+
+        TemporalAmount toTemporalAmount() {
+            TimeUnit intervalUnit = value.getIntervalQualifier().getStartUnit();
+            switch (intervalUnit) {
+                case YEAR:
+                case MONTH: {
+                    long val = SqlParserUtil.intervalToMonths(value);
+                    return Period.ofMonths((int) val).multipliedBy(sign);
+                }
+                case DAY:
+                case HOUR:
+                case MINUTE:
+                case SECOND: {
+                    long val = SqlParserUtil.intervalToMillis(value);
+                    return Duration.ofMillis(val).multipliedBy(sign);
+                }
+                default:
+                    throw new IllegalArgumentException("Unsupported interval qualifier: " + intervalUnit);
+            }
+        }
+    }
+
+    static class Parser {
+        static LocalDateTime dateTime(String s) {
+            return LocalDateTime.parse(s.replace(' ', 'T'));
+        }
+
+        static Instant instant(String s) {
+            return dateTime(s).toInstant(ZoneOffset.UTC);
+        }
+
+        static LocalTime time(String s) {
+            return LocalTime.parse(s);
         }
     }
 }

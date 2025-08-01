@@ -19,12 +19,10 @@ package org.apache.ignite.internal.network;
 
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.ThreadAttributes;
-import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,25 +49,17 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         targetHandler.onReceived(message, sender, correlationId);
 
-        if (!storageThread()) {
+        if (longHandlingLoggingEnabled() && isNetworkThread()) {
             maybeLogLongProcessing(message, startTimeNanos);
         }
     }
 
-    private static boolean storageThread() {
-        Thread currentThread = Thread.currentThread();
+    private static boolean isNetworkThread() {
+        return Thread.currentThread() instanceof IgniteMessageServiceThread;
+    }
 
-        if (!(currentThread instanceof ThreadAttributes)) {
-            return false;
-        }
-
-        ThreadAttributes current = (ThreadAttributes) currentThread;
-
-        Set<ThreadOperation> allowedOperations = current.allowedOperations();
-
-        return allowedOperations.contains(ThreadOperation.STORAGE_READ)
-                || allowedOperations.contains(ThreadOperation.STORAGE_WRITE)
-                || allowedOperations.contains(ThreadOperation.TX_STATE_STORAGE_ACCESS);
+    private static boolean longHandlingLoggingEnabled() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {

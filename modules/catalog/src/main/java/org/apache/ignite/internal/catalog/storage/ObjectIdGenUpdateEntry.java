@@ -19,20 +19,15 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes update of the object id generator.
  */
 public class ObjectIdGenUpdateEntry implements UpdateEntry {
-    public static final CatalogObjectSerializer<ObjectIdGenUpdateEntry> SERIALIZER = new ObjectIdGenUpdateEntrySerializer();
-
     private final int delta;
 
     /**
@@ -50,7 +45,7 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
@@ -69,22 +64,5 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link ObjectIdGenUpdateEntry}.
-     */
-    private static class ObjectIdGenUpdateEntrySerializer implements CatalogObjectSerializer<ObjectIdGenUpdateEntry> {
-        @Override
-        public ObjectIdGenUpdateEntry readFrom(IgniteDataInput input) throws IOException {
-            int delta = input.readInt();
-
-            return new ObjectIdGenUpdateEntry(delta);
-        }
-
-        @Override
-        public void writeTo(ObjectIdGenUpdateEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.delta());
-        }
     }
 }

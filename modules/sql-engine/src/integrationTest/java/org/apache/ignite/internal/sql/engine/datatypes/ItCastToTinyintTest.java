@@ -32,6 +32,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +45,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @BeforeAll
     static void createTable() {
         sql("CREATE TABLE test (val TINYINT)");
@@ -66,6 +72,8 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("literalsWithExpectedResult")
     void implicitCastOfLiteralsOnInsert(String literal, Object expectedResult) {
+        Assumptions.assumeFalse(literal.startsWith("'"), "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         assertQuery(format("INSERT INTO test VALUES ({})", literal)).check();
 
         assertQuery("SELECT * FROM test")
@@ -77,6 +85,8 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("literalsWithOverflow")
     void implicitCastOfLiteralsOnInsertWithOverflow(String literal) {
+        Assumptions.assumeFalse(literal.startsWith("'"), "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "TINYINT out of range",
@@ -157,6 +167,8 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("valuesWithExpectedResult")
     void implicitCastOfDynParamsOnInsert(Object param, Object expectedResult) {
+        Assumptions.assumeFalse(param instanceof String, "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         assertQuery("INSERT INTO test VALUES (?)")
                 .withParam(param)
                 .check();
@@ -170,6 +182,8 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("valuesWithOverflow")
     void implicitCastOfDynParamsOnInsertWithOverflow(Object param) {
+        Assumptions.assumeFalse(param instanceof String, "Implicit cast from VARCHAR to NUMERIC is not allowed");
+
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "TINYINT out of range",
@@ -291,17 +305,8 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT dec FROM src").check();
         assertQuery("INSERT INTO test SELECT r FROM src").check();
         assertQuery("INSERT INTO test SELECT d FROM src").check();
-        assertQuery("INSERT INTO test SELECT s FROM src").check();
 
         assertQuery("SELECT * FROM test")
-                .returns(NULL_AS_VARARG)
-                .returns((byte) 42)
-                .returns((byte) 127)
-                .returns((byte) 127)
-                .returns((byte) 127)
-                .returns((byte) -128)
-                .returns((byte) -128)
-                .returns((byte) -128)
                 .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
@@ -366,7 +371,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
         );
 
         for (int idx : new int[] {1, 2, 3, 4, 5, 6}) {
-            for (String column : new String[] {"si", "i", "bi", "dec", "r", "d", "s"}) {
+            for (String column : new String[] {"si", "i", "bi", "dec", "r", "d"}) {
                 SqlTestUtils.assertThrowsSqlException(
                         Sql.RUNTIME_ERR,
                         "TINYINT out of range",

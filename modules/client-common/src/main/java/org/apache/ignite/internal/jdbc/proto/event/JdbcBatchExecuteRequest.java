@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC batch execute request.
  */
-public class JdbcBatchExecuteRequest implements ClientMessage {
+public class JdbcBatchExecuteRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -42,6 +42,12 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
     private long queryTimeoutMillis;
 
     /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
+
+    /**
      * Default constructor.
      */
     public JdbcBatchExecuteRequest() {
@@ -51,15 +57,17 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      * Constructor.
      *
      * @param schemaName Schema name.
-     * @param queries    Queries.
+     * @param queries Queries.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
     public JdbcBatchExecuteRequest(
-            String schemaName, 
-            List<String> queries, 
+            String schemaName,
+            List<String> queries,
             boolean autoCommit,
-            long queryTimeoutMillis
+            long queryTimeoutMillis,
+            long correlationToken
     ) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
@@ -67,6 +75,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         this.queries = queries;
         this.autoCommit = autoCommit;
         this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
     }
 
     /**
@@ -105,6 +114,10 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         return queryTimeoutMillis;
     }
 
+    public long correlationToken() {
+        return correlationToken;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -118,6 +131,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         }
 
         packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
     }
 
     /** {@inheritDoc} */
@@ -135,6 +149,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         }
 
         queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

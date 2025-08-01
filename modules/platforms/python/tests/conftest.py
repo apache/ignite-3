@@ -14,14 +14,15 @@
 # limitations under the License.
 import logging
 
-import pyignite3
+import pyignite_dbapi
 import pytest
 
 from tests.util import check_cluster_started, start_cluster_gen, server_addresses_basic
 
-logger = logging.getLogger('pyignite3')
+logger = logging.getLogger('pyignite_dbapi')
 logger.setLevel(logging.DEBUG)
 
+TEST_PAGE_SIZE = 32
 
 @pytest.fixture()
 def table_name(request):
@@ -30,7 +31,7 @@ def table_name(request):
 
 @pytest.fixture()
 def connection():
-    conn = pyignite3.connect(address=server_addresses_basic)
+    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE)
     yield conn
     conn.close()
 
@@ -45,6 +46,7 @@ def cursor(connection):
 @pytest.fixture()
 def drop_table_cleanup(cursor, table_name):
     yield None
+    cursor.connection.setautocommit(True)
     cursor.execute(f'drop table if exists {table_name}')
 
 

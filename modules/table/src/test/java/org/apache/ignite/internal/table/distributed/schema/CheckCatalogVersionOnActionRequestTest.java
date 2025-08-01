@@ -19,11 +19,13 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.lenient;
@@ -31,8 +33,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -60,6 +65,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
@@ -87,6 +94,8 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     private PartitionCommandsMarshallerImpl commandsMarshaller;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     @BeforeEach
     void initMocks() {
         when(rpcContext.getNodeManager()).thenReturn(nodeManager);
@@ -110,12 +119,12 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     }
 
     private WriteCommand commandWithoutRequiredCatalogVersion() {
-        return replicaMessagesFactory.safeTimeSyncCommand().build();
+        return replicaMessagesFactory.safeTimeSyncCommand().initiatorTime(clock.now()).build();
     }
 
     @Test
     void delegatesWhenHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
@@ -126,18 +135,20 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     }
 
     private WriteCommand commandWithRequiredCatalogVersion(int requiredVersion) {
-        return tableMessagesFactory.updateCommand()
-                .tablePartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
+        return tableMessagesFactory.updateCommandV2()
+                .tableId(TABLE_ID)
+                .commitPartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())
                 .rowUuid(UUID.randomUUID())
-                .txCoordinatorId("coordinator")
+                .txCoordinatorId(UUID.randomUUID())
                 .requiredCatalogVersion(requiredVersion)
+                .initiatorTime(clock.now())
                 .build();
     }
 
     @Test
     void returnsErrorCodeBusyWhenNotHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(new CompletableFuture<>());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")

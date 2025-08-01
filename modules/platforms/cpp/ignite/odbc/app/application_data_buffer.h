@@ -21,7 +21,6 @@
 #include "ignite/odbc/type_traits.h"
 
 #include <ignite/common/big_decimal.h>
-#include <ignite/common/bit_array.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_date_time.h>
@@ -213,14 +212,6 @@ public:
         std::int32_t dummy;
         return put_binary_data((void *) data.data(), data.size(), dummy);
     }
-
-    /**
-     * Put bitmask in buffer.
-     *
-     * @param data Data.
-     * @return Conversion result.
-     */
-    conversion_result put_bitmask(const bit_array &data) { return put_binary_data(data.get_raw()); }
 
     /**
      * Put NULL.

@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.toIntMapCollector;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -32,18 +36,19 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopologySnapshot;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
@@ -51,297 +56,325 @@ import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An implementation of {@link MappingService}.
  *
- * <p>This particular implementation keeps track of changes in logical cluster topology.
- * Always uses latest topology snapshot to map query.
+ * <p>This particular implementation keeps track of changes according to {@link PlacementDriver} assignments.
+ * Use distribution information to map a query.
  */
-public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
-    private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
-    private final CompletableFuture<Void> initialTopologyFuture = new CompletableFuture<>();
-
+public class MappingServiceImpl implements MappingService {
     private final String localNodeName;
     private final ClockService clock;
-    private final ExecutionTargetProvider targetProvider;
     private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Cache<MappingsCacheKey, MappingsCacheValue> mappingsCache;
-    private final Executor taskExecutor;
     private final PartitionPruner partitionPruner;
+    private final LongSupplier logicalTopologyVerSupplier;
+    private final ExecutionDistributionProvider distributionProvider;
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
      *
      * @param localNodeName Name of the current Ignite node.
      * @param clock Clock service to get actual time.
-     * @param targetProvider Execution target provider.
      * @param cacheFactory A factory to create cache of fragments.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param partitionPruner Partition pruner.
-     * @param taskExecutor Mapper service task executor.
+     * @param logicalTopologyVerSupplier Logical topology version supplier.
+     * @param distributionProvider Execution distribution provider.
      */
     public MappingServiceImpl(
             String localNodeName,
             ClockService clock,
-            ExecutionTargetProvider targetProvider,
             CacheFactory cacheFactory,
             int cacheSize,
             PartitionPruner partitionPruner,
-            Executor taskExecutor
+            LongSupplier logicalTopologyVerSupplier,
+            ExecutionDistributionProvider distributionProvider,
+            NodeProperties nodeProperties
     ) {
         this.localNodeName = localNodeName;
         this.clock = clock;
-        this.targetProvider = targetProvider;
         this.templatesCache = cacheFactory.create(cacheSize);
         this.mappingsCache = cacheFactory.create(cacheSize);
-        this.taskExecutor = taskExecutor;
         this.partitionPruner = partitionPruner;
-    }
-
-    @Override
-    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        if (initialTopologyFuture.isDone()) {
-            return map0(multiStepPlan, parameters);
-        }
-
-        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan, parameters), taskExecutor);
+        this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
+        this.distributionProvider = distributionProvider;
+        this.nodeProperties = nodeProperties;
     }
 
     /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
-        assert parameters.groupId() instanceof TablePartitionId;
 
-        int tabId = ((TablePartitionId) parameters.groupId()).tableId();
+        int tableOrZoneId;
+
+        if (nodeProperties.colocationEnabled()) {
+            tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
+        } else {
+            tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
+        }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
-        mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));
+        mappingsCache.removeIfValue(value -> value.tabelOrZoneIds.contains(tableOrZoneId));
 
         return CompletableFutures.falseCompletedFuture();
     }
 
-    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan, MappingParameters parameters) {
-        TopologySnapshot topology = topologyHolder.topology();
-        MappingContext context = new MappingContext(localNodeName, topology.nodes());
-
-        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
+    @Override
+    public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan, MappingParameters parameters) {
+        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan);
 
         boolean mapOnBackups = parameters.mapOnBackups();
-        MappingsCacheValue cacheValue = mappingsCache.compute(
-                new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
-                (key, val) -> {
-                    if (val == null) {
-                        IntSet tableIds = new IntOpenHashSet();
-                        boolean topologyAware = false;
+        Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
 
-                        for (Fragment fragment : template.fragments) {
-                            topologyAware = topologyAware || !fragment.systemViews().isEmpty();
-                            for (IgniteDataSource source : fragment.tables().values()) {
-                                tableIds.add(source.id());
-                            }
-                        }
+        CompletableFuture<MappedFragments> mappedFragments;
+        if (nodeExclusionFilter != null) {
+            mappedFragments = mapFragments(template, mapOnBackups, nodeExclusionFilter);
+        } else {
+            mappedFragments = mappingsCache.compute(
+                    new MappingsCacheKey(multiStepPlan.id(), mapOnBackups),
+                    (key, val) -> computeMappingCacheKey(val, template, mapOnBackups)
+            ).mappedFragments;
+        }
 
-                        long topVer = topologyAware ? topology.version() : Long.MAX_VALUE;
-
-                        return new MappingsCacheValue(topVer, tableIds, mapFragments(context, template, key.mapOnBackups));
-                    }
-
-                    if (val.topVer < topology.version()) {
-                        return new MappingsCacheValue(topology.version(), val.tableIds, mapFragments(context, template, key.mapOnBackups));
-                    }
-
-                    return val;
-                }
-        );
-
-        return cacheValue.mappedFragments.thenApply(mappedFragments -> applyPartitionPruning(mappedFragments.fragments, parameters));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
     }
 
-    private CompletableFuture<MappedFragments> mapFragments(
-            MappingContext context,
+    private MappingsCacheValue computeMappingCacheKey(
+            MappingsCacheValue val,
             FragmentsTemplate template,
             boolean mapOnBackups
     ) {
-        IdGenerator idGenerator = new IdGenerator(template.nextId);
-        List<Fragment> fragments = new ArrayList<>(template.fragments);
-        HybridTimestamp mappingTime = clock.now();
+        if (val == null) {
+            IntSet tableOrZoneIds = new IntOpenHashSet();
+            boolean topologyAware = false;
 
-        List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
-                fragments.stream().flatMap(fragment -> Stream.concat(
-                        fragment.tables().values().stream()
-                                .map(table -> targetProvider.forTable(mappingTime, context.targetFactory(), table, mapOnBackups)
-                                        .thenApply(target -> IntObjectPair.of(table.id(), target))
-                                ),
-                        fragment.systemViews().stream()
-                                .map(view -> targetProvider.forSystemView(context.targetFactory(), view)
-                                        .thenApply(target -> IntObjectPair.of(view.id(), target))
-                                )
-                ))
-                .collect(Collectors.toList());
-
-        return allOf(targets.toArray(new CompletableFuture[0]))
-                .thenApply(ignored -> {
-                    Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
-
-                    for (CompletableFuture<IntObjectPair<ExecutionTarget>> fut : targets) {
-                        // this is a safe join, because we have waited for all futures to be complete
-                        IntObjectPair<ExecutionTarget> pair = fut.join();
-
-                        targetsById.put(pair.firstInt(), pair.second());
+            for (Fragment fragment : template.fragments) {
+                topologyAware = topologyAware || !fragment.systemViews().isEmpty();
+                for (IgniteTable source : fragment.tables().values()) {
+                    if (nodeProperties.colocationEnabled()) {
+                        tableOrZoneIds.add(source.zoneId());
+                    } else {
+                        tableOrZoneIds.add(source.id());
                     }
+                }
+            }
 
-                    FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
+            long topVer = topologyAware ? logicalTopologyVerSupplier.getAsLong() : Long.MAX_VALUE;
 
-                    List<FragmentMapping> mappings = mapper.map(fragments, idGenerator);
+            return new MappingsCacheValue(topVer, tableOrZoneIds, mapFragments(template, mapOnBackups, null));
+        }
 
-                    Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
-                    Long2ObjectMap<List<String>> allSourcesByExchangeId = new Long2ObjectOpenHashMap<>();
+        long topologyVer = logicalTopologyVerSupplier.getAsLong();
 
-                    for (FragmentMapping mapping : mappings) {
-                        Fragment fragment = mapping.fragment();
+        if (val.topologyVersion < topologyVer) {
+            return new MappingsCacheValue(topologyVer, val.tabelOrZoneIds, mapFragments(template, mapOnBackups, null));
+        }
 
-                        for (ColocationGroup group : mapping.groups()) {
-                            for (long sourceId : group.sourceIds()) {
-                                groupsBySourceId.put(sourceId, group);
-                            }
-                        }
-
-                        if (!fragment.rootFragment()) {
-                            IgniteSender sender = (IgniteSender) fragment.root();
-
-                            List<String> nodeNames = mapping.groups().stream()
-                                    .flatMap(g -> g.nodeNames().stream())
-                                    .distinct().collect(Collectors.toList());
-
-                            allSourcesByExchangeId.put(sender.exchangeId(), nodeNames);
-                        }
-                    }
-
-                    List<MappedFragment> mappedFragmentsList = new ArrayList<>(mappings.size());
-                    Set<String> targetNodes = new HashSet<>();
-                    for (FragmentMapping mapping : mappings) {
-                        Fragment fragment = mapping.fragment();
-
-                        ColocationGroup targetGroup = null;
-                        if (!fragment.rootFragment()) {
-                            IgniteSender sender = (IgniteSender) fragment.root();
-
-                            targetGroup = groupsBySourceId.get(sender.exchangeId());
-                        }
-
-                        Long2ObjectMap<List<String>> sourcesByExchangeId = null;
-                        for (IgniteReceiver receiver : fragment.remotes()) {
-                            if (sourcesByExchangeId == null) {
-                                sourcesByExchangeId = new Long2ObjectOpenHashMap<>();
-                            }
-
-                            long exchangeId = receiver.exchangeId();
-
-                            sourcesByExchangeId.put(exchangeId, allSourcesByExchangeId.get(exchangeId));
-                        }
-
-                        MappedFragment mappedFragment = new MappedFragment(
-                                fragment,
-                                mapping.groups(),
-                                sourcesByExchangeId,
-                                targetGroup,
-                                null
-                        );
-
-                        mappedFragmentsList.add(mappedFragment);
-
-                        targetNodes.addAll(mappedFragment.nodes());
-                    }
-
-                    return new MappedFragments(mappedFragmentsList, targetNodes);
-                });
+        return val;
     }
 
-    @Override
-    public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-        topologyHolder.update(newTopology);
+    CompletableFuture<DistributionHolder> composeDistributions(
+            Set<IgniteSystemView> views,
+            Set<IgniteTable> tables,
+            boolean mapOnBackups
+    ) {
+        if (tables.isEmpty() && views.isEmpty()) {
+            DistributionHolder holder = new DistributionHolder(Set.of(localNodeName), Int2ObjectMaps.emptyMap(), Int2ObjectMaps.emptyMap());
+
+            return completedFuture(holder);
+        } else {
+            Int2ObjectMap<CompletableFuture<List<TokenizedAssignments>>> tablesAssignments = new Int2ObjectOpenHashMap<>(tables.size());
+            Set<String> allNodes = new HashSet<>();
+
+            allNodes.add(localNodeName);
+
+            for (IgniteTable tbl : tables) {
+                CompletableFuture<List<TokenizedAssignments>> assignments = distributionProvider
+                        .forTable(clock.now(), tbl, mapOnBackups);
+
+                tablesAssignments.put(tbl.id(), assignments);
+            }
+
+            return CompletableFuture.allOf(tablesAssignments.values().toArray(new CompletableFuture[0]))
+                    .thenApply(ignore -> {
+                        Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable = new Int2ObjectOpenHashMap<>(tables.size());
+
+                        tablesAssignments.keySet().forEach(k -> {
+                            // this is a safe join, because we have waited for all futures to be completed
+                            List<TokenizedAssignments> assignments = tablesAssignments.get(k).join();
+
+                            assignments.stream().flatMap(i -> i.nodes().stream()).map(Assignment::consistentId).forEach(allNodes::add);
+
+                            assignmentsPerTable.put(k, assignments);
+                        });
+
+                        return assignmentsPerTable;
+                    })
+                    .thenApply(assignmentsPerTable -> {
+                        Int2ObjectMap<List<String>> nodesPerView = views.stream()
+                                .collect(toIntMapCollector(IgniteDataSource::id, distributionProvider::forSystemView));
+
+                        nodesPerView.values().stream().flatMap(List::stream).forEach(allNodes::add);
+
+                        return new DistributionHolder(allNodes, assignmentsPerTable, nodesPerView);
+                    });
+        }
     }
 
-    @Override
-    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-        topologyHolder.update(newTopology);
+    private CompletableFuture<MappedFragments> mapFragments(
+            FragmentsTemplate template,
+            boolean mapOnBackups,
+            @Nullable Predicate<String> nodeExclusionFilter
+    ) {
+        Set<IgniteSystemView> views = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream())
+                .collect(Collectors.toSet());
 
-        mappingsCache.removeIfValue(value ->
-                !value.mappedFragments.isDone() // Invalidate non-completed mappings to reduce the chance of getting stale value 
-                        || value.mappedFragments.join().nodes.contains(leftNode.name()));
+        Set<IgniteTable> tables = template.fragments.stream().flatMap(fragment -> fragment.tables().values().stream())
+                .collect(Collectors.toSet());
+
+        CompletableFuture<DistributionHolder> res = composeDistributions(views, tables, mapOnBackups);
+
+        return res.thenApply(assignments -> {
+            Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
+
+            MappingContext context = new MappingContext(
+                    localNodeName, assignments.nodes(nodeExclusionFilter), template.cluster
+            );
+
+            ExecutionTargetFactory targetFactory = context.targetFactory();
+
+            List<IntObjectPair<ExecutionTarget>> allTargets = prepareTargets(template, assignments, targetFactory);
+
+            for (IntObjectPair<ExecutionTarget> pair : allTargets) {
+                targetsById.put(pair.firstInt(), pair.second());
+            }
+
+            FragmentMapper mapper = new FragmentMapper(context.cluster().getMetadataQuery(), context, targetsById);
+
+            IdGenerator idGenerator = new IdGenerator(template.nextId);
+
+            List<Fragment> fragments = new ArrayList<>(template.fragments);
+
+            List<FragmentMapping> mappings = mapper.map(fragments, idGenerator);
+
+            Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
+            Long2ObjectMap<List<String>> allSourcesByExchangeId = new Long2ObjectOpenHashMap<>();
+
+            for (FragmentMapping mapping : mappings) {
+                Fragment fragment = mapping.fragment();
+
+                for (ColocationGroup group : mapping.groups()) {
+                    for (long sourceId : group.sourceIds()) {
+                        groupsBySourceId.put(sourceId, group);
+                    }
+                }
+
+                if (!fragment.rootFragment()) {
+                    IgniteSender sender = (IgniteSender) fragment.root();
+
+                    List<String> nodeNames = mapping.groups().stream()
+                            .flatMap(g -> g.nodeNames().stream())
+                            .distinct().collect(Collectors.toList());
+
+                    allSourcesByExchangeId.put(sender.exchangeId(), nodeNames);
+                }
+            }
+
+            List<MappedFragment> mappedFragmentsList = new ArrayList<>(mappings.size());
+            Set<String> targetNodes = new HashSet<>();
+            for (FragmentMapping mapping : mappings) {
+                Fragment fragment = mapping.fragment();
+
+                ColocationGroup targetGroup = null;
+                if (!fragment.rootFragment()) {
+                    IgniteSender sender = (IgniteSender) fragment.root();
+
+                    targetGroup = groupsBySourceId.get(sender.exchangeId());
+                }
+
+                Long2ObjectMap<List<String>> sourcesByExchangeId = null;
+                for (IgniteReceiver receiver : fragment.remotes()) {
+                    if (sourcesByExchangeId == null) {
+                        sourcesByExchangeId = new Long2ObjectOpenHashMap<>();
+                    }
+
+                    long exchangeId = receiver.exchangeId();
+
+                    sourcesByExchangeId.put(exchangeId, allSourcesByExchangeId.get(exchangeId));
+                }
+
+                MappedFragment mappedFragment = new MappedFragment(
+                        fragment,
+                        mapping.groups(),
+                        sourcesByExchangeId,
+                        targetGroup,
+                        null
+                );
+
+                mappedFragmentsList.add(mappedFragment);
+
+                targetNodes.addAll(mappedFragment.nodes());
+            }
+
+            return new MappedFragments(mappedFragmentsList, targetNodes);
+        });
     }
 
-    @Override
-    public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-        topologyHolder.update(newTopology);
+    private static List<IntObjectPair<ExecutionTarget>> prepareTargets(
+            FragmentsTemplate template,
+            DistributionHolder distr,
+            ExecutionTargetFactory targetFactory
+    ) {
+        Stream<IntObjectPair<ExecutionTarget>> tableTargets = template.fragments.stream().flatMap(fragment ->
+                fragment.tables().values().stream()
+                        .map(table -> IntObjectPair.of(table.id(),
+                                targetFactory.partitioned(distr.tableAssignments(table.id())))));
+
+        Stream<IntObjectPair<ExecutionTarget>> viewTargets = template.fragments.stream().flatMap(fragment -> fragment.systemViews().stream()
+                .map(view -> IntObjectPair.of(view.id(), buildTargetForSystemView(targetFactory, view, distr.viewNodes(view.id())))));
+
+        return Stream.concat(tableTargets, viewTargets).collect(Collectors.toList());
+    }
+
+    private static ExecutionTarget buildTargetForSystemView(ExecutionTargetFactory factory, IgniteSystemView view, List<String> nodes) {
+        if (nullOrEmpty(nodes)) {
+            throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                    + " any active nodes in the cluster", view.name()));
+        }
+
+        return view.distribution() == IgniteDistributions.single()
+                ? factory.oneOf(nodes)
+                : factory.allOf(nodes);
     }
 
     private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
         return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
     }
 
-    /**
-     * Holder for topology snapshots that guarantees monotonically increasing versions.
-     */
-    class LogicalTopologyHolder {
-        private volatile TopologySnapshot topology = new TopologySnapshot(Long.MIN_VALUE, List.of());
-
-        void update(LogicalTopologySnapshot topologySnapshot) {
-            synchronized (this) {
-                if (topology.version() < topologySnapshot.version()) {
-                    topology = new TopologySnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
-                }
-
-                if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
-                    return;
-                }
-            }
-
-            initialTopologyFuture.complete(null);
-        }
-
-        TopologySnapshot topology() {
-            return topology;
-        }
-
-        private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
-            return topology.nodes().stream()
-                    .map(LogicalNode::name)
-                    .collect(Collectors.toUnmodifiableList());
-        }
-
-        class TopologySnapshot {
-            private final List<String> nodes;
-            private final long version;
-
-            TopologySnapshot(long version, List<String> nodes) {
-                this.version = version;
-                this.nodes = nodes;
-            }
-
-            public List<String> nodes() {
-                return nodes;
-            }
-
-            public long version() {
-                return version;
-            }
-        }
-    }
-
-    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan, MappingContext context) {
+    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan) {
         // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
         return templatesCache.get(plan.id(), key -> {
             IdGenerator idGenerator = new IdGenerator(0);
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).split(plan.root());
+            RelOptCluster cluster = Commons.cluster();
+
+            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.getRel());
 
             return new FragmentsTemplate(
-                    idGenerator.nextId(), context.cluster(), fragments
+                    idGenerator.nextId(), cluster, fragments
             );
         });
     }
@@ -370,13 +403,13 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private static class MappingsCacheValue {
-        private final long topVer;
-        private final IntSet tableIds;
+        private final long topologyVersion;
+        private final IntSet tabelOrZoneIds;
         private final CompletableFuture<MappedFragments> mappedFragments;
 
-        MappingsCacheValue(long topVer, IntSet tableIds, CompletableFuture<MappedFragments> mappedFragments) {
-            this.topVer = topVer;
-            this.tableIds = tableIds;
+        MappingsCacheValue(long topologyVersion, IntSet tabelOrZoneIds, CompletableFuture<MappedFragments> mappedFragments) {
+            this.topologyVersion = topologyVersion;
+            this.tabelOrZoneIds = tabelOrZoneIds;
             this.mappedFragments = mappedFragments;
         }
     }
@@ -407,6 +440,39 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         @Override
         public int hashCode() {
             return Objects.hash(planId, mapOnBackups);
+        }
+    }
+
+    private static class DistributionHolder {
+        private final Set<String> nodes;
+        private final Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable;
+        private final Int2ObjectMap<List<String>> nodesPerView;
+
+        DistributionHolder(
+                Set<String> nodes,
+                Int2ObjectMap<List<TokenizedAssignments>> assignmentsPerTable,
+                Int2ObjectMap<List<String>> nodesPerView) {
+            this.nodes = nodes;
+            this.assignmentsPerTable = assignmentsPerTable;
+            this.nodesPerView = nodesPerView;
+        }
+
+        List<String> nodes(@Nullable Predicate<String> nodeExclusionFilter) {
+            if (nodeExclusionFilter == null) {
+                return List.copyOf(nodes);
+            }
+
+            return nodes.stream()
+                    .filter(nodeExclusionFilter.negate())
+                    .collect(Collectors.toList());
+        }
+
+        List<TokenizedAssignments> tableAssignments(int tableId) {
+            return assignmentsPerTable.get(tableId);
+        }
+
+        List<String> viewNodes(int viewId) {
+            return nodesPerView.get(viewId);
         }
     }
 }

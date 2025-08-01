@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -36,9 +37,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,10 +51,12 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -402,7 +407,7 @@ public final class SharedRocksDbInstance {
                 scheduleIndexCfsDestroyIfNeeded(cfsToRemove);
             }
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to destroy table data. [tableId={}]", e, targetTableId);
+            throw new IgniteRocksDbException(String.format("Failed to destroy table data. [tableId=%d]", targetTableId), e);
         }
     }
 
@@ -423,7 +428,7 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily = ColumnFamily.withPrivateOptions(db, cfDescriptor);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
+            throw new IgniteRocksDbException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }
 
         flusher.addColumnFamily(columnFamily.handle());
@@ -437,10 +442,49 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily.destroy();
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                    e, columnFamily.name(), path
+            throw new IgniteRocksDbException(
+                    String.format("Failed to destroy RocksDB Column Family. [cfName=%s, path=%s]", columnFamily.name(), path), e
             );
         }
+    }
+
+    /**
+     * Returns IDs of all tables for which there are storages in the underlying RocksDB.
+     */
+    public Set<Integer> tableIdsOnDisk() {
+        Set<Integer> tableIds = new HashSet<>();
+
+        try (
+                var upperBound = new Slice(incrementPrefix(PARTITION_META_PREFIX));
+                var readOptions = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = meta.columnFamily().newIterator(readOptions)
+        ) {
+            it.seek(PARTITION_META_PREFIX);
+
+            while (it.isValid()) {
+                byte[] key = it.key();
+                int tableId = ByteUtils.bytesToInt(key, PARTITION_META_PREFIX.length);
+                tableIds.add(tableId);
+
+                it.next();
+            }
+
+            // Doing this to make an exception thrown if the iteration was stopped due to an error and not due to exhausting
+            // the iteration space.
+            it.status();
+        } catch (RocksDBException e) {
+            throw new StorageException(INTERNAL_ERR, "Cannot get table IDs", e);
+        }
+
+        return Set.copyOf(tableIds);
+    }
+
+    /**
+     * Flushes the underlying RocksDB to disk.
+     *
+     * @return Future that gets completed when the flush completes.
+     */
+    public CompletableFuture<Void> flush() {
+        return flusher.awaitFlush(true);
     }
 }

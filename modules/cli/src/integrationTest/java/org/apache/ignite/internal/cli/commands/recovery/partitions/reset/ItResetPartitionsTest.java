@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Base test class for Cluster Recovery reset partitions commands. */
 public abstract class ItResetPartitionsTest extends CliIntegrationTest {
@@ -33,14 +35,14 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
+    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
     @BeforeAll
     public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
-        sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%s'", TABLE_NAME, ZONE));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles['%s']", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
     }
 
     @Test
@@ -78,14 +80,17 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testResetPartitionTableNotFound() {
+        // This test in colocation mode is not relevant.
+
         String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,
                 RECOVERY_ZONE_NAME_OPTION, ZONE);
 
-        assertErrOutputContains("The table does not exist [name=" + unknownTable + "]");
+        assertErrOutputContains("The table does not exist [name=" + unknownTable.toUpperCase() + "]");
         assertOutputIsEmpty();
     }
 

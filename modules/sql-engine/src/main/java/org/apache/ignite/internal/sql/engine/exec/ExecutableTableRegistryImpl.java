@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -31,7 +29,10 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 
 /**
@@ -49,8 +50,10 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final ClockService clockService;
 
+    private final NodeProperties nodeProperties;
+
     /** Executable tables cache. */
-    final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
+    final Cache<CacheKey, ExecutableTable> tableCache;
 
     /** Constructor. */
     public ExecutableTableRegistryImpl(
@@ -59,7 +62,9 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
             SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService,
             ClockService clockService,
-            int cacheSize
+            NodeProperties nodeProperties,
+            int cacheSize,
+            CacheFactory cacheFactory
     ) {
 
         this.sqlSchemaManager = sqlSchemaManager;
@@ -67,40 +72,48 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
         this.clockService = clockService;
-        this.tableCache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<CacheKey, ExecutableTable>buildAsync().asMap();
+        this.nodeProperties = nodeProperties;
+        this.tableCache = cacheFactory.create(cacheSize);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
+    public ExecutableTable getTable(int catalogVersion, int tableId) {
         IgniteTable sqlTable = sqlSchemaManager.table(catalogVersion, tableId);
 
-        return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
+        return tableCache.get(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
-    private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
-        return CompletableFuture.completedFuture(tableManager.cachedTable(sqlTable.id()))
-                .thenApply((table) -> {
-                    TableDescriptor tableDescriptor = sqlTable.descriptor();
+    private ExecutableTable loadTable(IgniteTable sqlTable) {
+        TableViewInternal table = tableManager.cachedTable(sqlTable.id());
 
-                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
-                    TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
-                            tableDescriptor, schemaRegistry, schemaDescriptor
-                    );
+        assert table != null : "Table not found: tableId=" + sqlTable.id();
 
-                    InternalTable internalTable = table.internalTable();
-                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
-                    TableRowConverter rowConverter = converterFactory.create(null);
+        TableDescriptor tableDescriptor = sqlTable.descriptor();
 
-                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
-                            internalTable, replicaService, clockService, rowConverter);
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
+        SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
+        TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
+                tableDescriptor, schemaRegistry, schemaDescriptor
+        );
 
-                    return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
-                });
+        InternalTable internalTable = table.internalTable();
+        ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
+        TableRowConverter rowConverter = converterFactory.create(null);
+
+        UpdatableTableImpl updatableTable = new UpdatableTableImpl(
+                sqlTable.id(),
+                sqlTable.zoneId(),
+                tableDescriptor,
+                internalTable.partitions(),
+                internalTable,
+                replicaService,
+                clockService,
+                nodeProperties,
+                rowConverter
+        );
+
+        return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {

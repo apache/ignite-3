@@ -20,24 +20,19 @@ package org.apache.ignite.internal.catalog.storage;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes altering zone.
  */
 public class AlterZoneEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<AlterZoneEntry> SERIALIZER = new AlterZoneEntrySerializer();
-
     private final CatalogZoneDescriptor descriptor;
 
     /**
@@ -70,8 +65,8 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        descriptor.updateToken(causalityToken);
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        descriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),
@@ -88,22 +83,5 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link AlterZoneEntry}.
-     */
-    private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
-        @Override
-        public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
-
-            return new AlterZoneEntry(descriptor);
-        }
-
-        @Override
-        public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), output);
-        }
     }
 }

@@ -20,9 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * An extension of a transaction for internal usage.
  */
 public interface InternalTransaction extends Transaction {
+    /** 0 timeout means we have to use the default value from configuration. */
+    int USE_CONFIGURED_TIMEOUT_DEFAULT = 0;
+
     /**
      * Returns an id.
      *
@@ -38,12 +39,12 @@ public interface InternalTransaction extends Transaction {
     UUID id();
 
     /**
-     * Returns enlisted primary replica node associated with given replication group.
+     * Returns enlisted partition information.
      *
-     * @param tablePartitionId Table partition id.
-     * @return Enlisted primary replica node and consistency token associated with given replication group.
+     * @param replicationGroupId Replication group ID.
+     * @return Enlisted partition information.
      */
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
+    PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId);
 
     /**
      * Returns a transaction state.
@@ -55,26 +56,32 @@ public interface InternalTransaction extends Transaction {
     /**
      * Assigns a partition id to store the transaction state.
      *
-     * @param tablePartitionId Commit partition group id.
+     * @param commitPartitionId Commit partition group id.
      * @return True if the partition was assigned as committed, false otherwise.
      */
-    boolean assignCommitPartition(TablePartitionId tablePartitionId);
+    boolean assignCommitPartition(ReplicationGroupId commitPartitionId);
 
     /**
      * Gets a partition id that stores the transaction state.
      *
      * @return Partition id.
      */
-    TablePartitionId commitPartition();
+    ReplicationGroupId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.
      *
-     * @param tablePartitionId Table partition id to enlist.
-     * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
-     * @return {@code True} if a partition is enlisted into the transaction.
+     * @param replicationGroupId Replication group id to enlist.
+     * @param tableId Table ID for enlistment.
+     * @param primaryNodeConsistentId Consistent node id of primary replica.
+     * @param consistencyToken Consistency token to enlist for given replication group.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
+    void enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            String primaryNodeConsistentId,
+            long consistencyToken
+    );
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
@@ -84,28 +91,94 @@ public interface InternalTransaction extends Transaction {
     @Nullable HybridTimestamp readTimestamp();
 
     /**
-     * Returns a timestamp that corresponds to the starting moment of the transaction.
+     * Returns a timestamp of the schema corresponding to the transaction.
      * For RW transactions, this is the beginTimestamp; for RO transactions, it's {@link #readTimestamp()}.
      *
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
-    HybridTimestamp startTimestamp();
+    HybridTimestamp schemaTimestamp();
 
     /**
      * Get the transaction coordinator inconsistent ID.
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    String coordinatorId();
+    UUID coordinatorId();
+
+    /**
+     * Gets the transaction implicit flag.
+     *
+     * @return True if the transaction is implicit, false if it is started explicitly.
+     */
+    boolean implicit();
+
+    /**
+     * Gets the transaction remote flag.
+     *
+     * @return True if the transaction is remotely coordinated, false otherwise.
+     */
+    default boolean remote() {
+        return false;
+    }
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.
-     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
+     *         is not used for read-write transactions.
+     * @param full Full state transaction marker.
+     * @param timeoutExceeded Timeout exceeded flag (commit flag must be {@code false}).
      * @return The future.
      */
-    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
-        return commit ? commitAsync() : rollbackAsync();
+    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
+
+    /**
+     * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
+     * Becomes {@code true} after {@link #commitAsync()} or {@link #rollbackAsync()} is called.
+     *
+     * @return Whether the transaction is finishing or finished
+     */
+    boolean isFinishingOrFinished();
+
+    /**
+     * Returns the transaction timeout in millis.
+     *
+     * @return The transaction timeout.
+     */
+    long getTimeout();
+
+    /**
+     * Kills this transaction.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> kill();
+
+    /**
+     * Rolls back the transaction due to timeout exceeded. After this method is called, {@link #isRolledBackWithTimeoutExceeded()} will
+     * return {@code true}. A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is
+     * completed.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> rollbackTimeoutExceededAsync();
+
+    /**
+     * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout exceeded is
+     * to call {@link #rollbackTimeoutExceededAsync()}.
+     *
+     * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
+     */
+    boolean isRolledBackWithTimeoutExceeded();
+
+    /**
+     * Process delayed ack.
+     *
+     * @param val The value.
+     * @param err The error.
+     */
+    default void processDelayedAck(Object val, @Nullable Throwable err) {
+        // No-op.
     }
 }

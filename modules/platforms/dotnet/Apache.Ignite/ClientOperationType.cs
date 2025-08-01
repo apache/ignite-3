@@ -32,7 +32,7 @@ namespace Apache.Ignite
         TablesGet,
 
         /// <summary>
-        /// Get table (<see cref="ITables.GetTableAsync"/>).
+        /// Get table (<see cref="ITables.GetTableAsync(string)"/>).
         /// </summary>
         TableGet,
 
@@ -117,22 +117,22 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcast{TArg,TResult}"/>).
+        /// Compute (<see cref="ICompute"/>).
         /// </summary>
         ComputeExecute,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitMapReduceAsync{TArg,TResult}"/>).
+        /// Compute (<see cref="ICompute"/>).
         /// </summary>
         ComputeExecuteMapReduce,
 
         /// <summary>
-        /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
+        /// SQL (<see cref="ISql"/>).
         /// </summary>
         SqlExecute,
 
         /// <summary>
-        /// SQL script (<see cref="ISql.ExecuteScriptAsync"/>).
+        /// SQL script (<see cref="ISql"/>).
         /// </summary>
         SqlExecuteScript,
 
@@ -142,7 +142,7 @@ namespace Apache.Ignite
         ComputeGetStatus,
 
         /// <summary>
-        /// Cancel compute job (<see cref="IJobExecution{T}.CancelAsync"/>).
+        /// Cancel compute job.
         /// </summary>
         ComputeCancel,
 
@@ -164,6 +164,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Send data streamer batch with receiver (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
-        StreamerWithReceiverBatchSend
+        StreamerWithReceiverBatchSend,
+
+        /// <summary>
+        /// SQL batch (<see cref="ISql.ExecuteBatchAsync"/>).
+        /// </summary>
+        SqlExecuteBatch
     }
 }

@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.lang.Thread.currentThread;
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.POJO_RECORD_TABLE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.ZONE_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -32,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -51,16 +52,17 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
         return 1;
     }
 
+    @BeforeAll
+    void waitForDefaultZoneStabilization() throws InterruptedException {
+        if (colocationEnabled()) {
+            awaitAssignmentsStabilizationOnDefaultZone(node(0));
+        }
+    }
+
     @AfterEach
     void clearDatabase() {
-        Ignite ignite = CLUSTER.aliveNode();
-
-        ignite.tables().tables().forEach(table -> sql("DROP TABLE " + table.name()));
-
-        CatalogManagerImpl catalogManager = (CatalogManagerImpl) unwrapIgniteImpl(ignite).catalogManager();
-        catalogManager.zones(catalogManager.latestCatalogVersion()).stream()
-                .filter(zone -> !CatalogManagerImpl.DEFAULT_ZONE_NAME.equals(zone.name()))
-                .forEach(zone -> sql("DROP ZONE " + zone.name()));
+        dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @ParameterizedTest
@@ -84,8 +86,8 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogAsyncOperation.class)
-    @Disabled("IGNITE-22687 or IGNITE-22688")
-    // TODO: enable this after IGNITE-22687 is fixed or after IGNITE-22688 (which will give possibility to distinguish the common FJP from
+    @Disabled("IGNITE-22687 or IGNITE-24204")
+    // TODO: enable this after IGNITE-22687 is fixed or after IGNITE-24204 (which will give possibility to distinguish the common FJP from
     // the user-supplied async continuation executor).
     void catalogFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(CatalogAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -102,7 +104,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogOperationProvidingTable.class)
-    void tableFuturesFromCatalogAreProtectedAgainstThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
+    void tableFuturesFromCatalogAreProtectedFromThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
         Table table = operation.executeOn(catalogForPublicUse());
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -115,7 +117,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static ZoneDefinition testZoneDefinition() {
         return ZoneDefinition.builder(ZONE_NAME)
-                .affinity("affinity")
+                .distributionAlgorithm("rendezvous")
                 .dataNodesAutoAdjust(1)
                 .filter("filter")
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)

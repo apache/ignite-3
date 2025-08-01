@@ -16,7 +16,14 @@
 #
 
 cmake_minimum_required(VERSION 3.18)
-project(Ignite.C++ VERSION 3 LANGUAGES CXX)
+
+file(READ _version.txt IGNITE_VERSION)
+if(NOT DEFINED IGNITE_VERSION)
+  set(IGNITE_VERSION 3.0.0)
+  message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION}\".")
+endif()
+
+project(Ignite.C++ VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,6 +33,7 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 option(USE_LOCAL_DEPS "Use local dependencies." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
+option(ENABLE_PROTOCOL "Build Ignite Protocol library" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
@@ -119,7 +127,7 @@ add_subdirectory(ignite/common)
 add_subdirectory(ignite/tuple)
 
 # Add client and ODBC libraries.
-if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
+if (${ENABLE_CLIENT} OR ${ENABLE_ODBC} OR ${ENABLE_PROTOCOL})
     add_subdirectory(ignite/protocol)
     add_subdirectory(ignite/network)
 endif()

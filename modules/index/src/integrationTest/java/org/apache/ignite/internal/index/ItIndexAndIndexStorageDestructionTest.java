@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.lang.ErrorGroups.Storage.ALREADY_DESTROYED_ERR;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -32,6 +32,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -50,6 +52,7 @@ import org.junit.jupiter.api.Test;
  * Tests about accessing destroyed index storages.
  */
 class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "TEST_TABLE";
     private static final String INDEX_NAME = "TEST_INDEX";
 
@@ -99,7 +102,8 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
 
     private int indexId(String indexName) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().aliveIndex(indexName, igniteImpl.clock().nowLong());
+        long timestamp = igniteImpl.clock().nowLong();
+        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().activeCatalog(timestamp).aliveIndex(SCHEMA_NAME, indexName);
         assertThat(indexDescriptor, is(notNullValue()));
 
         return indexDescriptor.id();
@@ -139,10 +143,11 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     void sqlReadFromDestroyedIndexStorageFailsWithStalePlanError() {
         SqlException ex = assertThrows(
                 SqlException.class,
-                () -> cluster.query(0, "SELECT * FROM " + TABLE_NAME + " WHERE name = 'John'", rs -> null)
+                () -> cluster.query(0, format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE name = 'John'",
+                        INDEX_NAME, TABLE_NAME), rs -> null)
         );
 
-        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(ex.code(), is(Common.INTERNAL_ERR));
         assertThat(
                 ex.getMessage(),
                 startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")
@@ -159,7 +164,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             }
         });
 
-        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(ex.code(), is(Common.INTERNAL_ERR));
         assertThat(
                 ex.getMessage(),
                 startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")

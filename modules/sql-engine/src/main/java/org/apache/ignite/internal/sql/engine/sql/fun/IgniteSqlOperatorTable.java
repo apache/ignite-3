@@ -17,33 +17,76 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicFunction;
+import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorBinding;
+import org.apache.calcite.sql.fun.SqlAbstractTimeFunction;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
+import org.apache.calcite.sql.fun.SqlMinMaxAggFunction;
+import org.apache.calcite.sql.fun.SqlMonotonicBinaryOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
+import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
+import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
  */
 public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
+    private static final SqlSingleOperandTypeChecker SAME_SAME =
+            new SameFamilyOperandTypeChecker(2);
+
+    private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
+            new NotCustomTypeOperandTypeChecker();
+
+    private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
+            new SqlDateTimeIntervalTypeChecker(true);
+
+    private static final SqlOperandTypeChecker MATCHING_INTERVAL_DATETIME =
+            new SqlDateTimeIntervalTypeChecker(false);
+
+    private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_SAME_SAME)
+                    .or(DATETIME_MATCHING_INTERVAL.and(NOT_CUSTOM_TYPE))
+                    .or(MATCHING_INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+
+    private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_SAME_SAME)
+                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL).and(NOT_CUSTOM_TYPE));
+
+    private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE));
+
+    public static final SqlSingleOperandTypeChecker MULTIPLY_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE))
+                    .or(OperandTypes.NUMERIC_INTERVAL.and(NOT_CUSTOM_TYPE));
+
     public static final SqlFunction LENGTH =
             new SqlFunction(
                     "LENGTH",
@@ -76,7 +119,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
                     null,
-                    OperandTypes.SAME_SAME,
+                    SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -91,7 +134,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.LEAST_RESTRICTIVE.andThen(SqlTypeTransforms.TO_NULLABLE),
                     null,
-                    OperandTypes.SAME_SAME,
+                    SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -104,7 +147,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.ARG0_NULLABLE_VARYING,
                     null,
-                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+                    OperandTypes.STRING_INTEGER.or(OperandTypes.STRING_INTEGER_INTEGER),
                     SqlFunctionCategory.STRING);
 
     /**
@@ -114,7 +157,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             new SqlFunction(
                     "RAND_UUID",
                     SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(new UuidType(false)),
+                    ReturnTypes.explicit(SqlTypeName.UUID),
                     null,
                     OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM
@@ -133,13 +176,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     /** The {@code ROUND(numeric [, numeric])} function. */
     public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
             new SetScaleToZeroIfSingleArgument(),
-            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            OperandTypes.NUMERIC.or(OperandTypes.NUMERIC_INTEGER),
             SqlFunctionCategory.NUMERIC);
 
     /** The {@code TRUNCATE(numeric [, numeric])} function. */
     public static final SqlFunction TRUNCATE = SqlBasicFunction.create("TRUNCATE",
             new SetScaleToZeroIfSingleArgument(),
-            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            OperandTypes.NUMERIC.or(OperandTypes.NUMERIC_INTEGER),
             SqlFunctionCategory.NUMERIC);
 
     /** The {@code OCTET_LENGTH(string|binary)} function. */
@@ -149,8 +192,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             SqlFunctionCategory.NUMERIC);
 
     /**
-     * Division operator used by REDUCE phase of AVG aggregate.
-     * Uses provided values of {@code scale} and {@code precision} to return inferred type.
+     * Division operator for decimal type. Uses provided values of {@code scale} and {@code precision} to return inferred type.
      */
     public static final SqlFunction DECIMAL_DIVIDE = SqlBasicFunction.create("DECIMAL_DIVIDE",
             new SqlReturnTypeInference() {
@@ -173,6 +215,263 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.DIVISION_OPERATOR,
             SqlFunctionCategory.NUMERIC);
 
+    /**
+     * Logical less-than operator, '{@code <}'.
+     */
+    public static final SqlBinaryOperator LESS_THAN =
+            new SqlBinaryOperator(
+                    "<",
+                    SqlKind.LESS_THAN,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical less-than-or-equal operator, '{@code <=}'.
+     */
+    public static final SqlBinaryOperator LESS_THAN_OR_EQUAL =
+            new SqlBinaryOperator(
+                    "<=",
+                    SqlKind.LESS_THAN_OR_EQUAL,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical equals operator, '{@code =}'.
+     */
+    public static final SqlBinaryOperator EQUALS =
+            new SqlBinaryOperator(
+                    "=",
+                    SqlKind.EQUALS,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical greater-than operator, '{@code >}'.
+     */
+    public static final SqlBinaryOperator GREATER_THAN =
+            new SqlBinaryOperator(
+                    ">",
+                    SqlKind.GREATER_THAN,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * {@code IS DISTINCT FROM} operator.
+     */
+    public static final SqlBinaryOperator IS_DISTINCT_FROM =
+            new SqlBinaryOperator(
+                    "IS DISTINCT FROM",
+                    SqlKind.IS_DISTINCT_FROM,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * {@code IS NOT DISTINCT FROM} operator. Is equivalent to {@code NOT(x IS DISTINCT FROM y)}.
+     */
+    public static final SqlBinaryOperator IS_NOT_DISTINCT_FROM =
+            new SqlBinaryOperator(
+                    "IS NOT DISTINCT FROM",
+                    SqlKind.IS_NOT_DISTINCT_FROM,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical greater-than-or-equal operator, '{@code >=}'.
+     */
+    public static final SqlBinaryOperator GREATER_THAN_OR_EQUAL =
+            new SqlBinaryOperator(
+                    ">=",
+                    SqlKind.GREATER_THAN_OR_EQUAL,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Logical not-equals operator, '{@code <>}'.
+     */
+    public static final SqlBinaryOperator NOT_EQUALS =
+            new SqlBinaryOperator(
+                    "<>",
+                    SqlKind.NOT_EQUALS,
+                    30,
+                    true,
+                    ReturnTypes.BOOLEAN_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    SAME_SAME);
+
+    /**
+     * Infix arithmetic plus operator, '{@code +}'.
+     */
+    public static final SqlBinaryOperator PLUS =
+            new SqlMonotonicBinaryOperator(
+                    "+",
+                    SqlKind.PLUS,
+                    40,
+                    true,
+                    new SqlReturnTypeInference() {
+                        @Override
+                        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                            RelDataType type1 = opBinding.getOperandType(0);
+                            RelDataType type2 = opBinding.getOperandType(1);
+                            boolean nullable = type1.isNullable() || type2.isNullable();
+
+                            RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+                            if (TypeUtils.typeFamiliesAreCompatible(typeFactory, type1, type2)) {
+                                RelDataType resultType = typeFactory.getTypeSystem()
+                                        .deriveDecimalPlusType(typeFactory, type1, type2);
+
+                                if (resultType == null) {
+                                    resultType = typeFactory.leastRestrictive(List.of(type1, type2));
+                                }
+
+                                if (resultType != null) {
+                                    return typeFactory.createTypeWithNullability(resultType, nullable);
+                                }
+                            } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
+                            } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type2, type1, nullable);
+                            }
+
+                            return null;
+                        }
+                    },
+                    InferTypes.FIRST_KNOWN,
+                    PLUS_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Infix arithmetic minus operator, '{@code -}'.
+     */
+    public static final SqlBinaryOperator MINUS =
+            new SqlMonotonicBinaryOperator(
+                    "-",
+                    SqlKind.MINUS,
+                    40,
+                    true,
+                    new SqlReturnTypeInference() {
+                        @Override
+                        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                            RelDataType type1 = opBinding.getOperandType(0);
+                            RelDataType type2 = opBinding.getOperandType(1);
+                            boolean nullable = type1.isNullable() || type2.isNullable();
+
+                            RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+                            if (TypeUtils.typeFamiliesAreCompatible(typeFactory, type1, type2)) {
+                                RelDataType resultType = typeFactory.getTypeSystem()
+                                        .deriveDecimalPlusType(typeFactory, type1, type2);
+
+                                if (resultType == null) {
+                                    resultType = typeFactory.leastRestrictive(List.of(type1, type2));
+                                }
+
+                                if (resultType != null) {
+                                    return typeFactory.createTypeWithNullability(resultType, nullable);
+                                }
+                            } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
+                            }
+
+                            return null;
+                        }
+                    },
+                    InferTypes.FIRST_KNOWN,
+                    MINUS_OPERATOR_TYPES_CHECKER);
+
+    private static RelDataType deriveDatetimePlusMinusIntervalType(
+            RelDataTypeFactory typeFactory,
+            RelDataType datetimeType,
+            RelDataType intervalType,
+            boolean nullable
+    ) {
+        assert SqlTypeUtil.isDatetime(datetimeType) : "not datetime: " + datetimeType;
+        assert SqlTypeUtil.isInterval(intervalType) : "not interval: " + intervalType;
+
+        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
+                && intervalType.getScale() > datetimeType.getPrecision()) {
+            // Using a fraction of a second from an interval as the precision of the expression.
+            datetimeType = typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+        }
+
+        return typeFactory.createTypeWithNullability(datetimeType, nullable);
+    }
+
+    /**
+     * Arithmetic division operator, '{@code /}'.
+     */
+    public static final SqlBinaryOperator DIVIDE =
+            new SqlBinaryOperator(
+                    "/",
+                    SqlKind.DIVIDE,
+                    60,
+                    true,
+                    ReturnTypes.QUOTIENT_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    DIVISION_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Arithmetic multiplication operator, '{@code *}'.
+     */
+    public static final SqlBinaryOperator MULTIPLY =
+            new SqlMonotonicBinaryOperator(
+                    "*",
+                    SqlKind.TIMES,
+                    60,
+                    true,
+                    ReturnTypes.PRODUCT_NULLABLE,
+                    InferTypes.FIRST_KNOWN,
+                    MULTIPLY_OPERATOR_TYPES_CHECKER);
+
+    /**
+     * Arithmetic remainder operator, '{@code %}'.
+     */
+    public static final SqlBinaryOperator PERCENT_REMAINDER =
+            new SqlBinaryOperator(
+                    "%",
+                    SqlKind.MOD,
+                    60,
+                    true,
+                    ReturnTypes.NULLABLE_MOD,
+                    null,
+                    OperandTypes.EXACT_NUMERIC_EXACT_NUMERIC.and(SAME_SAME));
+
+    /**
+     * {@code EVERY} aggregate function.
+     */
+    public static final SqlAggFunction EVERY =
+            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+
+    /**
+     * {@code SOME} aggregate function.
+     */
+    public static final SqlAggFunction SOME =
+            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+
+    /**
+     * The <code>CURRENT_TIMESTAMP [(<i>precision</i>)]</code> function.
+     */
+    public static final SqlFunction CURRENT_TIMESTAMP =
+            new SqlAbstractTimeFunction("CURRENT_TIMESTAMP", SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {};
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -186,280 +485,291 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             SqlStdOperatorTable.MIN,
             SqlStdOperatorTable.MAX,
             SqlStdOperatorTable.ANY_VALUE,
-            SqlStdOperatorTable.SOME,
+            SOME,
             SqlStdOperatorTable.SINGLE_VALUE,
-            SqlStdOperatorTable.EVERY
+            EVERY
     );
 
     /**
      * Default constructor.
      */
     public IgniteSqlOperatorTable() {
+        init0();
+    }
+
+    private void init0() {
+        ImmutableList.Builder<SqlOperator> definedOperatorsBuilder =
+                ImmutableList.builder();
         // Set operators.
-        register(SqlStdOperatorTable.UNION);
-        register(SqlStdOperatorTable.UNION_ALL);
-        register(SqlStdOperatorTable.EXCEPT);
-        register(SqlStdOperatorTable.EXCEPT_ALL);
-        register(SqlStdOperatorTable.INTERSECT);
-        register(SqlStdOperatorTable.INTERSECT_ALL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.UNION);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.UNION_ALL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.EXCEPT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.EXCEPT_ALL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.INTERSECT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.INTERSECT_ALL);
 
         // Logical.
-        register(SqlStdOperatorTable.AND);
-        register(SqlStdOperatorTable.OR);
-        register(SqlStdOperatorTable.NOT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.AND);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.OR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NOT);
 
         // Comparisons.
-        register(SqlStdOperatorTable.LESS_THAN);
-        register(SqlStdOperatorTable.LESS_THAN_OR_EQUAL);
-        register(SqlStdOperatorTable.GREATER_THAN);
-        register(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL);
-        register(SqlStdOperatorTable.EQUALS);
-        register(SqlStdOperatorTable.NOT_EQUALS);
-        register(SqlStdOperatorTable.BETWEEN);
-        register(SqlStdOperatorTable.NOT_BETWEEN);
+        definedOperatorsBuilder.add(LESS_THAN);
+        definedOperatorsBuilder.add(LESS_THAN_OR_EQUAL);
+        definedOperatorsBuilder.add(GREATER_THAN);
+        definedOperatorsBuilder.add(GREATER_THAN_OR_EQUAL);
+        definedOperatorsBuilder.add(EQUALS);
+        definedOperatorsBuilder.add(NOT_EQUALS);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.BETWEEN);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NOT_BETWEEN);
 
         // Arithmetic.
-        register(SqlStdOperatorTable.PLUS);
-        register(SqlStdOperatorTable.MINUS);
-        register(SqlStdOperatorTable.MULTIPLY);
-        register(SqlStdOperatorTable.DIVIDE);
-        register(SqlStdOperatorTable.DIVIDE_INTEGER); // Used internally.
-        register(SqlStdOperatorTable.PERCENT_REMAINDER);
-        register(SqlStdOperatorTable.UNARY_MINUS);
-        register(SqlStdOperatorTable.UNARY_PLUS);
+        definedOperatorsBuilder.add(PLUS);
+        definedOperatorsBuilder.add(MINUS);
+        definedOperatorsBuilder.add(MULTIPLY);
+        definedOperatorsBuilder.add(DIVIDE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DIVIDE_INTEGER); // Used internally.
+        definedOperatorsBuilder.add(PERCENT_REMAINDER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.UNARY_MINUS);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.UNARY_PLUS);
 
         // Aggregates.
-        register(SqlStdOperatorTable.COUNT);
-        register(SqlStdOperatorTable.SUM);
-        register(SqlStdOperatorTable.SUM0);
-        register(SqlStdOperatorTable.AVG);
-        register(DECIMAL_DIVIDE);
-        register(SqlStdOperatorTable.MIN);
-        register(SqlStdOperatorTable.MAX);
-        register(SqlStdOperatorTable.ANY_VALUE);
-        register(SqlStdOperatorTable.SINGLE_VALUE);
-        register(SqlStdOperatorTable.FILTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.COUNT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SUM);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SUM0);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.AVG);
+        definedOperatorsBuilder.add(DECIMAL_DIVIDE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MIN);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MAX);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ANY_VALUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SINGLE_VALUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.FILTER);
 
-        register(SqlStdOperatorTable.EVERY);
-        register(SqlStdOperatorTable.SOME);
+        definedOperatorsBuilder.add(EVERY);
+        definedOperatorsBuilder.add(SOME);
 
         // IS ... operator.
-        register(SqlStdOperatorTable.IS_NULL);
-        register(SqlStdOperatorTable.IS_NOT_NULL);
-        register(SqlStdOperatorTable.IS_TRUE);
-        register(SqlStdOperatorTable.IS_NOT_TRUE);
-        register(SqlStdOperatorTable.IS_FALSE);
-        register(SqlStdOperatorTable.IS_NOT_FALSE);
-        register(SqlStdOperatorTable.IS_DISTINCT_FROM);
-        register(SqlStdOperatorTable.IS_NOT_DISTINCT_FROM);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NULL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_NULL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_TRUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_TRUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_FALSE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_FALSE);
+        definedOperatorsBuilder.add(IS_DISTINCT_FROM);
+        definedOperatorsBuilder.add(IS_NOT_DISTINCT_FROM);
 
         // LIKE and SIMILAR.
-        register(SqlStdOperatorTable.LIKE);
-        register(SqlStdOperatorTable.NOT_LIKE);
-        register(SqlStdOperatorTable.SIMILAR_TO);
-        register(SqlStdOperatorTable.NOT_SIMILAR_TO);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LIKE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NOT_LIKE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SIMILAR_TO);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NOT_SIMILAR_TO);
 
         // NULLS ordering.
-        register(SqlStdOperatorTable.NULLS_FIRST);
-        register(SqlStdOperatorTable.NULLS_LAST);
-        register(SqlStdOperatorTable.DESC);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NULLS_FIRST);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NULLS_LAST);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DESC);
 
         // Exists.
-        register(SqlStdOperatorTable.EXISTS);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.EXISTS);
 
         // String functions.
-        register(SqlStdOperatorTable.UPPER);
-        register(SqlStdOperatorTable.LOWER);
-        register(SqlStdOperatorTable.INITCAP);
-        register(SqlLibraryOperators.TO_BASE64);
-        register(SqlLibraryOperators.FROM_BASE64);
-        register(SqlLibraryOperators.MD5);
-        register(SqlLibraryOperators.SHA1);
-        register(SqlStdOperatorTable.SUBSTRING);
-        register(SqlLibraryOperators.LEFT);
-        register(SqlLibraryOperators.RIGHT);
-        register(SqlStdOperatorTable.REPLACE);
-        register(SqlLibraryOperators.TRANSLATE3);
-        register(SqlLibraryOperators.CHR);
-        register(SqlStdOperatorTable.CHAR_LENGTH);
-        register(SqlStdOperatorTable.CHARACTER_LENGTH);
-        register(SqlStdOperatorTable.CONCAT);
-        register(SqlLibraryOperators.CONCAT_FUNCTION);
-        register(SqlStdOperatorTable.OVERLAY);
-        register(SqlStdOperatorTable.POSITION);
-        register(SqlStdOperatorTable.ASCII);
-        register(SqlLibraryOperators.REPEAT);
-        register(SqlLibraryOperators.SPACE);
-        register(SqlLibraryOperators.STRCMP);
-        register(SqlLibraryOperators.SOUNDEX);
-        register(SqlLibraryOperators.DIFFERENCE);
-        register(SqlLibraryOperators.REVERSE);
-        register(SqlStdOperatorTable.TRIM);
-        register(SqlLibraryOperators.LTRIM);
-        register(SqlLibraryOperators.RTRIM);
-        register(SUBSTR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.UPPER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LOWER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.INITCAP);
+        definedOperatorsBuilder.add(SqlLibraryOperators.TO_BASE64);
+        definedOperatorsBuilder.add(SqlLibraryOperators.FROM_BASE64);
+        definedOperatorsBuilder.add(SqlLibraryOperators.MD5);
+        definedOperatorsBuilder.add(SqlLibraryOperators.SHA1);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SUBSTRING);
+        definedOperatorsBuilder.add(SqlLibraryOperators.LEFT);
+        definedOperatorsBuilder.add(SqlLibraryOperators.RIGHT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.REPLACE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.TRANSLATE3);
+        definedOperatorsBuilder.add(SqlLibraryOperators.CHR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CHAR_LENGTH);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CHARACTER_LENGTH);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CONCAT);
+        definedOperatorsBuilder.add(SqlLibraryOperators.CONCAT_FUNCTION);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.OVERLAY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.POSITION);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ASCII);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REPEAT);
+        definedOperatorsBuilder.add(SqlLibraryOperators.SPACE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.STRCMP);
+        definedOperatorsBuilder.add(SqlLibraryOperators.SOUNDEX);
+        definedOperatorsBuilder.add(SqlLibraryOperators.DIFFERENCE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REVERSE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.TRIM);
+        definedOperatorsBuilder.add(SqlLibraryOperators.LTRIM);
+        definedOperatorsBuilder.add(SqlLibraryOperators.RTRIM);
+        definedOperatorsBuilder.add(SUBSTR);
 
         // Math functions.
-        register(SqlStdOperatorTable.MOD); // Arithmetic remainder.
-        register(SqlStdOperatorTable.EXP); // Euler's number e raised to the power of a value.
-        register(SqlStdOperatorTable.POWER);
-        register(SqlStdOperatorTable.LN); // Natural logarithm.
-        register(SqlStdOperatorTable.LOG10); // The base 10 logarithm.
-        register(SqlStdOperatorTable.ABS); // Absolute value.
-        register(SqlStdOperatorTable.RAND); // Random.
-        register(SqlStdOperatorTable.RAND_INTEGER); // Integer random.
-        register(SqlStdOperatorTable.ACOS); // Arc cosine.
-        register(SqlStdOperatorTable.ASIN); // Arc sine.
-        register(SqlStdOperatorTable.ATAN); // Arc tangent.
-        register(SqlStdOperatorTable.ATAN2); // Angle from coordinates.
-        register(SqlStdOperatorTable.SQRT); // Square root.
-        register(SqlStdOperatorTable.CBRT); // Cube root.
-        register(SqlStdOperatorTable.COS); // Cosine
-        register(SqlLibraryOperators.COSH); // Hyperbolic cosine.
-        register(SqlStdOperatorTable.COT); // Cotangent.
-        register(SqlStdOperatorTable.DEGREES); // Radians to degrees.
-        register(SqlStdOperatorTable.RADIANS); // Degrees to radians.
-        register(ROUND); // Fixes return type scale.
-        register(SqlStdOperatorTable.SIGN);
-        register(SqlStdOperatorTable.SIN); // Sine.
-        register(SqlLibraryOperators.SINH); // Hyperbolic sine.
-        register(SqlStdOperatorTable.TAN); // Tangent.
-        register(SqlLibraryOperators.TANH); // Hyperbolic tangent.
-        register(TRUNCATE); // Fixes return type scale.
-        register(SqlStdOperatorTable.PI);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MOD); // Arithmetic remainder.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.EXP); // Euler's number e raised to the power of a value.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.POWER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LN); // Natural logarithm.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LOG10); // The base 10 logarithm.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ABS); // Absolute value.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.RAND); // Random.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.RAND_INTEGER); // Integer random.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ACOS); // Arc cosine.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ASIN); // Arc sine.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ATAN); // Arc tangent.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ATAN2); // Angle from coordinates.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SQRT); // Square root.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CBRT); // Cube root.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.COS); // Cosine
+        definedOperatorsBuilder.add(SqlLibraryOperators.COSH); // Hyperbolic cosine.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.COT); // Cotangent.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DEGREES); // Radians to degrees.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.RADIANS); // Degrees to radians.
+        definedOperatorsBuilder.add(ROUND); // Fixes return type scale.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SIGN);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SIN); // Sine.
+        definedOperatorsBuilder.add(SqlLibraryOperators.SINH); // Hyperbolic sine.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.TAN); // Tangent.
+        definedOperatorsBuilder.add(SqlLibraryOperators.TANH); // Hyperbolic tangent.
+        definedOperatorsBuilder.add(TRUNCATE); // Fixes return type scale.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.PI);
 
         // Date and time.
-        register(SqlStdOperatorTable.DATETIME_PLUS);
-        register(SqlStdOperatorTable.MINUS_DATE);
-        register(SqlStdOperatorTable.EXTRACT);
-        register(SqlStdOperatorTable.FLOOR);
-        register(SqlStdOperatorTable.CEIL);
-        register(SqlStdOperatorTable.TIMESTAMP_ADD);
-        register(SqlStdOperatorTable.TIMESTAMP_DIFF);
-        register(SqlStdOperatorTable.LAST_DAY);
-        register(SqlLibraryOperators.DAYNAME);
-        register(SqlLibraryOperators.MONTHNAME);
-        register(SqlStdOperatorTable.DAYOFMONTH);
-        register(SqlStdOperatorTable.DAYOFWEEK);
-        register(SqlStdOperatorTable.DAYOFYEAR);
-        register(SqlStdOperatorTable.YEAR);
-        register(SqlStdOperatorTable.QUARTER);
-        register(SqlStdOperatorTable.MONTH);
-        register(SqlStdOperatorTable.WEEK);
-        register(SqlStdOperatorTable.HOUR);
-        register(SqlStdOperatorTable.MINUTE);
-        register(SqlStdOperatorTable.SECOND);
-        register(SqlLibraryOperators.TIMESTAMP_SECONDS); // Seconds since 1970-01-01 to timestamp.
-        register(SqlLibraryOperators.TIMESTAMP_MILLIS); // Milliseconds since 1970-01-01 to timestamp.
-        register(SqlLibraryOperators.TIMESTAMP_MICROS); // Microseconds since 1970-01-01 to timestamp.
-        register(SqlLibraryOperators.UNIX_SECONDS); // Timestamp to seconds since 1970-01-01.
-        register(SqlLibraryOperators.UNIX_MILLIS); // Timestamp to milliseconds since 1970-01-01.
-        register(SqlLibraryOperators.UNIX_MICROS); // Timestamp to microseconds since 1970-01-01.
-        register(SqlLibraryOperators.UNIX_DATE); // Date to days since 1970-01-01.
-        register(SqlLibraryOperators.DATE_FROM_UNIX_DATE); // Days since 1970-01-01 to date.
-        register(SqlLibraryOperators.DATE); // String to date.
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DATETIME_PLUS);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MINUS_DATE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.EXTRACT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.FLOOR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CEIL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.TIMESTAMP_ADD);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.TIMESTAMP_DIFF);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LAST_DAY);
+        definedOperatorsBuilder.add(SqlLibraryOperators.DAYNAME);
+        definedOperatorsBuilder.add(SqlLibraryOperators.MONTHNAME);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DAYOFMONTH);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DAYOFWEEK);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DAYOFYEAR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.YEAR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.QUARTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MONTH);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.WEEK);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.HOUR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MINUTE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.SECOND);
+        definedOperatorsBuilder.add(SqlLibraryOperators.TIMESTAMP_SECONDS); // Seconds since 1970-01-01 to timestamp.
+        definedOperatorsBuilder.add(SqlLibraryOperators.TIMESTAMP_MILLIS); // Milliseconds since 1970-01-01 to timestamp.
+        definedOperatorsBuilder.add(SqlLibraryOperators.TIMESTAMP_MICROS); // Microseconds since 1970-01-01 to timestamp.
+        definedOperatorsBuilder.add(SqlLibraryOperators.UNIX_SECONDS); // Timestamp to seconds since 1970-01-01.
+        definedOperatorsBuilder.add(SqlLibraryOperators.UNIX_MILLIS); // Timestamp to milliseconds since 1970-01-01.
+        definedOperatorsBuilder.add(SqlLibraryOperators.UNIX_MICROS); // Timestamp to microseconds since 1970-01-01.
+        definedOperatorsBuilder.add(SqlLibraryOperators.UNIX_DATE); // Date to days since 1970-01-01.
+        definedOperatorsBuilder.add(SqlLibraryOperators.DATE_FROM_UNIX_DATE); // Days since 1970-01-01 to date.
+        definedOperatorsBuilder.add(SqlLibraryOperators.DATE); // String to date.
 
         // POSIX REGEX.
-        register(SqlStdOperatorTable.POSIX_REGEX_CASE_INSENSITIVE);
-        register(SqlStdOperatorTable.POSIX_REGEX_CASE_SENSITIVE);
-        register(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_INSENSITIVE);
-        register(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_SENSITIVE);
-        register(SqlLibraryOperators.REGEXP_REPLACE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.POSIX_REGEX_CASE_INSENSITIVE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.POSIX_REGEX_CASE_SENSITIVE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_INSENSITIVE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_SENSITIVE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REGEXP_REPLACE_2);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REGEXP_REPLACE_3);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REGEXP_REPLACE_4);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REGEXP_REPLACE_5);
+        definedOperatorsBuilder.add(SqlLibraryOperators.REGEXP_REPLACE_6);
 
         // Collections.
-        register(SqlStdOperatorTable.MAP_VALUE_CONSTRUCTOR);
-        register(SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR);
-        register(SqlStdOperatorTable.ITEM);
-        register(SqlStdOperatorTable.CARDINALITY);
-        register(SqlStdOperatorTable.IS_EMPTY);
-        register(SqlStdOperatorTable.IS_NOT_EMPTY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.MAP_VALUE_CONSTRUCTOR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ARRAY_VALUE_CONSTRUCTOR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ITEM);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CARDINALITY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_EMPTY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_EMPTY);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19332
-        // register(SqlStdOperatorTable.MAP_QUERY);
-        // register(SqlStdOperatorTable.ARRAY_QUERY);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MAP_QUERY);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.ARRAY_QUERY);
 
         // Multiset.
         // TODO https://issues.apache.org/jira/browse/IGNITE-15551
-        // register(SqlStdOperatorTable.MULTISET_VALUE);
-        // register(SqlStdOperatorTable.MULTISET_QUERY);
-        // register(SqlStdOperatorTable.SLICE);
-        // register(SqlStdOperatorTable.ELEMENT);
-        // register(SqlStdOperatorTable.STRUCT_ACCESS);
-        // register(SqlStdOperatorTable.MEMBER_OF);
-        // register(SqlStdOperatorTable.IS_A_SET);
-        // register(SqlStdOperatorTable.IS_NOT_A_SET);
-        // register(SqlStdOperatorTable.MULTISET_INTERSECT_DISTINCT);
-        // register(SqlStdOperatorTable.MULTISET_INTERSECT);
-        // register(SqlStdOperatorTable.MULTISET_EXCEPT_DISTINCT);
-        // register(SqlStdOperatorTable.MULTISET_EXCEPT);
-        // register(SqlStdOperatorTable.MULTISET_UNION_DISTINCT);
-        // register(SqlStdOperatorTable.MULTISET_UNION);
-        // register(SqlStdOperatorTable.SUBMULTISET_OF);
-        // register(SqlStdOperatorTable.NOT_SUBMULTISET_OF);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_VALUE);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_QUERY);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.SLICE);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.ELEMENT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.STRUCT_ACCESS);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MEMBER_OF);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.IS_A_SET);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_A_SET);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_INTERSECT_DISTINCT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_INTERSECT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_EXCEPT_DISTINCT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_EXCEPT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_UNION_DISTINCT);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.MULTISET_UNION);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.SUBMULTISET_OF);
+        // definedOperatorsBuilder.add(SqlStdOperatorTable.NOT_SUBMULTISET_OF);
 
         // Other functions and operators.
-        register(SqlStdOperatorTable.ROW);
-        register(SqlStdOperatorTable.CAST);
-        register(SqlLibraryOperators.INFIX_CAST);
-        register(SqlStdOperatorTable.COALESCE);
-        register(SqlLibraryOperators.NVL);
-        register(SqlStdOperatorTable.NULLIF);
-        register(SqlStdOperatorTable.CASE);
-        register(SqlLibraryOperators.DECODE);
-        register(SqlLibraryOperators.LEAST);
-        register(SqlLibraryOperators.GREATEST);
-        register(SqlLibraryOperators.COMPRESS);
-        register(OCTET_LENGTH);
-        register(SqlStdOperatorTable.DEFAULT);
-        register(SqlStdOperatorTable.REINTERPRET);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.ROW);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CAST);
+        definedOperatorsBuilder.add(SqlLibraryOperators.INFIX_CAST);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.COALESCE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.NVL);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.NULLIF);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CASE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.DECODE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.LEAST);
+        definedOperatorsBuilder.add(SqlLibraryOperators.GREATEST);
+        definedOperatorsBuilder.add(SqlLibraryOperators.COMPRESS);
+        definedOperatorsBuilder.add(OCTET_LENGTH);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.DEFAULT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.REINTERPRET);
 
         // XML Operators.
-        register(SqlLibraryOperators.EXTRACT_VALUE);
-        register(SqlLibraryOperators.XML_TRANSFORM);
-        register(SqlLibraryOperators.EXTRACT_XML);
-        register(SqlLibraryOperators.EXISTS_NODE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.EXTRACT_VALUE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.XML_TRANSFORM);
+        definedOperatorsBuilder.add(SqlLibraryOperators.EXTRACT_XML);
+        definedOperatorsBuilder.add(SqlLibraryOperators.EXISTS_NODE);
 
         // JSON Operators
-        register(SqlStdOperatorTable.JSON_TYPE_OPERATOR);
-        register(SqlStdOperatorTable.JSON_VALUE_EXPRESSION);
-        register(SqlStdOperatorTable.JSON_VALUE);
-        register(SqlStdOperatorTable.JSON_QUERY);
-        register(SqlLibraryOperators.JSON_TYPE);
-        register(SqlStdOperatorTable.JSON_EXISTS);
-        register(SqlLibraryOperators.JSON_DEPTH);
-        register(SqlLibraryOperators.JSON_KEYS);
-        register(SqlLibraryOperators.JSON_PRETTY);
-        register(SqlLibraryOperators.JSON_LENGTH);
-        register(SqlLibraryOperators.JSON_REMOVE);
-        register(SqlLibraryOperators.JSON_STORAGE_SIZE);
-        register(SqlStdOperatorTable.JSON_OBJECT);
-        register(SqlStdOperatorTable.JSON_ARRAY);
-        register(SqlStdOperatorTable.IS_JSON_VALUE);
-        register(SqlStdOperatorTable.IS_JSON_OBJECT);
-        register(SqlStdOperatorTable.IS_JSON_ARRAY);
-        register(SqlStdOperatorTable.IS_JSON_SCALAR);
-        register(SqlStdOperatorTable.IS_NOT_JSON_VALUE);
-        register(SqlStdOperatorTable.IS_NOT_JSON_OBJECT);
-        register(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
-        register(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_TYPE_OPERATOR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_VALUE_EXPRESSION);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_VALUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_QUERY);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_TYPE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_EXISTS);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_DEPTH);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_KEYS);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_PRETTY);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_LENGTH);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_REMOVE);
+        definedOperatorsBuilder.add(SqlLibraryOperators.JSON_STORAGE_SIZE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_OBJECT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.JSON_ARRAY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_JSON_VALUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_JSON_OBJECT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_JSON_ARRAY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_JSON_SCALAR);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_JSON_VALUE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_JSON_OBJECT);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
 
         // Aggregate functions.
-        register(SqlInternalOperators.LITERAL_AGG);
+        definedOperatorsBuilder.add(SqlInternalOperators.LITERAL_AGG);
 
         // Current time functions.
-        register(SqlStdOperatorTable.CURRENT_TIME);
-        register(SqlStdOperatorTable.CURRENT_TIMESTAMP);
-        register(SqlStdOperatorTable.CURRENT_DATE);
-        register(SqlStdOperatorTable.LOCALTIME);
-        register(SqlStdOperatorTable.LOCALTIMESTAMP);
+        definedOperatorsBuilder.add(CURRENT_TIMESTAMP);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_DATE);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);
 
         // Ignite specific operators
-        register(LENGTH);
-        register(SYSTEM_RANGE);
-        register(TYPEOF);
-        register(LEAST2);
-        register(GREATEST2);
-        register(RAND_UUID);
+        definedOperatorsBuilder.add(LENGTH);
+        definedOperatorsBuilder.add(SYSTEM_RANGE);
+        definedOperatorsBuilder.add(TYPEOF);
+        definedOperatorsBuilder.add(LEAST2);
+        definedOperatorsBuilder.add(GREATEST2);
+        definedOperatorsBuilder.add(RAND_UUID);
+
+        setOperators(buildIndex(definedOperatorsBuilder.build()));
     }
 
     /** Sets scale to {@code 0} for single argument variants of ROUND/TRUNCATE operators. */

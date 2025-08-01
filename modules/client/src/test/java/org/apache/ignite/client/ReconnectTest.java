@@ -61,7 +61,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
                 .retryPolicy(new RetryLimitPolicy().retryLimit(100))
                 .build();
 
-        assertEquals("t", client.tables().tables().get(0).name());
+        assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
 
         server.close();
 
@@ -70,7 +70,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         server2 = new TestServer(0, ignite2, null, null, null, AbstractClientTest.clusterId, null, 10950);
 
-        assertEquals("t2", client.tables().tables().get(0).name());
+        assertEquals("T2", client.tables().tables().get(0).qualifiedName().objectName());
     }
 
     @Test
@@ -85,7 +85,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
                 .addresses("127.0.0.1:" + server.port(), "127.0.0.1:10960")
                 .build();
 
-        assertEquals("t", client.tables().tables().get(0).name());
+        assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
 
         server.close();
 
@@ -99,7 +99,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
-                .reconnectInterval(reconnectEnabled ? 50 : 0)
+                .backgroundReconnectInterval(reconnectEnabled ? 50 : 0)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
@@ -129,7 +129,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902")
-                .reconnectInterval(50)
+                .backgroundReconnectInterval(50)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {

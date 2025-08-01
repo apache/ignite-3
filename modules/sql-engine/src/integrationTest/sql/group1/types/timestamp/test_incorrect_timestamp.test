@@ -1,0 +1,176 @@
+# name: test/sql/types/timestamp/test_incorrect_timestamp.test
+# description: Test out of range/incorrect timestamp formats
+# group: [timestamp]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE timestamp_t(t TIMESTAMP)
+
+statement error: Illegal TIMESTAMP literal 'blabla': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (TIMESTAMP 'blabla')
+
+statement error: Illegal TIMESTAMP literal '-1000-01-01 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (TIMESTAMP '-1000-01-01 00:00:00')
+
+statement error: Invalid DATE value, 'blabla'
+INSERT INTO timestamp_t VALUES ('blabla'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1993-20-14 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-20-14 00:00:00')
+
+statement error: Invalid DATE value, '1993-20-14 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-20-14 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1993-08-99 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-08-99 00:00:00')
+
+statement error: Invalid DATE value, '1993-08-99 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-08-99 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1993-02-29 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1993-02-29 00:00:00')
+
+statement error: Value of DAY field is out of range in '1993-02-29 00:00:00'
+INSERT INTO timestamp_t VALUES ('1993-02-29 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-02-29 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-02-29 00:00:00')
+
+statement error: Value of DAY field is out of range in '1900-02-29 00:00:00'
+INSERT INTO timestamp_t VALUES ('1900-02-29 00:00:00'::timestamp)
+
+statement ok
+INSERT INTO timestamp_t VALUES (timestamp '1992-02-29 00:00:00')
+
+statement ok
+INSERT INTO timestamp_t VALUES ('1992-02-29 00:00:00'::timestamp)
+
+statement ok
+INSERT INTO timestamp_t VALUES (timestamp '2000-02-29 00:00:00')
+
+statement ok
+INSERT INTO timestamp_t VALUES ('2000-02-29 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '02-02-1992 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '02-02-1992 00:00:00')
+
+statement error: Invalid DATE value, '02-02-1992 00:00:00'
+INSERT INTO timestamp_t VALUES ('02-02-1992 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 59:59:23': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 59:59:23')
+
+statement error: Invalid DATE value, '1900-1-1 59:59:23'
+INSERT INTO timestamp_t VALUES ('1900-1-1 59:59:23'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900a01a01 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900a01a01 00:00:00')
+
+statement error: Invalid DATE value, '1900a01a01 00:00:00'
+INSERT INTO timestamp_t VALUES ('1900a01a01 00:00:00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00;00;00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00;00;00')
+
+statement error: Invalid DATE value, '1900-1-1 00;00;00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00;00;00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00a00a00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00a00a00')
+
+statement error: Invalid DATE value, '1900-1-1 00a00a00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00a00a00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00/00/00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00/00/00')
+
+statement error: Invalid DATE value, '1900-1-1 00/00/00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00/00/00'::timestamp)
+
+statement error: Illegal TIMESTAMP literal '1900-1-1 00-00-00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '1900-1-1 00-00-00')
+
+statement error: Invalid DATE value, '1900-1-1 00-00-00'
+INSERT INTO timestamp_t VALUES ('1900-1-1 00-00-00'::timestamp)
+
+# year = 0 (out of range)
+statement error: Illegal TIMESTAMP literal '0000-01-01 01:01:01': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '0000-01-01 01:01:01')
+
+statement error: Value of YEAR field is out of range in '0000-01-01'
+INSERT INTO timestamp_t VALUES ('0000-01-01'::TIMESTAMP)
+
+# year = 10000 (out of range)
+statement error: Timestamp literal 'TIMESTAMP '10000-01-01 01:01:01'' out of range.
+INSERT INTO timestamp_t VALUES (timestamp '10000-01-01 01:01:01')
+
+# year = 9223372036854775808
+statement error: Illegal TIMESTAMP literal '9223372036854775808-01-01 01:01:01': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '9223372036854775808-01-01 01:01:01')
+
+statement error: Timestamp literal 'TIMESTAMP '10000-01-01'' out of range.
+INSERT INTO timestamp_t VALUES (timestamp '10000-01-01')
+
+statement error: Invalid value for MonthOfYear
+INSERT INTO timestamp_t VALUES (CAST('9999-99-99' AS TIMESTAMP FORMAT 'YYYY-MM-DD'))
+
+statement error: Invalid DATE value, '10000-00-01 01:01:01'
+INSERT INTO timestamp_t VALUES ('10000-00-01 01:01:01'::TIMESTAMP)
+
+statement error: Invalid default value for column 'TS'
+CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '10002-01-01 00:00:00');
+
+# The value is less than the minimum allowed
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '0001-01-01 18:00:00' - INTERVAL 1 SECONDS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, -1, TIMESTAMP '0001-01-01 18:00:00')
+
+statement error: Timestamp literal 'TIMESTAMP '0001-01-01 17:59:59.999999999'' out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '0001-01-01 17:59:59.999999999')
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES ('0001-01-01 17:59:59.999999999'::TIMESTAMP)
+
+statement error: Invalid default value for column 'TS'
+CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '0001-01-01 17:59:59.999999999');
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP - INTERVAL 7999 YEARS)
+
+# The value is greater than the maximum allowed
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '9999-12-31 05:59:59' + INTERVAL 1 SECONDS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, 1, TIMESTAMP '9999-12-31 05:59:59')
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES ('9999-12-31 06:00:00'::TIMESTAMP)
+
+statement error: Timestamp literal 'TIMESTAMP '9999-12-31 06:00:00'' out of range.
+INSERT INTO timestamp_t VALUES (TIMESTAMP '9999-12-31 06:00:00')
+
+statement error: Invalid default value for column 'TS'
+CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '9999-12-31 06:00:00');
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 2922000 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 730500 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 70128000 HOURS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 17532000 HOURS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP + INTERVAL 7999 YEARS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP - INTERVAL 7999 YEARS)

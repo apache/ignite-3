@@ -43,15 +43,15 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         ConfigurationChangeException ex = assertWillThrowFast(
-                config.delayDuration().update(config.delayDuration().value() + 100),
+                config.delayDurationMillis().update(config.delayDurationMillis().value() + 100),
                 ConfigurationChangeException.class
         );
 
         assertThat(ex.getCause(), is(instanceOf(ConfigurationValidationException.class)));
         assertThat(
                 ex.getCause().getMessage(),
-                containsString("Validation did not pass for keys: [ignite.schemaSync.delayDuration, 'ignite.schemaSync.delayDuration' "
-                        + "configuration value is immutable and cannot be updated")
+                containsString("Validation did not pass for keys: [ignite.schemaSync.delayDurationMillis,"
+                        + " 'ignite.schemaSync.delayDurationMillis' configuration value is immutable and cannot be updated")
         );
     }
 
@@ -61,15 +61,15 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         ConfigurationChangeException ex = assertWillThrowFast(
-                config.maxClockSkew().update(config.maxClockSkew().value() + 100),
+                config.maxClockSkewMillis().update(config.maxClockSkewMillis().value() + 100),
                 ConfigurationChangeException.class
         );
 
         assertThat(ex.getCause(), is(instanceOf(ConfigurationValidationException.class)));
         assertThat(
                 ex.getCause().getMessage(),
-                containsString("Validation did not pass for keys: [ignite.schemaSync.maxClockSkew, 'ignite.schemaSync.maxClockSkew' "
-                        + "configuration value is immutable and cannot be updated")
+                containsString("Validation did not pass for keys: [ignite.schemaSync.maxClockSkewMillis,"
+                        + " 'ignite.schemaSync.maxClockSkewMillis' configuration value is immutable and cannot be updated")
         );
     }
 }

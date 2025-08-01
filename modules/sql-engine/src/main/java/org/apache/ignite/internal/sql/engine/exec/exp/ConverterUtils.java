@@ -21,6 +21,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
@@ -190,6 +191,44 @@ public class ConverterUtils {
                 Expressions.constant(targetType.getScale()));
     }
 
+    private static Expression convertToTime(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.TIME;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toTimeExact",
+                operand,
+                Expressions.constant(targetType.getPrecision())
+        );
+    }
+
+    private static Expression convertToDate(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.DATE;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toDateExact",
+                operand
+        );
+    }
+
+    private static Expression convertToTimestamp(Expression operand, RelDataType targetType) {
+        String methodName;
+
+        if (targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP) {
+            methodName = "toTimestampExact";
+        } else {
+            assert targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE : targetType;
+
+            methodName = "toTimestampLtzExact";
+        }
+
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                methodName,
+                operand,
+                Expressions.constant(targetType.getPrecision())
+        );
+    }
+
     /**
      * Convert {@code operand} to {@code targetType}.
      *
@@ -200,9 +239,21 @@ public class ConverterUtils {
     public static Expression convert(Expression operand, RelDataType targetType) {
         if (SqlTypeUtil.isDecimal(targetType)) {
             return convertToDecimal(operand, targetType);
-        } else {
-            return convert(operand, Commons.typeFactory().getJavaClass(targetType));
         }
+
+        if (SqlTypeUtil.isDate(targetType)) {
+            return convertToDate(operand, targetType);
+        }
+
+        if (SqlTypeUtil.isTimestamp(targetType)) {
+            return convertToTimestamp(operand, targetType);
+        }
+
+        if (targetType.getSqlTypeName() == SqlTypeName.TIME) {
+            return convertToTime(operand, targetType);
+        }
+
+        return convert(operand, Commons.typeFactory().getJavaClass(targetType));
     }
 
     /**
@@ -273,6 +324,11 @@ public class ConverterUtils {
                                 "toString",
                                 operand));
             }
+        }
+
+        // EnumUtils.convert lacks UUID handling, therefore we will WA on our side.
+        if (toType == UUID.class && fromType == String.class) {
+            return Expressions.call(UUID.class, "fromString", operand);
         }
 
         var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);

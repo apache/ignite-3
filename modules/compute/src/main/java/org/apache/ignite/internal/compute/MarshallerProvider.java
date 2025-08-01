@@ -23,8 +23,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Marshaller provider.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface MarshallerProvider<R> {
     /** Returns marshaller or null. */
     @Nullable Marshaller<R, byte[]> resultMarshaller();
+
+    /**
+     * If {@code true}, then the result should be marshalled.
+     *
+     * @see ComputeJobDataHolder
+     */
+    boolean marshalResult();
 }

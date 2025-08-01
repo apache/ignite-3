@@ -20,8 +20,11 @@ package org.apache.ignite.internal.catalog;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.systemviews.IndexColumnsSystemViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.IndexSystemViewProvider;
+import org.apache.ignite.internal.catalog.systemviews.SchemasSystemViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.SystemViewViewProvider;
+import org.apache.ignite.internal.catalog.systemviews.TablesSystemViewProvider;
 import org.apache.ignite.internal.catalog.systemviews.ZonesSystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
@@ -40,7 +43,10 @@ public class CatalogSystemViewRegistry implements SystemViewProvider {
         providers = List.of(
                 new SystemViewViewProvider(),
                 new IndexSystemViewProvider(),
-                new ZonesSystemViewProvider()
+                new IndexColumnsSystemViewProvider(),
+                new ZonesSystemViewProvider(),
+                new TablesSystemViewProvider(),
+                new SchemasSystemViewProvider()
         );
     }
 

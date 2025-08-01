@@ -23,6 +23,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.IgniteTables;
@@ -109,5 +110,14 @@ public class TestWrappers {
      */
     public static Transaction unwrapIgniteTransaction(Transaction tx) {
         return Wrappers.unwrap(tx, Transaction.class);
+    }
+
+    /**
+     * Unwraps an {@link InternalTransaction} from an {@link Transaction}.
+     *
+     * @param tx Object to unwrap.
+     */
+    public static InternalTransaction unwrapInternalTransaction(Transaction tx) {
+        return Wrappers.unwrap(tx, InternalTransaction.class);
     }
 }

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.runtime.Resources.BaseMessage;
 import org.apache.calcite.runtime.Resources.ExInst;
@@ -48,8 +49,8 @@ public interface IgniteResource {
     @BaseMessage("Illegal aggregate function. {0} is unsupported at the moment")
     ExInst<SqlValidatorException> unsupportedAggregationFunction(String a0);
 
-    @BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ")")
-    ExInst<SqlValidatorException> correctIntegerLimit(String a0);
+    @BaseMessage("Illegal value of {0}. The value must be positive and less than " + Long.MAX_VALUE)
+    ExInst<SqlValidatorException> illegalFetchLimit(String a0);
 
     @BaseMessage("Invalid decimal literal")
     ExInst<SqlValidatorException> decimalLiteralInvalid();
@@ -82,11 +83,20 @@ public interface IgniteResource {
     @BaseMessage("CHAR datatype is not supported in table")
     ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
+    @BaseMessage("BINARY datatype is not supported in table")
+    ExInst<SqlValidatorException> binaryDataTypeIsNotSupportedInTable();
+
     @BaseMessage("{0} datatype is not supported'")
     ExInst<SqlValidatorException> dataTypeIsNotSupported(String a0);
 
-    @BaseMessage("Length for type {0} must be at least 1")
-    ExInst<SqlValidatorException> invalidStringLength(String typeName);
+    @BaseMessage("{0} length {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidLengthForType(String typeName, int value, int min, int max);
+
+    @BaseMessage("{0} precision {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidPrecisionForType(String typeName, int value, int min, int max);
+
+    @BaseMessage("{0} scale {1,number,#} must be between {2,number,#} and {3,number,#}.")
+    ExInst<SqlValidatorException> invalidScaleForType(String typeName, int value, int min, int max);
 
     @BaseMessage("Column N#{0} matched using NATURAL keyword or USING clause "
             + "has incompatible types in this context: ''{1}'' to ''{2}''")
@@ -97,6 +107,12 @@ public interface IgniteResource {
 
     @BaseMessage("A recursive query is not supported.")
     ExInst<SqlValidatorException> recursiveQueryIsNotSupported();
+
+    @BaseMessage("Unexpected statement: {0} ")
+    ExInst<CalciteException> unexpectedStatement(String type);
+
+    @BaseMessage("Timestamp literal ''{0}'' out of range.")
+    ExInst<SqlValidatorException> timestampLiteralOutOfRange(String typeName);
 
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {

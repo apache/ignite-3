@@ -20,7 +20,11 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.context.env.Environment.BARE_METAL;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.DefaultApplicationContext;
+import io.micronaut.core.convert.ConversionService;
+import io.micronaut.core.convert.DefaultConversionService;
 import io.micronaut.http.server.exceptions.ServerStartupException;
 import io.micronaut.http.ssl.ClientAuthentication;
 import io.micronaut.runtime.Micronaut;
@@ -196,7 +200,7 @@ public class RestComponent implements IgniteComponent {
     }
 
     private Micronaut buildMicronautContext(int portCandidate, int sslPortCandidate) {
-        Micronaut micronaut = Micronaut.build("");
+        Micronaut micronaut = new IgniteMicronaut().args("");
         setFactories(micronaut);
 
         return micronaut
@@ -223,6 +227,11 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
         result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
+        result.put("micronaut.server.max-request-size", Integer.MAX_VALUE);
+        result.put("micronaut.server.multipart.max-file-size", Integer.MAX_VALUE);
+
+        // If deserialized as doubles, Instant objects can lose precision, see InstantDeserializationTest
+        result.put("jackson.deserialization", Map.of(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true));
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
@@ -320,6 +329,33 @@ public class RestComponent implements IgniteComponent {
             return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             return LOCALHOST;
+        }
+    }
+
+    /**
+     * This overrides the way {@link ConversionService} is obtained. Currently, one instance of {@link ConversionService} is shared
+     * between all Micronaut instances by default, which causes troubles when stopping some nodes in tests (REST API on other nodes
+     * becomes affected). This is deprecated in Micronaut itself, but for now we have to use this workaround.
+     *
+     * <p>This should be removed as soon as {@link ConversionService#SHARED} is removed from Micronaut.
+     */
+    @SuppressWarnings({"rawtypes", "NullableProblems"})
+    private static class IgniteMicronaut extends Micronaut {
+        private final ConversionService conversionService = new DefaultConversionService();
+
+        @Override
+        protected ApplicationContext newApplicationContext() {
+            return new DefaultApplicationContext(this) {
+                @Override
+                protected ConversionService createConversionService() {
+                    return conversionService;
+                }
+            };
+        }
+
+        @Override
+        public ConversionService<?> getConversionService() {
+            return conversionService;
         }
     }
 }

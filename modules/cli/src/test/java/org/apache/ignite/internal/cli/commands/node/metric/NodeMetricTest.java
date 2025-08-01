@@ -72,7 +72,7 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
 
         execute("node metric source list --plain --url " + mockUrl);
 
-        assertSuccessfulOutputIs("Set name\tEnabled\nenabledMetric\tenabled\ndisabledMetric\tdisabled\n");
+        assertSuccessfulOutputIs("Source name\tEnabled\nenabledMetric\tenabled\ndisabledMetric\tdisabled\n");
     }
 
     @Test

@@ -47,9 +47,10 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -245,7 +246,27 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 execution::state,
                 jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
         );
-        assertThat(execution.resultAsync(), willBe(0));
+        assertThat(execution.resultAsync(), willThrow(CancellationException.class));
+    }
+
+    @RepeatedTest(value = 10, failureThreshold = 1)
+    void cancelExecutionRace() {
+        initExecutor(1);
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException ignored) {
+                // ignored
+            }
+            return null;
+        });
+
+        assertThat(execution.cancel(), is(true));
+
+        assertThat(execution.resultAsync(), willThrow(CancellationException.class));
+
+        assertThat(execution.state(), is(jobStateWithStatus(CANCELED)));
     }
 
     @Test
@@ -327,6 +348,27 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         await().until(execution::state, jobStateWithStatus(FAILED));
 
         assertThat(runTimes.get(), is(maxRetries + 1));
+    }
+
+    @Test
+    void retryTaskCancel() {
+        initExecutor(1);
+
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            runTimes.incrementAndGet();
+            new CountDownLatch(1).await();
+            return null;
+        }, 0, maxRetries);
+
+        await().until(execution::state, jobStateWithStatus(EXECUTING));
+        execution.cancel();
+
+        await().until(execution::state, jobStateWithStatus(CANCELED));
+        assertThat(runTimes.get(), is(1));
     }
 
     @Test
@@ -569,7 +611,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         String nodeName = "testNode";
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
-                NamedThreadFactory.create(nodeName, "compute", LOG),
+                IgniteThreadFactory.create(nodeName, "compute", LOG),
                 new InMemoryComputeStateMachine(configuration, nodeName)
         );
     }

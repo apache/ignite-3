@@ -23,6 +23,8 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultAndStateFuture;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultAndStatus;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -33,6 +35,7 @@ import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,6 +64,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -73,7 +77,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ClientComputeTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private FakeIgnite ignite1;
     private FakeIgnite ignite2;
@@ -97,19 +101,15 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1, server2, server3, server1, server2)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
-            JobDescriptor job = JobDescriptor.builder("job").build();
+            JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-            JobExecution<String> execution1 = client.compute().submit(getClusterNodes("s1"), job, null);
-            JobExecution<String> execution2 = client.compute().submit(getClusterNodes("s2"), job, null);
-            JobExecution<String> execution3 = client.compute().submit(getClusterNodes("s3"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut1 = client.compute().submitAsync(getClusterNodes("s1"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut2 = client.compute().submitAsync(getClusterNodes("s2"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut3 = client.compute().submitAsync(getClusterNodes("s3"), job, null);
 
-            assertThat(execution1.resultAsync(), willBe("s1"));
-            assertThat(execution2.resultAsync(), willBe("s2"));
-            assertThat(execution3.resultAsync(), willBe("s3"));
-
-            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution3.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(executionFut1, willBe(jobExecutionWithResultAndStatus("s1", COMPLETED)));
+            assertThat(executionFut2, willBe(jobExecutionWithResultAndStatus("s2", COMPLETED)));
+            assertThat(executionFut3, willBe(jobExecutionWithResultAndStatus("s3", COMPLETED)));
         }
     }
 
@@ -118,19 +118,15 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
-            JobDescriptor job = JobDescriptor.builder("job").build();
+            JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-            JobExecution<String> execution1 = client.compute().submit(getClusterNodes("s1"), job, null);
-            JobExecution<String> execution2 = client.compute().submit(getClusterNodes("s2"), job, null);
-            JobExecution<String> execution3 = client.compute().submit(getClusterNodes("s3"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut1 = client.compute().submitAsync(getClusterNodes("s1"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut2 = client.compute().submitAsync(getClusterNodes("s2"), job, null);
+            CompletableFuture<JobExecution<String>> executionFut3 = client.compute().submitAsync(getClusterNodes("s3"), job, null);
 
-            assertThat(execution1.resultAsync(), willBe("s3"));
-            assertThat(execution2.resultAsync(), willBe("s3"));
-            assertThat(execution3.resultAsync(), willBe("s3"));
-
-            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution3.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(executionFut1, willBe(jobExecutionWithResultAndStatus("s3", COMPLETED)));
+            assertThat(executionFut2, willBe(jobExecutionWithResultAndStatus("s3", COMPLETED)));
+            assertThat(executionFut3, willBe(jobExecutionWithResultAndStatus("s3", COMPLETED)));
         }
     }
 
@@ -143,7 +139,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                 var nodeId = i % 3 + 1;
                 var nodeName = "s" + nodeId;
 
-                JobDescriptor job = JobDescriptor.builder("job").build();
+                JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
                 CompletableFuture<String> fut = client.compute().executeAsync(getClusterNodes(nodeName), job, null);
 
                 assertThat(fut, willBe("s3"));
@@ -171,15 +167,15 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
-            JobDescriptor job = JobDescriptor.builder("job").build();
+            JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-            JobExecution<String> execution1 = client.compute().submit(JobTarget.colocated(
+            CompletableFuture<JobExecution<String>> executionFut1 = client.compute().submitAsync(JobTarget.colocated(
                     TABLE_NAME,
                     Tuple.create().set("key", "k")),
                     job,
                     null
             );
-            JobExecution<String> execution2 = client.compute().submit(JobTarget.colocated(
+            CompletableFuture<JobExecution<String>> executionFut2 = client.compute().submitAsync(JobTarget.colocated(
                     TABLE_NAME,
                     1L,
                     Mapper.of(Long.class)),
@@ -187,11 +183,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
                     null
             );
 
-            assertThat(execution1.resultAsync(), willBe("s2"));
-            assertThat(execution2.resultAsync(), willBe("s2"));
-
-            assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+            assertThat(executionFut1, willBe(jobExecutionWithResultAndStatus("s2", COMPLETED)));
+            assertThat(executionFut2, willBe(jobExecutionWithResultAndStatus("s2", COMPLETED)));
         }
     }
 
@@ -204,10 +197,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().executeAsync(
-                            JobTarget.colocated("bad-tbl", key), JobDescriptor.builder("job").build(), null).join());
+                            JobTarget.colocated("\"bad-tbl\"", key), JobDescriptor.builder("job").build(), null).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad-tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
@@ -215,7 +208,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) {
-        String tableName = "drop-me";
+        String tableName = "DROP_ME";
 
         initServers(reqId -> false);
         createTable(tableName);
@@ -232,8 +225,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             createTable(tableName);
 
             if (forceLoadAssignment) {
-                Map<String, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
-                ClientTable table = tables.get(tableName);
+                Map<QualifiedName, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
+                ClientTable table = tables.get(QualifiedName.fromSimple(tableName));
                 assertNotNull(table);
                 IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
             }
@@ -328,10 +321,40 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             IgniteCompute igniteCompute = client.compute();
             var jobTarget = getClusterNodes("s1");
-            JobExecution<String> execution = igniteCompute.submit(jobTarget, JobDescriptor.<Object, String>builder("job").build(), null);
+            JobDescriptor<Object, String> jobDescriptor = JobDescriptor.<Object, String>builder("job").build();
+            CompletableFuture<JobExecution<String>> executionFut = igniteCompute.submitAsync(jobTarget, jobDescriptor, null);
 
-            assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
-            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
+            assertThat(executionFut, willBe(jobExecutionWithResultAndStateFuture(
+                    willThrowFast(IgniteException.class),
+                    willBe(jobStateWithStatus(FAILED))
+            )));
+        }
+    }
+
+    @Test
+    void testRequestCompletesOnAsyncContinuationExecutorThread() {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            CompletableFuture<String> jobFut = new CompletableFuture<>();
+            FakeCompute.future = jobFut;
+
+            IgniteCompute igniteCompute = client.compute();
+            var jobTarget = getClusterNodes("s1");
+            JobDescriptor<Object, String> jobDescriptor = JobDescriptor.<Object, String>builder("job").build();
+            CompletableFuture<JobExecution<String>> executionFut = igniteCompute.submitAsync(jobTarget, jobDescriptor, null);
+
+            CompletableFuture<String> threadNameFut = new CompletableFuture<>();
+
+            CompletableFuture<String> resultFut = executionFut.thenCompose(JobExecution::resultAsync);
+            resultFut.thenAccept(unused -> threadNameFut.complete(Thread.currentThread().getName()));
+
+            // Wait for the job to start on the server.
+            executionFut.thenCompose(JobExecution::idAsync).join();
+
+            // Complete job future to trigger server -> client notification.
+            jobFut.complete("res");
+            assertThat(threadNameFut.join(), startsWith("ForkJoinPool.commonPool-worker-"));
         }
     }
 

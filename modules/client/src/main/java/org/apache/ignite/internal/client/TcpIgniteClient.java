@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.IgniteCatalog;
@@ -30,11 +28,12 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
+import org.apache.ignite.internal.client.network.ClientCluster;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -43,7 +42,9 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
@@ -82,6 +83,9 @@ public class TcpIgniteClient implements IgniteClient {
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
+    /** Cluster. */
+    private final ClientCluster cluster;
+
     /**
      * Cluster name.
      */
@@ -91,9 +95,10 @@ public class TcpIgniteClient implements IgniteClient {
      * Constructor.
      *
      * @param cfg Config.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg) {
-        this(TcpClientChannel::createAsync, cfg);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+        this(TcpClientChannel::createAsync, cfg, observableTimeTracker);
     }
 
     /**
@@ -101,20 +106,22 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param chFactory Channel factory.
      * @param cfg Config.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics);
-        tables = new ClientTables(ch, marshallers);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
+        tables = new ClientTables(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
-        sql = new ClientSql(ch, marshallers);
+        sql = new ClientSql(ch, marshallers, cfg.sqlPartitionAwarenessMetadataCacheSize());
         metricManager = initMetricManager(cfg);
+        cluster = new ClientCluster(ch);
     }
 
     @Nullable
@@ -124,10 +131,10 @@ public class TcpIgniteClient implements IgniteClient {
         }
 
         var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class));
-        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         metricManager.registerSource(metrics);
-        metrics.enable();
+        metricManager.enable(metrics);
+        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         return metricManager;
     }
@@ -152,12 +159,27 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null));
+    }
+
+    /**
+     * Initializes new instance of {@link IgniteClient} and establishes the connection.
+     *
+     * @param cfg Thin client configuration.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @return Future representing pending completion of the operation.
+     */
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
         ErrorGroups.initialize();
 
-        //noinspection resource: returned from method
-        var client = new TcpIgniteClient(cfg);
+        try {
+            //noinspection resource: returned from method
+            var client = new TcpIgniteClient(cfg, observableTimeTracker);
 
-        return client.initAsync().thenApply(x -> client);
+            return client.initAsync().thenApply(x -> client);
+        } catch (IgniteException e) {
+            return failedFuture(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -184,32 +206,14 @@ public class TcpIgniteClient implements IgniteClient {
         return compute;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Collection<ClusterNode> clusterNodes() {
-        return sync(clusterNodesAsync());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        return ch.serviceAsync(ClientOp.CLUSTER_GET_NODES, r -> {
-            int cnt = r.in().unpackInt();
-            List<ClusterNode> res = new ArrayList<>(cnt);
-
-            for (int i = 0; i < cnt; i++) {
-                ClusterNode clusterNode = unpackClusterNode(r);
-
-                res.add(clusterNode);
-            }
-
-            return res;
-        });
-    }
-
     @Override
     public IgniteCatalog catalog() {
-        return new IgniteCatalogSqlImpl(sql(), tables);
+        return new IgniteCatalogSqlImpl(sql, tables);
+    }
+
+    @Override
+    public IgniteCluster cluster() {
+        return cluster;
     }
 
     /** {@inheritDoc} */
@@ -222,6 +226,7 @@ public class TcpIgniteClient implements IgniteClient {
         }
 
         if (metricManager != null) {
+            metricManager.beforeNodeStop();
             metricManager.stopAsync(new ComponentContext()).join();
         }
     }
@@ -292,7 +297,7 @@ public class TcpIgniteClient implements IgniteClient {
         assert fieldCnt == 4;
 
         return new ClientClusterNode(
-                in.unpackString(),
+                in.unpackUuid(),
                 in.unpackString(),
                 new NetworkAddress(in.unpackString(), in.unpackInt()));
     }

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,12 +71,17 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * TraitUtils. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TraitUtils {
+
+    private static final int TRAITS_COMBINATION_COMPLEXITY_LIMIT = 1024;
+
     /**
      * Enforce. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -371,8 +377,59 @@ public class TraitUtils {
 
     private static Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits) {
         Set<Pair<RelTraitSet, List<RelTraitSet>>> out = new HashSet<>();
-        fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+
+        long complexity;
+        try {
+            complexity = inTraits.stream()
+                    .mapToInt(List::size)
+                    .asLongStream()
+                    .reduce(1, Math::multiplyExact);
+        } catch (ArithmeticException ignored) {
+            complexity = Long.MAX_VALUE;
+        }
+
+        if (complexity <= TRAITS_COMBINATION_COMPLEXITY_LIMIT) {
+            fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+        } else {
+            fillRandom(outTraits, inTraits, out, TRAITS_COMBINATION_COMPLEXITY_LIMIT);
+        }
+
         return out;
+    }
+
+    private static void fillRandom(
+            RelTraitSet outTraits,
+            List<List<RelTraitSet>> inTraits,
+            Set<Pair<RelTraitSet, List<RelTraitSet>>> result,
+            int count
+    ) {
+        RelTraitSet[] combination = new RelTraitSet[inTraits.size()];
+
+        long iteration = 0;
+        for (int attemptNo = 0; attemptNo < count; attemptNo++) {
+            int lastProcessed = -1;
+            for (int i = 0; i < inTraits.size(); i++) {
+                List<RelTraitSet> traits = inTraits.get(i);
+
+                // Even though random seems like it might fit better, we stick with deterministic approach
+                // as it make the system easy, more stable, and more predictable in terms of testing, debugging,
+                // benchmarking, and regression analyses.
+                RelTraitSet traitsCandidate = traits.get((int) (iteration % traits.size()));
+
+                iteration++;
+
+                if (traitsCandidate.getConvention() != IgniteConvention.INSTANCE) {
+                    break;
+                }
+
+                lastProcessed = i;
+                combination[i] = traitsCandidate;
+            }
+
+            if (inTraits.size() - 1 == lastProcessed) {
+                result.add(Pair.of(outTraits, List.of(combination)));
+            }
+        }
     }
 
     private static boolean fillRecursive(
@@ -400,6 +457,18 @@ public class TraitUtils {
             }
         }
         return processed;
+    }
+
+    /**
+     * Creates collations from provided keys.
+     *
+     * @param keys The keys to create collation from.
+     * @return New collation.
+     */
+    public static RelCollation createCollation(IntList keys) {
+        return RelCollations.of(
+                keys.intStream().mapToObj(TraitUtils::createFieldCollation).collect(Collectors.toList())
+        );
     }
 
     /**
@@ -556,6 +625,21 @@ public class TraitUtils {
         public List<Pair<RelTraitSet, List<RelTraitSet>>> combinations() {
             return List.copyOf(combinations);
         }
+    }
+
+    /**
+     * Constructs a human-readable label describing the affinity distribution of a table within a specific zone.
+     *
+     * <p>Used primarily for diagnostic or EXPLAIN output to indicate the table's placement context.
+     *
+     * @param schemaName The name of the schema containing the table.
+     * @param tableName The name of the table.
+     * @param zoneName The name of the distribution zone.
+     * @return A string label for distribution.
+     */
+    public static String affinityDistributionLabel(String schemaName, String tableName, String zoneName) {
+        return format("table {} in zone {}",
+                QualifiedNameHelper.fromNormalized(schemaName, tableName).toCanonicalForm(), IgniteNameUtils.quoteIfNeeded(zoneName));
     }
 
     private interface TraitsPropagator {

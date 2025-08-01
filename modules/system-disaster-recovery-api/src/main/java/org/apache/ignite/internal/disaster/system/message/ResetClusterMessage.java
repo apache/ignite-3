@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,15 +52,16 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
     UUID clusterId();
 
     /**
-     * IDs that the cluster had before (including the current incarnation by which this message is sent).
-     */
-    List<UUID> formerClusterIds();
-
-    /**
      * Initial cluster configuration ({@code null} if no initial configuration was passed on init).
      */
     @Nullable
+    @IgniteToStringExclude
     String initialClusterConfiguration();
+
+    /**
+     * IDs that the cluster had before (including the current incarnation by which this message is sent).
+     */
+    List<UUID> formerClusterIds();
 
     /**
      * Number of nodes in the Raft voting member set for Metastorage. Only non-null if Metastorage is to be repaired.
@@ -75,4 +77,11 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * Consistent IDs of the nodes which were sent the message. Only non-null if Metastorage is to be repaired.
      */
     @Nullable Set<String> participatingNodes();
+
+    /**
+     * Returns whether metastorage repair is requested.
+     */
+    default boolean metastorageRepairRequested() {
+        return metastorageReplicationFactor() != null;
+    }
 }

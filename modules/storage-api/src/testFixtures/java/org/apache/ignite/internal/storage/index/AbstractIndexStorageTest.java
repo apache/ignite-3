@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,8 +40,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -51,14 +50,16 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.TestStorageUtils;
@@ -82,18 +83,19 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> extends BaseIgniteAbstractTest {
     /** Definitions of all supported column types. */
-    @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
-    public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
+    static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
     protected static final int TEST_PARTITION = 12;
 
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     protected static final String TABLE_NAME = "FOO";
 
-    protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
+    private static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
-    private static List<ColumnParams> allTypesColumnParams() {
+    static List<ColumnParams> allTypesColumnParams() {
         return List.of(
                 columnParamsBuilder(ColumnType.INT8).nullable(true).build(),
                 columnParamsBuilder(ColumnType.INT16).nullable(true).build(),
@@ -122,7 +124,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected final AtomicInteger catalogId = new AtomicInteger();
 
-    protected final CatalogService catalogService = mock(CatalogService.class);
+    protected final Catalog catalog = mock(Catalog.class);
 
     protected final HybridClock clock = new HybridClockImpl();
 
@@ -171,8 +173,8 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 DEFAULT_STORAGE_PROFILE
         );
 
-        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(eq(SCHEMA_NAME), eq(TABLE_NAME))).thenReturn(tableDescriptor);
+        when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
 
         createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, true, pkColumn.type());
     }
@@ -482,19 +484,34 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
-        when(catalogService.aliveIndex(eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
-        when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
+        when(catalog.aliveIndex(eq(SCHEMA_NAME), eq(indexDescriptor.name()))).thenReturn(indexDescriptor);
+        when(catalog.index(eq(indexDescriptor.id()))).thenReturn(indexDescriptor);
     }
 
     S createPkIndexStorage() {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
+        assertThat(tableDescriptor, is(notNullValue()));
 
-        CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor pkIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME);
+        assertThat(pkIndexDescriptor, is(notNullValue()));
 
-        return (S) tableStorage.getOrCreateIndex(
-                TEST_PARTITION,
-                StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
-        );
+        if (pkIndexDescriptor.indexType() == CatalogIndexDescriptorType.HASH) {
+            tableStorage.createHashIndex(
+                    TEST_PARTITION,
+                    (StorageHashIndexDescriptor) StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
+            );
+        } else {
+            tableStorage.createSortedIndex(
+                    TEST_PARTITION,
+                    (StorageSortedIndexDescriptor) StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
+            );
+        }
+
+        S index = (S) tableStorage.getIndex(TEST_PARTITION, pkIndexDescriptor.id());
+
+        assertThat(index, is(notNullValue()));
+
+        return index;
     }
 
     /** Completes the building of the index and makes read operations available from it. */
@@ -502,7 +519,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorage);
     }
 
-    static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
+    private static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
         return serializer.serializeRow(values, new RowId(TEST_PARTITION));
     }
 }

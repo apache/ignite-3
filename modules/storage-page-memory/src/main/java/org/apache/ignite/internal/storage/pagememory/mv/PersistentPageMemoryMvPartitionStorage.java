@@ -29,10 +29,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -45,12 +45,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -77,18 +76,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Lock that protects group config read/write. */
     private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
 
-    /** Lock that protects group primary replica meta read/write. */
-    private final ReadWriteLock primaryReplicaMetaReadWriteLock = new ReentrantReadWriteLock();
+    /**
+     * Cached lease info in order not to touch blobStorage each time.
+     */
+    private volatile @Nullable LeaseInfo leaseInfo;
 
     /**
-     * Cached primary replica node id in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
+     * Lock for updating lease info in the storage.
      */
-    private String primaryReplicaNodeId;
-
-    /**
-     * Cached primary replica node name in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
-     */
-    private String primaryReplicaNodeName;
+    private final Object leaseInfoLock = new Object();
 
     /**
      * Constructor.
@@ -100,6 +96,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
+     * @param failureProcessor Failure processor.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -109,7 +106,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(
                 partitionId,
@@ -122,7 +120,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
 
         checkpointManager = tableStorage.engine().checkpointManager();
@@ -134,13 +133,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
-            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) {
                 // It may take some time, it's not scary because we keep a read lock here.
                 syncMetadataOnCheckpoint(exec);
             }
 
             @Override
-            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) {
                 // Should be fast, because here we only need to save the delta, reduce write lock holding time.
                 syncMetadataOnCheckpoint(exec);
             }
@@ -150,9 +149,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 freeList,
                 dataRegion.pageMemory(),
                 tableStorage.getTableId(),
-                partitionId,
-                IoStatisticsHolderNoOp.INSTANCE
+                partitionId
         );
+
+        leaseInfo = leaseInfoFromMeta();
     }
 
     @Override
@@ -318,128 +318,79 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void updateLease(
-            long leaseStartTime,
-            String primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
+    public void updateLease(LeaseInfo leaseInfo) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            updateMeta((lastCheckpointId, meta) -> {
-                primaryReplicaMetaReadWriteLock.writeLock().lock();
+            updateLeaseBusy(leaseInfo);
+
+            return null;
+        });
+    }
+
+    private void updateLeaseBusy(LeaseInfo leaseInfo) {
+        updateMeta((lastCheckpointId, meta) -> {
+            synchronized (leaseInfoLock) {
+                if (leaseInfo.leaseStartTime() <= meta.leaseStartTime()) {
+                    return;
+                }
+
                 try {
-                    if (leaseStartTime <= meta.leaseStartTime()) {
-                        return;
-                    }
+                    byte[] primaryReplicaNodeNameBytes = stringToBytes(leaseInfo.primaryReplicaNodeName());
 
-                    if (meta.primaryReplicaNodeIdFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                        long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId));
-
-                        meta.primaryReplicaNodeIdFirstPageId(lastCheckpointId, primaryReplicaNodeIdFirstPageId);
-                    } else {
-                        blobStorage.updateBlob(meta.primaryReplicaNodeIdFirstPageId(), stringToBytes(primaryReplicaNodeId));
-                    }
                     if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                        long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
+                        long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(primaryReplicaNodeNameBytes);
 
                         meta.primaryReplicaNodeNameFirstPageId(lastCheckpointId, primaryReplicaNodeNameFirstPageId);
                     } else {
-                        blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), stringToBytes(primaryReplicaNodeName));
+                        blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), primaryReplicaNodeNameBytes);
                     }
 
-                    meta.updateLease(lastCheckpointId, leaseStartTime);
-
-                    this.primaryReplicaNodeId = primaryReplicaNodeId;
-                    this.primaryReplicaNodeName = primaryReplicaNodeName;
+                    meta.primaryReplicaNodeId(lastCheckpointId, leaseInfo.primaryReplicaNodeId());
+                    meta.updateLease(lastCheckpointId, leaseInfo.leaseStartTime());
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
                             "Cannot save lease meta: [tableId={}, partitionId={}]",
                             e,
                             tableStorage.getTableId(), partitionId
                     );
-                } finally {
-                    primaryReplicaMetaReadWriteLock.writeLock().unlock();
                 }
-            });
 
+                this.leaseInfo = leaseInfo;
+            }
+        });
+    }
+
+    @Override
+    public @Nullable LeaseInfo leaseInfo() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return leaseInfo;
+        });
+    }
+
+    private @Nullable LeaseInfo leaseInfoFromMeta() {
+        long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
+
+        // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
+        // for example, if the lease itself has not yet been elected.
+        if (primaryReplicaNodeNameFirstPageId == BlobStorage.NO_PAGE_ID) {
             return null;
-        });
-    }
+        }
 
-    @Override
-    public long leaseStartTime() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
+        String primaryReplicaNodeName;
+        try {
+            primaryReplicaNodeName = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeNameFirstPageId));
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    "Failed to read primary replica node name: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
+        }
 
-            return meta.leaseStartTime();
-        });
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-15119 nodeId type should be changed from String to UUID, after the fix
-    // TODO nodeID will be stored in meta directly and not the blob storage.
-    @Override
-    public @Nullable String primaryReplicaNodeId() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-            primaryReplicaMetaReadWriteLock.readLock().lock();
-
-            try {
-                if (primaryReplicaNodeId == null) {
-                    long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
-
-                    // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
-                    // for example, if the lease itself has not yet been elected.
-                    if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
-                        primaryReplicaNodeId = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId));
-                    }
-                }
-
-                return primaryReplicaNodeId;
-
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(
-                        "Failed to read primary replica node id: [tableId={}, partitionId={}]",
-                        e,
-                        tableStorage.getTableId(), partitionId
-                );
-            } finally {
-                primaryReplicaMetaReadWriteLock.readLock().unlock();
-            }
-
-        });
-    }
-
-    @Override
-    public @Nullable String primaryReplicaNodeName() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
-            primaryReplicaMetaReadWriteLock.readLock().lock();
-
-            try {
-                if (primaryReplicaNodeName == null) {
-                    long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
-
-                    // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
-                    // for example, if the lease itself has not yet been elected.
-                    if (primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID) {
-                        primaryReplicaNodeName = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeNameFirstPageId));
-                    }
-                }
-
-                return primaryReplicaNodeName;
-
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(
-                        "Failed to read primary replica node name: [tableId={}, partitionId={}]",
-                        e,
-                        tableStorage.getTableId(), partitionId
-                );
-            } finally {
-                primaryReplicaMetaReadWriteLock.readLock().unlock();
-            }
-        });
+        return new LeaseInfo(meta.leaseStartTime(), meta.primaryReplicaNodeId(), primaryReplicaNodeName);
     }
 
     private void committedGroupConfigurationBusy(byte[] groupConfigBytes) {
@@ -467,13 +418,19 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateHashIndex(indexDescriptor));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createHashIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateSortedIndex(indexDescriptor));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createSortedIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override
@@ -539,8 +496,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 freeList,
                 tableStorage.dataRegion().pageMemory(),
                 tableStorage.getTableId(),
-                partitionId,
-                IoStatisticsHolderNoOp.INSTANCE
+                partitionId
         );
 
         updateRenewableState(
@@ -571,6 +527,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         committedGroupConfigurationBusy(config);
     }
 
+    @Override
+    public void updateLeaseOnRebalance(LeaseInfo leaseInfo) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        updateLeaseBusy(leaseInfo);
+    }
+
     private void saveFreeListMetadataBusy(RenewablePartitionStorageState localState) {
         try {
             localState.freeList().saveMetadata();
@@ -592,5 +555,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void decrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
+    }
+
+    public int emptyDataPageCountInFreeList() {
+        return renewableState.freeList().emptyDataPages();
     }
 }

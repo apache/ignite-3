@@ -21,11 +21,12 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.util.List;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.ConfigurationConverter;
-import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
+import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 
 /**
  * Hocon converter.
@@ -34,37 +35,38 @@ public class HoconConverter {
     /**
      * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
      *
-     * @param superRoot Super root instance.
+     * @param root Root of a configuration subtree.
      * @param path Path to the configuration subtree. Can be empty, can't be {@code null}.
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public static ConfigValue represent(
-            SuperRoot superRoot,
+            TraversableTreeNode root,
             List<String> path
     ) {
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(false)
+                .includeDeprecated(false)
                 .maskSecretValues(true)
                 .build();
-        return represent(superRoot, path, visitor);
+        return represent(root, path, visitor);
     }
 
     /**
      * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
      *
-     * @param superRoot Super root instance.
+     * @param root Root of a configuration subtree.
      * @param path Path to the configuration subtree. Can be empty, can't be {@code null}.
      * @param visitor Visitor that will be used to convert configuration subtree.
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public static ConfigValue represent(
-            SuperRoot superRoot,
+            TraversableTreeNode root,
             List<String> path,
             ConfigurationVisitor<?> visitor
     ) {
-        Object res = ConfigurationConverter.convert(superRoot, path, visitor);
+        Object res = ConfigurationConverter.convert(root, path, visitor);
         return ConfigImpl.fromAnyRef(res, null);
     }
 
@@ -75,6 +77,17 @@ public class HoconConverter {
      * @return HOCON-based configuration source.
      */
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg) {
-        return new HoconObjectConfigurationSource(null, List.of(), hoconCfg);
+        return hoconSource(hoconCfg, s -> false);
+    }
+
+    /**
+     * Returns HOCON-based configuration source.
+     *
+     * @param hoconCfg HOCON that has to be converted to the configuration source.
+     * @param keyIgnorer Determines if key should be ignored.
+     * @return HOCON-based configuration source.
+     */
+    public static ConfigurationSource hoconSource(ConfigObject hoconCfg, KeyIgnorer keyIgnorer) {
+        return new HoconObjectConfigurationSource(null, keyIgnorer, List.of(), hoconCfg);
     }
 }

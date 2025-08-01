@@ -47,6 +47,7 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 |Metric name | Description
 
+|gc.CollectionTime|Approximate total time spent on garbage collection in milliseconds, summed across all collectors.
 |memory.heap.Committed|Committed amount of heap memory.
 |memory.non-heap.Init|Initial amount of non-heap memory.
 |memory.heap.Max|Maximum amount of heap memory.
@@ -57,6 +58,41 @@ The metrics for Ignite Java Virtual Machine resource use.
 |memory.heap.Init|Initial amount of heap memory.
 |=======================================================================
 
+== metastorage
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|SafeTimeLag| Number of milliseconds the local MetaStorage SafeTime lags behind the local logical clock.
+|=======================================================================
+
+== os
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|LoadAverage|System load average for the last minute. System load average is the sum of the number of runnable entities queued to the available processors and the number of runnable entities running on the available processors averaged over a period of time. The way in which the load average is calculated depends on the operating system. If the load average is not available, a negative value is returned.
+|=======================================================================
+
+== raft
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|raft.readonlyservice.disruptor.Stripes|The histogram of distribution data by stripes readonly operations for partitions
+|raft.fsmcaller.disruptor.Stripes|The histogram of distribution data by stripes in the state machine for partitions
+|raft.logmanager.disruptor.Batch|The histogram of the batch size to handle in the log for partitions
+|raft.logmanager.disruptor.Stripes|The histogram of distribution data by stripes in the log for partitions
+|raft.nodeimpl.disruptor.Batch|The histogram of the batch size to handle node operations for partitions
+|raft.nodeimpl.disruptor.Stripes|The histogram of distribution data by stripes for node operations for partitions
+|raft.readonlyservice.disruptor.Batch|The histogram of the batch size to handle readonly operations for partitions
+|raft.fsmcaller.disruptor.Batch|The histogram of the batch size to handle in the state machine for partitions
+|=======================================================================
+
+
 == sql.client
 
 SQL client metrics.
@@ -64,16 +100,18 @@ SQL client metrics.
 [width="100%",cols="20%,80%",opts="header"]
 |=======================================================================
 |Metric name | Description
+
 |OpenCursors | Number of currently open cursors.
 |=======================================================================
 
-== sql.plan.cache
-
-Metrics for SQL cache planning.
+== sql.memory
 
 [width="100%",cols="20%,80%",opts="header"]
 |=======================================================================
 |Metric name | Description
-|Hits | Cache plan hits.
-|Misses | Cache plan misses.
+
+|Reserved|Current memory usage by SQL (bytes)
+|MaxReserved|Maximum memory usage by SQL so far (bytes)
+|Limit|SQL memory limit (bytes)
+|StatementLimit|Memory limit per SQL statement (bytes)
 |=======================================================================

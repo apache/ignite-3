@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
@@ -31,14 +31,13 @@ import org.rocksdb.RocksDB;
  * Represents a listener of RocksDB flush events.
  */
 class RocksDbFlushListener extends LoggingRocksDbFlushListener {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
-
     /** Flusher instance. */
     private final RocksDbFlusher flusher;
 
     /** Write-ahead log synchronizer. */
     private final LogSyncer logSyncer;
+
+    private final FailureProcessor failureProcessor;
 
     /**
      * Future that guarantees that last flush was fully processed and the new flush can safely begin.
@@ -49,14 +48,16 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
      * Constructor.
      *
      * @param name Listener name, for logs.
+     * @param nodeName Node name, for logs.
      * @param flusher Flusher instance to delegate events processing to.
      * @param logSyncer Write-ahead log synchronizer.
      */
-    RocksDbFlushListener(String name, RocksDbFlusher flusher, LogSyncer logSyncer) {
-        super(name);
+    RocksDbFlushListener(String name, String nodeName, RocksDbFlusher flusher, LogSyncer logSyncer, FailureProcessor failureProcessor) {
+        super(name, nodeName);
 
         this.flusher = flusher;
         this.logSyncer = logSyncer;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -66,7 +67,7 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
         try {
             logSyncer.sync();
         } catch (Exception e) {
-            LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
+            failureProcessor.process(new FailureContext(e, "Couldn't sync RocksDB WAL on flush begin"));
         }
     }
 

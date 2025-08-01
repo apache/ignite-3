@@ -1,0 +1,120 @@
+Project
+    fieldNames: [D_WEEK_SEQ1, EXPR$1, EXPR$2, EXPR$3, EXPR$4, EXPR$5, EXPR$6, EXPR$7]
+    projection: [D_WEEK_SEQ1, ROUND(/(SUN_SALES1, SUN_SALES2), 2), ROUND(/(MON_SALES1, MON_SALES2), 2), ROUND(/(TUE_SALES1, TUE_SALES2), 2), ROUND(/(WED_SALES1, WED_SALES2), 2), ROUND(/(THU_SALES1, THU_SALES2), 2), ROUND(/(FRI_SALES1, FRI_SALES2), 2), ROUND(/(SAT_SALES1, SAT_SALES2), 2)]
+    est: (rows=44786183521985440000000000)
+  HashJoin
+      predicate: =(D_WEEK_SEQ1, $f8)
+      type: inner
+      est: (rows=44786183521985440000000000)
+    Project
+        fieldNames: [D_WEEK_SEQ1, SUN_SALES1, MON_SALES1, TUE_SALES1, WED_SALES1, THU_SALES1, FRI_SALES1, SAT_SALES1]
+        projection: [D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+        est: (rows=17279310079203)
+      MergeJoin
+          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+          type: inner
+          est: (rows=17279310079203)
+        Exchange
+            distribution: single
+            est: (rows=24325)
+          Sort
+              collation: [D_WEEK_SEQ ASC]
+              est: (rows=24325)
+            TableScan
+                table: PUBLIC.DATE_DIM
+                predicate: =(D_YEAR, 1998)
+                fieldNames: [D_WEEK_SEQ, D_YEAR]
+                est: (rows=24325)
+        Sort
+            collation: [D_WEEK_SEQ ASC]
+            est: (rows=4735617650)
+          ColocatedHashAggregate
+              fieldNames: [D_WEEK_SEQ, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+              group: [D_WEEK_SEQ]
+              aggregation: [SUM($f1), SUM($f2), SUM($f3), SUM($f4), SUM($f5), SUM($f6), SUM($f7)]
+              est: (rows=4735617650)
+            Project
+                fieldNames: [D_WEEK_SEQ, $f1, $f2, $f3, $f4, $f5, $f6, $f7]
+                projection: [D_WEEK_SEQ, CASE(=(D_DAY_NAME, _UTF-8'Sunday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Monday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Tuesday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Wednesday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Thursday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Friday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Saturday'), SALES_PRICE, null:DECIMAL(7, 2))]
+                est: (rows=23678088250)
+              HashJoin
+                  predicate: =(D_DATE_SK, SOLD_DATE_SK)
+                  type: inner
+                  est: (rows=23678088250)
+                UnionAll
+                    est: (rows=2160932)
+                  Exchange
+                      distribution: single
+                      est: (rows=719384)
+                    TableScan
+                        table: PUBLIC.WEB_SALES
+                        fieldNames: [SOLD_DATE_SK, SALES_PRICE]
+                        est: (rows=719384)
+                  Exchange
+                      distribution: single
+                      est: (rows=1441548)
+                    TableScan
+                        table: PUBLIC.CATALOG_SALES
+                        fieldNames: [SOLD_DATE_SK, SALES_PRICE]
+                        est: (rows=1441548)
+                Exchange
+                    distribution: single
+                    est: (rows=73049)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      fieldNames: [D_DATE_SK, D_WEEK_SEQ, D_DAY_NAME]
+                      est: (rows=73049)
+    Project
+        fieldNames: [D_WEEK_SEQ2, SUN_SALES2, MON_SALES2, TUE_SALES2, WED_SALES2, THU_SALES2, FRI_SALES2, SAT_SALES2, $f8]
+        projection: [D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES, -(D_WEEK_SEQ$0, 53)]
+        est: (rows=17279310079203)
+      HashJoin
+          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+          type: inner
+          est: (rows=17279310079203)
+        Exchange
+            distribution: single
+            est: (rows=24325)
+          TableScan
+              table: PUBLIC.DATE_DIM
+              predicate: =(D_YEAR, 1999)
+              fieldNames: [D_WEEK_SEQ, D_YEAR]
+              est: (rows=24325)
+        ColocatedHashAggregate
+            fieldNames: [D_WEEK_SEQ, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+            group: [D_WEEK_SEQ]
+            aggregation: [SUM($f1), SUM($f2), SUM($f3), SUM($f4), SUM($f5), SUM($f6), SUM($f7)]
+            est: (rows=4735617650)
+          Project
+              fieldNames: [D_WEEK_SEQ, $f1, $f2, $f3, $f4, $f5, $f6, $f7]
+              projection: [D_WEEK_SEQ, CASE(=(D_DAY_NAME, _UTF-8'Sunday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Monday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Tuesday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Wednesday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Thursday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Friday'), SALES_PRICE, null:DECIMAL(7, 2)), CASE(=(D_DAY_NAME, _UTF-8'Saturday'), SALES_PRICE, null:DECIMAL(7, 2))]
+              est: (rows=23678088250)
+            HashJoin
+                predicate: =(D_DATE_SK, SOLD_DATE_SK)
+                type: inner
+                est: (rows=23678088250)
+              UnionAll
+                  est: (rows=2160932)
+                Exchange
+                    distribution: single
+                    est: (rows=719384)
+                  TableScan
+                      table: PUBLIC.WEB_SALES
+                      fieldNames: [SOLD_DATE_SK, SALES_PRICE]
+                      est: (rows=719384)
+                Exchange
+                    distribution: single
+                    est: (rows=1441548)
+                  TableScan
+                      table: PUBLIC.CATALOG_SALES
+                      fieldNames: [SOLD_DATE_SK, SALES_PRICE]
+                      est: (rows=1441548)
+              Exchange
+                  distribution: single
+                  est: (rows=73049)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    fieldNames: [D_DATE_SK, D_WEEK_SEQ, D_DAY_NAME]
+                    est: (rows=73049)

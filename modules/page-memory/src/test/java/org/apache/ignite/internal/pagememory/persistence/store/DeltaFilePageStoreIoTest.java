@@ -163,7 +163,7 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
             // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
             pageByteBuffer.position(8).put(randomBytes(128));
 
-            filePageStoreIo.write(pageId, pageByteBuffer.rewind(), true);
+            filePageStoreIo.write(pageId, pageByteBuffer.rewind());
 
             filePageStoreIo.sync();
 

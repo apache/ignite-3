@@ -20,6 +20,8 @@ package org.apache.ignite.internal.metastorage.command;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
@@ -29,10 +31,12 @@ public interface PutAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns entries keys.
      */
+    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
     List<ByteBuffer> keys();
 
     /**
      * Returns entries values.
      */
+    @IgniteStringifier(name = "values.size", value = SizeOnlyStringifier.class)
     List<ByteBuffer> values();
 }

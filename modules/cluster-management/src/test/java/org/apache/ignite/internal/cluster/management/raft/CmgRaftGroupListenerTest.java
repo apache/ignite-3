@@ -25,9 +25,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -38,11 +35,11 @@ import static org.mockito.Mockito.verify;
 
 import java.io.Serializable;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.LongConsumer;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -51,8 +48,8 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -77,7 +74,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     private LongConsumer onLogicalTopologyChanged;
 
     @Spy
-    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage, new ConstantClusterIdSupplier());
+    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage, new NoOpFailureManager());
 
     private CmgRaftGroupListener listener;
 
@@ -94,7 +91,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
             .formerClusterIds(List.of(randomUUID(), randomUUID()))
             .build();
 
-    private final ClusterNodeMessage node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
+    private final ClusterNodeMessage node = msgFactory.clusterNodeMessage()
+            .id(randomUUID())
+            .name("bar")
+            .host("localhost")
+            .port(666)
+            .build();
+
+    private final ClusterIdHolder clusterIdHolder = new ClusterIdHolder();
 
     @BeforeEach
     void setUp() {
@@ -103,7 +107,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         var clusterStateStorageMgr = new ClusterStateStorageManager(storage);
         var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
 
-        listener = new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager, onLogicalTopologyChanged);
+        listener = new CmgRaftGroupListener(
+                clusterStateStorageMgr,
+                logicalTopology,
+                validationManager,
+                onLogicalTopologyChanged,
+                clusterIdHolder,
+                new NoOpFailureManager()
+        );
     }
 
     @AfterEach
@@ -167,43 +178,8 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void absentClusterConfigUpdateErasesClusterConfig() {
-        ClusterState clusterState = msgFactory.clusterState()
-                .cmgNodes(Set.of("foo"))
-                .metaStorageNodes(Set.of("bar"))
-                .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag)
-                .initialClusterConfiguration("config")
-                .build();
-
-        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
-
-        Collection<String> cmgNodes = clusterState.cmgNodes();
-        Collection<String> msNodes = clusterState.metaStorageNodes();
-        IgniteProductVersion igniteVersion = clusterState.igniteVersion();
-        ClusterTag clusterTag1 = clusterState.clusterTag();
-        ClusterState clusterStateToUpdate = msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(cmgNodes))
-                .metaStorageNodes(Set.copyOf(msNodes))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag1)
-                .build();
-
-        listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
-        ClusterState updatedClusterState = listener.storageManager().getClusterState();
-        assertAll(
-                () -> assertNull(updatedClusterState.initialClusterConfiguration()),
-                () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
-                () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
-                () -> assertEquals(updatedClusterState.version(), clusterState.version()),
-                () -> assertEquals(updatedClusterState.igniteVersion(), clusterState.igniteVersion()),
-                () -> assertEquals(updatedClusterState.clusterTag(), clusterState.clusterTag())
-        );
-    }
-
-    @Test
-    void changeMetastorageNodesChangesMsNodes() {
-        initCmgAndChangeMgNodes();
+    void changeMetastorageInfoChangesMsInfo() {
+        initCmgAndChangeMgInfo();
 
         ClusterState updatedState = listener.storageManager().getClusterState();
         assertThat(updatedState, is(notNullValue()));
@@ -214,9 +190,11 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         assertThat(updatedState.version(), is(state.version()));
         assertThat(updatedState.initialClusterConfiguration(), is(state.initialClusterConfiguration()));
         assertThat(updatedState.formerClusterIds(), is(state.formerClusterIds()));
+
+        assertThat(listener.storageManager().getMetastorageRepairingConfigIndex(), is(123L));
     }
 
-    private void initCmgAndChangeMgNodes() {
+    private void initCmgAndChangeMgInfo() {
         listener.onWrite(iterator(
                 msgFactory.initCmgStateCommand()
                         .clusterState(state)
@@ -225,10 +203,23 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         ));
 
         listener.onWrite(iterator(
-                msgFactory.changeMetastorageNodesCommand()
+                msgFactory.changeMetaStorageInfoCommand()
                         .metaStorageNodes(Set.of("new-ms-1", "new-ms-2"))
+                        .metastorageRepairingConfigIndex(123L)
                         .build()
         ));
+    }
+
+    @Test
+    void initStoresClusterId() {
+        listener.onWrite(iterator(
+                msgFactory.initCmgStateCommand()
+                        .clusterState(state)
+                        .node(node)
+                        .build()
+        ));
+
+        assertThat(clusterIdHolder.clusterId(), is(state.clusterTag().clusterId()));
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

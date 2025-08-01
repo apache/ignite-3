@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -106,21 +108,33 @@ public class ValidationManager {
             return ValidationResult.successfulResult();
         } else if (state == null) {
             return ValidationResult.errorResult("Cluster has not been initialized yet");
-        } else if (!state.igniteVersion().equals(version)) {
-            return ValidationResult.errorResult(String.format(
-                    "Ignite versions do not match. Version: %s, version stored in CMG: %s",
-                    version, state.igniteVersion()
-            ));
         } else if (!state.clusterTag().equals(clusterTag)) {
             return ValidationResult.errorResult(String.format(
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
+            ));
+        } else if (!isColocationEnabledMatched(isColocationEnabled(node))) {
+            return ValidationResult.errorResult(String.format(
+                    "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
+                    isColocationEnabled(node),
+                    isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
             ));
         } else {
             putValidatedNode(node);
 
             return ValidationResult.successfulResult();
         }
+    }
+
+    private static boolean isColocationEnabled(LogicalNode node) {
+        return Boolean.parseBoolean(node.systemAttributes().get(COLOCATION_FEATURE_FLAG));
+    }
+
+    private boolean isColocationEnabledMatched(boolean joiningNodeColocationEnabled) {
+        Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
+
+        return logicalTopologyNodes.isEmpty()
+                || isColocationEnabled(logicalTopologyNodes.iterator().next()) == joiningNodeColocationEnabled;
     }
 
     boolean isNodeValidated(LogicalNode node) {
@@ -134,7 +148,7 @@ public class ValidationManager {
     }
 
     void removeValidatedNodes(Collection<LogicalNode> nodes) {
-        Set<String> validatedNodeIds = storageManager.getValidatedNodes().stream()
+        Set<UUID> validatedNodeIds = storageManager.getValidatedNodes().stream()
                 .map(ClusterNode::id)
                 .collect(toSet());
 

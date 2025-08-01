@@ -26,14 +26,31 @@ import org.apache.ignite.internal.raft.Command;
  * @see RaftGroupService
  */
 public interface RaftCommandRunner {
+    /** Constant meaning that an operation will never timeout. */
+    long NO_TIMEOUT = -1;
+
     /**
      * Runs a command on a replication group leader.
      *
      * <p>Read commands always see up to date data.
+     *
+     * <p>In contrast with {@link #run(Command, long)}, this method uses a default timeout.
      *
      * @param cmd The command.
      * @param <R> Execution result type.
      * @return A future with the execution result.
      */
     <R> CompletableFuture<R> run(Command cmd);
+
+    /**
+     * Runs a command on a replication group leader with the given timeout.
+     *
+     * <p>Read commands always see up to date data.
+     *
+     * @param cmd The command.
+     * @param timeoutMillis Timeout to use, in milliseconds (if this is negative, the timeout is disabled).
+     * @param <R> Execution result type.
+     * @return A future with the execution result.
+     */
+    <R> CompletableFuture<R> run(Command cmd, long timeoutMillis);
 }

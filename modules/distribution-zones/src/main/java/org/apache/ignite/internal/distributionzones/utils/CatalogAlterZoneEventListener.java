@@ -71,7 +71,7 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
         try {
             CatalogZoneDescriptor newZone = parameters.zoneDescriptor();
 
-            CatalogZoneDescriptor oldZone = catalogService.zone(newZone.id(), parameters.catalogVersion() - 1);
+            CatalogZoneDescriptor oldZone = catalogService.catalog(parameters.catalogVersion() - 1).zone(newZone.id());
 
             assert oldZone != null : "zoneId=" + newZone.id() + ", catalogVersion=" + parameters.catalogVersion();
 

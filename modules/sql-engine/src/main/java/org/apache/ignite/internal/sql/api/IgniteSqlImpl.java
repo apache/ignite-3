@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -51,18 +53,17 @@ import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -98,18 +99,23 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    private final Executor commonExecutor;
+
     /**
      * Constructor.
      *
      * @param queryProcessor Query processor.
      * @param observableTimestampTracker Tracker of the latest time observed by client.
+     * @param commonExecutor Executor that is used to close cursors when executing a script.
      */
     public IgniteSqlImpl(
             QueryProcessor queryProcessor,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            Executor commonExecutor
     ) {
         this.queryProcessor = queryProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.commonExecutor = commonExecutor;
     }
 
     /** {@inheritDoc} */
@@ -201,116 +207,126 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(query);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<SqlRow>> future = executeAsync(transaction, cancellationToken, query, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+    public ResultSet<SqlRow> execute(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(statement);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<SqlRow>> future = executeAsync(transaction, cancellationToken, statement, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
     @Override
-    public  <T> ResultSet<T> execute(
+    public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, cancellationToken, query, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
     @Override
-    public  <T> ResultSet<T> execute(
+    public <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        CompletableFuture<AsyncResultSet<T>> future = executeAsync(transaction, mapper, statement, arguments);
+        return new SyncResultSetAdapter<>(sync(future));
     }
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlQuery, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlStatement, batch).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlStatement, batch));
     }
 
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
+        executeScript(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        try {
-            executeScriptAsync(query, arguments).join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
-        }
+        sync(executeScriptAsync(cancellationToken, query, arguments));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, createStatement(query), arguments);
+        return executeAsyncInternal(transaction, cancellationToken, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, statement, arguments);
+        return executeAsyncInternal(transaction, cancellationToken, statement, arguments);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
-            String query, @Nullable Object... arguments) {
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            String query, @Nullable Object... arguments
+    ) {
         // TODO: IGNITE-18695.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
@@ -320,14 +336,17 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
         // TODO: IGNITE-18695.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments
     ) {
@@ -343,11 +362,15 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
         try {
             SqlProperties properties = toPropertiesBuilder(statement)
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
             result = queryProcessor.queryAsync(
-                    properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
+                    properties,
+                    observableTimestampTracker,
+                    (InternalTransaction) transaction,
+                    cancellationToken,
+                    statement.query(),
+                    arguments
             ).thenCompose(cur -> {
                 if (!busyLock.enterBusy()) {
                     cur.closeAsync();
@@ -382,24 +405,35 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return executeBatchAsync(transaction, createStatement(query), batch);
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return executeBatchAsync(transaction, cancellationToken, createStatement(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
         try {
-            SqlProperties properties = toPropertiesBuilder(statement).build();
+            SqlProperties properties = toPropertiesBuilder(statement);
 
             return executeBatchCore(
                     queryProcessor,
                     observableTimestampTracker,
                     (InternalTransaction) transaction,
+                    cancellationToken,
                     statement.query(),
                     batch,
                     properties,
@@ -434,6 +468,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             QueryProcessor queryProcessor,
             HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             BatchedArguments batch,
             SqlProperties properties,
@@ -442,9 +477,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Function<AsyncSqlCursor<?>, Integer> registerCursor,
             Consumer<Integer> removeCursor) {
 
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                .build());
+        SqlProperties properties0 = new SqlProperties(properties)
+                .allowedQueryTypes(EnumSet.of(SqlQueryType.DML));
 
         var counters = new LongArrayList(batch.size());
         CompletableFuture<?> tail = nullCompletedFuture();
@@ -459,7 +493,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, cancellationToken, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -533,21 +567,31 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
+        return executeScriptAsync(null, query, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(
+            @Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
         try {
-            SqlProperties properties = SqlQueryProcessor.DEFAULT_PROPERTIES;
-
             return executeScriptCore(
                     queryProcessor,
                     observableTimestampTracker,
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,
+                    cancellationToken,
                     arguments,
-                    properties);
+                    new SqlProperties(),
+                    commonExecutor
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -561,8 +605,10 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * @param enterBusy Enter busy lock action.
      * @param leaveBusy Leave busy lock action.
      * @param query SQL script.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param arguments Arguments.
      * @param properties Properties.
+     * @param executor Executor that is used to close cursors when executing a script.
      * @return Operation future.
      */
     public static CompletableFuture<Void> executeScriptCore(
@@ -571,18 +617,26 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,
+            @Nullable CancellationToken cancellationToken,
             @Nullable Object[] arguments,
-            SqlProperties properties) {
+            SqlProperties properties,
+            Executor executor
+    ) {
 
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build());
+        SqlProperties properties0 = new SqlProperties(properties)
+                .allowedQueryTypes(SqlQueryType.ALL);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryAsync(properties0, observableTimestampTracker, null, query, arguments);
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
+                properties0,
+                observableTimestampTracker,
+                null,
+                cancellationToken,
+                query,
+                arguments
+        );
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
-        ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
+        ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy, executor);
         f.whenComplete(handler::processCursor);
 
         return resFut.exceptionally((th) -> {
@@ -602,11 +656,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
     }
 
-    private static SqlProperties.Builder toPropertiesBuilder(Statement statement) {
-        return SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
-                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
-                .set(QueryProperty.QUERY_TIMEOUT, statement.queryTimeout(TimeUnit.MILLISECONDS));
+    private static SqlProperties toPropertiesBuilder(Statement statement) {
+        return new SqlProperties()
+                .timeZoneId(statement.timeZoneId())
+                .defaultSchema(IgniteNameUtils.parseIdentifier(statement.defaultSchema()))
+                .queryTimeout(statement.queryTimeout(TimeUnit.MILLISECONDS));
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {
@@ -628,19 +682,27 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         return new SqlException(NODE_STOPPING_ERR, "Node is stopping");
     }
 
+    private static <T> T sync(CompletableFuture<T> future) {
+        return IgniteUtils.getInterruptibly(future);
+    }
+
     private static class ScriptHandler {
         private final CompletableFuture<Void> resFut;
         private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
         private final Supplier<Boolean> enterBusy;
         private final Runnable leaveBusy;
+        private final Executor executor;
 
         ScriptHandler(
                 CompletableFuture<Void> resFut,
                 Supplier<Boolean> enterBusy,
-                Runnable leaveBusy) {
+                Runnable leaveBusy,
+                Executor executor
+        ) {
             this.resFut = resFut;
             this.enterBusy = enterBusy;
             this.leaveBusy = leaveBusy;
+            this.executor = executor;
         }
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
@@ -664,7 +726,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
                 try {
                     if (cursor.hasNextResult()) {
-                        cursor.nextResult().whenCompleteAsync(this::processCursor);
+                        cursor.nextResult().whenCompleteAsync(this::processCursor, executor);
                         return;
                     }
                 } finally {

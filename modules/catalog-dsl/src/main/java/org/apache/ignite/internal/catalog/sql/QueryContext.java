@@ -47,6 +47,13 @@ class QueryContext {
         return sql.toString();
     }
 
+    QueryContext sql(char c) {
+        applyNewLine();
+        sql.append(c);
+        resetSeparatorFlags();
+        return this;
+    }
+
     QueryContext sql(String s) {
         applyNewLine();
         sql.append(s);

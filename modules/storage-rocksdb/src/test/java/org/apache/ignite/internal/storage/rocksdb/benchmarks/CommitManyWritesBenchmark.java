@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb.benchmarks;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,11 +33,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -48,7 +53,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -79,11 +83,13 @@ public class CommitManyWritesBenchmark {
     private static final int NUM_ROWS = 100_000;
     private static final int ROW_LENGTH = 10_000;
 
-    private final HybridClock clock = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private RocksDbStorageEngine storageEngine;
 
     private RocksDbTableStorage tableStorage;
+
+    private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
 
     /** Setup method. */
     @Setup
@@ -92,10 +98,11 @@ public class CommitManyWritesBenchmark {
 
         storageEngine = new RocksDbStorageEngine(
                 "test",
-                engineConfiguration(),
                 storageConfiguration(),
                 workDir,
-                () -> {}
+                () -> {},
+                scheduledExecutor,
+                mock(FailureProcessor.class)
         );
 
         storageEngine.start();
@@ -113,10 +120,12 @@ public class CommitManyWritesBenchmark {
 
     /** Tear down method. */
     @TearDown
-    public void tearDown() {
-        tableStorage.destroy().join();
-
-        storageEngine.stop();
+    public void tearDown() throws Exception {
+        closeAll(
+                () -> tableStorage.destroy().join(),
+                () -> storageEngine.stop(),
+                () -> shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS)
+        );
     }
 
     private static int randomPartitionId() {
@@ -162,11 +171,11 @@ public class CommitManyWritesBenchmark {
 
         final Map<RowId, BinaryRow> rows = randomRows(partitionId);
 
+        final UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
+
         /** Setup method. */
         @Setup
         public void setUp(CommitManyWritesBenchmark benchmark) {
-            UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0);
-
             MvPartitionStorage partitionStorage = benchmark.tableStorage.getMvPartition(partitionId);
 
             partitionStorage.runConsistently(locker -> {
@@ -177,18 +186,6 @@ public class CommitManyWritesBenchmark {
         }
     }
 
-    private static RocksDbStorageEngineConfiguration engineConfiguration() {
-        RocksDbStorageEngineConfiguration config = mock(RocksDbStorageEngineConfiguration.class);
-
-        ConfigurationValue<Integer> flushDelayMillis = mock(ConfigurationValue.class);
-
-        when(flushDelayMillis.value()).thenReturn(100);
-
-        when(config.flushDelayMillis()).thenReturn(flushDelayMillis);
-
-        return config;
-    }
-
     private static StorageConfiguration storageConfiguration() {
         StorageConfiguration config = mock(StorageConfiguration.class);
 
@@ -197,8 +194,8 @@ public class CommitManyWritesBenchmark {
         RocksDbProfileView rocksDbProfileView = mock(RocksDbProfileView.class);
 
         when(rocksDbProfileView.name()).thenReturn(STORAGE_PROFILE_NAME);
-        when(rocksDbProfileView.size()).thenReturn(16777216L);
-        when(rocksDbProfileView.writeBufferSize()).thenReturn(16777216L);
+        when(rocksDbProfileView.sizeBytes()).thenReturn(16777216L);
+        when(rocksDbProfileView.writeBufferSizeBytes()).thenReturn(16777216L);
 
         when(config.profiles()).thenReturn(profilesTree);
         when(profilesTree.value()).thenReturn(profilesView);
@@ -212,7 +209,7 @@ public class CommitManyWritesBenchmark {
     public void addAndCommitManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
@@ -220,10 +217,10 @@ public class CommitManyWritesBenchmark {
             return null;
         });
 
-        HybridTimestamp commitTs = clock.now();
+        HybridTimestamp commitTs = CLOCK.now();
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs, txId));
 
             return null;
         });
@@ -234,7 +231,7 @@ public class CommitManyWritesBenchmark {
     public void addManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
@@ -248,10 +245,10 @@ public class CommitManyWritesBenchmark {
     public void commitManyWrites(DataToCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        HybridTimestamp commitTs = clock.now();
+        HybridTimestamp commitTs = CLOCK.now();
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs, data.txId));
 
             return null;
         });

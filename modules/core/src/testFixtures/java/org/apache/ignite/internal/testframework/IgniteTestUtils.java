@@ -47,6 +47,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -497,7 +497,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
+        ThreadFactory thrFactory = IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -614,9 +614,7 @@ public final class IgniteTestUtils {
     public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
         List<Callable<?>> calls = Collections.nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runMultiThreaded(calls, threadFactory);
+        return runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG));
     }
 
     /**
@@ -646,9 +644,7 @@ public final class IgniteTestUtils {
     public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runAsync(() -> runMultiThreaded(calls, threadFactory));
+        return runAsync(() -> runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG)));
     }
 
     /**
@@ -703,6 +699,8 @@ public final class IgniteTestUtils {
 
     /**
      * Returns random string.
+     * The result string may differs on different JDK versions even for the same random seed, because of Character table changes.
+     * E.g. character for codePoint=42946 is defined in JDK 17, but undefined in JDK 11.
      *
      * @param rnd Random generator.
      * @param len String length.
@@ -712,6 +710,7 @@ public final class IgniteTestUtils {
         StringBuilder sb = new StringBuilder();
 
         while (sb.length() < len) {
+            // Casted value is always a valid codepoint. See Character.isValidCodepoint(int).
             char pt = (char) rnd.nextInt(Character.MAX_VALUE + 1);
 
             if (Character.isDefined(pt)
@@ -1044,5 +1043,15 @@ public final class IgniteTestUtils {
         public boolean matches(Object o) {
             return predicate.test((DataT) o);
         }
+    }
+
+    /**
+     * Derives a UUID from a string in a determenistic way in hope there will be no collisions of derived UUIDs for different strings
+     * in practice.
+     *
+     * @param str String for which to derive a UUID.
+     */
+    public static UUID deriveUuidFrom(String str) {
+        return new UUID(str.hashCode(), new StringBuilder(str).reverse().toString().hashCode());
     }
 }

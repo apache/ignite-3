@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -30,8 +29,9 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,39 +50,73 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return preventThreadHijack(compute.submit(target, descriptor, args));
-    }
-
-    @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return compute.execute(target, descriptor, args);
-    }
-
-    @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
             JobDescriptor<T, R> descriptor,
-            T args
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, descriptor, args);
-
-        return results.entrySet().stream()
-                .collect(toMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
+        return preventThreadHijack(compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack));
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg), asyncContinuationExecutor);
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return preventThreadHijack(compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack));
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return compute.executeMapReduce(taskDescriptor, arg);
+    public <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return compute.execute(target, descriptor, arg, cancellationToken);
+    }
+
+    @Override
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return compute.execute(target, descriptor, arg, cancellationToken);
+    }
+
+    @Override
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg, cancellationToken), asyncContinuationExecutor);
+    }
+
+    @Override
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return compute.executeMapReduce(taskDescriptor, arg, cancellationToken);
+    }
+
+    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
         return new AntiHijackJobExecution<>(execution, asyncContinuationExecutor);
+    }
+
+    private <T, R> BroadcastExecution<R> preventThreadHijack(BroadcastExecution<R> execution) {
+        return new AntiHijackBroadcastExecution<>(execution, asyncContinuationExecutor);
     }
 
     @Override

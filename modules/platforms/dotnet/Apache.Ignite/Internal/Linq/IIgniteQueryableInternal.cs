@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
+using Ignite.Table;
 using Remotion.Linq;
 
 /// <summary>
@@ -27,7 +28,7 @@ internal interface IIgniteQueryableInternal
     /// <summary>
     /// Gets the table name.
     /// </summary>
-    string TableName { get; }
+    QualifiedName TableName { get; }
 
     /// <summary>
     /// Gets the provider.

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -76,10 +79,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final ClusterNode LOCAL_NODE =
-            new ClusterNodeImpl("local_id", "local", new NetworkAddress("127.0.0.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
     private static final ClusterNode REMOTE_NODE =
-            new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     @InjectConfiguration
     private TransactionConfiguration transactionConfiguration;
@@ -119,8 +122,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 new TxMessageSender(
                         messagingService,
                         replicaService,
-                        clockService,
-                        transactionConfiguration
+                        clockService
                 )
         );
 
@@ -136,10 +138,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = idGenerator.transactionIdFor(beginTimestamp);
@@ -160,10 +163,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
@@ -196,10 +200,11 @@ public class TxCleanupTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
         TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ReplicationGroupId, PartitionEnlistment> partitions = Map.of(
+                tablePartitionId1, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId1.tableId())),
+                tablePartitionId2, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId2.tableId())),
+                tablePartitionId3, new PartitionEnlistment(LOCAL_NODE.name(), Set.of(tablePartitionId3.tableId()))
+        );
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))

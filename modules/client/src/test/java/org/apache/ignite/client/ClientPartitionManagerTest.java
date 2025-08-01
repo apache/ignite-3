@@ -40,12 +40,16 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     private static final String TABLE_NAME = "tbl1";
 
     private static int tableId;
+    private static int zoneId;
 
     @BeforeEach
     public void setUp() {
         Table table = ((FakeIgniteTables) server.tables()).createTable(TABLE_NAME);
 
-        tableId = ((TableViewInternal) table).tableId();
+        TableViewInternal tableViewInternal = (TableViewInternal) table;
+
+        tableId = tableViewInternal.tableId();
+        zoneId = tableViewInternal.internalTable().zoneId();
     }
 
     @Test
@@ -75,6 +79,6 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     private static void updateServerReplicas(List<String> replicas) {
         FakePlacementDriver placementDriver = testServer.placementDriver();
         long leaseStartTime = new HybridClockImpl().nowLong();
-        placementDriver.setReplicas(replicas, tableId, leaseStartTime);
+        placementDriver.setReplicas(replicas, tableId, zoneId, leaseStartTime);
     }
 }

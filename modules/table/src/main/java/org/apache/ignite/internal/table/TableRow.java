@@ -96,7 +96,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
             Objects.requireNonNull(columnName);
 
-            var col = schema().column(IgniteNameUtils.parseSimpleName(columnName));
+            var col = schema().column(IgniteNameUtils.parseIdentifier(columnName));
 
             return col == null ? -1 : col.positionInKey();
         }
@@ -150,7 +150,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
             Objects.requireNonNull(columnName);
 
-            var col = schema().column(IgniteNameUtils.parseSimpleName(columnName));
+            var col = schema().column(IgniteNameUtils.parseIdentifier(columnName));
 
             return col == null ? -1 : col.positionInValue();
         }

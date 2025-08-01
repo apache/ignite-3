@@ -17,26 +17,23 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
-import java.util.List;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.rest.AbstractRestTestBase;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Cluster management REST test.
  */
-@ExtendWith(MockitoExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 public class ItClusterManagementControllerTest extends AbstractRestTestBase {
     @Test
     void testInitNoSuchNode() throws Exception {
@@ -49,9 +46,23 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // Then
         assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem.status(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem.title(), is("Bad Request"));
-        assertThat(initProblem.detail(), is("Node \"nodename\" is not present in the physical topology"));
+        assertThat(initProblem, isProblem()
+                .withStatus(HttpStatus.BAD_REQUEST.getCode())
+                .withTitle(HttpStatus.BAD_REQUEST.getReason())
+                .withDetail("Node \"nodename\" is not present in the physical topology")
+        );
+    }
+
+    @Test
+    void testInitNoMsCmg() throws Exception {
+        // Given body with just cluster name
+        String givenBody = "{\"clusterName\": \"cluster\"}";
+
+        // When
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", givenBody));
+
+        // Then
+        assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
     }
 
     @Test
@@ -62,16 +73,16 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // Then status is 409: Cluster is not initialized
         assertThat(stateResponseBeforeInit.statusCode(), is(HttpStatus.CONFLICT.getCode()));
-        assertThat(beforeInitProblem.title(), is("Cluster is not initialized"));
-        assertThat(
-                beforeInitProblem.detail(),
-                is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
+        assertThat(beforeInitProblem, isProblem()
+                .withStatus(HttpStatus.CONFLICT.getCode())
+                .withTitle("Cluster is not initialized")
+                .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
         );
 
         // Given cluster initialized
         String givenFirstRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\"\n"
@@ -83,21 +94,21 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
         // Then
         assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
         // And
-        assertThat(nodes.get(0).waitForInitAsync(), willCompleteSuccessfully());
+        assertThat(cluster.server(0).waitForInitAsync(), willCompleteSuccessfully());
 
         // When get cluster state
         HttpResponse<String> stateResponse = send(get("/management/v1/cluster/state"));
         ClusterState state = objectMapper.readValue(stateResponse.body(), ClusterState.class);
 
         // Then cluster state is valid
-        assertThat(state.msNodes(), is(List.of(nodeNames.get(0))));
-        assertThat(state.cmgNodes(), is(List.of(nodeNames.get(0))));
+        assertThat(state.msNodes(), contains(cluster.nodeName(0)));
+        assertThat(state.cmgNodes(), contains(cluster.nodeName(0)));
         assertThat(state.clusterTag().clusterName(), is("cluster"));
 
         // Given second request with different node name
         String givenSecondRequestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeNames.get(1) + "\"\n"
+                + "        \"" + cluster.nodeName(1) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\"\n"
@@ -109,6 +120,10 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // Then
         assertThat(secondInitResponse.statusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR.getCode()));
-        assertThat(secondInitProblem.status(), is(HttpStatus.INTERNAL_SERVER_ERROR.getCode()));
+        assertThat(secondInitProblem, isProblem()
+                .withStatus(HttpStatus.INTERNAL_SERVER_ERROR.getCode())
+                .withTitle(HttpStatus.INTERNAL_SERVER_ERROR.getReason())
+                .withDetail(containsString("Init CMG request denied, reason: CMG node names do not match."))
+        );
     }
 }

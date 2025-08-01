@@ -23,17 +23,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions;
@@ -42,6 +38,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -71,8 +68,8 @@ public class SchemaManager implements IgniteComponent {
     private final Map<Integer, SchemaRegistryImpl> registriesById = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public SchemaManager(Consumer<LongFunction<CompletableFuture<?>>> registry, CatalogService catalogService) {
-        this.registriesVv = new IncrementalVersionedValue<>(registry);
+    public SchemaManager(RevisionListenerRegistry registry, CatalogService catalogService) {
+        this.registriesVv = new IncrementalVersionedValue<>("SchemaManager#registries", registry);
         this.catalogService = catalogService;
     }
 
@@ -88,7 +85,7 @@ public class SchemaManager implements IgniteComponent {
 
     private void registerExistingTables() {
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
-            Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
+            Collection<CatalogTableDescriptor> tables = catalogService.catalog(catalogVer).tables();
 
             for (CatalogTableDescriptor tableDescriptor : tables) {
                 int tableId = tableDescriptor.id();
@@ -97,20 +94,29 @@ public class SchemaManager implements IgniteComponent {
                     continue;
                 }
 
-                SchemaDescriptor prevSchema = null;
-                CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
-                for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
-                    SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
-
-                    if (prevSchema != null) {
-                        newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
-                    }
-
-                    prevSchema = newSchema;
-
-                    registerSchema(tableId, newSchema);
-                }
+                registerVersions(tableDescriptor, null);
             }
+        }
+    }
+
+    private void registerVersions(
+            CatalogTableDescriptor tableDescriptor, @Nullable SchemaDescriptor lastKnownSchema
+    ) {
+        SchemaDescriptor prevSchema = lastKnownSchema;
+        CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
+        int versionToStart = lastKnownSchema != null 
+                ? lastKnownSchema.version() + 1 
+                : schemaVersions.earliestVersion();
+        for (int tableVer = versionToStart; tableVer <= schemaVersions.latestVersion(); tableVer++) {
+            SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
+
+            if (prevSchema != null) {
+                newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
+            }
+
+            prevSchema = newSchema;
+
+            registerSchema(tableDescriptor.id(), newSchema);
         }
     }
 
@@ -125,7 +131,7 @@ public class SchemaManager implements IgniteComponent {
 
         TableEventParameters tableEvent = ((TableEventParameters) event);
 
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
+        CatalogTableDescriptor tableDescriptor = catalogService.catalog(tableEvent.catalogVersion()).table(tableEvent.tableId());
 
         assert tableDescriptor != null;
 
@@ -145,17 +151,7 @@ public class SchemaManager implements IgniteComponent {
                 return falseCompletedFuture();
             }
 
-            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
-
-            try {
-                setColumnMapping(newSchema, tableId);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                return failedFuture(e);
-            } catch (ExecutionException e) {
-                return failedFuture(e);
-            }
+            registerVersions(tableDescriptor, lastKnownSchemaVersion(tableId));
 
             return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
@@ -164,8 +160,6 @@ public class SchemaManager implements IgniteComponent {
                     );
                 }
 
-                registerSchema(tableId, newSchema);
-
                 return nullCompletedFuture();
             })).thenApply(ignored -> false);
         } finally {
@@ -173,36 +167,19 @@ public class SchemaManager implements IgniteComponent {
         }
     }
 
-    private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
-        if (schema.version() == CatalogTableDescriptor.INITIAL_TABLE_VERSION) {
-            return;
-        }
-
-        int prevVersion = schema.version() - 1;
-
-        SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
-
-        if (prevSchema == null) {
-            prevSchema = loadSchemaDescriptor(tableId, prevVersion);
-        }
-
-        schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
-    }
-
     /**
-     * Loads the table schema descriptor by version from local Metastore storage.
-     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
-     * will be thrown.
+     * Loads the table schema descriptor by version from local Catalog.
+     * If called with a schema version for which the schema is not yet saved to the Catalog, {@code null} if returned.
      *
      * @param tblId Table id.
-     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
-     * @return Schema representation.
+     * @param ver Schema version (must not be higher than the latest version saved to the Catalog).
+     * @return Schema representation (or {@code null}).
      */
-    private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
+    private @Nullable SchemaDescriptor loadOptionalSchemaDescriptor(int tblId, int ver) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         while (catalogVersion >= catalogService.earliestCatalogVersion()) {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tblId);
 
             if (tableDescriptor == null) {
                 catalogVersion--;
@@ -210,7 +187,7 @@ public class SchemaManager implements IgniteComponent {
                 continue;
             }
 
-            return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, ver);
+            return CatalogToSchemaDescriptorConverter.convertIfExists(tableDescriptor, ver);
         }
 
         throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
@@ -246,7 +223,7 @@ public class SchemaManager implements IgniteComponent {
      */
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
+                ver -> inBusyLock(busyLock, () -> loadOptionalSchemaDescriptor(tableId, ver)),
                 initialSchema
         );
     }
@@ -263,6 +240,17 @@ public class SchemaManager implements IgniteComponent {
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
+        } else {
+            return null;
+        }
+    }
+
+    /** Returns the last cached version of schema for a given table, or {@code null} if registry for the table has not been registered. */
+    private @Nullable SchemaDescriptor lastKnownSchemaVersion(int tblId) {
+        SchemaRegistry registry = registriesById.get(tblId);
+
+        if (registry != null) {
+            return registry.lastKnownSchema();
         } else {
             return null;
         }
@@ -305,13 +293,18 @@ public class SchemaManager implements IgniteComponent {
      *
      * @param tableId Table id.
      */
-    public CompletableFuture<?> dropRegistryAsync(int tableId) {
-        return inBusyLockAsync(busyLock, () -> {
-            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
-            removedRegistry.close();
+    public void dropRegistry(int tableId) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-            return falseCompletedFuture();
-        });
+        try {
+            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
+
+            removedRegistry.close();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

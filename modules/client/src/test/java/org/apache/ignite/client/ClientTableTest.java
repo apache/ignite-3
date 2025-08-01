@@ -466,9 +466,9 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testGetFromDroppedTableThrowsException() {
-        ((FakeIgniteTables) server.tables()).createTable("drop-me");
-        Table clientTable = client.tables().table("drop-me");
-        ((FakeIgniteTables) server.tables()).dropTable("drop-me");
+        ((FakeIgniteTables) server.tables()).createTable("\"drop-me\"");
+        Table clientTable = client.tables().table("\"drop-me\"");
+        ((FakeIgniteTables) server.tables()).dropTable("\"drop-me\"");
 
         Tuple tuple = Tuple.create().set("id", 1);
         var ex = assertThrows(IgniteException.class, () -> clientTable.recordView().get(null, tuple));
@@ -479,7 +479,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     private void checkSchemaUpdate(Consumer<RecordView<Tuple>> consumer) throws Exception {
         try (var client2 = startClient()) {
-            var table = client2.tables().table(defaultTable().name());
+            var table = client2.tables().table(defaultTable().qualifiedName());
             Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
             var recView = table.recordView();
 

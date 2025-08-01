@@ -53,14 +53,11 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** Prefix for event loop group names. */
     private final String eventLoopGroupNamePrefix;
 
-    /** Server boss socket channel handler event loop group. */
+    /** Boss socket channel handler event loop group (this group accepts connections). */
     private EventLoopGroup bossGroup;
 
-    /** Server work socket channel handler event loop group. */
+    /** Work socket channel handler event loop group (this group does network I/O). */
     private EventLoopGroup workerGroup;
-
-    /** Client socket channel handler event loop group. */
-    private EventLoopGroup clientWorkerGroup;
 
     /** All event loops with which {@link io.netty.channel.Channel}s might be registered. */
     private volatile List<EventLoop> channelEventLoops;
@@ -84,18 +81,18 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
      *
      * @return Bootstrap.
      */
-    public Bootstrap createClientBootstrap() {
-        OutboundView clientConfiguration = networkConfiguration.value().outbound();
-        Bootstrap clientBootstrap = new Bootstrap();
+    public Bootstrap createOutboundBootstrap() {
+        OutboundView outboundConfiguration = networkConfiguration.value().outbound();
+        Bootstrap outboundBootstrap = new Bootstrap();
 
-        clientBootstrap.group(clientWorkerGroup)
+        outboundBootstrap.group(workerGroup)
                 .channel(NioSocketChannel.class)
                 // See createServerBootstrap for netty configuration details.
-                .option(ChannelOption.SO_KEEPALIVE, clientConfiguration.soKeepAlive())
-                .option(ChannelOption.SO_LINGER, clientConfiguration.soLinger())
-                .option(ChannelOption.TCP_NODELAY, clientConfiguration.tcpNoDelay());
+                .option(ChannelOption.SO_KEEPALIVE, outboundConfiguration.soKeepAlive())
+                .option(ChannelOption.SO_LINGER, outboundConfiguration.soLinger())
+                .option(ChannelOption.TCP_NODELAY, outboundConfiguration.tcpNoDelay());
 
-        return clientBootstrap;
+        return outboundBootstrap;
     }
 
     /**
@@ -144,20 +141,19 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     }
 
     /**
-     * Returns all event loop groups managed by this factory.
+     * Returns all event loop groups managed by this factory for which it is necessary to determine blocked threads.
      */
-    List<EventLoopGroup> eventLoopGroups() {
-        return List.of(bossGroup, workerGroup, clientWorkerGroup);
+    List<EventLoopGroup> eventLoopGroupsForBlockedThreadsDetection() {
+        return List.of(workerGroup);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
-        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
-        clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-accept");
+        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-worker");
 
-        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup, clientWorkerGroup));
+        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup));
 
         return nullCompletedFuture();
     }
@@ -189,11 +185,10 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         NetworkView configurationView = networkConfiguration.value();
-        long quietPeriod = configurationView.shutdownQuietPeriod();
-        long shutdownTimeout = configurationView.shutdownTimeout();
+        long quietPeriod = configurationView.shutdownQuietPeriodMillis();
+        long shutdownTimeout = configurationView.shutdownTimeoutMillis();
 
         try {
-            clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
         } catch (InterruptedException e) {
@@ -213,7 +208,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
      * Returns worker event loop group.
      */
     @TestOnly
-    public EventLoopGroup serverEventLoopGroup() {
+    public EventLoopGroup workerEventLoopGroup() {
         return workerGroup;
     }
 }

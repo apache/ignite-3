@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 
 import java.util.stream.Stream;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,19 +54,14 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
-    /** {@code UPDATE} from a literal of a compatible type. */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testUpdateFromLiteral(TestTypeArguments<T> arguments) {
-        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
-        runSql(insert);
+    @Test
+    public void testInsertDefaultLiteral() {
+        runSql("CREATE TABLE test_table (id INT PRIMARY KEY, val <type> DEFAULT $0)");
+        runSql("INSERT INTO test_table(id) VALUES (0)");
 
-        checkQuery(format("UPDATE t SET test_key = {} WHERE id=1", arguments.valueExpr(0)))
-                .returns(1L)
-                .check();
-
-        checkQuery("SELECT test_key FROM t WHERE id=1")
-                .returns(arguments.value(0))
+        assertQuery("SELECT val FROM test_table WHERE id = ?")
+                .withParam(0)
+                .returns(values.get(0))
                 .check();
     }
 
@@ -87,19 +80,6 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT test_key FROM t WHERE id=1")
                 .returns(max)
                 .check();
-    }
-
-    /**
-     * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
-     */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testDisallowMismatchTypesOnInsertDynamicParam2(TestTypeArguments<T> arguments) {
-        Object value1 = arguments.argValue(0);
-
-        var query = "INSERT INTO t (id, test_key) VALUES (1, 'str'), (2, ?)";
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
-                () -> runSql(query, value1));
     }
 
     private Stream<TestTypeArguments<T>> dml() {

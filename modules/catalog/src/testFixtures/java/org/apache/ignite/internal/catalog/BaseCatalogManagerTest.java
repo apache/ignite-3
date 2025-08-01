@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -32,9 +34,11 @@ import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -53,6 +57,8 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -61,18 +67,26 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for testing the {@link CatalogManager}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
+
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
@@ -83,44 +97,47 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected final HybridClock clock = new HybridClockImpl();
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     ClockWaiter clockWaiter;
 
     ClockService clockService;
 
-    private MetaStorageManager metastore;
+    protected MetaStorageManager metastore;
 
     UpdateLog updateLog;
 
     protected CatalogManagerImpl manager;
 
-    protected AtomicLong delayDuration = new AtomicLong();
-    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
-
+    protected AtomicLong delayDuration = new AtomicLong(TEST_DELAY_DURATION);
 
     @BeforeEach
     void setUp() {
-        delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
+        metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
-        metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
-
-        updateLog = spy(new UpdateLogImpl(metastore));
-        clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
+        FailureProcessor failureProcessor = new NoOpFailureManager();
+        updateLog = spy(new UpdateLogImpl(metastore, failureProcessor));
+        clockWaiter = spy(new ClockWaiter(NODE_NAME, clock, scheduledExecutor));
 
         clockService = new TestClockService(clock, clockWaiter);
 
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
-                delayDuration::get,
-                partitionIdleSafeTimePropagationPeriod::get
+                failureProcessor,
+                delayDuration::get
         );
 
-        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
-        awaitDefaultZoneCreation(manager);
+        await(manager.catalogInitializationFuture());
     }
 
     @AfterEach
@@ -129,15 +146,12 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     }
 
     protected void createSomeTable(String tableName) {
-        assertThat(
-                manager.execute(createTableCommand(
-                        tableName,
-                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                        List.of("key1"),
-                        List.of("key1")
-                )),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createTableCommand(
+                tableName,
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1")
+        ));
     }
 
     protected final Catalog latestActiveCatalog() {
@@ -182,10 +196,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        return createSortedIndexCommand(TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
+        return createSortedIndexCommand(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
     }
 
     protected static CatalogCommand createSortedIndexCommand(
+            String schemaName,
             String tableName,
             String indexName,
             boolean unique,
@@ -193,7 +208,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
         return CreateSortedIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(schemaName)
                 .tableName(tableName)
                 .indexName(indexName)
                 .unique(unique)
@@ -216,11 +231,23 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        return createTableCommandBuilder(tableName, columns, primaryKeys, colocationColumns)
+        return createTableCommand(SqlCommon.DEFAULT_SCHEMA_NAME, tableName, columns, primaryKeys, colocationColumns);
+    }
+
+    protected static CatalogCommand createTableCommand(
+            String schemaName,
+            String tableName,
+            List<ColumnParams> columns,
+            List<String> primaryKeys,
+            @Nullable List<String> colocationColumns
+    ) {
+        return createTableCommandBuilder(schemaName, tableName, columns, primaryKeys, colocationColumns)
                 .build();
     }
 
-    protected static CreateTableCommandBuilder createTableCommandBuilder(String tableName,
+    protected static CreateTableCommandBuilder createTableCommandBuilder(
+            String schemaName,
+            String tableName,
             List<ColumnParams> columns,
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
@@ -229,7 +256,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .build();
 
         return CreateTableCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(schemaName)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)
@@ -302,5 +329,78 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
             return falseCompletedFuture();
         };
+    }
+
+    CatalogApplyResult tryApplyAndExpectApplied(CatalogCommand cmd) {
+        return tryApplyAndCheckExpect(List.of(cmd), true);
+    }
+
+    CatalogApplyResult tryApplyAndExpectNotApplied(CatalogCommand cmd) {
+        return tryApplyAndCheckExpect(List.of(cmd), false);
+    }
+
+    CatalogApplyResult tryApplyAndCheckExpect(List<CatalogCommand> cmds, boolean... expectedResults) {
+        CatalogApplyResult applyResult = await(manager.execute(cmds));
+        assertThat(applyResult, CatalogApplyResultMatcher.fewResults(expectedResults));
+
+        return applyResult;
+    }
+
+    static <T> CompletableFutureMatcher<T> willBeApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.applyed());
+    }
+
+    static <T> CompletableFutureMatcher<T> willBeNotApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.notApplyed());
+    }
+
+    static class CatalogApplyResultMatcher extends BaseMatcher<CatalogApplyResult> {
+        BitSet expectedResult;
+
+        CatalogApplyResultMatcher(boolean expectedSingleResult) {
+            expectedResult = new BitSet(1);
+            expectedResult.set(0, expectedSingleResult);
+        }
+
+        CatalogApplyResultMatcher(BitSet expectedResult) {
+            this.expectedResult = expectedResult;
+        }
+
+        @Override
+        public boolean matches(Object o) {
+            if (o instanceof CatalogApplyResult) {
+                CatalogApplyResult catalogApplyResult = (CatalogApplyResult) o;
+                for (int i = 0; i < expectedResult.size(); i++) {
+                    if (catalogApplyResult.isApplied(i) != expectedResult.get(i)) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public void describeTo(Description description) {
+            description.appendText("CatalogApplyResultMatcher: " + expectedResult.toString());
+        }
+
+        static CatalogApplyResultMatcher fewResults(boolean... expectedResult) {
+            BitSet bitSet = new BitSet(expectedResult.length);
+            for (int i = 0; i < expectedResult.length; i++) {
+                bitSet.set(i, expectedResult[i]);
+            }
+
+            return new CatalogApplyResultMatcher(bitSet);
+        }
+
+        static CatalogApplyResultMatcher applyed() {
+            return new CatalogApplyResultMatcher(true);
+        }
+
+        static CatalogApplyResultMatcher notApplyed() {
+            return new CatalogApplyResultMatcher(false);
+        }
     }
 }

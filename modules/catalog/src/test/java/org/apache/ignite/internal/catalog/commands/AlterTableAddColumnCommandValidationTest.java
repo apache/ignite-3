@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -121,10 +122,14 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true).build();
+
+        alterCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test
@@ -136,7 +141,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );
@@ -160,7 +165,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 .columns(List.of(columnParams));
 
         assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'TEST' already exists"
         );
@@ -186,7 +191,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 .columns(List.of(columnParams));
 
         assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Functional defaults are not supported for non-primary key columns"
         );

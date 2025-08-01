@@ -17,19 +17,20 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackPayload;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
-import java.util.List;
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
@@ -42,41 +43,50 @@ public class ClientComputeExecuteColocatedRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param tables Tables.
      * @param cluster Cluster service
+     * @param notificationSender Notification sender.
+     * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
-            NotificationSender notificationSender) {
-        return readTableAsync(in, tables).thenCompose(table -> readTuple(in, table, true).thenCompose(keyTuple -> {
-            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-            String jobClassName = in.unpackString();
-            JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            Object args = unpackPayload(in);
+            NotificationSender notificationSender,
+            boolean enablePlatformJobs) {
+        int tableId = in.unpackInt();
+        int schemaId = in.unpackInt();
 
-            out.packInt(table.schemaView().lastKnownSchemaVersion());
+        BitSet noValueSet = in.unpackBitSet();
+        byte[] tupleBytes = in.readBinary();
 
-            CompletableFuture<JobExecution<Object>> jobExecutionFut = compute.submitColocatedInternal(
-                    table,
-                    keyTuple,
-                    deploymentUnits,
-                    jobClassName,
-                    options,
-                    args);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
-            var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
+        return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
+                .thenCompose(keyTuple -> {
+                    CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
+                            table,
+                            keyTuple,
+                            job.deploymentUnits(),
+                            job.jobClassName(),
+                            job.options(),
+                            job.arg(),
+                            null
+                    );
 
-            sendResultAndState(jobExecution, notificationSender);
+                    sendResultAndState(jobExecutionFut, notificationSender);
 
-            //noinspection DataFlowIssue
-            return jobExecution.idAsync().thenAccept(out::packUuid);
-        }));
+                    return jobExecutionFut.thenCompose(execution ->
+                            execution.idAsync().thenApply(jobId -> out -> {
+                                out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+                                //noinspection DataFlowIssue
+                                packSubmitResult(out, jobId, execution.node());
+                            })
+                    );
+                }));
     }
 }

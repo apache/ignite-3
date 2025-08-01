@@ -20,7 +20,6 @@ package org.apache.ignite.internal.deployunit;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,79 +31,42 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
 public class DefaultNodeCallback extends NodeEventCallback {
-    private static final IgniteLogger LOG = Loggers.forClass(DefaultNodeCallback.class);
-
     private final DeploymentUnitStore deploymentUnitStore;
-
-    private final DeployMessagingService messaging;
-
-    private final FileDeployerService deployer;
 
     private final DeploymentUnitAcquiredWaiter undeployer;
 
-    private final DownloadTracker tracker;
+    private final UnitDownloader downloader;
 
     private final ClusterManagementGroupManager cmgManager;
-
-    private final String nodeName;
 
     /**
      * Constructor.
      *
      * @param deploymentUnitStore Deployment units store.
-     * @param messaging Deployment messaging service.
-     * @param deployer Deployment unit file system service.
      * @param undeployer Deployment unit undeployer.
+     * @param downloader Unit downloader.
      * @param cmgManager Cluster management group manager.
-     * @param nodeName Node consistent ID.
      */
-    public DefaultNodeCallback(
+    DefaultNodeCallback(
             DeploymentUnitStore deploymentUnitStore,
-            DeployMessagingService messaging,
-            FileDeployerService deployer,
             DeploymentUnitAcquiredWaiter undeployer,
-            DownloadTracker tracker,
-            ClusterManagementGroupManager cmgManager,
-            String nodeName
+            UnitDownloader downloader,
+            ClusterManagementGroupManager cmgManager
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
-        this.messaging = messaging;
-        this.deployer = deployer;
         this.undeployer = undeployer;
-        this.tracker = tracker;
+        this.downloader = downloader;
         this.cmgManager = cmgManager;
-        this.nodeName = nodeName;
     }
 
     @Override
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
-        tracker.track(id, version,
-                () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
-                        .thenCompose(content -> {
-                            org.apache.ignite.internal.deployunit.DeploymentUnit unit = UnitContent.toDeploymentUnit(content);
-                            return deployer.deploy(id, version, unit)
-                                    .whenComplete((deployed, err) -> {
-                                        try {
-                                            unit.close();
-                                        } catch (Exception e) {
-                                            LOG.error("Failed to close deployment unit", e);
-                                        }
-                                    });
-                        })
-                        .thenApply(deployed -> {
-                            if (deployed) {
-                                return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
-                            }
-                            return deployed;
-                        })
-        );
+        downloader.downloadUnit(id, version, getDeployedNodeIds(holders));
     }
 
     @Override

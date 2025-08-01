@@ -33,7 +33,7 @@ import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -136,7 +136,7 @@ public class TransactionStateResolver {
      */
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
-            TablePartitionId commitGrpId,
+            ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
@@ -172,7 +172,7 @@ public class TransactionStateResolver {
     private void resolveDistributiveTxState(
             UUID txId,
             @Nullable TxStateMeta localMeta,
-            TablePartitionId commitGrpId,
+            ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
@@ -205,8 +205,8 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromTxCoordinator(
             UUID txId,
-            @Nullable String coordinatorId,
-            TablePartitionId commitGrpId,
+            @Nullable UUID coordinatorId,
+            ReplicationGroupId commitGrpId,
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
@@ -233,7 +233,7 @@ public class TransactionStateResolver {
 
     private void resolveTxStateFromCommitPartition(
             UUID txId,
-            TablePartitionId commitGrpId,
+            ReplicationGroupId commitGrpId,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
@@ -265,7 +265,7 @@ public class TransactionStateResolver {
      * @param replicaGrp Replication group id.
      * @param txId Transaction id.
      */
-    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, TablePartitionId replicaGrp, UUID txId) {
+    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ReplicationGroupId replicaGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(replicaGrp)
                 .thenCompose(replicaMeta ->
                         txMessageSender.resolveTxStateFromCommitPartition(

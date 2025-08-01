@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_N
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -44,12 +46,14 @@ public class TestDataStorageModule implements DataStorageModule {
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             LogSyncer logSyncer,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException {
         return new TestStorageEngine();
     }

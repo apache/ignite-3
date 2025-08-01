@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 
-import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
-
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -32,7 +30,6 @@ import java.time.Period;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.sql.ColumnType;
@@ -42,6 +39,8 @@ import org.jetbrains.annotations.Nullable;
 /** Tuple with schema marshalling. */
 public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
+
+    public static final int TYPE_ID_TUPLE = -1;
 
     /**
      * Marshal tuple in the following format (LITTLE_ENDIAN).
@@ -59,27 +58,23 @@ public final class TupleWithSchemaMarshalling {
      * valueBinaryTuple := | value1 | ... | valueN |.
      * </pre>
      */
-    public static byte @Nullable [] marshal(@Nullable Tuple tuple) {
-        if (tuple == null) {
-            return null;
-        }
-
+    public static byte [] marshal(Tuple tuple) {
         // Allocate all the memory we need upfront.
         int size = tuple.columnCount();
         Object[] values = new Object[size];
         String[] columns = new String[size];
-        ColumnType[] types = new ColumnType[size];
+        int[] colTypeIds = new int[size];
 
         // Fill in the values, column names, and types.
         for (int i = 0; i < size; i++) {
             var value = tuple.value(i);
             values[i] = value;
             columns[i] = tuple.columnName(i);
-            types[i] = inferType(value);
+            colTypeIds[i] = getColumnTypeId(value);
         }
 
-        ByteBuffer schemaBuff = schemaBuilder(columns, types).build();
-        ByteBuffer valueBuff = valueBuilder(columns, types, values).build();
+        ByteBuffer schemaBuff = schemaBuilder(columns, colTypeIds).build();
+        ByteBuffer valueBuff = valueBuilder(columns, values).build();
 
         int schemaBuffLen = schemaBuff.remaining();
         int valueBuffLen = valueBuff.remaining();
@@ -105,18 +100,25 @@ public final class TupleWithSchemaMarshalling {
     /**
      * Unmarshal tuple (LITTLE_ENDIAN).
      *
-     * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
      */
-    public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
-        if (raw == null) {
-            return null;
-        }
-        if (raw.length < 8) {
-            throw new UnmarshallingException("byte[] length can not be less than 8");
+    public static Tuple unmarshal(byte[] raw) {
+        return unmarshal(ByteBuffer.wrap(raw));
+    }
+
+    /**
+     * Unmarshal tuple (LITTLE_ENDIAN).
+     *
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
+     */
+    public static Tuple unmarshal(ByteBuffer raw) {
+        int dataLen = raw.remaining();
+        if (dataLen < 8) {
+            throw new UnmarshallingException("Data length can not be less than 8");
         }
 
         // Read first int32.
-        ByteBuffer buff = ByteBuffer.wrap(raw).order(BYTE_ORDER);
+        ByteBuffer buff = raw.order(BYTE_ORDER);
         int size = buff.getInt(0);
         if (size < 0) {
             throw new UnmarshallingException("Size of the tuple can not be less than zero");
@@ -127,10 +129,10 @@ public final class TupleWithSchemaMarshalling {
         if (valueOffset < 0) {
             throw new UnmarshallingException("valueOffset can not be less than zero");
         }
-        if (valueOffset > raw.length) {
+        if (valueOffset > dataLen) {
             throw new UnmarshallingException(
-                    "valueOffset can not be greater than byte[] length, valueOffset: "
-                            + valueOffset + ", length: " + raw.length
+                    "valueOffset can not be greater than data length, valueOffset: "
+                            + valueOffset + ", length: " + dataLen
             );
         }
 
@@ -138,7 +140,7 @@ public final class TupleWithSchemaMarshalling {
                 .position(8).limit(valueOffset)
                 .slice().order(BYTE_ORDER);
         ByteBuffer valueBuff = buff
-                .position(valueOffset).limit(raw.length)
+                .position(valueOffset).limit(dataLen)
                 .slice().order(BYTE_ORDER);
 
         BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
@@ -150,37 +152,40 @@ public final class TupleWithSchemaMarshalling {
             String colName = schemaReader.stringValue(i * 2);
             int colTypeId = schemaReader.intValue(i * 2 + 1);
 
-            setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i);
+            setColumnValue(valueReader, tup, colName, colTypeId, i);
         }
 
         return tup;
     }
 
-    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
+    private static BinaryTupleBuilder schemaBuilder(String[] columns, int[] colTypeIds) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
-            builder.appendInt(types[i].id());
+            builder.appendInt(colTypeIds[i]);
         }
 
         return builder;
     }
 
-    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values) {
+    private static BinaryTupleBuilder valueBuilder(String[] columnNames, Object[] values) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
 
         for (int i = 0; i < values.length; i++) {
-            ColumnType type = types[i];
-            Object v = values[i];
-
-            append(type, columnNames[i], builder, v);
+            append(columnNames[i], builder, values[i]);
         }
 
         return builder;
     }
 
-    private static void append(ColumnType type, String name, BinaryTupleBuilder builder, Object value) {
+    private static void append(String name, BinaryTupleBuilder builder, Object value) {
+        if (value instanceof Tuple) {
+            builder.appendBytes(marshal((Tuple) value));
+            return;
+        }
+
+        ColumnType type = inferType(value);
         try {
             switch (type) {
                 case NULL:
@@ -242,11 +247,17 @@ public final class TupleWithSchemaMarshalling {
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
-            throw new IgniteException(UNSUPPORTED_OBJECT_TYPE_ERR, "Column's type mismatch ["
-                    + "column=" + name
-                    + ", expectedType=" + type.javaClass(),
-                    e
+            throw new UnsupportedObjectTypeMarshallingException(
+                    "Column's type mismatch [column=" + name + ", expectedType=" + type.javaClass() + "]", e
             );
+        }
+    }
+
+    private static int getColumnTypeId(@Nullable Object value) {
+        if (value instanceof Tuple) {
+            return TYPE_ID_TUPLE;
+        } else {
+            return inferType(value).id();
         }
     }
 
@@ -309,7 +320,15 @@ public final class TupleWithSchemaMarshalling {
     }
 
 
-    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, ColumnType colType, int i) {
+    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
+        if (colTypeId == TYPE_ID_TUPLE) {
+            byte[] nestedTupleBytes = reader.bytesValue(i);
+            Tuple nestedTuple = unmarshal(nestedTupleBytes);
+            tuple.set(colName, nestedTuple);
+            return;
+        }
+
+        ColumnType colType = ColumnType.getById(colTypeId);
         switch (colType) {
             case NULL:
                 tuple.set(colName, null);

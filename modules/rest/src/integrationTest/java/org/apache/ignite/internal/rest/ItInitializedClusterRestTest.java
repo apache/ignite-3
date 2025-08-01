@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
-import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.micronaut.http.HttpStatus;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -49,24 +51,21 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // For each test case the cluster is already initialized
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
-                + "        \"enabled\": false\n"
-                + "    }\n"
+                + "    \"clusterName\": \"cluster\"\n"
                 + "}";
 
         HttpResponse<String> response = send(post("/management/v1/cluster/init", requestBody));
 
         assertThat(response.statusCode(), is(200));
-        checkAllNodesStarted();
+        cluster.servers().forEach(node -> assertThat(node.waitForInitAsync(), willCompleteSuccessfully()));
     }
 
     @Test
     @DisplayName("Node configuration is available when the cluster is initialized")
-    void nodeConfiguration() throws IOException, InterruptedException {
+    void nodeConfiguration() throws Exception {
         // When GET /management/v1/configuration/node
         HttpResponse<String> response = send(get("/management/v1/configuration/node"));
 
@@ -78,7 +77,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration by path is available when the cluster is initialized")
-    void nodeConfigurationByPath() throws IOException, InterruptedException {
+    void nodeConfigurationByPath() throws Exception {
         // When GET /management/v1/configuration/node and path selector is "rest"
         HttpResponse<String> response = send(get("/management/v1/configuration/node/ignite.rest"));
 
@@ -90,7 +89,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration can be changed when the cluster is initialized")
-    void nodeConfigurationUpdate() throws IOException, InterruptedException {
+    void nodeConfigurationUpdate() throws Exception {
         // When PATCH /management/v1/configuration/node rest.port=10333
         HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
@@ -107,7 +106,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration is available when the cluster is initialized")
-    void clusterConfiguration() throws IOException, InterruptedException {
+    void clusterConfiguration() throws Exception {
         // When GET /management/v1/configuration/cluster
         HttpResponse<String> response = send(get("/management/v1/configuration/cluster"));
 
@@ -121,7 +120,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration can be updated when the cluster is initialized")
-    void clusterConfigurationUpdate() throws IOException, InterruptedException {
+    void clusterConfigurationUpdate() throws Exception {
         // When PATCH /management/v1/configuration/cluster
         HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite.gc.batchSize=1"));
 
@@ -137,7 +136,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
-    void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
+    void clusterConfigurationUpdateValidation() throws Exception {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite {\n"
                 + "    security.enabled:true\n"
@@ -145,21 +144,20 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 + "}"));
 
         // Then
-        assertThat(
-                patchRequest,
-                hasStatusCodeAndBody(
-                        400,
-                        containsString(
-                                "Validation did not pass for keys: "
-                                        + "[ignite.security.authentication.providers, At least one provider is required.]"
-                        )
-                )
+        assertThat(patchRequest.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
+        assertThat(getProblem(patchRequest), isProblem()
+                .withStatus(HttpStatus.BAD_REQUEST.getCode())
+                .withTitle(HttpStatus.BAD_REQUEST.getReason())
+                .withDetail(containsString(
+                        "Validation did not pass for keys: "
+                                + "[ignite.security.authentication.providers, At least one provider is required.]"
+                ))
         );
     }
 
     @Test
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
-    void clusterConfigurationByPath() throws IOException, InterruptedException {
+    void clusterConfigurationByPath() throws Exception {
         // When GET /management/v1/configuration/cluster and path selector is "gc"
         HttpResponse<String> response = send(get("/management/v1/configuration/cluster/ignite.gc"));
 
@@ -173,7 +171,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Logical topology is available on initialized cluster")
-    void logicalTopology() throws IOException, InterruptedException {
+    void logicalTopology() throws Exception {
         // When GET /management/v1/cluster/topology/logical
         HttpResponse<String> response = send(get("/management/v1/cluster/topology/logical"));
 
@@ -190,7 +188,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Physical topology is available on initialized cluster")
-    void physicalTopology() throws IOException, InterruptedException {
+    void physicalTopology() throws Exception {
         // When GET /management/v1/cluster/topology/physical
         HttpResponse<String> response = send(get("/management/v1/cluster/topology/physical"));
 
@@ -207,7 +205,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster state is available on initialized cluster")
-    void clusterState() throws IOException, InterruptedException {
+    void clusterState() throws Exception {
         // When GET /management/v1/cluster/status
         HttpResponse<String> response = send(get("/management/v1/cluster/state"));
 
@@ -224,7 +222,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node state is available on initialized cluster")
-    void nodeState() throws IOException, InterruptedException {
+    void nodeState() throws Exception {
         // When GET /management/v1/node/status
         HttpResponse<String> response = send(get("/management/v1/node/state"));
 
@@ -238,13 +236,16 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node version is available on initialized cluster")
-    void nodeVersion() throws IOException, InterruptedException {
+    void nodeVersion() throws Exception {
         // When GET /management/v1/node/version/
         HttpResponse<String> response = send(get("/management/v1/node/version/"));
 
         // Then
         assertThat(response.statusCode(), is(200));
-        // And version is a semver
-        assertThat(response.body(), matchesRegex(IgniteProductVersion.VERSION_PATTERN));
+        // And version contains product name and version which is a semver
+        assertAll(
+                () -> assertThat(response.body(), hasJsonPath("$.version", matchesRegex(IgniteProductVersion.VERSION_PATTERN))),
+                () -> assertThat(response.body(), hasJsonPath("$.product", is("Apache Ignite")))
+        );
     }
 }

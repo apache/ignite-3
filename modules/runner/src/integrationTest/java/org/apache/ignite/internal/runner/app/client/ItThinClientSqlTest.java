@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -46,9 +48,12 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,6 +63,18 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
+    @AfterEach
+    void dropAllTables() {
+        String dropTablesScript = client().tables().tables().stream()
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            client().sql().executeScript(dropTablesScript);
+        }
+    }
+
     @Test
     void testExecuteAsyncSimpleSelect() {
         AsyncResultSet<SqlRow> resultSet = client().sql()
@@ -376,6 +393,117 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
     }
 
+    @Test
+    void testExplicitTransactionKvCase() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        // First, let's fill the table and check every row in implicit tx.
+        // This should also prepare partition awareness metadata.
+        int count = 10;
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                // No-op.
+            }
+        }
+
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+
+        // Now let's clean the table and do the same steps but within explicit tx.
+
+        try (ResultSet<?> ignored = sql.execute(null, "DELETE FROM my_table")) {
+            // No-op.
+        }
+
+        client.transactions().runInTransaction(tx -> {
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                    // No-op.
+                }
+            }
+
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertEquals(i, rs.next().intValue(1));
+                }
+            }
+
+            // All just inserted rows should not be visible yet
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertFalse(rs.hasNext());
+                }
+            }
+
+            // The same for explicit RO transaction
+            client.transactions().runInTransaction(roTx -> {
+                for (int i = 0; i < count; i++) {
+                    try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                        assertFalse(rs.hasNext());
+                    }
+                }
+            }, new TransactionOptions().readOnly(true));
+        });
+
+        // And now changes are published.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+    }
+
+    @Test
+    void testExplicitTransactionComplexQuery() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        int count = 10;
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                // No-op.
+            }
+        }
+
+        Transaction tx = client.transactions().begin();
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<?> ignored = sql.execute(tx, "DELETE FROM my_table WHERE val % 2 = 0")) {
+                // No-op.
+            }
+        }
+
+        // Changes has not been published yet.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(i, rs.next().intValue(1));
+            }
+        }
+
+        // But they are visible within the same transaction.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(rs.hasNext(), i % 2 != 0);
+            }
+        }
+
+        tx.commit();
+
+        // And now changes are published.
+        for (int i = 0; i < count; i++) {
+            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                assertEquals(rs.hasNext(), i % 2 != 0);
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testResultSetMapping(boolean useStatement) {
@@ -443,7 +571,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_TIME TIME, "
                 + "VAL_TIMESTAMP TIMESTAMP, "
                 + "VAL_UUID UUID, "
-                + "VAL_BYTES BINARY)";
+                + "VAL_BYTES VARBINARY)";
 
         sql.execute(null, createTable);
 
@@ -457,10 +585,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "6.6, "
                 + "7.77, "
                 + "'foo', "
-                + "'2020-01-01', "
-                + "'12:00:00', "
-                + "'2020-01-01 12:00:00', "
-                + "'10000000-2000-3000-4000-500000000000', "
+                + "date '2020-01-01', "
+                + "time '12:00:00', "
+                + "timestamp '2020-01-01 12:00:00', "
+                + "'10000000-2000-3000-4000-500000000000'::UUID, "
                 + "x'42')";
 
         sql.execute(null, insertData);
@@ -481,12 +609,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(4, row.longValue(4));
         assertEquals(5.5f, row.floatValue(5));
         assertEquals(6.6, row.doubleValue(6));
-        assertEquals(new BigDecimal("7.77"), row.value(7));
+        assertEquals(new BigDecimal("7.77"), row.decimalValue(7));
         assertEquals("foo", row.stringValue(8));
-        assertEquals(LocalDate.of(2020, 1, 1), row.value(9));
-        assertEquals(LocalTime.of(12, 0, 0), row.value(10));
-        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
-        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
+        assertEquals(LocalDate.of(2020, 1, 1), row.dateValue(9));
+        assertEquals(LocalTime.of(12, 0, 0), row.timeValue(10));
+        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.datetimeValue(11));
+        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.uuidValue(12));
         assertArrayEquals(new byte[]{0x42}, row.value(13));
         assertNull(row.value(14));
 
@@ -519,6 +647,17 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 () -> client().sql().executeScript(script));
 
         assertThat(e.getMessage(), Matchers.containsString("Division by zero"));
+    }
+
+    @Test
+    public void testClientSqlRowToString() {
+        AsyncResultSet<SqlRow> resultSet = client().sql()
+                .executeAsync(null, "select 1 as num, 'hello' as str")
+                .join();
+
+        SqlRow row = resultSet.currentPage().iterator().next();
+
+        assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
     }
 
     private static class Pojo {

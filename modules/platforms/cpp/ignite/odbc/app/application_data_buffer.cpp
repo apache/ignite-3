@@ -23,6 +23,7 @@
 #include "ignite/common/detail/bits.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <sstream>

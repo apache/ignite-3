@@ -48,25 +48,26 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
@@ -114,7 +115,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private static SystemDistributedConfiguration systemConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -143,7 +144,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
 
-        private final FailureProcessor failureProcessor;
+        private final FailureManager failureManager;
 
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
@@ -184,16 +185,17 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     raftGroupEventsClientListener
             );
 
+            this.failureManager = new NoOpFailureManager();
+
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier());
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator()
+                    new TestConfigurationValidator(),
+                    new SystemPropertiesNodeProperties()
             );
-
-            this.failureProcessor = new NoOpFailureProcessor();
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 
@@ -202,6 +204,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
+            MetricManager metricManager = new NoOpMetricManager();
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -212,9 +216,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     clusterStateStorage,
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor,
+                    failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -234,24 +239,26 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
+            var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name()),
+                    new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    msRaftConfigurer
+                    metricManager,
+                    systemConfiguration,
+                    msRaftConfigurer,
+                    readOperationForCompactionTracker
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage("test", metaStorageManager) {
-                /** {@inheritDoc} */
+            var distributedCfgStorage = new DistributedConfigurationStorage(name(), metaStorageManager) {
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
                     super.registerConfigurationListener(changedEntries -> {
@@ -276,7 +283,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /**
          * Starts the created components.
          */
-        CompletableFuture<Void> start() {
+        void startUpToCmgManager() {
             assertThat(
                     startAsync(new ComponentContext(),
                             vaultManager,
@@ -285,10 +292,16 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                             cmgLogStorageFactory,
                             msLogStorageFactory,
                             raftManager,
-                            failureProcessor,
-                            cmgManager,
-                            metaStorageManager
+                            failureManager,
+                            cmgManager
                     ),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        CompletableFuture<Void> startComponentsAfterCmgManager() {
+            assertThat(
+                    startAsync(new ComponentContext(), metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -311,7 +324,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             var components = List.of(
                     distributedCfgManager,
                     cmgManager,
-                    failureProcessor,
+                    failureManager,
                     metaStorageManager,
                     raftManager,
                     partitionsLogStorageFactory,
@@ -373,10 +386,15 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 raftConfiguration
         );
 
-        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
-                .toArray(CompletableFuture[]::new);
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::startUpToCmgManager);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+        assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::startComponentsAfterCmgManager)
+                .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(startFutures), willCompleteSuccessfully());
 

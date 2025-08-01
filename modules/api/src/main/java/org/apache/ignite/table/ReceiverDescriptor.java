@@ -25,17 +25,23 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer receiver descriptor.
+ *
+ * @deprecated Replaced by {@link DataStreamerReceiverDescriptor}.
  */
+@Deprecated
 public class ReceiverDescriptor<A> {
     private final String receiverClassName;
 
     private final List<DeploymentUnit> units;
+
+    private final ReceiverExecutionOptions options;
 
     private final @Nullable Marshaller<A, byte[]> argumentMarshaller;
 
     private ReceiverDescriptor(
             String receiverClassName,
             List<DeploymentUnit> units,
+            ReceiverExecutionOptions options,
             @Nullable Marshaller<A, byte[]> argumentMarshaller
     ) {
         Objects.requireNonNull(receiverClassName);
@@ -43,6 +49,7 @@ public class ReceiverDescriptor<A> {
 
         this.receiverClassName = receiverClassName;
         this.units = units;
+        this.options = options;
         this.argumentMarshaller = argumentMarshaller;
     }
 
@@ -62,6 +69,15 @@ public class ReceiverDescriptor<A> {
      */
     public List<DeploymentUnit> units() {
         return units;
+    }
+
+    /**
+     * Receiver execution options.
+     *
+     * @return Receiver execution options.
+     */
+    public ReceiverExecutionOptions options() {
+        return options;
     }
 
     /**
@@ -97,7 +113,7 @@ public class ReceiverDescriptor<A> {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
         private @Nullable Marshaller<A, byte[]> argumentMarshaller;
-
+        private ReceiverExecutionOptions options = ReceiverExecutionOptions.DEFAULT;
 
         private Builder(String receiverClassName) {
             Objects.requireNonNull(receiverClassName);
@@ -127,6 +143,17 @@ public class ReceiverDescriptor<A> {
             return this;
         }
 
+        /**
+         * Sets the receiver execution options.
+         *
+         * @param options Receiver execution options.
+         * @return This builder.
+         */
+        public Builder<A> options(ReceiverExecutionOptions options) {
+            this.options = options;
+            return this;
+        }
+
         public Builder<A> argumentMarshaller(@Nullable Marshaller<A, byte[]> argumentsMarshaller) {
             this.argumentMarshaller = argumentsMarshaller;
             return this;
@@ -141,6 +168,7 @@ public class ReceiverDescriptor<A> {
             return new ReceiverDescriptor<>(
                     receiverClassName,
                     units == null ? List.of() : units,
+                    options,
                     argumentMarshaller
             );
         }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -24,72 +25,60 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.jetbrains.annotations.Nullable;
 
 /** HashJoin implementor. */
 public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNode<RowT> {
-    final Map<RowWrapper<RowT>, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>();
-    protected final RowHandler<RowT> handler;
+    private static final int INITIAL_CAPACITY = 128;
+    private static final BiPredicate<?, ?> ALWAYS_TRUE = (l, r) -> true;
 
-    private final List<Integer> leftJoinPositions;
-    private final List<Integer> rightJoinPositions;
+    /** All keys with null-fields are mapped to this object. */
+    private static final Key NULL_KEY = new Key();
 
-    final boolean touchResults;
+    final Map<Key, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>(INITIAL_CAPACITY);
+
+    private final int[] leftJoinPositions;
+    private final int[] rightJoinPositions;
 
     Iterator<RowT> rightIt = Collections.emptyIterator();
-    private final RowSchema rightJoinRelatedRowSchema;
-    private final RowSchema leftJoinRelatedRowSchema;
 
-    private final RowBuilder<RowT> leftRowBuilder;
-    private final RowBuilder<RowT> rightRowBuilder;
+    final BiPredicate<RowT, RowT> nonEquiCondition;
 
-    private HashJoinNode(ExecutionContext<RowT> ctx, JoinInfo joinInfo, boolean touch,
-            RelDataType leftRowType, RelDataType rightRowType) {
+    /**
+     * Creates HashJoinNode.
+     *
+     * @param ctx Execution context.
+     * @param joinInfo Join info.
+     * @param nonEquiCondition Optional post-filtration predicate. If provided, only rows matching the predicate will be emitted as
+     *         matched rows.
+     */
+    private HashJoinNode(
+            ExecutionContext<RowT> ctx,
+            JoinInfo joinInfo,
+            @Nullable BiPredicate<RowT, RowT> nonEquiCondition
+    ) {
         super(ctx);
 
-        handler = ctx.rowHandler();
-        touchResults = touch;
+        leftJoinPositions = joinInfo.leftKeys.toIntArray();
+        rightJoinPositions = joinInfo.rightKeys.toIntArray();
+        assert leftJoinPositions.length == rightJoinPositions.length;
 
-        leftJoinPositions = joinInfo.leftKeys.toIntegerList();
-        rightJoinPositions = joinInfo.rightKeys.toIntegerList();
-
-        assert leftJoinPositions.size() == rightJoinPositions.size();
-
-        ImmutableIntList rightKeys = joinInfo.rightKeys;
-        List<RelDataType> rightTypes = new ArrayList<>(rightKeys.size());
-        List<RelDataTypeField> rightFields = rightRowType.getFieldList();
-        for (int rightPos : rightKeys) {
-            rightTypes.add(rightFields.get(rightPos).getType());
-        }
-        rightJoinRelatedRowSchema = rowSchemaFromRelTypes(rightTypes);
-
-        ImmutableIntList leftKeys = joinInfo.leftKeys;
-        List<RelDataType> leftTypes = new ArrayList<>(leftKeys.size());
-        List<RelDataTypeField> leftFields = leftRowType.getFieldList();
-        for (int leftPos : leftKeys) {
-            leftTypes.add(leftFields.get(leftPos).getType());
-        }
-        leftJoinRelatedRowSchema = rowSchemaFromRelTypes(leftTypes);
-
-        RowFactory<RowT> leftRowFactory = handler.factory(leftJoinRelatedRowSchema);
-        leftRowBuilder = leftRowFactory.rowBuilder();
-
-        RowFactory<RowT> rightRowFactory = handler.factory(rightJoinRelatedRowSchema);
-        rightRowBuilder = rightRowFactory.rowBuilder();
+        this.nonEquiCondition = nonEquiCondition != null
+                ? nonEquiCondition
+                : cast(ALWAYS_TRUE);
     }
 
     @Override
@@ -102,41 +91,54 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     /** Supplied algorithm implementation. */
-    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
-            RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, JoinInfo joinInfo) {
+    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection<RowT> projection,
+            RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, JoinInfo joinInfo,
+            @Nullable BiPredicate<RowT, RowT> nonEquiCondition) {
 
         switch (joinType) {
             case INNER:
-                return new InnerHashJoin<>(ctx, joinInfo, leftRowType, rightRowType);
+                assert projection != null;
+
+                return new InnerHashJoin<>(ctx, joinInfo, projection, nonEquiCondition);
 
             case LEFT: {
+                assert projection != null;
+
                 RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new LeftHashJoin<>(ctx, rightRowFactory, joinInfo, leftRowType, rightRowType);
+                return new LeftHashJoin<>(ctx, joinInfo, projection, rightRowFactory, nonEquiCondition);
             }
-
             case RIGHT: {
+                assert projection != null;
+
                 RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
-                return new RightHashJoin<>(ctx, leftRowFactory, joinInfo, leftRowType, rightRowType);
+                return new RightHashJoin<>(ctx, joinInfo, projection, leftRowFactory, nonEquiCondition);
             }
-
             case FULL: {
+                assert projection != null;
+
                 RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
                 RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+
                 RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
                 RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new FullOuterHashJoin<>(ctx, leftRowFactory, rightRowFactory, joinInfo, leftRowType, rightRowType);
+                return new FullOuterHashJoin<>(
+                        ctx, joinInfo, projection, leftRowFactory, rightRowFactory, nonEquiCondition
+                );
             }
-
             case SEMI:
-                return new SemiHashJoin<>(ctx, joinInfo, leftRowType, rightRowType);
+                assert projection == null;
+
+                return new SemiHashJoin<>(ctx, joinInfo, nonEquiCondition);
 
             case ANTI:
-                return new AntiHashJoin<>(ctx, joinInfo, leftRowType, rightRowType);
+                assert projection == null;
+
+                return new AntiHashJoin<>(ctx, joinInfo, nonEquiCondition);
 
             default:
                 throw new IllegalStateException("Join type \"" + joinType + "\" is not supported yet");
@@ -144,49 +146,97 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private static class InnerHashJoin<RowT> extends HashJoinNode<RowT> {
+        private final SqlJoinProjection<RowT> outputProjection;
+
+        /**
+         * Creates HashJoinNode for INNER JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param outputProjection Output projection.
+         */
         private InnerHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                SqlJoinProjection<RowT> outputProjection,
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, false, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
+
+            this.outputProjection = outputProjection;
+        }
+
+        @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prevent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
         }
 
         @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults);
+                            Collection<RowT> rightRows = lookup(left);
 
                             rightIt = rightRows.iterator();
                         }
 
                         if (rightIt.hasNext()) {
-                            while (rightIt.hasNext()) {
-                                checkState();
+                            // Emits matched rows.
+                            while (requested > 0 && rightIt.hasNext()) {
+                                if (processed++ > inBufSize) {
+                                    // Allow others to do their job.
+                                    execute(this::join);
+
+                                    return;
+                                }
 
                                 RowT right = rightIt.next();
 
+                                if (!nonEquiCondition.test(left, right)) {
+                                    continue;
+                                }
+
                                 --requested;
 
-                                RowT row = handler.concat(left, right);
+                                RowT row = outputProjection.project(context(), left, right);
                                 downstream().push(row);
+                            }
 
-                                if (requested == 0) {
-                                    break;
-                                }
+                            if (!rightIt.hasNext()) {
+                                left = null;
+                            }
+                        } else {
+                            left = null;
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::join);
+
+                                return;
                             }
                         }
 
-                        if (!rightIt.hasNext()) {
-                            left = null;
-                        }
                     }
                 } finally {
                     inLoop = false;
@@ -200,16 +250,28 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class LeftHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection<RowT> outputProjection;
 
+        /**
+         * Creates HashJoinNode for LEFT OUTER JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param outputProjection Output projection.
+         * @param rightRowFactory Right row factory.
+         */
         private LeftHashJoin(
                 ExecutionContext<RowT> ctx,
-                RowHandler.RowFactory<RowT> rightRowFactory,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                SqlJoinProjection<RowT> outputProjection,
+                RowFactory<RowT> rightRowFactory,
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, false, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
 
+            assert nonEquiCondition == null : "Non equi condition is not supported in LEFT join";
+
+            this.outputProjection = outputProjection;
             this.rightRowFactory = rightRowFactory;
         }
 
@@ -218,37 +280,39 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                        checkState();
-
+                        // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults);
+                            Collection<RowT> rightRows = lookup(left);
 
                             if (rightRows.isEmpty()) {
-                                requested--;
-                                downstream().push(handler.concat(left, rightRowFactory.create()));
+                                // Emit empty right row for unmatched left row.
+                                rightIt = Collections.singletonList(rightRowFactory.create()).iterator();
+                            } else {
+                                rightIt = rightRows.iterator();
                             }
-
-                            rightIt = rightRows.iterator();
                         }
 
                         if (rightIt.hasNext()) {
-                            while (rightIt.hasNext()) {
-                                checkState();
+                            // Emits matched rows.
+                            while (requested > 0 && rightIt.hasNext()) {
+                                if (processed++ > inBufSize) {
+                                    // Allow others to do their job.
+                                    execute(this::join);
+
+                                    return;
+                                }
 
                                 RowT right = rightIt.next();
 
                                 --requested;
 
-                                RowT row = handler.concat(left, right);
+                                RowT row = outputProjection.project(context(), left, right);
                                 downstream().push(row);
-
-                                if (requested == 0) {
-                                    break;
-                                }
                             }
                         }
 
@@ -268,80 +332,139 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class RightHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final SqlJoinProjection<RowT> outputProjection;
 
+        private boolean drainMaterialization;
+
+        /**
+         * Creates HashJoinNode for RIGHT OUTER JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param outputProjection Output projection.
+         * @param leftRowFactory Left row factory.
+         */
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
-                RowHandler.RowFactory<RowT> leftRowFactory,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                SqlJoinProjection<RowT> outputProjection,
+                RowFactory<RowT> leftRowFactory,
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, true, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
 
+            assert nonEquiCondition == null : "Non equi condition is not supported in RIGHT join";
+
+            this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void rewindInternal() {
+            drainMaterialization = false;
+
+            super.rewindInternal();
+        }
+
+        @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prevent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
         }
 
         @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                        checkState();
-
+                        // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults);
+                            Collection<RowT> rightRows = lookup(left);
 
                             rightIt = rightRows.iterator();
                         }
 
                         if (rightIt.hasNext()) {
-                            while (rightIt.hasNext()) {
-                                checkState();
+                            // Emits matched rows.
+                            while (requested > 0 && rightIt.hasNext()) {
+                                if (processed++ > inBufSize) {
+                                    // Allow others to do their job.
+                                    execute(this::join);
+
+                                    return;
+                                }
 
                                 RowT right = rightIt.next();
 
                                 --requested;
 
-                                RowT row = handler.concat(left, right);
+                                RowT row = outputProjection.project(context(), left, right);
                                 downstream().push(row);
+                            }
 
-                                if (requested == 0) {
-                                    break;
-                                }
+                            if (!rightIt.hasNext()) {
+                                left = null;
+                            }
+                        } else {
+                            left = null;
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::join);
+
+                                return;
                             }
                         }
 
-                        if (!rightIt.hasNext()) {
-                            left = null;
-                        }
                     }
                 } finally {
                     inLoop = false;
                 }
             }
 
+            // Emit unmatched right rows.
             if (left == null && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && requested > 0) {
                 inLoop = true;
+                int processed = 0;
                 try {
-                    if (!rightIt.hasNext()) {
+                    if (!rightIt.hasNext() && !drainMaterialization) {
+                        // Prevent scanning store more than once.
+                        drainMaterialization = true;
                         rightIt = getUntouched(hashStore);
                     }
 
                     RowT emptyLeft = leftRowFactory.create();
 
-                    while (rightIt.hasNext()) {
-                        checkState();
+                    while (requested > 0 && rightIt.hasNext()) {
                         RowT right = rightIt.next();
-                        RowT row = handler.concat(emptyLeft, right);
+                        RowT row = outputProjection.project(context(), emptyLeft, right);
                         --requested;
 
                         downstream().push(row);
 
-                        if (requested == 0) {
-                            break;
+                        if (processed++ > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
                         }
                     }
                 } finally {
@@ -350,6 +473,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             }
 
             getMoreOrEnd();
+        }
+
+        @Override
+        protected boolean keepRowsWithNull() {
+            return true;
         }
     }
 
@@ -359,19 +487,42 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection<RowT> outputProjection;
 
+        private boolean drainMaterialization;
+
+        /**
+         * Creates HashJoinNode for FULL OUTER JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param outputProjection Output projection.
+         * @param leftRowFactory Left row factory.
+         * @param rightRowFactory Right row factory.
+         */
         private FullOuterHashJoin(
                 ExecutionContext<RowT> ctx,
-                RowHandler.RowFactory<RowT> leftRowFactory,
-                RowHandler.RowFactory<RowT> rightRowFactory,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                SqlJoinProjection<RowT> outputProjection,
+                RowFactory<RowT> leftRowFactory,
+                RowFactory<RowT> rightRowFactory,
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, true, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
 
+            assert nonEquiCondition == null : "Non equi condition is not supported in FULL OUTER join";
+
+            this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
             this.rightRowFactory = rightRowFactory;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void rewindInternal() {
+            drainMaterialization = false;
+
+            super.rewindInternal();
         }
 
         /** {@inheritDoc} */
@@ -379,69 +530,86 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                        checkState();
-
+                        // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults);
+                            Collection<RowT> rightRows = lookup(left);
 
                             if (rightRows.isEmpty()) {
-                                requested--;
-                                downstream().push(handler.concat(left, rightRowFactory.create()));
+                                // Emit empty right row for unmatched left row.
+                                rightIt = Collections.singletonList(rightRowFactory.create()).iterator();
+                            } else {
+                                rightIt = rightRows.iterator();
                             }
-
-                            rightIt = rightRows.iterator();
                         }
 
                         if (rightIt.hasNext()) {
-                            while (rightIt.hasNext()) {
-                                checkState();
+                            // Emits matched rows.
+                            while (requested > 0 && rightIt.hasNext()) {
+                                if (processed++ > inBufSize) {
+                                    // Allow others to do their job.
+                                    execute(this::join);
+
+                                    return;
+                                }
 
                                 RowT right = rightIt.next();
 
                                 --requested;
 
-                                RowT row = handler.concat(left, right);
+                                RowT row = outputProjection.project(context(), left, right);
                                 downstream().push(row);
+                            }
 
-                                if (requested == 0) {
-                                    break;
-                                }
+                            if (!rightIt.hasNext()) {
+                                left = null;
+                            }
+                        } else {
+                            left = null;
+
+                            if (processed++ > inBufSize) {
+                                // Allow others to do their job.
+                                execute(this::join);
+
+                                return;
                             }
                         }
 
-                        if (!rightIt.hasNext()) {
-                            left = null;
-                        }
                     }
                 } finally {
                     inLoop = false;
                 }
             }
 
-            if (left == null && !rightIt.hasNext() && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING
-                    && waitingRight == NOT_WAITING && requested > 0) {
+            // Emit unmatched right rows.
+            if (left == null && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && requested > 0) {
                 inLoop = true;
+                int processed = 0;
                 try {
-                    if (!rightIt.hasNext()) {
+                    if (!rightIt.hasNext() && !drainMaterialization) {
+                        // Prevent scanning store more than once.
+                        drainMaterialization = true;
                         rightIt = getUntouched(hashStore);
                     }
 
                     RowT emptyLeft = leftRowFactory.create();
 
-                    while (rightIt.hasNext()) {
-                        checkState();
+                    while (requested > 0 && rightIt.hasNext()) {
                         RowT right = rightIt.next();
-                        RowT row = handler.concat(emptyLeft, right);
+                        RowT row = outputProjection.project(context(), emptyLeft, right);
                         --requested;
 
                         downstream().push(row);
 
-                        if (requested == 0) {
-                            break;
+                        if (processed++ > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
                         }
                     }
                 } finally {
@@ -451,16 +619,47 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
             getMoreOrEnd();
         }
+
+        @Override
+        protected boolean keepRowsWithNull() {
+            return true;
+        }
     }
 
     private static class SemiHashJoin<RowT> extends HashJoinNode<RowT> {
+        /**
+         * Creates HashJoinNode for SEMI JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param nonEquiCondition Optional post-filtration predicate. If provided, only rows matching the predicate will be emitted as
+         *         matched rows.
+         */
         private SemiHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, false, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
+        }
+
+        @Override
+        protected void pushLeft(RowT row) throws Exception {
+            // Prevent fetching left if right is empty.
+            if (waitingRight == NOT_WAITING && hashStore.isEmpty()) {
+                waitingLeft--;
+
+                if (waitingLeft == 0) {
+                    waitingLeft = NOT_WAITING;
+                    leftInBuf.clear();
+
+                    join();
+                }
+
+                return;
+            }
+
+            super.pushLeft(row);
         }
 
         /** {@inheritDoc} */
@@ -468,25 +667,59 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                        checkState();
+                        // Proceed with next left row, if previous was fully processed.
+                        if (!rightIt.hasNext()) {
+                            left = leftInBuf.remove();
 
-                        left = leftInBuf.remove();
+                            Collection<RowT> rightRows = lookup(left);
 
-                        Collection<RowT> rightRows = lookup(left, touchResults);
+                            rightIt = rightRows.iterator();
+                        }
 
-                        if (!rightRows.isEmpty()) {
+                        boolean anyMatched = rightIt.hasNext() && nonEquiCondition == ALWAYS_TRUE;
+
+                        if (!anyMatched) {
+                            // Find any matched row.
+                            while (rightIt.hasNext()) {
+                                RowT right = rightIt.next();
+
+                                if (nonEquiCondition.test(left, right)) {
+                                    anyMatched = true;
+                                    break;
+                                }
+
+                                if (processed++ > inBufSize) {
+                                    // Allow others to do their job.
+                                    execute(this::join);
+
+                                    return;
+                                }
+                            }
+                        }
+
+                        // Emit matched row.
+                        if (anyMatched) {
                             requested--;
 
                             downstream().push(left);
 
-                            if (requested == 0) {
-                                break;
-                            }
+                            rightIt = Collections.emptyIterator();
                         }
 
-                        left = null;
+                        if (!rightIt.hasNext()) {
+                            left = null;
+                        }
+
+                        if (processed++ > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
+                        }
+
                     }
                 } finally {
                     inLoop = false;
@@ -498,13 +731,22 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private static class AntiHashJoin<RowT> extends HashJoinNode<RowT> {
+        /**
+         * Creates HashJoinNode for ANTI JOIN operator.
+         *
+         * @param ctx Execution context.
+         * @param joinInfo Join info.
+         * @param nonEquiCondition Optional post-filtration predicate. If provided, only rows matching the predicate will be emitted as
+         *         matched rows.
+         */
         private AntiHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                RelDataType leftRowType,
-                RelDataType rightRowType
+                @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
-            super(ctx, joinInfo, false, leftRowType, rightRowType);
+            super(ctx, joinInfo, nonEquiCondition);
+
+            assert nonEquiCondition == null : "Non equi condition is not supported in ANTI join";
         }
 
         /** {@inheritDoc} */
@@ -512,25 +754,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
+                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                        checkState();
-
                         left = leftInBuf.remove();
 
-                        Collection<RowT> rightRows = lookup(left, touchResults);
+                        Collection<RowT> rightRows = lookup(left);
 
                         if (rightRows.isEmpty()) {
                             requested--;
 
                             downstream().push(left);
-
-                            if (requested == 0) {
-                                break;
-                            }
                         }
 
                         left = null;
+
+                        if (processed++ > inBufSize) {
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
@@ -541,36 +785,26 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
     }
 
-    Collection<RowT> lookup(RowT row, boolean processTouched) {
-        Collection<RowT> coll = Collections.emptyList();
+    Collection<RowT> lookup(RowT row) {
+        Key row0 = extractKey(row, leftJoinPositions);
 
-        for (Integer entry : leftJoinPositions) {
-            Object ent = handler.get(entry, row);
-
-            if (ent == null) {
-                leftRowBuilder.reset();
-                return Collections.emptyList();
-            }
-
-            leftRowBuilder.addField(ent);
+        if (row0 == NULL_KEY) {
+            // Key with null field can't be compared with other keys.
+            return Collections.emptyList();
         }
-
-        RowWrapper<RowT> row0 = new RowWrapper<>(leftRowBuilder.buildAndReset(), handler, leftJoinPositions.size());
 
         TouchedCollection<RowT> found = hashStore.get(row0);
 
         if (found != null) {
-            coll = found.items();
+            found.touched = true;
 
-            if (processTouched) {
-                found.touched = true;
-            }
+            return found.items();
         }
 
-        return coll;
+        return Collections.emptyList();
     }
 
-    private static <RowT> Iterator<RowT> getUntouched(Map<RowWrapper<RowT>, TouchedCollection<RowT>> entries) {
+    private static <RowT> Iterator<RowT> getUntouched(Map<Key, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
             private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();
             private Iterator<RowT> innerIt = Collections.emptyIterator();
@@ -611,39 +845,54 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         assert downstream() != null;
         assert waitingRight > 0;
 
-        checkState();
-
         waitingRight--;
 
-        for (Integer entry : rightJoinPositions) {
-            Object ent = handler.get(entry, row);
-            rightRowBuilder.addField(ent);
-        }
+        Key key = extractKey(row, rightJoinPositions);
 
-        RowWrapper<RowT> row0 = new RowWrapper<>(rightRowBuilder.buildAndReset(), handler, rightJoinPositions.size());
-        TouchedCollection<RowT> raw = hashStore.computeIfAbsent(row0, k -> new TouchedCollection<>());
-        raw.add(row);
+        // No need to store the row in hashStore, if it contains NULL,
+        // and we are not going to emit right part alone (like in RIGHT and FULL OUTER joins)
+        if (keepRowsWithNull() || key != NULL_KEY) {
+            TouchedCollection<RowT> raw = hashStore.computeIfAbsent(key, k -> new TouchedCollection<>());
+            raw.add(row);
+        }
 
         if (waitingRight == 0) {
             rightSource().request(waitingRight = inBufSize);
         }
     }
 
-    private static class RowWrapper<RowT> {
+    private Key extractKey(RowT row, int[] mapping) {
+        RowHandler<RowT> handler = context().rowHandler();
+
+        for (int i : mapping) {
+            if (handler.isNull(i, row)) {
+                return NULL_KEY;
+            }
+        }
+
+        return new RowWrapper<>(row, handler, mapping);
+    }
+
+    /** Non-comparable key object. */
+    private static class Key {
+    }
+
+    /** Comparable key object. */
+    private static class RowWrapper<RowT> extends Key {
         RowT row;
         RowHandler<RowT> handler;
-        int itemsCount;
+        int[] items;
 
-        RowWrapper(RowT row, RowHandler<RowT> handler, int itemsCount) {
+        RowWrapper(RowT row, RowHandler<RowT> handler, int[] items) {
             this.row = row;
             this.handler = handler;
-            this.itemsCount = itemsCount;
+            this.items = items;
         }
 
         @Override
         public int hashCode() {
             int hashCode = 0;
-            for (int i = 0; i < itemsCount; ++i) {
+            for (int i : items) {
                 Object entHold = handler.get(i, row);
                 hashCode += Objects.hashCode(entHold);
             }
@@ -660,9 +909,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             }
 
             RowWrapper<RowT> row0 = (RowWrapper<RowT>) obj;
-            for (int i = 0; i < itemsCount; ++i) {
-                Object input = handler.get(i, row0.row);
-                Object current = handler.get(i, row);
+            for (int i = 0; i < items.length; ++i) {
+                Object input = row0.handler.get(row0.items[i], row0.row);
+                Object current = handler.get(items[i], row);
                 boolean comp = Objects.equals(input, current);
                 if (!comp) {
                     return comp;
@@ -684,8 +933,20 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null
                 && !rightIt.hasNext()) {
             requested = 0;
+            hashStore.clear();
             downstream().end();
         }
+    }
+
+    /**
+     * Returns {@code true} if we need to store the row from right shoulder even if it contains NULL in any of join key position.
+     *
+     * <p>This is required for joins which emit unmatched part of the right shoulder, such as RIGHT JOIN and FULL OUTER JOIN.
+     *
+     * @return {@code true} when row must be stored in {@link #hashStore} unconditionally.
+     */
+    protected boolean keepRowsWithNull() {
+        return false;
     }
 
     private static class TouchedCollection<RowT> {

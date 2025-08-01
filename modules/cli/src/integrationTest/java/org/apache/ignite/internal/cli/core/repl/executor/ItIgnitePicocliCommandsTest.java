@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -71,14 +70,13 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
             "ignite.eventlog",
             "ignite.gc",
-            "ignite.metaStorage",
             "ignite.metrics",
             "ignite.replication",
             "ignite.schemaSync",
             "ignite.security",
             "ignite.sql",
-            "ignite.storageUpdate",
-            "ignite.transaction"
+            "ignite.transaction",
+            "ignite.system"
     };
 
     private static final String[] LOCAL_CONFIGURATION_KEYS = {
@@ -90,7 +88,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.deployment",
             "ignite.nodeAttributes",
             "ignite.storage",
-            "ignite.criticalWorkers",
             "ignite.sql",
             "ignite.failureHandler",
             "ignite.system"
@@ -106,14 +103,11 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     DynamicCompleterFilter dynamicCompleterFilter;
 
     @Inject
-    Session session;
-
-    @Inject
     EventPublisher eventPublisher;
 
-    SystemCompleter completer;
+    private SystemCompleter completer;
 
-    LineReader lineReader;
+    private LineReader lineReader;
 
     @Override
     protected Class<?> getCommandClass() {
@@ -324,7 +318,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "ignite.deployment",
                         "ignite.nodeAttributes",
                         "ignite.storage",
-                        "ignite.criticalWorkers",
                         "ignite.sql",
                         "ignite.failureHandler",
                         "ignite.system"

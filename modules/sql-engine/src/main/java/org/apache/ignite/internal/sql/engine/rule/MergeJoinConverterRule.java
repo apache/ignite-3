@@ -32,6 +32,8 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Ignite Join converter.
@@ -51,8 +53,9 @@ public class MergeJoinConverterRule extends AbstractIgniteConverterRule<LogicalJ
     public boolean matches(RelOptRuleCall call) {
         LogicalJoin logicalJoin = call.rel(0);
 
-        return !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
-                && logicalJoin.analyzeCondition().isEqui();
+        JoinInfo joinInfo = Commons.getNonStrictEquiJoinCondition(logicalJoin);
+
+        return !nullOrEmpty(joinInfo.pairs()) && joinInfo.isEqui();
     }
 
     /** {@inheritDoc} */
@@ -63,9 +66,12 @@ public class MergeJoinConverterRule extends AbstractIgniteConverterRule<LogicalJ
         JoinInfo joinInfo = JoinInfo.of(rel.getLeft(), rel.getRight(), rel.getCondition());
 
         RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single())
                 .replace(RelCollations.of(joinInfo.leftKeys));
-        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
+        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single());
         RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single())
                 .replace(RelCollations.of(joinInfo.rightKeys));
 
         RelNode left = convert(rel.getLeft(), leftInTraits);

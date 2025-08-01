@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,7 +40,7 @@ public class StorageRebalanceException extends StorageException {
      * @param message Error message.
      */
     public StorageRebalanceException(String message) {
-        super(Storage.STORAGE_REBALANCE_ERR, message);
+        super(Common.INTERNAL_ERR, message);
     }
 
     /**
@@ -50,7 +50,7 @@ public class StorageRebalanceException extends StorageException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public StorageRebalanceException(String message, @Nullable Throwable cause) {
-        super(Storage.STORAGE_REBALANCE_ERR, message, cause);
+        super(Common.INTERNAL_ERR, message, cause);
     }
 
     /**
@@ -62,7 +62,7 @@ public class StorageRebalanceException extends StorageException {
      * @see IgniteStringFormatter#format(String, Object...)
      */
     public StorageRebalanceException(String messagePattern, Throwable cause, Object... params) {
-        super(Storage.STORAGE_REBALANCE_ERR, messagePattern, cause, params);
+        super(Common.INTERNAL_ERR, messagePattern, cause, params);
     }
 
     /**
@@ -73,6 +73,6 @@ public class StorageRebalanceException extends StorageException {
      * @see IgniteStringFormatter#format(String, Object...)
      */
     public StorageRebalanceException(String messagePattern, Object... params) {
-        super(Storage.STORAGE_REBALANCE_ERR, messagePattern, params);
+        super(Common.INTERNAL_ERR, messagePattern, params);
     }
 }

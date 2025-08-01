@@ -78,10 +78,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
         );
 
         NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setNodeManager(new NodeManager(service));
 
         requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-        var server = new TestIgniteRpcServer(service, new NodeManager(), nodeOptions, requestExecutor) {
+        var server = new TestIgniteRpcServer(service, nodeOptions, requestExecutor) {
             @Override public void shutdown() {
                 super.shutdown();
 

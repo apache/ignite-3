@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.apache.ignite.rest.client.model.UnitVersionStatus;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link UnitsRegistry}. */
 @Singleton
@@ -40,6 +41,7 @@ public class UnitsRegistryImpl implements UnitsRegistry, ConnectionEventListener
 
     private final ClusterListUnitCall call;
 
+    @Nullable
     private LazyObjectRef<Map<String, Set<String>>> idToVersionsRef;
 
     public UnitsRegistryImpl(ClusterListUnitCall call) {
@@ -80,16 +82,20 @@ public class UnitsRegistryImpl implements UnitsRegistry, ConnectionEventListener
 
     @Override
     public Set<String> versions(String unitId) {
-        return (idToVersionsRef == null || idToVersionsRef.get() == null)
-                ? Set.of()
-                : idToVersionsRef.get().get(unitId);
+        Map<String, Set<String>> idToVersions = idToVersions();
+        return idToVersions == null ? Set.of() : idToVersions.get(unitId);
     }
 
     @Override
     public Set<String> ids() {
-        return (idToVersionsRef == null || idToVersionsRef.get() == null)
-                ? Set.of()
-                : idToVersionsRef.get().keySet();
+        Map<String, Set<String>> idToVersions = idToVersions();
+        return idToVersions == null ? Set.of() : idToVersions.keySet();
+    }
+
+    @Nullable
+    private Map<String, Set<String>> idToVersions() {
+        return idToVersionsRef == null ? null : idToVersionsRef.get();
+
     }
 
     @Override

@@ -89,10 +89,10 @@ import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Assumptions;
@@ -227,11 +227,22 @@ public class KvMarshallerTest {
                 columnsAllTypes(true)
         );
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> factory.create(schema, Integer.class, TestTruncatedObject.class));
+        KvMarshaller<Long, TestTruncatedObject> marshaller =
+                factory.create(schema, Long.class, TestTruncatedObject.class);
 
-        assertEquals("No mapped object field found for column 'PRIMITIVEBOOLEANCOL'", ex.getMessage());
+        Long key = rnd.nextLong();
+        TestTruncatedObject val = TestTruncatedObject.randomObject(rnd);
+
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
+
+        Object restoredKey = marshaller.unmarshalKey(row);
+        Object restoredVal = marshaller.unmarshalValue(row);
+
+        assertTrue(key.getClass().isInstance(restoredKey));
+        assertTrue(val.getClass().isInstance(restoredVal));
+
+        assertEquals(key, restoredKey);
+        assertEquals(val, restoredVal);
     }
 
     @ParameterizedTest
@@ -609,6 +620,48 @@ public class KvMarshallerTest {
         assertEquals(columnIdxToValue.get(4), fullRow.value(4));
     }
 
+    @Test
+    public void testTypesMismatch() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                new Column[]{new Column("KEY", INT64, false)},
+                new Column[]{new Column("VAL", NativeTypes.stringOf(255), true),
+                });
+
+        TypeConverter<Object, Object> converter = new TypeConverter<>() {
+            @Override
+            public Object toColumnType(Object obj) {
+                return obj;
+            }
+
+            @Override
+            public Object toObjectType(Object data) {
+                return data;
+            }
+        };
+
+        KvMarshaller<Long, TestPojo2> intFieldMarshaller = new ReflectionMarshallerFactory().create(
+                schema,
+                Mapper.of(Long.class, "key"),
+                Mapper.builder(TestPojo2.class).map("intField", "val", converter).build()
+        );
+        KvMarshaller<Long, TestPojo2> stringFieldMarshaller = new ReflectionMarshallerFactory().create(
+                schema,
+                Mapper.of(Long.class, "key"),
+                Mapper.builder(TestPojo2.class).map("strField", "val", converter).build()
+        );
+
+        TestPojo2 pojo = new TestPojo2(42, "43");
+        Row row = stringFieldMarshaller.marshal(1L, pojo);
+
+        assertEquals(new TestPojo2(0, "43"), stringFieldMarshaller.unmarshalValue(row));
+
+        assertThrows(MarshallerException.class, () -> intFieldMarshaller.marshal(1L, pojo),
+                "Value type does not match [column='VAL', expected=STRING(255), actual=INT32]");
+        assertThrows(MarshallerException.class, () -> intFieldMarshaller.unmarshalValue(row),
+                "Value type does not match [column='VAL', expected=STRING(255), actual=INT32]");
+    }
+
     static class TestObjectKeyPart {
         int col2;
         boolean col4;
@@ -763,11 +816,11 @@ public class KvMarshallerTest {
      * Compare object regarding NativeType.
      *
      * @param type Native type.
-     * @param exp  Expected value.
-     * @param act  Actual value.
+     * @param exp Expected value.
+     * @param act Actual value.
      */
     private void compareObjects(NativeType type, Object exp, Object act) {
-        if (type.spec() == NativeTypeSpec.BYTES) {
+        if (type.spec() == ColumnType.BYTE_ARRAY) {
             assertArrayEquals((byte[]) exp, (byte[]) act);
         } else {
             assertEquals(exp, act);
@@ -856,10 +909,10 @@ public class KvMarshallerTest {
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
         };
         // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
@@ -1081,6 +1134,41 @@ public class KvMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(intField);
+        }
+    }
+
+    /**
+     * Test object represents a user object of arbitrary type.
+     */
+    static class TestPojo2 implements Serializable {
+        private static final long serialVersionUID = -1L;
+
+        int intField;
+        String strField;
+
+        TestPojo2() {
+        }
+
+        TestPojo2(int intVal, String strVal) {
+            this.intField = intVal;
+            this.strField = strVal;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestPojo2 testPojo = (TestPojo2) o;
+            return intField == testPojo.intField && Objects.equals(strField, testPojo.strField);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(intField, strField);
         }
     }
 

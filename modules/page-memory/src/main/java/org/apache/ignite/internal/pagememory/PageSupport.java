@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 
 /**
  * Class responsible for acquiring/releasing and locking/unlocking pages.
@@ -35,18 +34,6 @@ public interface PageSupport {
      * @throws IgniteInternalCheckedException If failed.
      */
     long acquirePage(int groupId, long pageId) throws IgniteInternalCheckedException;
-
-    /**
-     * Returns an absolute pointer to a page, associated with the given page ID. Each page obtained with this method must be released by
-     * calling {@link #releasePage(int, long, long)}. This method will allocate a page with the given ID if it doesn't exist.
-     *
-     * @param groupId    Group ID.
-     * @param pageId     Page ID.
-     * @param statHolder Statistics holder to track IO operations.
-     * @return Page pointer.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    long acquirePage(int groupId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
 
     /**
      * Releases pages acquired by any of the {@code acquirePage} methods.

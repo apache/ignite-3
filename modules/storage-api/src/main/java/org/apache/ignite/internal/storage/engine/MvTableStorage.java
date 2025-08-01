@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +64,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
-     * Destroys a partition and all associated indices.
+     * Destroys a partition and all associated indices. The destruction (even after the future has completed) is not guaranteed
+     * to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might still be there after
+     * node restart).
      *
      * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      *
@@ -76,47 +77,29 @@ public interface MvTableStorage extends ManuallyCloseable {
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
-     * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
-     *
-     * @param partitionId Partition ID.
-     * @param indexDescriptor Index descriptor.
-     * @return Index Storage.
-     * @throws StorageException If the given partition does not exist, or if the given index does not exist.
-     */
-    default IndexStorage getOrCreateIndex(int partitionId, StorageIndexDescriptor indexDescriptor) {
-        if (indexDescriptor instanceof StorageHashIndexDescriptor) {
-            return getOrCreateHashIndex(partitionId, (StorageHashIndexDescriptor) indexDescriptor);
-        } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
-            return getOrCreateSortedIndex(partitionId, (StorageSortedIndexDescriptor) indexDescriptor);
-        } else {
-            throw new StorageException("Unknown index type: " + indexDescriptor);
-        }
-    }
-
-    /**
-     * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.
+     * Creates a Sorted Index with the given name.
      *
      * @param partitionId Partition ID for which this index has been configured.
      * @param indexDescriptor Index descriptor.
-     * @return Sorted Index storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
+    void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
 
     /**
-     * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
+     * Creates a Hash Index with the given name.
      *
      * @param partitionId Partition ID for which this index has been configured.
      * @param indexDescriptor Index descriptor.
-     * @return Hash Index storage.
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
+    void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
-     * Destroys the index with the given ID and all data in it.
+     * Destroys the index with the given ID and all data in it. The destruction (even after the future has completed) is not guaranteed
+     * to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might still be there after
+     * node restart).
      *
      * <p>This method is a no-op if the index with the given ID does not exist or if the table storage is closed or under destruction.
      *
@@ -130,7 +113,9 @@ public interface MvTableStorage extends ManuallyCloseable {
     boolean isVolatile();
 
     /**
-     * Stops and destroys the storage and cleans all allocated resources.
+     * Stops and destroys the storage and cleans all allocated resources. The destruction (even after the future has completed)
+     * is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk, the storage might
+     * still be there after node restart).
      *
      * @return Future that will complete when the table destruction is complete.
      */
@@ -149,7 +134,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
      *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)};</li>
-     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite};</li>
      *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
@@ -163,7 +148,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long, byte[])} - in case of successful completion of rebalance.
+     *     <li>{@link #finishRebalancePartition(int, MvPartitionMeta)} - in case of successful completion of rebalance.
      *     </li>
      * </ul>
      *
@@ -206,19 +191,13 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
      *
-     * @param lastAppliedIndex Last applied index.
-     * @param lastAppliedTerm Last applied term.
-     * @param groupConfig Replication protocol group configuration (byte representation).
+     * @param partitionId ID of the partition.
+     * @param partitionMeta Metadata of the partition.
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
      */
-    CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    );
+    CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta);
 
     /**
      * Clears a partition and all associated indices. After the cleaning is completed, a partition and all associated indices will be fully
