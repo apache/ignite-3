@@ -26,9 +26,11 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.sql.engine.exec.rel.MergeJoinNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -263,7 +265,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(test);
 
         IgniteTestUtils.assertThrowsWithCause(
-                () ->  physicalPlan(query, schema),
+                () -> physicalPlan(query, schema),
                 SqlValidatorException.class,
                 "Primary key columns are not modifiable"
         );
@@ -314,6 +316,44 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                                 .and(input(1, projectNodeWithProjectionsOfExpectedTypes))
                 )
         );
+    }
+
+    @Test
+    public void testMergeWithSubquery() throws Exception {
+        IgniteTable test1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL1", NativeTypes.INT32)
+                .addColumn("VAL2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteTable test2 = TestBuilders.table()
+                .name("T2")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL1", NativeTypes.INT32)
+                .addColumn("VAL2", NativeTypes.INT32)
+                .addColumn("VAL3", NativeTypes.INT32)
+                .addColumn("VAL4", NativeTypes.INT32)
+                .addColumn("VAL5", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(test1, test2);
+
+        assertPlan(
+                "MERGE INTO t1 dst\n"
+                        + " USING (\n"
+                        + "    SELECT t1.id, t2.val5\n"
+                        + "      FROM t1 LEFT JOIN t2 ON t1.id = t2.id\n"
+                        + " ) src\n"
+                        + "   ON src.id = dst.id\n"
+                        + " WHEN MATCHED THEN UPDATE SET val1 = src.val5\n"
+                        + " WHEN NOT MATCHED THEN INSERT (id, val1) VALUES (src.id, src.val5)",
+                schema,
+                isInstanceOf(IgniteTableModify.class)
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class))
+                        ));
     }
 
     private static Stream<String> updatePrimaryKey() {
