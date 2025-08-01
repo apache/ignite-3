@@ -44,19 +44,18 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     private static final IntSet UNSUPPORTED_TESTS = IntSet.of(
             // TODO https://issues.apache.org/jira/browse/IGNITE-14642 Support STDDEV_SAMP function and unmute tests.
-            17, 29, 35,
+            17, 29, 35, 39,
             // TODO https://issues.apache.org/jira/browse/IGNITE-25872 Support GROUPING function and unmute tests.
             27, 36, 86,
             // TODO https://issues.apache.org/jira/browse/IGNITE-25873 Support aggregate window function RANK and unmute tests.
-            44, 47, 49, 57, 67, 70,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25874 Either support multi-statement queries or split them.
-            14, 23, 24, 39
+            44, 47, 49, 57, 67, 70
     );
 
     @ParameterizedTest
     @IntRangeSource(from = 1, to = 99, closed = true)
     public void test(int queryId) {
         Assumptions.assumeFalse(UNSUPPORTED_TESTS.contains(queryId), "unsupported query");
+
         validateQueryPlan(Integer.toString(queryId));
     }
 
