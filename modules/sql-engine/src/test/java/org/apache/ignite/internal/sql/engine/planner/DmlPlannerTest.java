@@ -18,15 +18,17 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.sql.engine.exec.rel.MergeJoinNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
@@ -352,8 +354,58 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                         + " WHEN NOT MATCHED THEN INSERT (id, val1) VALUES (src.id, src.val5)",
                 schema,
                 isInstanceOf(IgniteTableModify.class)
-                        .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class))
-                        ));
+                        .and(hasChildThat(isInstanceOf(IgniteProject.class).and(
+                                expectedProject(
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 3,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4,
+                                        p -> p instanceof RexLiteral && ((RexLiteral) p).isNull(),
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 0,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 1,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
+                                ))))
+                        .and(hasChildThat(isInstanceOf(IgniteMergeJoin.class)
+                                .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
+                        )));
+
+        assertPlan(
+                "MERGE INTO t1 dst\n"
+                        + " USING (\n"
+                        + "    SELECT t1.id, t2.val5\n"
+                        + "      FROM t1 LEFT JOIN t2 ON t1.id = t2.id\n"
+                        + " ) src\n"
+                        + "   ON src.id = dst.id\n"
+                        + " WHEN MATCHED THEN UPDATE SET val1 = src.val5\n"
+                        + " WHEN NOT MATCHED THEN INSERT (id, val2) VALUES (src.id, src.val5)",
+                schema,
+                isInstanceOf(IgniteTableModify.class)
+                        .and(hasChildThat(isInstanceOf(IgniteProject.class).and(
+                                expectedProject(
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 3,
+                                        p -> p instanceof RexLiteral && ((RexLiteral) p).isNull(),
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 0,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 1,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
+                                ))))
+                        .and(hasChildThat(isInstanceOf(IgniteMergeJoin.class)
+                                .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
+                        )));
+    }
+
+    @SafeVarargs
+    private static Predicate<IgniteProject> expectedProject(Predicate<RexNode>... predicates) {
+        return p -> {
+            int i = 0;
+            assertEquals(p.getProjects().size(), predicates.length);
+            for (RexNode project : p.getProjects()) {
+                if (!predicates[i++].test(project)) {
+                    return false;
+                }
+            }
+            return true;
+        };
     }
 
     private static Stream<String> updatePrimaryKey() {
