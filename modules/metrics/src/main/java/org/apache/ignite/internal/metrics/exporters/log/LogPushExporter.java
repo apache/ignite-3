@@ -67,17 +67,17 @@ public class LogPushExporter extends PushMetricExporter {
     public void report() {
         Collection<MetricSet> metricSets = snapshot().metrics().values();
 
-        if (CollectionUtils.nullOrEmpty(metricSets)) {
+        if (CollectionUtils.nullOrEmpty(metricSets) || CollectionUtils.nullOrEmpty(enabledMetrics)) {
             return;
         }
 
-        var report = new StringBuilder("Metric report: \n");
+        var report = new StringBuilder("Metric report:");
 
         for (MetricSet metricSet : metricSets) {
             boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
             if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
-                report.append(metricSet.name()).append(oneLinePerMetricSource ? ' ' : ':');
+                report.append('\n').append(metricSet.name()).append(oneLinePerMetricSource ? ' ' : ':');
 
                 appendMetrics(report, metricSet, hasMetricsWhiteList);
             }
@@ -108,7 +108,7 @@ public class LogPushExporter extends PushMetricExporter {
     }
 
     private String metricSetPostfix() {
-        return oneLinePerMetricSource ? "]\n" : "\n";
+        return oneLinePerMetricSource ? "]" : "";
     }
 
     private static void appendMetricWithValue(boolean oneLinePerMetricSource, StringBuilder sb, Metric m, int index) {
@@ -120,8 +120,7 @@ public class LogPushExporter extends PushMetricExporter {
     }
 
     private boolean metricEnabled(String name) {
-        return enabledMetrics.isEmpty()
-                || findAny(enabledMetrics, em -> nameMatches(name, em)).isPresent();
+        return findAny(enabledMetrics, em -> nameMatches(name, em)).isPresent();
     }
 
     private static String fqn(MetricSet ms, Metric m) {

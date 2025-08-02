@@ -37,9 +37,14 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
     public boolean oneLinePerMetricSource = true;
 
     /**
-     * List of enabled metric sources. If not empty, metric sources that are not enumerated will be not printed.
-     * Wildcard '*' can be used in the end of each item.
+     * List of enabled metric sources. If not empty, metric sources that are not enumerated will not be printed.
+     * Wildcard '*' can be used in the end of each item. Some metrics are logged by default. To disable it, specify the empty list here
+     * explicitly. To print all metrics, include single string '*'.
      */
     @Value(hasDefault = true)
-    public String[] enabledMetrics = { };
+    public String[] enabledMetrics = {
+            "metastorage",
+            "placement-driver",
+            "resource.vacuum"
+    };
 }
