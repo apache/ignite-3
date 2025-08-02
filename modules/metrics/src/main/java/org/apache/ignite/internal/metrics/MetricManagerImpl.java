@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -128,7 +127,7 @@ public class MetricManagerImpl implements MetricManager {
 
         MetricView conf = metricConfiguration.value();
 
-        List<ExporterView> exporters = StreamSupport.stream(conf.exporters().spliterator(), false).collect(toList());
+        List<ExporterView> exporters = conf.exporters().stream().collect(toList());
         exporters.addAll(defaultExporters(exporters));
 
         for (ExporterView exporter : exporters) {
