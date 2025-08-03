@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInRelativeOrder;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
@@ -93,8 +95,7 @@ public class ItOtlpMetricsTest extends ClusterPerTestIntegrationTest {
         cluster.runningNodes().forEach(node -> {
             MetricManager metricManager = unwrapIgniteImpl(node).metricManager();
 
-            boolean contains = metricManager.enabledExporters().stream().anyMatch(e -> e.getClass().equals(OtlpPushMetricExporter.class));
-            assertTrue(contains, "Invalid result: " + metricManager.enabledExporters());
+            assertThat(metricManager.enabledExporters(), containsInRelativeOrder(instanceOf(OtlpPushMetricExporter.class)));
         });
 
         assertFalse(logInspector.isMatched());
