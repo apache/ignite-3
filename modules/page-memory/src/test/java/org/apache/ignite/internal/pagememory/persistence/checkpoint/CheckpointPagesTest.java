@@ -139,6 +139,6 @@ public class CheckpointPagesTest {
 
         Collections.addAll(newPages ? newPagesSet : dirtyPagesSet, pageIds);
 
-        return new CheckpointPages(new PagesToWrite(dirtyPagesSet, newPagesSet), checkpointProgress);
+        return new CheckpointPages(new DirtyPages(dirtyPagesSet, newPagesSet), checkpointProgress);
     }
 }

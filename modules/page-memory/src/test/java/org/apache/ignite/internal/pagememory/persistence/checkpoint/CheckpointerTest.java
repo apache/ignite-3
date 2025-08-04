@@ -537,8 +537,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         )).then(answer -> {
             CheckpointProgressImpl progress = answer.getArgument(1);
 
-            if (dirtyPages.dirtyPagesCount() > 0) {
-                progress.pagesToWrite(dirtyPages);
+            if (dirtyPages.hasDelta()) {
+                progress.dirtyPages(dirtyPages);
 
                 progress.initCounters(dirtyPages.dirtyPagesCount());
             }

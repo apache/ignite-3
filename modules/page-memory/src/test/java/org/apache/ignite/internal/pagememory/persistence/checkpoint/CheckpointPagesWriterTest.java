@@ -135,7 +135,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
-        progressImpl.pagesToWrite(checkpointDirtyPages);
+        progressImpl.dirtyPages(checkpointDirtyPages);
 
         PartitionMeta partitionMeta0 = mock(PartitionMeta.class);
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
@@ -219,7 +219,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ));
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
-        checkpointProgress.pagesToWrite(checkpointDirtyPages);
+        checkpointProgress.dirtyPages(checkpointDirtyPages);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
@@ -273,7 +273,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
-        checkpointProgress.pagesToWrite(checkpointDirtyPages);
+        checkpointProgress.dirtyPages(checkpointDirtyPages);
 
         IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
                 = checkpointDirtyPages.toDirtyPartitionQueue();

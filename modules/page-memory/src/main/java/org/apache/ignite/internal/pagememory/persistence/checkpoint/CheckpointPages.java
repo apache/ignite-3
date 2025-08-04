@@ -40,18 +40,18 @@ import org.jetbrains.annotations.Nullable;
  * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
  */
 public class CheckpointPages {
-    private final PagesToWrite pagesToWrite;
+    private final DirtyPages dirtyPages;
 
     private final CheckpointProgressImpl checkpointProgress;
 
     /**
      * Constructor.
      *
-     * @param pagesToWrite Page IDs in the segment that should be written at a checkpoint or page replacement.
+     * @param dirtyPages Page IDs in the segment that should be written at a checkpoint or page replacement.
      * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(PagesToWrite pagesToWrite, CheckpointProgress checkpointProgress) {
-        this.pagesToWrite = pagesToWrite;
+    public CheckpointPages(DirtyPages dirtyPages, CheckpointProgress checkpointProgress) {
+        this.dirtyPages = dirtyPages;
         this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
 
@@ -83,7 +83,7 @@ public class CheckpointPages {
             throw new IgniteInternalCheckedException(e);
         }
 
-        return pagesToWrite.remove(pageId);
+        return dirtyPages.remove(pageId);
     }
 
     /**
@@ -98,7 +98,7 @@ public class CheckpointPages {
      * @see #removeOnPageReplacement(FullPageId)
      */
     public boolean removeOnCheckpoint(FullPageId pageId) {
-        return pagesToWrite.remove(pageId);
+        return dirtyPages.remove(pageId);
     }
 
     /**
@@ -107,12 +107,12 @@ public class CheckpointPages {
      * @param pageId Page ID for checking.
      */
     public boolean contains(FullPageId pageId) {
-        return pagesToWrite.contains(pageId);
+        return dirtyPages.contains(pageId);
     }
 
     /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */
-    public int size() {
-        return pagesToWrite.size();
+    public long size() {
+        return dirtyPages.size();
     }
 
     /**
@@ -196,6 +196,6 @@ public class CheckpointPages {
     }
 
     public boolean isNewPage(FullPageId fullPageId) {
-        return pagesToWrite.newPages().contains(fullPageId);
+        return dirtyPages.newPages().contains(fullPageId);
     }
 }

@@ -29,18 +29,19 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 class DataRegionDirtyPages<T> {
     final PersistentPageMemory pageMemory;
 
-    final T dirtyPages;
+    final T modifiedPages;
+
     final Map<GroupPartitionId, T> newPagesByPartitionId;
 
     /**
      * Constructor.
      *
      * @param pageMemory Page memory.
-     * @param dirtyPages Container of dirty pages.
+     * @param modifiedPages Container of dirty pages.
      */
-    DataRegionDirtyPages(PersistentPageMemory pageMemory, T dirtyPages, Map<GroupPartitionId, T> newPagesByPartitionId) {
+    DataRegionDirtyPages(PersistentPageMemory pageMemory, T modifiedPages, Map<GroupPartitionId, T> newPagesByPartitionId) {
         this.pageMemory = pageMemory;
-        this.dirtyPages = dirtyPages;
+        this.modifiedPages = modifiedPages;
         this.newPagesByPartitionId = newPagesByPartitionId;
     }
 }

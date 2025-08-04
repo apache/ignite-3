@@ -74,7 +74,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -187,11 +187,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
     void testMarkCheckpointBegin() throws Exception {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
-        List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
+        List<FullPageId> modifiedPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
 
-        PagesToWrite pagesToWrite = new PagesToWrite(dirtyPages, List.of());
+        DirtyPages dirtyPages = new DirtyPages(modifiedPages, List.of());
 
-        PersistentPageMemory pageMemory = newPageMemory(pagesToWrite);
+        PersistentPageMemory pageMemory = newPageMemory(dirtyPages);
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
@@ -248,7 +248,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, never()).run();
@@ -275,7 +275,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, never()).run();
@@ -304,7 +304,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, times(1)).run();
@@ -328,12 +328,12 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        verify(progressImpl, times(1)).pagesToWrite(any(CheckpointDirtyPages.class));
+        verify(progressImpl, times(1)).dirtyPages(any(CheckpointDirtyPages.class));
         verify(progressImpl, times(1)).initCounters(anyInt());
 
-        CheckpointPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, 0, 0);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, 0, 0);
 
-        assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(dirtyPages));
+        assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(modifiedPages));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
 
         assertThat(
@@ -392,7 +392,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(progressImpl, times(1)).pagesToWrite(isNull());
+                verify(progressImpl, times(1)).dirtyPages(isNull());
                 verify(progressImpl, times(1)).clearCounters();
             }
         };
@@ -412,7 +412,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         verify(pageMemory, times(1)).finishCheckpoint();
 
-        verify(progressImpl, times(1)).pagesToWrite(isNull());
+        verify(progressImpl, times(1)).dirtyPages(isNull());
 
         verify(progressImpl, times(1)).clearCounters();
 
@@ -456,7 +456,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 new DataRegionsDirtyPages(List.of(dataRegionDirtyPages0, dataRegionDirtyPages1))
         );
 
-        CheckpointPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 10, 1);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory0, 10, 1);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 1, 50), of(10, 1, 51), of(10, 1, 99))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
@@ -511,7 +511,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 createDataRegionDirtyPages(pageMemory0, Map.of(), dirtyPages0)
         )));
 
-        CheckpointPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 1, 1);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.getPartitionView(pageMemory1, 1, 1);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(dirtyPages1)));
 
@@ -546,7 +546,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         FullPageId metaPageId = new FullPageId(partitionMetaPageId(partitionId), groupId);
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
-        when(pageMemory.beginCheckpoint(any())).thenReturn(new PagesToWrite(List.of(), List.of()));
+        when(pageMemory.beginCheckpoint(any())).thenReturn(new DirtyPages(List.of(), List.of()));
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
                 coarseCurrentTimeMillis(),
@@ -556,9 +556,9 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 () -> {}
         );
 
-        assertEquals(1, checkpoint.dirtyPagesSize);
+        assertEquals(1, checkpoint.modifiedPagesSize);
 
-        CheckpointPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
 
         assertNotNull(dirtyPagesView);
         assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId)));
@@ -589,7 +589,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         FullPageId dataPageId = new FullPageId(pageId(partitionId, FLAG_DATA, 1), groupId);
 
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
-        when(pageMemory.beginCheckpoint(any())).thenReturn(new PagesToWrite(List.of(dataPageId), List.of()));
+        when(pageMemory.beginCheckpoint(any())).thenReturn(new DirtyPages(List.of(dataPageId), List.of()));
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
                 coarseCurrentTimeMillis(),
@@ -599,9 +599,9 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 () -> {}
         );
 
-        assertEquals(2, checkpoint.dirtyPagesSize);
+        assertEquals(2, checkpoint.modifiedPagesSize);
 
-        CheckpointPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, groupId, partitionId);
 
         assertNotNull(dirtyPagesView);
         assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId, dataPageId)));
@@ -680,10 +680,10 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(updateHeartbeat, times(5)).run();
     }
 
-    private static PersistentPageMemory newPageMemory(PagesToWrite pagesToWrite) {
+    private static PersistentPageMemory newPageMemory(DirtyPages dirtyPages) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
-        when(mock.beginCheckpoint(any(CheckpointProgress.class))).thenReturn(pagesToWrite);
+        when(mock.beginCheckpoint(any(CheckpointProgress.class))).thenReturn(dirtyPages);
 
         return mock;
     }

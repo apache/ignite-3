@@ -218,7 +218,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         when(checkpointProgress.inProgress()).thenReturn(true);
 
-        when(checkpointProgress.pagesToWrite()).thenReturn(dirtyPages);
+        when(checkpointProgress.dirtyPages()).thenReturn(dirtyPages);
 
         when(checkpointManager.lastCheckpointProgress()).thenReturn(checkpointProgress);
 

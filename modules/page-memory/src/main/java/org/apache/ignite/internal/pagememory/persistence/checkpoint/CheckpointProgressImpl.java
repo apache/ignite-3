@@ -131,7 +131,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return stateFut;
     }
 
-    // TODO should be total or different fields??
     @Override
     public int currentCheckpointPagesCount() {
         return currCheckpointPagesCnt;
@@ -293,7 +292,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     @Override
-    public @Nullable CheckpointDirtyPages pagesToWrite() {
+    public @Nullable CheckpointDirtyPages dirtyPages() {
         return pageToWrite;
     }
 
@@ -302,7 +301,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param pageToWrite Dirty pages.
      */
-    void pagesToWrite(@Nullable CheckpointDirtyPages pageToWrite) {
+    void dirtyPages(@Nullable CheckpointDirtyPages pageToWrite) {
         this.pageToWrite = pageToWrite;
     }
 

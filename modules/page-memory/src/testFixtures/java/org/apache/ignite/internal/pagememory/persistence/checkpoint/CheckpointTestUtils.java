@@ -34,7 +34,7 @@ import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 
@@ -79,8 +79,8 @@ public class CheckpointTestUtils {
      *
      * @param dirtyPagesView Checkpoint dirty pages view.
      */
-    public static List<FullPageId> toListDirtyPageIds(CheckpointPagesView dirtyPagesView) {
-        return IntStream.range(0, dirtyPagesView.dirtyPagesSize()).mapToObj(dirtyPagesView::getDirtyPage).collect(Collectors.toList());
+    public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
+        return IntStream.range(0, dirtyPagesView.modifiedPagesSize()).mapToObj(dirtyPagesView::getModifiedPage).collect(Collectors.toList());
     }
 
     /**

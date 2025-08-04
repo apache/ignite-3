@@ -71,7 +71,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,
                 new TestPageReadWriteManager(),
-                (fullPageId, buf, tag) -> {
+                (fullPageId, buf, tag, newPage) -> {
                 },
                 mockCheckpointTimeoutLock(true),
                 wrapLock(offheapReadWriteLock)

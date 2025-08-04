@@ -39,7 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -289,14 +289,14 @@ public class CheckpointManager {
     }
 
     /**
-     * Writes a page to file page store .
+     * Writes a page to file page store (main for newly allocated pages and delta for modified pages).
      *
      * <p>Must be used at breakpoint and page replacement.
      *
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param newPage New pages will to the main partition file, otherwise to the delta file.
+     * @param newPage If page is newly allocated and not present in file page store.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
     public void writePageToFilePageStore(
@@ -322,14 +322,14 @@ public class CheckpointManager {
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
         assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
 
-        CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
+        CheckpointDirtyPages dirtyPages = lastCheckpointProgress.dirtyPages();
 
-        assert pagesToWrite != null : "Dirty pages must be sorted out";
+        assert dirtyPages != null : "Dirty pages must be sorted out";
 
         CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
                 index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
                 () -> {
-                    CheckpointPagesView partitionView = pagesToWrite.getPartitionView(
+                    CheckpointDirtyPagesView partitionView = dirtyPages.getPartitionView(
                             pageMemory,
                             pageId.groupId(),
                             pageId.partitionId()
@@ -350,14 +350,14 @@ public class CheckpointManager {
      *
      * @param partitionDirtyPages Dirty pages of the partition.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointPagesView partitionDirtyPages) {
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
-        int offset = partitionDirtyPages.dirtyPagesSize() != 0 && partitionDirtyPages.getDirtyPage(0).pageIdx() == 0 ? 0 : 1;
+        int offset = partitionDirtyPages.modifiedPagesSize() != 0 && partitionDirtyPages.getModifiedPage(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.dirtyPagesSize() + offset];
+        int[] pageIndexes = new int[partitionDirtyPages.modifiedPagesSize() + offset];
 
-        for (int i = 0; i < partitionDirtyPages.dirtyPagesSize(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.getDirtyPage(i).pageIdx();
+        for (int i = 0; i < partitionDirtyPages.modifiedPagesSize(); i++) {
+            pageIndexes[i + offset] = partitionDirtyPages.getModifiedPage(i).pageIdx();
         }
 
         return pageIndexes;

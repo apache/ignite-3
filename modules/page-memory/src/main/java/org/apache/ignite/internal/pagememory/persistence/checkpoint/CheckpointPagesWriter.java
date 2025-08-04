@@ -47,7 +47,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.Partition
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointPagesView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -190,7 +190,7 @@ public class CheckpointPagesWriter implements Runnable {
             ByteBuffer tmpWriteBuf,
             PageStoreWriter pageStoreWriter
     ) throws IgniteInternalCheckedException {
-        CheckpointPagesView checkpointPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
+        CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
 
         checkpointProgress.blockPartitionDestruction(partitionId);
 
@@ -199,12 +199,12 @@ public class CheckpointPagesWriter implements Runnable {
                 writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
             }
 
-            for (int i = 0; i < checkpointPagesView.dirtyPagesSize() && !shutdownNow.getAsBoolean(); i++) {
-                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointPagesView.getDirtyPage(i));
+            for (int i = 0; i < checkpointDirtyPagesView.modifiedPagesSize() && !shutdownNow.getAsBoolean(); i++) {
+                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getModifiedPage(i));
             }
 
-            for (int i = 0; i < checkpointPagesView.newPagesSize() && !shutdownNow.getAsBoolean(); i++) {
-                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointPagesView.getNewPage(i));
+            for (int i = 0; i < checkpointDirtyPagesView.newPagesSize() && !shutdownNow.getAsBoolean(); i++) {
+                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getNewPage(i));
             }
         } finally {
             checkpointProgress.unblockPartitionDestruction(partitionId);
@@ -419,12 +419,12 @@ public class CheckpointPagesWriter implements Runnable {
         updateHeartbeat.run();
     }
 
-    private CheckpointPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
-        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.pagesToWrite();
+    private CheckpointDirtyPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
+        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.dirtyPages();
 
         assert checkpointDirtyPages != null;
 
-        CheckpointPagesView partitionView = checkpointDirtyPages.getPartitionView(
+        CheckpointDirtyPagesView partitionView = checkpointDirtyPages.getPartitionView(
                 pageMemory,
                 partitionId.getGroupId(),
                 partitionId.getPartitionId()

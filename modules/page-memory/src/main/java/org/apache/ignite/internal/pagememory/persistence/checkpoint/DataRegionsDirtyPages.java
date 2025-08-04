@@ -29,8 +29,8 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
  * <p>Total number of dirty pages can only decrease due to page replacement, but should not increase.
  */
 class DataRegionsDirtyPages {
-    /** Total number of dirty pages for all data regions at the time of data collection. */
-    final int dirtyPageCount;
+    /** Total number of modified pages for all data regions at the time of data collection. */
+    final int modifiedPageCount;
 
     /** Total number of new pages for all data regions at the time of data collection. */
     final int newPageCount;
@@ -45,7 +45,7 @@ class DataRegionsDirtyPages {
      */
     public DataRegionsDirtyPages(Collection<DataRegionDirtyPages<Collection<FullPageId>>> dirtyPages) {
         this.dirtyPages = dirtyPages;
-        this.dirtyPageCount = dirtyPages.stream().mapToInt(dataRegionPages -> dataRegionPages.dirtyPages.size()).sum();
+        this.modifiedPageCount = dirtyPages.stream().mapToInt(dataRegionPages -> dataRegionPages.modifiedPages.size()).sum();
         this.newPageCount = dirtyPages.stream().mapToInt(DataRegionsDirtyPages::getNewPagesCount).sum();
     }
 
@@ -55,7 +55,7 @@ class DataRegionsDirtyPages {
                 .sum();
     }
 
-    public int totalPageCount() {
-        return dirtyPageCount + newPageCount;
+    public int dirtyPageCount() {
+        return modifiedPageCount + newPageCount;
     }
 }
