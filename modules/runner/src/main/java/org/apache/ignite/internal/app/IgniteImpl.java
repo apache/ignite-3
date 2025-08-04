@@ -861,7 +861,9 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 failureManager,
                 nodeProperties,
-                replicationConfig
+                replicationConfig,
+                threadPoolsManager.commonScheduler(),
+                metricManager
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
@@ -1092,7 +1094,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                failureManager
+                failureManager,
+                metricManager
         );
 
         distributedTblMgr = new TableManager(

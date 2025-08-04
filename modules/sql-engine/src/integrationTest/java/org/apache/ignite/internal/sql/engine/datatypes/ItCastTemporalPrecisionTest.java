@@ -50,7 +50,6 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -132,9 +131,6 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         // Dynamic parameter.
         {
             Object param = parseSourceLiteral(literal, sourceType);
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove assumption.
-            Assumptions.assumeFalse(sourceType == TIME && targetType == TIME && targetPrecision == 0);
 
             assertQuery(format("SELECT ?::{}", sqlNameWithPrecision(targetType, targetPrecision)))
                     .withParam(param)

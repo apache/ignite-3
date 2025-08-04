@@ -34,7 +34,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link PartialBinaryTupleMatcher}. */
-public class PartialBinaryTupleMatcherTest extends BinaryTupleComparatorTest {
+public class PartialBinaryTupleMatcherTest extends BinaryTupleComparatorBaseTest {
     @Override
     protected Comparator<ByteBuffer> newComparator(List<CatalogColumnCollation> columnCollations, List<NativeType> columnTypes) {
         PartialBinaryTupleMatcher matcher = new PartialBinaryTupleMatcher(columnCollations, columnTypes);

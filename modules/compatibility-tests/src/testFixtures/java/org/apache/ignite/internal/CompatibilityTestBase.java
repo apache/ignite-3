@@ -41,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the embedded
@@ -50,8 +48,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-@ParameterizedClass
-@MethodSource("baseVersions")
 public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
@@ -171,8 +167,8 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, at
-     * most {@code numLatest} latest versions are taken.
+     * Returns a list of base versions. If {@code testAllVersions} system property is empty or set to {@code true}, then all versions are
+     * returned, otherwise, at most {@code numLatest} latest versions are taken.
      *
      * @param numLatest Number of latest versions to take by default.
      * @param skipVersions Array of strings to skip.
@@ -184,12 +180,21 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
                 .map(Version::version)
                 .filter(Predicate.not(skipSet::contains))
                 .collect(Collectors.toList());
-        if (System.getProperty("testAllVersions") != null) {
+        if (shouldTestAllVersions()) {
             return versions;
         } else {
             // Take at most numLatest latest versions.
             int fromIndex = Math.max(versions.size() - numLatest, 0);
             return versions.subList(fromIndex, versions.size());
         }
+    }
+
+    private static boolean shouldTestAllVersions() {
+        String value = System.getProperty("testAllVersions");
+        if (value != null) {
+            value = value.trim().toLowerCase();
+            return value.isEmpty() || "true".equals(value);
+        }
+        return false;
     }
 }

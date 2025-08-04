@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -240,9 +241,10 @@ public interface TxManager extends IgniteComponent {
     /**
      * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
      *
+     * @param resourceVacuumMetrics Metrics of resource vacuumizing.
      * @return Vacuum complete future.
      */
-    CompletableFuture<Void> vacuum();
+    CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics);
 
     /**
      * Kills a local transaction by its id. The behavior is similar to the transaction rollback.

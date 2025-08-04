@@ -31,7 +31,7 @@ import org.apache.ignite.sql.ColumnType;
 /**
  * The utility class has methods to use to compare fields in binary representation.
  */
-class BinaryTupleComparatorUtils {
+public class BinaryTupleComparatorUtils {
     /**
      * Compares individual fields of two tuples using ascending order.
      */
@@ -94,7 +94,7 @@ class BinaryTupleComparatorUtils {
         }
     }
 
-    static boolean isFlagSet(ByteBuffer tuple, int flag) {
+    public static boolean isFlagSet(ByteBuffer tuple, int flag) {
         return (tuple.get(0) & flag) != 0;
     }
 
@@ -118,14 +118,31 @@ class BinaryTupleComparatorUtils {
         tuple1.seek(colIndex);
         int begin1 = tuple1.begin();
         int end1 = tuple1.end();
-        ByteBufferAccessor buf1 = tuple1.accessor();
-        int fullSize1 = end1 - begin1;
-        int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
 
         tuple2.seek(colIndex);
         int begin2 = tuple2.begin();
         int end2 = tuple2.end();
-        ByteBufferAccessor buf2 = tuple2.accessor();
+
+        return compareAsTimestamp(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
+    }
+
+    /**
+     * Compares timestamp values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsTimestamp(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsTimestamp(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
+        int fullSize1 = end1 - begin1;
+        int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
+
         int fullSize2 = end2 - begin2;
         int trimmedSize2 = Math.min(fullSize2, buf2.capacity() - begin2);
 
@@ -175,12 +192,27 @@ class BinaryTupleComparatorUtils {
     static int compareAsUuid(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
         tuple1.seek(colIndex);
         int begin1 = tuple1.begin();
-        ByteBufferAccessor buf1 = tuple1.accessor();
-        int trimmedSize1 = Math.min(16, buf1.capacity() - begin1);
 
         tuple2.seek(colIndex);
         int begin2 = tuple2.begin();
-        ByteBufferAccessor buf2 = tuple2.accessor();
+
+        return compareAsUuid(tuple1.accessor(), begin1, tuple2.accessor(), begin2);
+    }
+
+    /**
+     * Compares UUID values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsUuid(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsUuid(ByteBufferAccessor buf1, int begin1, ByteBufferAccessor buf2, int begin2) {
+        int trimmedSize1 = Math.min(16, buf1.capacity() - begin1);
+
         int trimmedSize2 = Math.min(16, buf2.capacity() - begin2);
 
         int remaining = Math.min(trimmedSize1, trimmedSize2);
@@ -221,20 +253,33 @@ class BinaryTupleComparatorUtils {
         int begin1 = tuple1.begin();
         int end1 = tuple1.end();
 
-        ByteBufferAccessor buf1 = tuple1.accessor();
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
 
+        return compareAsBytes(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2);
+    }
+
+    /**
+     * Compares {@code byte[]} values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsBytes(BinaryTupleReader, BinaryTupleReader, int)
+     */
+    public static int compareAsBytes(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
         if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin1++;
         }
 
         int fullSize1 = end1 - begin1;
         int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
-
-        tuple2.seek(colIndex);
-        int begin2 = tuple2.begin();
-        int end2 = tuple2.end();
-
-        ByteBufferAccessor buf2 = tuple2.accessor();
 
         if (buf2.get(begin2) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin2++;
@@ -293,20 +338,38 @@ class BinaryTupleComparatorUtils {
         int begin1 = tuple1.begin();
         int end1 = tuple1.end();
 
-        ByteBufferAccessor buf1 = tuple1.accessor();
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
 
+        return compareAsString(tuple1.accessor(), begin1, end1, tuple2.accessor(), begin2, end2, ignoreCase);
+    }
+
+    /**
+     * Compares string values of two binary tuples.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @param ignoreCase Case sensitivity flag.
+     * @return Comparison result.
+     *
+     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int, boolean)
+     */
+    public static int compareAsString(
+            ByteBufferAccessor buf1, int begin1, int end1,
+            ByteBufferAccessor buf2, int begin2, int end2,
+            boolean ignoreCase
+    ) {
         if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin1++;
         }
 
         int fullStrLength1 = end1 - begin1;
         int trimmedSize1 = Math.min(fullStrLength1, buf1.capacity() - begin1);
-
-        tuple2.seek(colIndex);
-        int begin2 = tuple2.begin();
-        int end2 = tuple2.end();
-
-        ByteBufferAccessor buf2 = tuple2.accessor();
 
         if (buf2.get(begin2) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin2++;
@@ -344,6 +407,23 @@ class BinaryTupleComparatorUtils {
                 trimmedSize2,
                 ignoreCase
         );
+    }
+
+    /**
+     * Compares string values of two binary tuples. Case sensitive.
+     *
+     * @param buf1 Buffer accessor for the first tuple.
+     * @param begin1 Begin position in the first tuple.
+     * @param end1 End position in the first tuple.
+     * @param buf2 Buffer accessor for the second tuple.
+     * @param begin2 Begin position in the second tuple.
+     * @param end2 End position in the second tuple.
+     * @return Comparison result.
+     *
+     * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int, boolean)
+     */
+    public static int compareAsString(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2) {
+        return compareAsString(buf1, begin1, end1, buf2, begin2, end2, false);
     }
 
     /**
