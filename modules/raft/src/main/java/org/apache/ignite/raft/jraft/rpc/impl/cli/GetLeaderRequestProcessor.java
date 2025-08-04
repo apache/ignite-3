@@ -16,8 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import java.util.ArrayList;import java.util.List;import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.Node;import org.apache.ignite.raft.jraft.NodeManager;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import java.util.ArrayList;import java.util.List;import java.util.concurrent.CompletableFuture;import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;import org.apache.ignite.raft.jraft.Node;import org.apache.ignite.raft.jraft.NodeManager;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;import org.apache.ignite.raft.jraft.error.RaftError;import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
@@ -92,7 +92,7 @@ public class GetLeaderRequestProcessor extends NodeRequestProcessor<GetLeaderReq
 
                               };
 
-                List<Node> nodes = new ArrayList<>();
+                /*List<Node> nodes = new ArrayList<>();
                 final String groupId = getGroupId(request);
                 if (request.peerId() != null) {
                     final String peerIdStr = getPeerId(request);
@@ -129,18 +129,18 @@ public class GetLeaderRequestProcessor extends NodeRequestProcessor<GetLeaderReq
                     }
                 }
                 closure.setResponse(RaftRpcFactory.DEFAULT.newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader"));
-                closure.run(Status.OK());
+                closure.run(Status.OK());*/
 
 
 
-        service.handleGetLeaderAndTermRequest(request, new RpcResponseClosureAdapter<>() {
+        service.handleGetLeaderAndTermRequest(request, closure, new RpcResponseClosureAdapter<>() {
             @Override
             public void run(final Status status) {
                 if (getResponse() != null) {
-                    done.sendResponse(getResponse());
+                    CompletableFuture.runAsync(() -> done.sendResponse(getResponse()));
                 }
                 else {
-                    done.run(status);
+                    CompletableFuture.runAsync(() -> done.run(status));
                 }
             }
 

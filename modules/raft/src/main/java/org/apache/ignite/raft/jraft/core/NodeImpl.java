@@ -32,7 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.UUID;import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -102,7 +102,7 @@ import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorGroupOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotExecutorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseBuilder;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.GetLeaderResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -1774,6 +1774,7 @@ public class NodeImpl implements Node, RaftServerService {
         int ackSuccess;
         int ackFailures;
         boolean isDone;
+        public final UUID uuid = UUID.randomUUID();
 
         QuorumConfirmedHeartbeatResponseClosure(
                 final Consumer<T> responseConsumer,
@@ -1797,19 +1798,23 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
             if (status.isOk() && getResponse().success()) {
+                LOG.warn("qqq quorum ack ok, uuid=" + uuid);
                 this.ackSuccess++;
             }
             else {
+                LOG.warn("qqq quorum ack fail, uuid=" + uuid);
                 this.ackFailures++;
             }
 
             // Include leader self vote yes.
             if (this.ackSuccess + 1 >= this.quorum) {
+                LOG.warn("qqq quorum confirmed, uuid=" + uuid);
                 T response = responseBuilder.apply(true);
                 responseConsumer.accept(response);
                 this.isDone = true;
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
+                LOG.warn("qqq quorum confirmation failed, uuid=" + uuid);
                 T response = responseBuilder.apply(false);
                 responseConsumer.accept(response);
                 this.isDone = true;
@@ -1851,18 +1856,23 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> done) {
+    public void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosureAdapter cl, RpcResponseClosure<Message> done) {
         final long startMs = Utils.monotonicMs();
         this.readLock.lock();
         try {
-            if (leaderId == null || leaderId.isEmpty()) {
-                done.run(new Status(RaftError.EPERM, "No leader at term %d: %s.", this.currTerm, this.state));
-                return;
-            }
+            /*try {
+                if (leaderId == null || leaderId.isEmpty()) {
+                    done.run(new Status(RaftError.EPERM, "No leader at term %d: %s.", this.currTerm, this.state));
+                    return;
+                }
 
-            done.setResponse(raftOptions.getRaftMessagesFactory().getLeaderResponse().leaderId(leaderId.toString()).currentTerm(getCurrentTerm()).build());
-            done.run(Status.OK());
-            /*switch (this.state) {
+                //done.setResponse(raftOptions.getRaftMessagesFactory().getLeaderResponse().leaderId(leaderId.toString()).currentTerm(getCurrentTerm()).build());
+                done.setResponse(cl.getResponse());
+                done.run(Status.OK());
+            } catch (Throwable t) {
+                LOG.error("qqq error", t);
+            }*/
+            switch (this.state) {
                 case STATE_LEADER:
                     getLeaderFromLeader(request, done);
                     break;
@@ -1870,12 +1880,14 @@ public class NodeImpl implements Node, RaftServerService {
                     getLeaderFromFollower(request, done);
                     break;
                 case STATE_TRANSFERRING:
+                    LOG.warn("qqq transferring, req=" + request);
                     done.run(new Status(RaftError.EBUSY, "Is transferring leadership."));
                     break;
                 default:
-                    done.run(new Status(RaftError.EPERM, "Invalid state for getLeaderAndTerm: %s.", this.state));
+                    LOG.warn("qqq default, req=" + request);
+                    done.run(new Status(RaftError.UNKNOWN, "Invalid state for getLeaderAndTerm: %s.", this.state));
                     break;
-            }*/
+            }
         }
         finally {
             this.readLock.unlock();
@@ -1883,31 +1895,60 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    private void getLeaderFromFollower(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
-       if (this.leaderId == null || this.leaderId.isEmpty()) {
-            closure.run(new Status(RaftError.EPERM, "No leader at term %d.", this.currTerm));
+    private void getLeaderFromFollower(GetLeaderRequest request, RpcResponseClosure<Message> closure) {
+       PeerId leaderId = this.leaderId;
+
+       if (leaderId == null || leaderId.isEmpty()) {
+            LOG.warn("qqq getLeaderFromFollower, No leader at term " + this.currTerm + ", req=" + request);
+            closure.run(new Status(RaftError.UNKNOWN, "No leader at term %d.", this.currTerm));
             return;
         }
         // send request to leader.
+        LOG.warn("qqq getLeaderFromFollower, redirecting, req=" + request);
         final GetLeaderRequest newRequest = raftOptions.getRaftMessagesFactory()
             .getLeaderRequest()
             .groupId(request.groupId())
-            .peerId(this.leaderId.toString())
+            .peerId(leaderId.toString())
             .build();
-        this.rpcClientService.getLeaderAndTerm(this.leaderId, newRequest, -1, closure);
+
+        var cl = new RpcResponseClosureAdapter<CliRequests.GetLeaderResponse>() {
+            @Override
+            public void run(Status status) {
+                if (getResponse() != null) {
+                    LOG.warn("qqq getLeaderFromFollower, running on resp, resp=" + request);
+                    closure.setResponse(getResponse());
+                    closure.run(Status.OK());
+                } else {
+                    LOG.warn("qqq getLeaderFromFollower, running on resp absence, req=" + request);
+                    closure.run(new Status(RaftError.EAGAIN, "qqq"));
+                }
+            }
+        };
+        this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, cl);
     }
 
-    private void getLeaderFromLeader(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
+    private void getLeaderFromLeader(GetLeaderRequest request, RpcResponseClosure<Message> closure) {
+       PeerId leaderId = this.leaderId;
+
+       if (leaderId == null || leaderId.isEmpty()) {
+            LOG.warn("qqq getLeaderFromLeader, No leader at term " + this.currTerm + ", req=" + request);
+            closure.run(new Status(RaftError.UNKNOWN, "No leader at term %d.", this.currTerm));
+            return;
+        }
+
         GetLeaderResponseBuilder respBuilder = raftOptions.getRaftMessagesFactory().getLeaderResponse()
-            .leaderId(this.leaderId.toString())
+            .leaderId(leaderId.toString())
             .currentTerm(this.getCurrentTerm());
 
+        LOG.warn("qqq getLeaderFromLeader, req=" + request + ", resp=" + respBuilder.build());
+
         final int quorum = getQuorum();
-        //if (quorum <= 1) {
+        if (quorum <= 1) {
             // Only one peer, fast path.
+            LOG.warn("qqq getLeaderFromLeader, fast path, req=" + request + ", resp=" + respBuilder.build());
             closure.setResponse(respBuilder.build());
             closure.run(Status.OK());
-            /*return;
+            return;
         }
 
         final List<PeerId> peers = this.conf.getConf().getPeers();
@@ -1922,13 +1963,14 @@ public class NodeImpl implements Node, RaftServerService {
                 quorum,
                 peers.size()
         );
+        LOG.warn("qqq getLeaderFromLeader, confirmation by quorum, uuid=" + heartbeatDone.uuid + ", req=" + request + ", resp=" + respBuilder.build());
         // Send heartbeat requests to followers
         for (final PeerId peer : peers) {
             if (peer.equals(this.serverId)) {
                 continue;
             }
             this.replicatorGroup.sendHeartbeat(peer, heartbeatDone);
-        }*/
+        }
     }
 
     private int getQuorum() {
