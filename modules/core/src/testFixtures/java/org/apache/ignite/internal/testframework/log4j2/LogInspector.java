@@ -178,7 +178,7 @@ public class LogInspector {
      * @param action Action to be executed when the {@code predicate} is matched.
      */
     public LogInspector(String loggerName, Predicate<LogEvent> predicate, Runnable action) {
-        this(loggerName, new Handler(predicate, action));
+        this(loggerName, new Handler(predicate, event -> action.run()));
     }
 
     /**
@@ -215,7 +215,7 @@ public class LogInspector {
      * @return New instance of {@link Handler}.
      */
     public Handler addHandler(Predicate<LogEvent> predicate, Runnable action) {
-        Handler handler = new Handler(predicate, action);
+        Handler handler = new Handler(predicate, event -> action.run());
 
         addHandler(handler);
 
@@ -320,6 +320,7 @@ public class LogInspector {
 
     private static synchronized void addAppender(Appender appender, Configuration config) {
         for (LoggerConfig loggerConfig : config.getLoggers().values()) {
+            // Only add appender to the non-additive logger to prevent event duplication.
             if (!loggerConfig.isAdditive()) {
                 loggerConfig.addAppender(appender, null, null);
             }
@@ -346,20 +347,6 @@ public class LogInspector {
 
         /** Counter that indicates how many times the predicate has matched. */
         private final AtomicInteger timesMatched = new AtomicInteger();
-
-        /**
-         * Creates a new instance of {@link Handler}.
-         *
-         * @param predicate Predicate to check log messages.
-         * @param action Action to be executed when the {@code predicate} is matched.
-         */
-        public Handler(Predicate<LogEvent> predicate, Runnable action) {
-            Objects.requireNonNull(predicate);
-            Objects.requireNonNull(action);
-
-            this.predicate = predicate;
-            this.consumer = event -> action.run();
-        }
 
         /**
          * Creates a new instance of {@link Handler}.
