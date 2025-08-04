@@ -64,8 +64,11 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
             if (tableProcessor == null) {
                 // This can only happen if the table in question has already been dropped and destroyed. In such case, we simply
                 // don't need to do anything as the partition storage is already destroyed.
-                LOG.debug("Table processor for table ID {} not found. Command execution for the table will be ignored: {}",
-                        tableId, switchCommand.toStringForLightLogging());
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Table processor for table ID {} not found. Command execution for the table will be ignored: {}",
+                            tableId, switchCommand.toStringForLightLogging());
+                }
+
                 continue;
             }
 
