@@ -16,13 +16,18 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import java.util.ArrayList;import java.util.List;import java.util.concurrent.CompletableFuture;import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;import org.apache.ignite.raft.jraft.Node;import org.apache.ignite.raft.jraft.NodeManager;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import static java.util.concurrent.CompletableFuture.runAsync;import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.entity.PeerId;import org.apache.ignite.raft.jraft.error.RaftError;import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;import org.apache.ignite.raft.jraft.rpc.RaftServerService;
+import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NodeRequestProcessor;
@@ -79,68 +84,14 @@ public class GetLeaderRequestProcessor extends NodeRequestProcessor<GetLeaderReq
     public Message processRequest0(final RaftServerService service, final GetLeaderRequest request,
         final RpcRequestClosure done) {
 
-        var closure = new RpcResponseClosureAdapter<>() {
-                                  @Override
-                                  public void run(final Status status) {
-                                      if (getResponse() != null) {
-                                          //done.sendResponse(getResponse());
-                                      }
-                                      else {
-                                          //done.run(status);
-                                      }
-                                  }
-
-                              };
-
-                /*List<Node> nodes = new ArrayList<>();
-                final String groupId = getGroupId(request);
-                if (request.peerId() != null) {
-                    final String peerIdStr = getPeerId(request);
-                    final PeerId peer = new PeerId();
-                    if (peer.parse(peerIdStr)) {
-                        final Status st = new Status();
-                        nodes.add(getNode(groupId, peer, st, done.getRpcCtx().getNodeManager()));
-                        if (!st.isOk()) {
-                            closure.setResponse(RaftRpcFactory.DEFAULT.newResponse(msgFactory(), st));
-                            closure.run(Status.OK());
-                        }
-                    }
-                    else {
-                        closure.setResponse(RaftRpcFactory.DEFAULT.newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr));
-                            closure.run(Status.OK());
-                    }
-                }
-                else {
-                    nodes = done.getRpcCtx().getNodeManager().getNodesByGroupId(groupId);
-                }
-                if (nodes == null || nodes.isEmpty()) {
-                    closure.setResponse(RaftRpcFactory.DEFAULT.newResponse(msgFactory(), RaftError.ENOENT, "No nodes in group %s", groupId));
-                    closure.run(Status.OK());
-                }
-                for (final Node node : nodes) {
-                    final PeerId leader = node.getLeaderId();
-                    if (leader != null && !leader.isEmpty()) {
-                        var resp = msgFactory().getLeaderResponse()
-                            .leaderId(leader.toString())
-                            .currentTerm(node.getCurrentTerm())
-                            .build();
-                        closure.setResponse(resp);
-                        closure.run(Status.OK());
-                    }
-                }
-                closure.setResponse(RaftRpcFactory.DEFAULT.newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader"));
-                closure.run(Status.OK());*/
-
-
-
-        service.handleGetLeaderAndTermRequest(request, closure, new RpcResponseClosureAdapter<>() {
+        service.handleGetLeaderAndTermRequest(request, new RpcResponseClosureAdapter<>() {
             @Override
             public void run(final Status status) {
                 if (getResponse() != null) {
-                    CompletableFuture.runAsync(() -> done.sendResponse(getResponse()));
+                    runAsync(() -> done.sendResponse(getResponse()), executor());
                 }
                 else {
-                    CompletableFuture.runAsync(() -> done.run(status));
+                    runAsync(() -> done.run(status), executor());
                 }
             }
 
