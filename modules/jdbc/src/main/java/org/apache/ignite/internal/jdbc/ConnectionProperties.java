@@ -223,4 +223,19 @@ public interface ConnectionProperties {
      * @param timeZoneId Connection time-zone ID.
      */
     void setConnectionTimeZone(ZoneId timeZoneId);
+
+    /**
+     * Get the size of the partition awareness metadata cache.
+     *
+     * @return The size of the partition awareness metadata cache.
+     */
+    int getPartitionAwarenessMetadataCacheSize();
+
+    /**
+     * Set the size of the partition awareness metadata cache.
+     *
+     * @param size Cache size.
+     * @throws SQLException If the specified value is out of the allowed range (0 - {@link Integer#MAX_VALUE}).
+     */
+    void setPartitionAwarenessMetadataCacheSize(int size) throws SQLException;
 }
