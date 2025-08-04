@@ -43,6 +43,8 @@ dependencies {
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
     integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
