@@ -339,7 +339,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         return client.tables().table(TABLE_ONE_COLUMN);
     }
 
-
     private Builder clientBuilder() {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())

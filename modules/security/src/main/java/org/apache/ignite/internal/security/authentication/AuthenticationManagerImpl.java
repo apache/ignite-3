@@ -258,7 +258,6 @@ public class AuthenticationManagerImpl
         return fireEvent(parameters.type(), parameters);
     }
 
-
     @Override
     public boolean authenticationEnabled() {
         return authenticators != null;

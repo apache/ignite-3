@@ -348,7 +348,6 @@ public class TestNode implements LifecycleAware {
         return plans;
     }
 
-
     /** Executes the given script. */
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(

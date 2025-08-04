@@ -128,7 +128,6 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
     }
 
-
     private static Stream<Arguments> txStateIds() {
         return Stream.of(
                 arguments(TxState.PENDING, 0),
@@ -138,7 +137,6 @@ public class TxStateTest {
                 arguments(TxState.ABANDONED, 4)
         );
     }
-
 
     @ParameterizedTest
     @MethodSource("txStateIds")

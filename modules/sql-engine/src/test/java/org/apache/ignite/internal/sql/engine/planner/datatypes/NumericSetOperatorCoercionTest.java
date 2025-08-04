@@ -90,7 +90,6 @@ public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
         checkIncludesAllNumericTypePairs(args());
     }
 
-
     private static Stream<Arguments> args() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)

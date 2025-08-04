@@ -403,7 +403,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs.next());
         assertEquals(0, rs.getInt(1));
 
-
         stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
         conn.commit();
 

@@ -427,6 +427,4 @@ public class PlannerTest extends AbstractPlannerTest {
                 .size(100)
                 .distribution(distribution);
     }
-
-
 }

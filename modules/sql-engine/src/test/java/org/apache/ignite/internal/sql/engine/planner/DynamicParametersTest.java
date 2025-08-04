@@ -318,7 +318,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
 
-
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = SOME(SELECT ?)", Unspecified.UNKNOWN)
@@ -334,7 +333,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = ANY(SELECT ?)", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
-
 
                 // DML
 

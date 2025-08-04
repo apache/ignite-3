@@ -1165,7 +1165,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
             }
         }
 
-
         // DAY SECOND intervals
 
         convert.accept(SqlTypeName.INTERVAL_DAY);
