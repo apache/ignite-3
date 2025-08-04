@@ -22,7 +22,7 @@ package org.apache.ignite.raft.jraft.rpc;
  * @param <T>
  */
 public abstract class RpcResponseClosureAdapter<T extends Message> implements RpcResponseClosure<T> {
-    public T resp;
+    private T resp;
 
     public T getResponse() {
         return this.resp;
