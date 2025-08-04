@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_TI
 
 import java.time.ZoneId;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.sql.SqlCommon;
 
 /**
@@ -31,6 +32,7 @@ public class SqlProperties {
     private Set<SqlQueryType> allowedQueryTypes = SqlQueryType.ALL;
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
     private ZoneId timeZoneId = DEFAULT_TIME_ZONE_ID;
+    private @Nullable String userName;
 
     public SqlProperties() {
     }
@@ -41,6 +43,7 @@ public class SqlProperties {
         allowedQueryTypes = other.allowedQueryTypes;
         defaultSchema = other.defaultSchema;
         timeZoneId = other.timeZoneId;
+        userName = other.userName;
     }
 
     public SqlProperties queryTimeout(long queryTimeout) {
@@ -77,5 +80,14 @@ public class SqlProperties {
 
     public ZoneId timeZoneId() {
         return timeZoneId;
+    }
+
+    public SqlProperties userName(@Nullable String userName) {
+        this.userName = userName;
+        return this;
+    }
+
+    public @Nullable String userName() {
+        return userName;
     }
 }
