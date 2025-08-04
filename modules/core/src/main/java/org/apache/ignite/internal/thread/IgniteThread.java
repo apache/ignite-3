@@ -80,7 +80,7 @@ public class IgniteThread extends Thread implements ThreadAttributes {
      */
     @Nullable
     public static IgniteThread current() {
-        Thread thread = Thread.currentThread();
+        Thread thread = currentThread();
 
         return thread.getClass() == IgniteThread.class || thread instanceof IgniteThread
             ? ((IgniteThread) thread) : null;

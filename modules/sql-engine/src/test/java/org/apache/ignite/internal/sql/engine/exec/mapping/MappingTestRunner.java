@@ -308,8 +308,8 @@ final class MappingTestRunner {
     private static void appendTestCaseStr(int idx, StringBuilder testCaseStr, TestCaseDef testCaseDef, String result) {
         // Write description or a blank line (if this is not the first test case).
         if (testCaseDef.description != null) {
-            testCaseStr.append(testCaseDef.description);
-            testCaseStr.append(System.lineSeparator());
+            testCaseStr.append(testCaseDef.description)
+                    .append(System.lineSeparator());
         } else if (idx > 0) {
             testCaseStr.append(System.lineSeparator());
         }

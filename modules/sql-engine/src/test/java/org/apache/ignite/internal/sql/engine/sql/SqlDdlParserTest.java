@@ -1080,7 +1080,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
      * @return {@code true} in case name in the column declaration equals to the expected one.
      */
     private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
-        return new CustomMatcher<T>("column with name=" + name) {
+        return new CustomMatcher<>("column with name=" + name) {
             /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
