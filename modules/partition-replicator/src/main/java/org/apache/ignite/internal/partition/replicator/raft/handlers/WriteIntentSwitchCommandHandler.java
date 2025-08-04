@@ -78,7 +78,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
         return new CommandResult(null, applied);
     }
 
-    private RaftTableProcessor raftTableProcessor(int tableId) {
+    private @Nullable RaftTableProcessor raftTableProcessor(int tableId) {
         return tableProcessorByTableId.apply(tableId);
     }
 }
