@@ -441,6 +441,8 @@ public class IgniteImpl implements Ignite {
     /** Creator for volatile {@link LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
+    private final SystemPropertiesComponent systemPropertiesComponent;
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -1283,6 +1285,7 @@ public class IgniteImpl implements Ignite {
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
+        systemPropertiesComponent = new SystemPropertiesComponent(systemDistributedConfiguration);
 
         restComponent = createRestComponent(name);
 
@@ -1574,6 +1577,7 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
+                                systemPropertiesComponent,
                                 resourceVacuumManager,
                                 metaStorageCompactionTrigger
                         );
