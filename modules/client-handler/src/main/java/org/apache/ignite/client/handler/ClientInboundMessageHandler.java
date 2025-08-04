@@ -764,7 +764,8 @@ public class ClientInboundMessageHandler
             ClientMessageUnpacker in,
             int opCode,
             long requestId,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            String remoteAddress
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -897,8 +898,15 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(TX_PIGGYBACK));
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+                return ClientComputeExecuteRequest.process(
+                        in,
+                        compute,
+                        clusterService,
+                        notificationSender(requestId),
+                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB),
+                        remoteAddress,
+                        clientContext.userDetails()
+                );
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
@@ -907,7 +915,9 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB),
+                        remoteAddress,
+                        clientContext.userDetails()
                 );
 
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
@@ -917,7 +927,9 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB),
+                        remoteAddress,
+                        clientContext.userDetails()
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
@@ -1021,7 +1033,7 @@ public class ClientInboundMessageHandler
         // Release request buffer synchronously.
         // Request handlers are supposed to read everything synchronously, so request buffer can be released quickly and reliably.
         try (in) {
-            fut = processOperation(in, opCode, requestId, tsTracker);
+            fut = processOperation(in, opCode, requestId, tsTracker, ctx.channel().remoteAddress().toString());
         } catch (IgniteInternalCheckedException e) {
             fut = CompletableFuture.failedFuture(e);
         }

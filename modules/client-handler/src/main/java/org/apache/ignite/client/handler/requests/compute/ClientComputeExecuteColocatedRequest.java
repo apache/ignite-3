@@ -33,7 +33,10 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -49,6 +52,8 @@ public class ClientComputeExecuteColocatedRequest {
      * @param cluster Cluster service
      * @param notificationSender Notification sender.
      * @param enablePlatformJobs Enable platform jobs.
+     * @param remoteAddress Remote address.
+     * @param userDetails User details.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -57,7 +62,10 @@ public class ClientComputeExecuteColocatedRequest {
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs) {
+            boolean enablePlatformJobs,
+            String remoteAddress,
+            UserDetails userDetails
+    ) {
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
@@ -68,13 +76,18 @@ public class ClientComputeExecuteColocatedRequest {
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
+                    Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .tableName(table.name())
+                            .initiatorClient(remoteAddress)
+                            .eventUser(userDetails);
+
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,
                             keyTuple,
                             job.deploymentUnits(),
                             job.jobClassName(),
                             job.options(),
-                            ComputeEventMetadata.builder(), // TODO IGNITE-26115
+                            metadataBuilder,
                             job.arg(),
                             null
                     );

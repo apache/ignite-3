@@ -39,9 +39,12 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +63,8 @@ public class ClientComputeExecuteRequest {
      * @param cluster Cluster.
      * @param notificationSender Notification sender.
      * @param enablePlatformJobs Enable platform jobs.
+     * @param remoteAddress Remote address.
+     * @param userDetails User details.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -67,12 +72,16 @@ public class ClientComputeExecuteRequest {
             IgniteComputeInternal compute,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs
+            boolean enablePlatformJobs,
+            String remoteAddress,
+            UserDetails userDetails
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
         Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
-        ComputeEventMetadata.Builder metadataBuilder = ComputeEventMetadata.builder(); // TODO IGNITE-26115
+        Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                .initiatorClient(remoteAddress)
+                .eventUser(userDetails);
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
