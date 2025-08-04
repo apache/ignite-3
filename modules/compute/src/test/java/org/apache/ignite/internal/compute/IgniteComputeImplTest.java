@@ -143,7 +143,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
+        verify(computeComponent)
+                .executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
 
         assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
@@ -184,7 +185,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
+        verify(computeComponent)
+                .executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
 
         assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
@@ -220,7 +222,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(eq(expectedOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
+        verify(computeComponent)
+                .executeLocally(eq(expectedOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
     }
 
     @Test
@@ -305,13 +308,13 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull()))
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull()))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
                         "jobResponse", null, jobTimestamp.longValue()), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), eq(token)))
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), eq(token)))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
                         "jobResponse", null, jobTimestamp.longValue()), localNode)));
     }
