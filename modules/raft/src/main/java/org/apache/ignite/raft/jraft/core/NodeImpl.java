@@ -1852,7 +1852,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<Message> done) {
+    public void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> done) {
         final long startMs = Utils.monotonicMs();
         this.readLock.lock();
         try {
@@ -1877,7 +1877,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    private void getLeaderFromFollower(GetLeaderRequest request, RpcResponseClosure<Message> closure) {
+    private void getLeaderFromFollower(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
        PeerId leaderId = this.leaderId;
 
        if (leaderId == null || leaderId.isEmpty()) {
@@ -1891,22 +1891,10 @@ public class NodeImpl implements Node, RaftServerService {
             .peerId(leaderId.toString())
             .build();
 
-        var cl = new RpcResponseClosureAdapter<CliRequests.GetLeaderResponse>() {
-            @Override
-            public void run(Status status) {
-                if (getResponse() != null) {
-                    closure.setResponse(getResponse());
-                    closure.run(Status.OK());
-                } else {
-                    closure.run(new Status(RaftError.EAGAIN, "Couldn't redirect the request to known leader, will be retried."));
-                }
-            }
-        };
-
-        this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, cl);
+        this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, closure);
     }
 
-    private void getLeaderFromLeader(RpcResponseClosure<Message> closure) {
+    private void getLeaderFromLeader(RpcResponseClosure<GetLeaderResponse> closure) {
        PeerId leaderId = this.leaderId;
 
        if (leaderId == null || leaderId.isEmpty()) {

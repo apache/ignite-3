@@ -87,5 +87,5 @@ public interface RaftServerService {
      * @param request data of the getLeader read
      * @param done callback
      */
-    void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<Message> done);
+    void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> done);
 }
