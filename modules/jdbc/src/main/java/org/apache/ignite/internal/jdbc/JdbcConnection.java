@@ -150,7 +150,7 @@ public class JdbcConnection implements Connection {
         this.handler = new JdbcClientQueryEventHandler(client);
 
         try {
-            JdbcConnectResult result = handler.connect(connProps.getConnectionTimeZone()).get();
+            JdbcConnectResult result = handler.connect(connProps.getConnectionTimeZone(), null).get();
 
             if (!result.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
