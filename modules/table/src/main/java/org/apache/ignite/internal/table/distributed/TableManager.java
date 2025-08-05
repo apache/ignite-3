@@ -3074,7 +3074,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             destroyFutures.add(
-                    runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table, destroyingWholeTable), ioExecutor)
+                    runAsync(() -> {
+                        // No need for durability guarantees if destruction reliability is guaranteed by destroying table storages
+                        // on startup.
+                        destroyReplicationProtocolStorages(tablePartitionId, table, !destroyingWholeTable);
+                    }, ioExecutor)
             );
         }
 
@@ -3082,23 +3086,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
-    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table, boolean destroyingWholeTable) {
+    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table, boolean destroyDurably) {
         var internalTbl = (InternalTableImpl) table.internalTable();
 
-        destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile(), destroyingWholeTable);
+        destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile(), destroyDurably);
     }
 
     private void destroyReplicationProtocolStorages(
             TablePartitionId tablePartitionId,
             boolean isVolatileStorage,
-            boolean destroyingWholeTable
+            boolean destroyDurably
     ) {
         try {
-            if (destroyingWholeTable) {
-                // No need for durability guarantees as destruction reliability is guaranteed by destroying table storages on startup.
-                replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
-            } else {
+            if (destroyDurably) {
                 replicaMgr.destroyReplicationProtocolStoragesDurably(tablePartitionId, isVolatileStorage);
+            } else {
+                replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
             }
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
