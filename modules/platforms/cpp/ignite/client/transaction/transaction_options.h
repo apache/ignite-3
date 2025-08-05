@@ -24,12 +24,14 @@ class transaction_options {
 public:
     /**
      * Transaction timeout.
+     *
      * @return Transaction timeout in milliseconds.
      */
     [[nodiscard]] std::int64_t get_timeout_millis() const { return m_timeout_millis; }
 
     /**
      * Sets new value for transaction timeout.
+     *
      * @param timeout_millis Transaction timeout in milliseconds.
      * @return Reference to this for chaining.
      */
@@ -40,13 +42,15 @@ public:
 
     /**
      * Transaction allow only read operations.
+     *
      * @return True if only read operation are allowed false otherwise.
      */
     [[nodiscard]] bool is_read_only() const { return m_read_only; }
 
     /**
      * Change transaction to be read-only or read-write.
-     * @param read_only True if new type should read-only, false if read-write.
+     *
+     * @param read_only True if transaction should read-only, false if read-write.
      * @return Reference to this for chaining.
      */
     transaction_options & set_read_only(bool read_only) {
