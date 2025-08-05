@@ -19,6 +19,8 @@ package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
@@ -31,6 +33,8 @@ import org.jetbrains.annotations.Nullable;
  * Handler for {@link WriteIntentSwitchCommand}s.
  */
 public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<WriteIntentSwitchCommand> {
+    private static final IgniteLogger LOG = Loggers.forClass(WriteIntentSwitchCommandHandler.class);
+
     private final IntFunction<RaftTableProcessor> tableProcessorByTableId;
 
     private final RaftTxFinishMarker txFinishMarker;
@@ -55,7 +59,20 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
 
         boolean applied = false;
         for (int tableId : ((WriteIntentSwitchCommandV2) switchCommand).tableIds()) {
-            CommandResult singleResult = raftTableProcessor(tableId)
+            RaftTableProcessor tableProcessor = raftTableProcessor(tableId);
+
+            if (tableProcessor == null) {
+                // This can only happen if the table in question has already been dropped and destroyed. In such case, we simply
+                // don't need to do anything as the partition storage is already destroyed.
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Table processor for table ID {} not found. Command execution for the table will be ignored: {}",
+                            tableId, switchCommand.toStringForLightLogging());
+                }
+
+                continue;
+            }
+
+            CommandResult singleResult = tableProcessor
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
 
             applied = applied || singleResult.wasApplied();
@@ -64,11 +81,7 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
         return new CommandResult(null, applied);
     }
 
-    private RaftTableProcessor raftTableProcessor(int tableId) {
-        RaftTableProcessor raftTableProcessor = tableProcessorByTableId.apply(tableId);
-
-        assert raftTableProcessor != null : "No RAFT table processor found by table ID " + tableId;
-
-        return raftTableProcessor;
+    private @Nullable RaftTableProcessor raftTableProcessor(int tableId) {
+        return tableProcessorByTableId.apply(tableId);
     }
 }
