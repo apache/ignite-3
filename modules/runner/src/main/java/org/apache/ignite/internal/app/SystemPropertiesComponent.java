@@ -50,7 +50,7 @@ class SystemPropertiesComponent implements IgniteComponent {
                 (value, revision) -> IgniteToStringBuilder.setSensitiveDataLoggingPolicySupplier(() -> value),
                 SENSITIVE_DATA_LOGGING,
                 SensitiveDataLoggingPolicy.HASH,
-                (v) -> SensitiveDataLoggingPolicy.valueOf(v != null ? v.toUpperCase() : "HASH")
+                (v) -> SensitiveDataLoggingPolicy.valueOf(v.toUpperCase())
         );
     }
 
