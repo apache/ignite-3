@@ -17,17 +17,13 @@
 
 package org.apache.ignite.internal.app;
 
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * System properties initialization.
@@ -35,19 +31,16 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 class SystemPropertiesComponent implements IgniteComponent {
 
     /**
-     * Sensitive data logging option. See {@link IgniteToStringBuilder#setSensitiveDataLoggingPolicySupplier(Supplier)}. 
+     * Sensitive data logging option. See {@link IgniteToStringBuilder#setSensitiveDataPolicy(SensitiveDataLoggingPolicy)}}. 
      */
     private static final String SENSITIVE_DATA_LOGGING = "sensitiveDataLogging";
 
     private final SystemDistributedConfigurationPropertyHolder<SensitiveDataLoggingPolicy> sensitiveDataLogging;
 
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     SystemPropertiesComponent(SystemDistributedConfiguration configuration) {
         this.sensitiveDataLogging = new SystemDistributedConfigurationPropertyHolder<>(
                 configuration,
-                (value, revision) -> IgniteToStringBuilder.setSensitiveDataLoggingPolicySupplier(() -> value),
+                (value, revision) -> IgniteToStringBuilder.setSensitiveDataPolicy(value),
                 SENSITIVE_DATA_LOGGING,
                 SensitiveDataLoggingPolicy.HASH,
                 (v) -> SensitiveDataLoggingPolicy.valueOf(v.toUpperCase())
@@ -56,14 +49,12 @@ class SystemPropertiesComponent implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        return inBusyLockAsync(busyLock, () -> {
-            sensitiveDataLogging.init();
+        sensitiveDataLogging.init();
 
-            SensitiveDataLoggingPolicy policy = sensitiveDataLogging.currentValue();
-            IgniteToStringBuilder.setSensitiveDataLoggingPolicySupplier(() -> policy);
+        SensitiveDataLoggingPolicy policy = sensitiveDataLogging.currentValue();
+        IgniteToStringBuilder.setSensitiveDataPolicy(policy);
 
-            return CompletableFuture.completedFuture(null);
-        });
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

@@ -48,7 +48,7 @@ public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     @AfterEach
     public void resetLoggingPolicy() {
-        IgniteToStringBuilder.setSensitiveDataLoggingPolicySupplier(() -> SensitiveDataLoggingPolicy.HASH);
+        IgniteToStringBuilder.setSensitiveDataPolicy(SensitiveDataLoggingPolicy.HASH);
     }
 
     @AfterEach
