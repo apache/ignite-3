@@ -32,6 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -73,6 +74,7 @@ public class ClientComputeExecuteColocatedRequest {
                             job.deploymentUnits(),
                             job.jobClassName(),
                             job.options(),
+                            ComputeEventMetadata.builder(), // TODO IGNITE-26115
                             job.arg(),
                             null
                     );

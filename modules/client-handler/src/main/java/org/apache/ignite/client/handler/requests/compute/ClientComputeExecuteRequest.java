@@ -38,6 +38,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -71,8 +72,10 @@ public class ClientComputeExecuteRequest {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
         Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
+        ComputeEventMetadata.Builder metadataBuilder = ComputeEventMetadata.builder(); // TODO IGNITE-26115
+
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), job.arg(), null
+                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
         );
         sendResultAndState(executionFut, notificationSender);
 

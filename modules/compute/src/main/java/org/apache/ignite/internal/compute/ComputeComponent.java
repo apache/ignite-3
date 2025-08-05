@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.CancellationToken;
@@ -40,6 +41,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param metadataBuilder Event metadata builder.
      * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
      * @return Future of the job execution object which will be completed when the job is submitted.
@@ -48,9 +50,20 @@ public interface ComputeComponent extends IgniteComponent {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     );
+
+    default CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
+            ExecutionOptions options,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return executeLocally(options, units, jobClassName, ComputeEventMetadata.builder(), arg, cancellationToken);
+    }
 
     /**
      * Executes a job of the given class on a remote node.
