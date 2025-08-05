@@ -178,7 +178,13 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
-                new HandshakeEventLoopSwitcher(List.of(channel.eventLoop())),
+                new HandshakeEventLoopSwitcher(List.of()) {
+                    @Override
+                    public void switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                        // No need to switch event loop in tests, so we just call the callback immediately.
+                        afterSwitching.run();
+                    }
+                },
                 new AllIdsAreFresh(),
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,

@@ -766,7 +766,13 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
-                new HandshakeEventLoopSwitcher(List.of(initiatorSideChannel.eventLoop())),
+                new HandshakeEventLoopSwitcher(List.of()) {
+                    @Override
+                    public void switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                        // No need to switch event loop in tests, so we just call the callback immediately.
+                        afterSwitching.run();
+                    }
+                },
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},
@@ -802,7 +808,13 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
-                new HandshakeEventLoopSwitcher(List.of(acceptorSideChannel.eventLoop())),
+                new HandshakeEventLoopSwitcher(List.of()) {
+                    @Override
+                    public void switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                        // No need to switch event loop in tests, so we just call the callback immediately.
+                        afterSwitching.run();
+                    }
+                },
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},
