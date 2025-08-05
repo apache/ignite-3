@@ -20,8 +20,10 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
@@ -34,7 +36,6 @@ import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -49,9 +50,7 @@ public class ClientComputeExecutePartitionedRequest {
      * @param tables Tables.
      * @param cluster Cluster service
      * @param notificationSender Notification sender.
-     * @param enablePlatformJobs Enable platform jobs.
-     * @param remoteAddress Remote address.
-     * @param userDetails User details.
+     * @param clientContext Client context.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -60,20 +59,18 @@ public class ClientComputeExecutePartitionedRequest {
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs,
-            String remoteAddress,
-            UserDetails userDetails
+            ClientContext clientContext
     ) {
         int tableId = in.unpackInt();
         int partitionId = in.unpackInt();
 
-        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             Builder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)
                     .tableName(table.name())
-                    .initiatorClient(remoteAddress)
-                    .eventUser(userDetails);
+                    .initiatorClient(clientContext.remoteAddress().toString())
+                    .eventUser(clientContext.userDetails());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,
