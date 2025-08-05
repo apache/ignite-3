@@ -106,7 +106,8 @@ public class Checkpointer extends IgniteWorker {
             + "writeLockHoldTime={}us, "
             + "splitAndSortPagesDuration={}ms, "
             + "{}"
-            + "pages={}, "
+            + "modifiedPages={}, "
+            + "newPages={}, "
             + "reason='{}']";
 
     private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
@@ -117,7 +118,8 @@ public class Checkpointer extends IgniteWorker {
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
             + "checkpointId={}, "
-            + "pages={}, "
+            + "modifiedPages={}, "
+            + "newPages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
@@ -371,7 +373,8 @@ public class Checkpointer extends IgniteWorker {
                                 tracker.writeLockHoldDuration(MICROSECONDS),
                                 tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
                                 possibleJvmPauseDuration > 0 ? "possibleJvmPauseDuration=" + possibleJvmPauseDuration + "ms, " : "",
-                                chp.dirtyPagesSize,
+                                chp.modifiedPagesSize,
+                                chp.newPagesSize,
                                 chp.progress.reason()
                         );
                     }
@@ -408,12 +411,13 @@ public class Checkpointer extends IgniteWorker {
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
                     float totalDurationInSeconds = tracker.checkpointDuration(MILLISECONDS) / 1000.0f;
-                    float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
+                    float avgWriteSpeedInBytes = ((long) pageSize * chp.modifiedPagesSize) / totalDurationInSeconds;
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
-                            chp.dirtyPagesSize,
+                            chp.modifiedPagesSize,
+                            chp.newPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),

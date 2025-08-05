@@ -292,7 +292,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     @Override
-    public @Nullable CheckpointDirtyPages pagesToWrite() {
+    public @Nullable CheckpointDirtyPages dirtyPages() {
         return pageToWrite;
     }
 
@@ -301,7 +301,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param pageToWrite Dirty pages.
      */
-    void pagesToWrite(@Nullable CheckpointDirtyPages pageToWrite) {
+    void dirtyPages(@Nullable CheckpointDirtyPages pageToWrite) {
         this.pageToWrite = pageToWrite;
     }
 

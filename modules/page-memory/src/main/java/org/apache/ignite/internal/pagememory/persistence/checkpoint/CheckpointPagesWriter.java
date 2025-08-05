@@ -199,21 +199,33 @@ public class CheckpointPagesWriter implements Runnable {
                 writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
             }
 
-            for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
-                updateHeartbeat.run();
+            for (int i = 0; i < checkpointDirtyPagesView.modifiedPagesSize() && !shutdownNow.getAsBoolean(); i++) {
+                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getModifiedPage(i));
+            }
 
-                FullPageId pageId = checkpointDirtyPagesView.get(i);
-
-                if (pageId.pageIdx() == 0) {
-                    // Skip meta-pages, they are written by "writePartitionMeta".
-                    continue;
-                }
-
-                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
+            for (int i = 0; i < checkpointDirtyPagesView.newPagesSize() && !shutdownNow.getAsBoolean(); i++) {
+                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getNewPage(i));
             }
         } finally {
             checkpointProgress.unblockPartitionDestruction(partitionId);
         }
+    }
+
+    private void processPage(
+            PersistentPageMemory pageMemory,
+            ByteBuffer tmpWriteBuf,
+            PageStoreWriter pageStoreWriter,
+            FullPageId pageId
+    )
+            throws IgniteInternalCheckedException {
+        updateHeartbeat.run();
+
+        if (pageId.pageIdx() == 0) {
+            // Skip meta-pages, they are written by "writePartitionMeta".
+            return;
+        }
+
+        writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
     }
 
     private void writeDirtyPage(
@@ -351,7 +363,7 @@ public class CheckpointPagesWriter implements Runnable {
             PersistentPageMemory pageMemory,
             @Nullable Map<PersistentPageMemory, List<FullPageId>> pagesToRetry
     ) {
-        return (fullPageId, buf, tag) -> {
+        return (fullPageId, buf, newPage, tag) -> {
             if (tag == TRY_AGAIN_TAG) {
                 if (pagesToRetry != null) {
                     pagesToRetry.computeIfAbsent(pageMemory, k -> new ArrayList<>()).add(fullPageId);
@@ -373,7 +385,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-            pageWriter.write(pageMemory, fullPageId, buf);
+            pageWriter.write(pageMemory, fullPageId, buf, newPage);
 
             updatedPartitions.get(GroupPartitionId.convert(fullPageId)).increment();
         };
@@ -397,7 +409,8 @@ public class CheckpointPagesWriter implements Runnable {
 
         FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
-        pageWriter.write(pageMemory, fullPageId, buffer.rewind());
+        //TODO check
+        pageWriter.write(pageMemory, fullPageId, buffer.rewind(), pageMemory.hasLoadedPage(fullPageId));
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
@@ -407,7 +420,7 @@ public class CheckpointPagesWriter implements Runnable {
     }
 
     private CheckpointDirtyPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
-        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.pagesToWrite();
+        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.dirtyPages();
 
         assert checkpointDirtyPages != null;
 
