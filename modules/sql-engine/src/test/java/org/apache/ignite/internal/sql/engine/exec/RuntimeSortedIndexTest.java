@@ -130,7 +130,8 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         null,
                         SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                         -1,
-                        Clock.systemUTC()
+                        Clock.systemUTC(),
+                        null
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {

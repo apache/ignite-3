@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -103,7 +104,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void hangsIfParticipatingNodesNeverAppear() {
-        when(cmgManager.validatedNodes()).thenReturn(completedFuture(Set.of()));
+        when(cmgManager.validatedNodes()).thenReturn(emptySetCompletedFuture());
 
         assertThat(repair.repair(Set.of("node1", "node2"), 1), willTimeoutIn(100, MILLISECONDS));
     }
@@ -159,7 +160,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void proceedsIfParticipatingNodesAppearAsValidatedLaterThanRepairStarts() {
-        when(cmgManager.validatedNodes()).thenReturn(completedFuture(Set.of()));
+        when(cmgManager.validatedNodes()).thenReturn(emptySetCompletedFuture());
         doAnswer(invocation -> {
             LogicalTopologyEventListener listener = invocation.getArgument(0);
 
@@ -176,7 +177,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void proceedsIfParticipatingNodesAppearAsJoinedLaterThanRepairStarts() {
-        when(cmgManager.validatedNodes()).thenReturn(completedFuture(Set.of()));
+        when(cmgManager.validatedNodes()).thenReturn(emptySetCompletedFuture());
         doAnswer(invocation -> {
             LogicalTopologyEventListener listener = invocation.getArgument(0);
 
