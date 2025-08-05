@@ -113,6 +113,8 @@ public class Cluster {
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
 
+    private List<IgniteServer> metaStorageAndCmgNodes = List.of();
+
     /**
      * Creates a new cluster.
      */
@@ -225,14 +227,15 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startEmbeddedNode(testInfo, nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
-        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
                 .mapToObj(nodeRegistrations::get)
                 .map(ServerRegistration::server)
                 .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNodes)
-                .clusterName(clusterConfiguration.clusterName());
+                .clusterName(clusterConfiguration.clusterName())
+                .clusterConfiguration("ignite { metrics: { exporters { log { exporterName = logPush, periodMillis = 10000 } } } }");
 
         initParametersConfigurator.accept(builder);
 
@@ -601,7 +604,16 @@ public class Cluster {
         Collections.fill(igniteServers, null);
         Collections.fill(nodes, null);
 
-        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+        // TODO: IGNITE-26085 Allow stopping nodes in any order. Currently, MS nodes stop only at the last one.
+        serversToStop.parallelStream()
+                .filter(igniteServer -> igniteServer != null && !metaStorageAndCmgNodes.contains(igniteServer))
+                .forEach(IgniteServer::shutdown);
+
+        metaStorageAndCmgNodes.parallelStream()
+                .filter(igniteServer -> igniteServer != null && serversToStop.contains(igniteServer))
+                .forEach(IgniteServer::shutdown);
+
+        metaStorageAndCmgNodes = List.of();
 
         LOG.info("Shut the cluster down");
     }

@@ -761,6 +761,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);
 
+        // Context variable functions
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_USER);
+
         // Ignite specific operators
         definedOperatorsBuilder.add(LENGTH);
         definedOperatorsBuilder.add(SYSTEM_RANGE);

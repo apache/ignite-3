@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
@@ -27,6 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -48,6 +51,9 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterConfigurationSchema;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
+import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -121,7 +127,10 @@ public class MetricManagerImpl implements MetricManager {
 
         MetricView conf = metricConfiguration.value();
 
-        for (ExporterView exporter : conf.exporters()) {
+        List<ExporterView> exporters = conf.exporters().stream().collect(toList());
+        exporters.addAll(defaultExporters(exporters));
+
+        for (ExporterView exporter : exporters) {
             checkAndStartExporter(exporter.exporterName(), exporter);
         }
 
@@ -245,6 +254,43 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public Collection<MetricExporter> enabledExporters() {
         return inBusyLock(busyLock, enabledMetricExporters::values);
+    }
+
+    private static List<ExporterView> defaultExporters(List<? extends ExporterView> configuredExporters) {
+        if (configuredExporters.stream().map(ExporterView::exporterName).anyMatch(n -> n.equals(LogPushExporter.EXPORTER_NAME))) {
+            return emptyList();
+        } else {
+            ExporterView logExporterView = new LogPushExporterView() {
+                private final LogPushExporterConfigurationSchema schema = new LogPushExporterConfigurationSchema();
+
+                @Override
+                public long periodMillis() {
+                    return schema.periodMillis;
+                }
+
+                @Override
+                public boolean oneLinePerMetricSource() {
+                    return schema.oneLinePerMetricSource;
+                }
+
+                @Override
+                public String[] enabledMetrics() {
+                    return schema.enabledMetrics;
+                }
+
+                @Override
+                public String exporterName() {
+                    return LogPushExporter.EXPORTER_NAME;
+                }
+
+                @Override
+                public String name() {
+                    return "log";
+                }
+            };
+
+            return List.of(logExporterView);
+        }
     }
 
     private void checkAndStartExporter(String exporterName, ExporterView exporterConfiguration) {
