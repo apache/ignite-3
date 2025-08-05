@@ -88,7 +88,7 @@ public class IgniteToStringBuilder {
     /** {@link #sensitiveDataPolicy} var handle. */
     private static final VarHandle SENSITIVE_DATA_POLICY;
 
-    /** SensitiveDataLoggingPolicy. */
+    /** Policy for logging sensitive data. */
     private static SensitiveDataLoggingPolicy sensitiveDataPolicy = SensitiveDataLoggingPolicy.HASH;
 
     static {
