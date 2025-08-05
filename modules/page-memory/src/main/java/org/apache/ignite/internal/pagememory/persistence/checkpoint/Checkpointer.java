@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
@@ -407,8 +408,8 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    float totalDurationInSeconds = tracker.checkpointDuration(MILLISECONDS) / 1000.0f;
-                    float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
+                    long totalDurationInSeconds = tracker.checkpointDuration(SECONDS);
+                    long totalWriteBytes = (long) pageSize * chp.dirtyPagesSize;
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
@@ -419,7 +420,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
                             tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
-                            WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInSeconds)
                     );
                 }
             }

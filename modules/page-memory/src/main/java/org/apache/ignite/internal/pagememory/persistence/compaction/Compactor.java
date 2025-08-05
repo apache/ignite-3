@@ -287,15 +287,15 @@ public class Compactor extends IgniteWorker {
             tracker.onCompactionEnd();
 
             if (LOG.isInfoEnabled()) {
-                float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
-                float avgWriteSpeedInBytes = ((long) pageSize * tracker.dataPagesWritten()) / totalDurationInSeconds;
+                long totalDurationInSeconds = tracker.totalDuration(SECONDS);
+                long totalWriteBytes = (long) pageSize * tracker.dataPagesWritten();
 
                 LOG.info(
                         "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
                         compactionId,
                         tracker.dataPagesWritten(),
                         tracker.totalDuration(MILLISECONDS),
-                        WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                        WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInSeconds)
                 );
             }
         }

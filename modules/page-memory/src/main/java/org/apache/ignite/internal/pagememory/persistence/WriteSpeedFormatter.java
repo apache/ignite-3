@@ -51,11 +51,22 @@ public class WriteSpeedFormatter {
     /**
      * Format write speed in MB/sec.
      *
+     * @param bytes Total number of bytes.
+     * @param durationInSeconds Duration in seconds.
+     * @return Formatted write speed.
+     */
+    public static String formatWriteSpeed(long bytes, long durationInSeconds) {
+        return formatWriteSpeed((double) bytes / Math.max(1, durationInSeconds));
+    }
+
+    /**
+     * Format write speed in MB/sec.
+     *
      * @param avgWriteSpeedInBytes Write speed in bytes.
      * @return Formatted write speed.
      */
-    public static String formatWriteSpeed(float avgWriteSpeedInBytes) {
-        float speedInMbs = avgWriteSpeedInBytes / Constants.MiB;
+    public static String formatWriteSpeed(double avgWriteSpeedInBytes) {
+        double speedInMbs = avgWriteSpeedInBytes / Constants.MiB;
 
         if (speedInMbs >= 10.0) {
             synchronized (HIGH_SPEED_FORMAT) {
