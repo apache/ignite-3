@@ -46,7 +46,6 @@ import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
-import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -263,7 +262,6 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
 
         this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
 
-        ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
         handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, () -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
