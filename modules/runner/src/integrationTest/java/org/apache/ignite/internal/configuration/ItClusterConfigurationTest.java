@@ -44,13 +44,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
     private IgniteServer node;
-    
+
     @BeforeEach
     @AfterEach
     public void resetLoggingPolicy() {
         IgniteToStringBuilder.setSensitiveDataLoggingPolicySupplier(() -> SensitiveDataLoggingPolicy.HASH);
     }
-    
+
     @AfterEach
     void tearDown() {
         if (node != null) {
