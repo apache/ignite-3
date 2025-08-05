@@ -56,7 +56,7 @@ public:
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
      * @param tx_opts Transaction options.
      */
-    IGNITE_API void begin_async(ignite_callback<transaction> callback, transaction_options tx_opts) {
+    IGNITE_API void begin_async(transaction_options tx_opts, ignite_callback<transaction> callback) {
         auto writer_func = [this, &tx_opts](protocol::writer &writer, auto) {
             writer.write_bool(tx_opts.is_read_only());
             writer.write(tx_opts.get_timeout_millis());

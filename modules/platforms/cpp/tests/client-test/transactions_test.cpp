@@ -459,19 +459,19 @@ TEST_F(transactions_test, tx_successful_when_timeout_does_not_exceed) {
 TEST_F(transactions_test, tx_failed_when_timeout_exceeds) {
     auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
 
-    auto timeout = std::chrono::seconds{1};
+    auto timeout_ms = 1'000L;
 
     int64_t key = 42;
     std::string val = "Lorem ipsum";
     auto tx_opts = transaction_options()
-        .set_timeout_millis(std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count())
+        .set_timeout_millis(timeout_ms)
         .set_read_only(false);
 
     auto tx = m_client.get_transactions().begin(tx_opts);
 
     record_view.insert(&tx, get_tuple(key, val));
 
-    std::this_thread::sleep_for(timeout * 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds{timeout_ms * 2});
 
     EXPECT_THROW(
         {

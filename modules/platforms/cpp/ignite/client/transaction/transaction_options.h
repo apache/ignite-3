@@ -22,23 +22,34 @@
  */
 class transaction_options {
 public:
-    transaction_options() = default;
-    ~transaction_options() = default;
-    transaction_options(const transaction_options&) = default;
-    transaction_options(transaction_options &&) = default;
-    transaction_options &operator=(const transaction_options &other) = default;
-    transaction_options &operator=(transaction_options &&other) = default;
-
+    /**
+     * Transaction timeout.
+     * @return Transaction timeout in milliseconds.
+     */
     [[nodiscard]] std::int64_t get_timeout_millis() const { return m_timeout_millis; }
 
-    transaction_options& set_timeout_millis(std::int64_t timeout_millis) {
+    /**
+     * Sets new value for transaction timeout.
+     * @param timeout_millis Transaction timeout in milliseconds.
+     * @return Reference to this for chaining.
+     */
+    transaction_options & set_timeout_millis(std::int64_t timeout_millis) {
         m_timeout_millis = timeout_millis;
         return *this;
     }
 
+    /**
+     * Transaction allow only read operations.
+     * @return True if only read operation are allowed false otherwise.
+     */
     [[nodiscard]] bool is_read_only() const { return m_read_only; }
 
-    transaction_options& set_read_only(bool read_only) {
+    /**
+     * Change transaction to be read-only or read-write.
+     * @param read_only True if new type should read-only, false if read-write.
+     * @return Reference to this for chaining.
+     */
+    transaction_options & set_read_only(bool read_only) {
         m_read_only = read_only;
         return *this;
     }
