@@ -21,9 +21,11 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
@@ -33,6 +35,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -48,7 +52,7 @@ public class ClientComputeExecuteColocatedRequest {
      * @param tables Tables.
      * @param cluster Cluster service
      * @param notificationSender Notification sender.
-     * @param enablePlatformJobs Enable platform jobs.
+     * @param clientContext Client context.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -57,24 +61,30 @@ public class ClientComputeExecuteColocatedRequest {
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs) {
+            ClientContext clientContext
+    ) {
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
+                    Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .tableName(table.name())
+                            .initiatorClient(clientContext.remoteAddress().toString())
+                            .eventUser(clientContext.userDetails());
+
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,
                             keyTuple,
                             job.deploymentUnits(),
                             job.jobClassName(),
                             job.options(),
-                            ComputeEventMetadata.builder(), // TODO IGNITE-26115
+                            metadataBuilder,
                             job.arg(),
                             null
                     );
