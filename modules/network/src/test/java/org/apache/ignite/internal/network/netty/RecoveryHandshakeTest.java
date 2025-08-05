@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -765,7 +766,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
-                () -> List.of(initiatorSideChannel.eventLoop()),
+                new HandshakeEventLoopSwitcher(List.of(initiatorSideChannel.eventLoop())),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},
@@ -801,7 +802,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
-                () -> List.of(acceptorSideChannel.eventLoop()),
+                new HandshakeEventLoopSwitcher(List.of(acceptorSideChannel.eventLoop())),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},

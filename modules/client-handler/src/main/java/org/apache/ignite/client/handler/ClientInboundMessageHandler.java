@@ -140,6 +140,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -259,6 +260,8 @@ public class ClientInboundMessageHandler
 
     private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
+    private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
+
     /**
      * Constructor.
      *
@@ -297,7 +300,8 @@ public class ClientInboundMessageHandler
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc
+            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -329,6 +333,7 @@ public class ClientInboundMessageHandler
         this.clockService = clockService;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
@@ -460,17 +465,18 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            authenticationManager
-                    .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
-                    .handleAsync((user, err) -> {
-                        if (err != null) {
-                            handshakeError(ctx, packer, err);
-                        } else {
-                            handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
-                        }
+            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(
+                    channelHandlerContext.channel(),
+                    () -> authenticationManager.authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
+                            .handleAsync((user, err) -> {
+                                if (err != null) {
+                                    handshakeError(ctx, packer, err);
+                                } else {
+                                    handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
+                                }
 
-                        return null;
-                    }, ctx.executor());
+                                return null;
+                            }, ctx.executor()));
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
         }
