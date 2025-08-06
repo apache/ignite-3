@@ -476,8 +476,8 @@ public class ClientInboundMessageHandler
 
                                         return null;
                                     }, ctx.executor()))
-                    .exceptionally(throwable -> {
-                        packer.close();
+                    .exceptionally(t -> {
+                        handshakeError(ctx, packer, t);
 
                         return null;
                     });
