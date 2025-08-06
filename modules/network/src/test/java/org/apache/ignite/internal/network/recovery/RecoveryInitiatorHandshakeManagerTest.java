@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -191,9 +192,11 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 new HandshakeEventLoopSwitcher(List.of()) {
                     @Override
-                    public void switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
                         // No need to switch event loop in tests, so we just call the callback immediately.
                         afterSwitching.run();
+
+                        return nullCompletedFuture();
                     }
                 },
                 new AllIdsAreFresh(),
