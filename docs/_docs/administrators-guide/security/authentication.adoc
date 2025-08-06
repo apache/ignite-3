@@ -18,14 +18,40 @@ Ignite 3 provides basic Authentication capabilities.
 
 == Basic Authentication
 
-To start using basic authentication on the cluster, you need to enable it and create an initial administrator user. By default, the role that grants administrator permissions is called `admin`, but you can change it in cluster configuration. Here is an example of configuration that initializes the cluster and enables security on it:
+To start using basic authentication on the cluster, you need to enable it and create an initial administrator user.
+By default, the role that grants administrator permissions is called `admin`, but you can change it in cluster configuration.
 
+Here is an example of configuration that initializes the cluster and enables security on it:
+
+- Prepare cluster configuration file with security configuration:
++
 ----
-cluster init --name=sampleCluster --config=ignite{security{enabled:true,authentication.providers:[{name:default,type:basic,users:[{username:ignite,displayName:administrator,password:ignite,roles:["system"]}]}]}}
+ignite {
+  security {
+    enabled:true
+	authentication {
+	  providers=[
+	    {
+          name=default
+          type=basic
+          users=[
+            {
+              username=ignite
+              password="ignite"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
 ----
 
-When cluster has been initialized, it has basic authorization configured for `ignite` user name and `ignite` password with system level access. However, by default security is disabled. To enable it:
-
+- When cluster has been initialized, it has basic authorization configured for `ignite` user name and `ignite` password with system level access.
+However, by default security is disabled.
+To enable it:
++
+[source, bash]
 ----
 cluster config update ignite.security.enabled=true
 ----
@@ -34,12 +60,14 @@ WARNING: If you lose access to all accounts with system role, you will lose admi
 
 After authorization is enabled, you will be disconnected from the cluster and must reconnect to the cluster:
 
+[source, bash]
 ----
 connect http://127.0.0.1:10300 --username ignite --password ignite
 ----
 
 You can change the password for the default user by updating cluster configuration, for example:
 
+[source, bash]
 ----
-cluster config update  ignite.security.authentication.providers.default.users.ignite.password=myPass
----
+cluster config update ignite.security.authentication.providers.default.users.ignite.password=myPass
+----
