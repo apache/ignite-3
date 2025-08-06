@@ -17,19 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +34,6 @@ import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -58,8 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Partition predicate encapsulates partition pruning logic.
  */
 public final class PartitionPruningPredicate {
-
-    private static final ZoneId ZONE_ID_UTC = ZoneId.of("UTC");
 
     private PartitionPruningPredicate() {
     }
@@ -223,32 +215,5 @@ public final class PartitionPruningPredicate {
         }
 
         return val;
-    }
-
-    private static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        if (physicalType.spec() == ColumnType.DATE) {
-            Calendar calendar = lit.getValueAs(Calendar.class);
-            Instant instant = calendar.toInstant();
-            return LocalDate.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == ColumnType.TIME) {
-            Calendar calendar = lit.getValueAs(Calendar.class);
-            Instant instant = calendar.toInstant();
-
-            return LocalTime.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
-            TimestampString timestampString = lit.getValueAs(TimestampString.class);
-            assert timestampString != null;
-
-            return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-        } else if (physicalType.spec() == ColumnType.DATETIME) {
-            TimestampString timestampString = lit.getValueAs(TimestampString.class);
-            assert timestampString != null;
-
-            Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-            return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
-        } else {
-            Class<?> javaClass = physicalType.spec().javaClass();
-            return lit.getValueAs(javaClass);
-        }
     }
 }

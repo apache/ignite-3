@@ -17,14 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
+
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.ColocationUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -96,7 +104,10 @@ public class PartitionAwarenessMetadataExtractor {
 
         // colocation key index to dynamic param index
         int[] indexes = new int[colocationKeys.size()];
-        int[] hash = new int[0];
+        IntArrayList hashFields = new IntArrayList(colocationKeys.size() / 2);
+
+        boolean onlyLiterals = true;
+        int hashPos = -1;
 
         for (int i = 0; i < colocationKeys.size(); i++) {
             int colIdx = colocationKeys.get(i);
@@ -112,10 +123,30 @@ public class PartitionAwarenessMetadataExtractor {
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
                 indexes[i] = dynamicParam.getIndex();
+                onlyLiterals = false;
+            } else if (expr instanceof RexLiteral) {
+                RexLiteral expr0 = (RexLiteral) expr;
+
+                // depends on supplied zoneId, it can`t be cached
+                if (expr0.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    return null;
+                }
+
+                indexes[i] = hashPos--;
+                NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(expr0.getType());
+                Object val = getValueFromLiteral(nativeType, expr0);
+                hashFields.add(ColocationUtils.hash(val, nativeType));
             } else {
                 return null;
             }
         }
+
+        // case for IgniteKeyValueModify with only literals in colocation columns.
+        if (fullRow && onlyLiterals) {
+            return null;
+        }
+
+        int[] hash = hashFields.toArray(new int[0]);
 
         return new PartitionAwarenessMetadata(igniteTable.id(), indexes, hash, directTxMode);
     }
