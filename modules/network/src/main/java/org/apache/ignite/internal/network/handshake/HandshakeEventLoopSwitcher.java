@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.handshake;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelId;
 import io.netty.channel.EventLoop;
@@ -24,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -54,14 +57,19 @@ public class HandshakeEventLoopSwitcher {
      *
      * @param channel The channel to potentially switch to a different event loop.
      * @param afterSwitching A callback to execute after the switching operation.
+     * @return A CompletableFuture that completes when the event loop is switched.
      */
-    public void switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
         EventLoop targetEventLoop = eventLoopForKey(channel.id());
 
         if (targetEventLoop != channel.eventLoop()) {
+            CompletableFuture<Void> fut = new CompletableFuture<>();
+
             channel.deregister().addListener(deregistrationFuture -> {
                 if (!deregistrationFuture.isSuccess()) {
                     LOG.error("Cannot deregister a channel from an event loop", deregistrationFuture.cause());
+
+                    fut.completeExceptionally(deregistrationFuture.cause());
 
                     channel.close();
 
@@ -72,6 +80,8 @@ public class HandshakeEventLoopSwitcher {
                     if (!registrationFuture.isSuccess()) {
                         LOG.error("Cannot register a channel with an event loop", registrationFuture.cause());
 
+                        fut.completeExceptionally(deregistrationFuture.cause());
+
                         channel.close();
 
                         return;
@@ -81,12 +91,18 @@ public class HandshakeEventLoopSwitcher {
                         channelUnregistered(channel);
                     });
 
+                    fut.complete(null);
+
                     afterSwitching.run();
                 });
             });
-        } else {
-            afterSwitching.run();
+
+            return fut;
         }
+
+        afterSwitching.run();
+
+        return nullCompletedFuture();
     }
 
     /**
