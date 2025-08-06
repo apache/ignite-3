@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
@@ -505,7 +504,8 @@ public class ClientInboundMessageHandler
             actualFeatures = this.features;
         }
 
-        clientContext = new ClientContext(clientVer, clientCode, HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures), user);
+        BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
+        clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
 
         sendHandshakeResponse(ctx, packer, actualFeatures);
     }
@@ -897,8 +897,7 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(TX_PIGGYBACK));
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
@@ -907,7 +906,7 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
@@ -917,7 +916,7 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:

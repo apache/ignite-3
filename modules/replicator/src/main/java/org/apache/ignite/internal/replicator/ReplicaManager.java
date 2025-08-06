@@ -1225,12 +1225,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public void destroyReplicationProtocolStoragesOnStartup(ReplicationGroupId replicaGrpId)
             throws NodeStoppingException {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         // We use 'isVolatileStorage' of false because on startup it's not a problem if the value is wrong. If it actually
         // was volatile, the log storage is already destroyed on an earlier phase of node startup, so we will just issue an excessive
         // log storage destruction request, and it's not a problem as persistent log storage with same table/zone ID cannot exist
         // if the storage was volatile.
-        RaftGroupOptions groupOptions = groupOptionsForPartition(false, null);
+        destroyReplicationProtocolStorages(replicaGrpId, false);
+    }
+
+    /**
+     * Destroys replication protocol storages for the given group ID.
+     *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param isVolatileStorage is table storage volatile?
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void destroyReplicationProtocolStorages(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
+            throws NodeStoppingException {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
         ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
     }
