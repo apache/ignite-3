@@ -64,6 +64,7 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.TaskStateImpl;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -108,6 +109,7 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
@@ -147,7 +149,6 @@ public class FakeCompute implements IgniteComputeInternal {
         return jobExecution(resFut);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
@@ -155,6 +156,7 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             ComputeJobDataHolder args,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -170,6 +172,7 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -191,6 +194,7 @@ public class FakeCompute implements IgniteComputeInternal {
                     descriptor.units(),
                     descriptor.jobClassName(),
                     descriptor.options(),
+                    ComputeEventMetadata.builder(),
                     SharedComputeUtils.marshalArgOrResult(arg, null, observableTimestamp.longValue()),
                     cancellationToken
             ).thenApply(internalExecution -> unmarshalingExecution(descriptor, internalExecution));

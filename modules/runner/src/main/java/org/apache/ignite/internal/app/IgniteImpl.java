@@ -1212,7 +1212,13 @@ public class IgniteImpl implements Ignite {
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
-                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
+                this,
+                stateMachine,
+                computeCfg,
+                clusterSvc.topologyService(),
+                clockService,
+                eventLog
+        );
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
