@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-#include "ignite/client/transaction/transactions.h"
-#include "ignite/client/detail/transaction/transactions_impl.h"
+package org.apache.ignite.internal.compute.events;
 
-namespace ignite {
+import org.apache.ignite.compute.IgniteCompute;
 
-void transactions::begin_async(transaction_options tx_opts, ignite_callback<transaction> callback) {
-    m_impl->begin_async(tx_opts, std::move(callback));
+class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
+    @Override
+    protected IgniteCompute compute() {
+        return node(0).compute();
+    }
 }
-
-void transactions::begin_async(ignite_callback<transaction> callback) {
-    m_impl->begin_async({}, std::move(callback));
-}
-
-} // namespace ignite
