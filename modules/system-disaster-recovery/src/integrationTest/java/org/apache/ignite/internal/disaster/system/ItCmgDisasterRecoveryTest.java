@@ -343,7 +343,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26136")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26144")
     void repairWorksWhenCmgMajorityIsOnline() throws Exception {
         startAndInitCluster(3, new int[]{0, 1, 2}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
