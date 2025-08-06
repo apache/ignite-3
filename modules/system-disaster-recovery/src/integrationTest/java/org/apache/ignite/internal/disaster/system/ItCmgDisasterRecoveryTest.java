@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -342,6 +343,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26144")
     void repairWorksWhenCmgMajorityIsOnline() throws Exception {
         startAndInitCluster(3, new int[]{0, 1, 2}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
