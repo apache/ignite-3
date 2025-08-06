@@ -310,11 +310,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         return partitionAwarenessMetadataCacheSize.value();
     }
 
-    @Override
-    public void setPartitionAwarenessMetadataCacheSize(int size) throws SQLException {
-        partitionAwarenessMetadataCacheSize.setValue(size);
-    }
-
     /**
      * Init connection properties.
      *
