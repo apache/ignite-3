@@ -408,8 +408,8 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    long totalDurationInSeconds = tracker.checkpointDuration(SECONDS);
                     long totalWriteBytes = (long) pageSize * chp.dirtyPagesSize;
+                    long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
@@ -420,7 +420,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
                             tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
-                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInSeconds)
+                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                     );
                 }
             }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
@@ -287,15 +288,15 @@ public class Compactor extends IgniteWorker {
             tracker.onCompactionEnd();
 
             if (LOG.isInfoEnabled()) {
-                long totalDurationInSeconds = tracker.totalDuration(SECONDS);
                 long totalWriteBytes = (long) pageSize * tracker.dataPagesWritten();
+                long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
 
                 LOG.info(
                         "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
                         compactionId,
                         tracker.dataPagesWritten(),
                         tracker.totalDuration(MILLISECONDS),
-                        WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInSeconds)
+                        WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                 );
             }
         }
