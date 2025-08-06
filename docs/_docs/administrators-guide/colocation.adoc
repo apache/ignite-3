@@ -22,7 +22,7 @@ For example, if you have `Person` and `Company` objects, and each person has the
 
 == Configuring Colocation Key
 
-Data colocation is configured during table creation by using the `COLOCATE BY` clause. The colummns used to colocate data must be in the primary key and must be specified in the same order as the `PRIMARY KEY` of the main table.
+Data colocation is configured during table creation by using the `COLOCATE BY` clause. The columns used to colocate data must be in the primary key and must be specified in the same order as the `PRIMARY KEY` of the main table.
 
 For example, the table below will colocate data for people based on the `city_id` column:
 
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS Person (
   name varchar,
   age int,
   company varchar
-) COLOCATE BY (city_id)
+) COLOCATE BY (city_id);
 ----
 
 When using composite primary keys, you can specify multiple columns to colocate data by:
@@ -43,9 +43,9 @@ CREATE TABLE Company (
   company_id int,
   department_id int,
   city_id int,
-  company_name timestamp,
+  company_name varchar,
   PRIMARY KEY (company_id, city_id)
-)
+);
 
 CREATE TABLE IF NOT EXISTS Person (
   id int,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS Person (
   company_id int,
   PRIMARY KEY (id, company_id, city_id)
 )
-COLOCATE BY (company_id, city_id)
+COLOCATE BY (company_id, city_id);
 ----
 
 In this case, Ignite will try to colocate these tables together for storage.
