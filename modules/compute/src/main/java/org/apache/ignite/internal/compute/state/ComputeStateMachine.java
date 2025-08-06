@@ -60,12 +60,13 @@ public interface ComputeStateMachine {
     void executeJob(UUID jobId);
 
     /**
-     * Tries to transfer Compute Job to canceling status, it means that execution may continue.
+     * Tries to transfer Compute Job to canceling or canceled status, it means that execution may continue.
      *
      * @param jobId Compute job identifier.
+     * @return Resulting status (with canceled state if the job was in the queued state or canceling if it's already executing).
      * @throws IllegalJobStatusTransition in case when job can't be transferred to canceling status.
      */
-    void cancelingJob(UUID jobId);
+    JobState cancelingJob(UUID jobId);
 
     /**
      * Tries to transfer Compute Job to cancel status, it means that execution canceled.
