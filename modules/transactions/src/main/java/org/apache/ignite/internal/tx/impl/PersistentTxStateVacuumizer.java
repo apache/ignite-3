@@ -44,6 +44,8 @@ import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
@@ -178,7 +180,15 @@ public class PersistentTxStateVacuumizer {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
-                GroupOverloadedException.class
+                GroupOverloadedException.class,
+                // ReplicationException and ReplicationTimeoutException can be thrown from ReplicaService on receiver node, when there
+                // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
+                // on the receiver (during rebalancing, or distribution zone is deleted, etc.).
+                // We can ignore the exception in this case because we rely on the placement driver, that it won't prolong the non-existing
+                // replica's lease, the primary replica will be moved to another node and that another node will handle the vacummization of
+                // the persistent tx state.
+                ReplicationException.class,
+                ReplicationTimeoutException.class
         );
     }
 
