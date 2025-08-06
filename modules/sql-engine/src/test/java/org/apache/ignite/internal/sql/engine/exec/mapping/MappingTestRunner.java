@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -48,9 +49,12 @@ import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -174,8 +178,16 @@ final class MappingTestRunner {
             }
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
+            
+            IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+            rel = pair.second();
+            
+            PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor().go(rel);
+            
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata, schema.catalogVersion(), null);
+                    resultSetMetadata, parameterMetadata, schema.catalogVersion(),
+                    pair.firstInt(), null, null, partitionPruningMetadata
+            );
 
             String actualText =
                     produceMapping(testDef.nodeName, executionDistributionProvider, snapshot, multiStepPlan, testDef.primaryRead);

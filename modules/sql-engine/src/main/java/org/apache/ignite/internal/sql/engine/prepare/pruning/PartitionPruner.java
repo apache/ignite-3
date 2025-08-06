@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
+import org.jetbrains.annotations.Nullable;
 
 /** Applies partition pruning. */
 @FunctionalInterface
@@ -32,5 +33,5 @@ public interface PartitionPruner {
      *
      * @return New list of mapped fragments, if partition pruning was applied. Otherwise returns `mappedFragments`.
      */
-    List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters);
+    List<MappedFragment> apply(List<MappedFragment> mappedFragments, Object[] dynamicParameters, PartitionPruningMetadata metadata);
 }

@@ -317,7 +317,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
                 )
         );
     }
-
+    
     private void addTableSingle(String name, String... nodes) {
         TreeSet<String> nodeNames = new TreeSet<>(Arrays.asList(nodes));
         String tableName = formatName(name, nodeNames);

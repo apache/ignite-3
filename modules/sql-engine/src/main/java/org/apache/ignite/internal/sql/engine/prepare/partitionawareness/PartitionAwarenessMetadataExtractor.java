@@ -24,6 +24,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,13 +53,30 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionAwarenessMetadataExtractor {
 
     /**
+     * Extracts partition awareness metadata from the given plan.
+     *
+     * @param rel Plan.
+     * @return Metadata.
+     */
+    @Nullable
+    public static PartitionAwarenessMetadata getMetadata(IgniteRel rel) {
+        if (rel instanceof IgniteKeyValueGet) {
+            return getMetadata((IgniteKeyValueGet) rel);
+        } else if (rel instanceof IgniteKeyValueModify) {
+            return getMetadata((IgniteKeyValueModify) rel);
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * Extracts partition awareness metadata from the given IgniteKeyValueGet plan.
      *
      * @param kv IgniteKeyValueGet Plan.
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueGet kv) {
+    private static PartitionAwarenessMetadata getMetadata(IgniteKeyValueGet kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
@@ -74,7 +92,7 @@ public class PartitionAwarenessMetadataExtractor {
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueModify kv) {
+    private static PartitionAwarenessMetadata getMetadata(IgniteKeyValueModify kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 

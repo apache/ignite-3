@@ -2,17 +2,17 @@
 N0
 SELECT * FROM t4_n0n1_n2n1
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N0]
-  exchangeSourceNodes: {1=[N0, N1]}
+  exchangeSourceNodes: {2=[N0, N1]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T4_N0N1_N2N1 in zone ZONE_4
   executionNodes: [N0, N1]
   targetNodes: [N0]
@@ -20,7 +20,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100004)
       TableScan
           table: PUBLIC.T4_N0N1_N2N1
@@ -32,17 +32,17 @@ N0
 SELECT * FROM t4_n0n1_n2n1
 READ_FROM_PRIMARY
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N0]
-  exchangeSourceNodes: {1=[N0, N2]}
+  exchangeSourceNodes: {2=[N0, N2]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T4_N0N1_N2N1 in zone ZONE_4
   executionNodes: [N0, N2]
   targetNodes: [N0]
@@ -50,7 +50,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100004)
       TableScan
           table: PUBLIC.T4_N0N1_N2N1
@@ -61,17 +61,17 @@ Fragment#1
 N0
 SELECT * FROM t1_n0n1_n1n2
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N0]
-  exchangeSourceNodes: {1=[N0, N1]}
+  exchangeSourceNodes: {2=[N0, N1]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T1_N0N1_N1N2 in zone ZONE_1
   executionNodes: [N0, N1]
   targetNodes: [N0]
@@ -79,7 +79,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N0N1_N1N2
@@ -90,17 +90,17 @@ Fragment#1
 N1
 SELECT * FROM t1_n0n1_n1n2
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {1=[N1]}
+  exchangeSourceNodes: {2=[N1]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T1_N0N1_N1N2 in zone ZONE_1
   executionNodes: [N1]
   targetNodes: [N1]
@@ -108,7 +108,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N0N1_N1N2
@@ -120,17 +120,17 @@ N1
 SELECT * FROM t1_n0n1_n1n2
 READ_FROM_PRIMARY
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {1=[N0, N1]}
+  exchangeSourceNodes: {2=[N0, N1]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T1_N0N1_N1N2 in zone ZONE_1
   executionNodes: [N0, N1]
   targetNodes: [N1]
@@ -138,7 +138,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N0N1_N1N2
@@ -149,17 +149,17 @@ Fragment#1
 N2
 SELECT * FROM t1_n0n1_n1n2
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N2]
-  exchangeSourceNodes: {1=[N0, N2]}
+  exchangeSourceNodes: {2=[N0, N2]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T1_N0N1_N1N2 in zone ZONE_1
   executionNodes: [N0, N2]
   targetNodes: [N2]
@@ -167,7 +167,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N0N1_N1N2
@@ -179,17 +179,17 @@ N2
 SELECT * FROM t1_n0n1_n1n2
 READ_FROM_PRIMARY
 ---
-Fragment#0 root
+Fragment#1 root
   distribution: single
   executionNodes: [N2]
-  exchangeSourceNodes: {1=[N0, N1]}
+  exchangeSourceNodes: {2=[N0, N1]}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 2
         est: (rows=1)
 
-Fragment#1
+Fragment#2
   distribution: table PUBLIC.T1_N0N1_N1N2 in zone ZONE_1
   executionNodes: [N0, N1]
   targetNodes: [N2]
@@ -197,7 +197,7 @@ Fragment#1
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 1
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N0N1_N1N2
@@ -208,26 +208,26 @@ Fragment#1
 N0
 SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
-Fragment#0 root
+Fragment#2 root
   distribution: single
   executionNodes: [N0]
-  exchangeSourceNodes: {1=[N1]}
+  exchangeSourceNodes: {3=[N1]}
   tree: 
     Receiver
         fieldNames: [ID0, C10, C20, ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 3
         est: (rows=1)
 
-Fragment#1
+Fragment#3
   distribution: table PUBLIC.T3_N1N2 in zone ZONE_3
   executionNodes: [N1]
   targetNodes: [N0]
-  exchangeSourceNodes: {3=[N1]}
+  exchangeSourceNodes: {4=[N1]}
   partitions: [T3_N1N2=[N1={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=15000)
       Project
           fieldNames: [ID0, C10, C20, ID, C1, C2]
@@ -244,10 +244,10 @@ Fragment#1
               est: (rows=100003)
           Receiver
               fieldNames: [ID, C1, C2]
-              sourceFragmentId: 3
+              sourceFragmentId: 4
               est: (rows=1)
 
-Fragment#3
+Fragment#4
   distribution: table PUBLIC.T2_N0N1N2 in zone ZONE_2
   executionNodes: [N1]
   targetNodes: [N1]
@@ -255,7 +255,7 @@ Fragment#3
   tree: 
     Sender
         distribution: table PUBLIC.T3_N1N2 in zone ZONE_3 by [ID]
-        targetFragmentId: 1
+        targetFragmentId: 3
         est: (rows=33301)
       TableScan
           table: PUBLIC.T2_N0N1N2
@@ -267,26 +267,26 @@ Fragment#3
 N1
 SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
-Fragment#0 root
+Fragment#2 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {1=[N1]}
+  exchangeSourceNodes: {3=[N1]}
   tree: 
     Receiver
         fieldNames: [ID0, C10, C20, ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 3
         est: (rows=1)
 
-Fragment#1
+Fragment#3
   distribution: table PUBLIC.T3_N1N2 in zone ZONE_3
   executionNodes: [N1]
   targetNodes: [N1]
-  exchangeSourceNodes: {3=[N1]}
+  exchangeSourceNodes: {4=[N1]}
   partitions: [T3_N1N2=[N1={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=15000)
       Project
           fieldNames: [ID0, C10, C20, ID, C1, C2]
@@ -303,10 +303,10 @@ Fragment#1
               est: (rows=100003)
           Receiver
               fieldNames: [ID, C1, C2]
-              sourceFragmentId: 3
+              sourceFragmentId: 4
               est: (rows=1)
 
-Fragment#3
+Fragment#4
   distribution: table PUBLIC.T2_N0N1N2 in zone ZONE_2
   executionNodes: [N1]
   targetNodes: [N1]
@@ -314,7 +314,7 @@ Fragment#3
   tree: 
     Sender
         distribution: table PUBLIC.T3_N1N2 in zone ZONE_3 by [ID]
-        targetFragmentId: 1
+        targetFragmentId: 3
         est: (rows=33301)
       TableScan
           table: PUBLIC.T2_N0N1N2
@@ -326,26 +326,26 @@ Fragment#3
 N2
 SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
-Fragment#0 root
+Fragment#2 root
   distribution: single
   executionNodes: [N2]
-  exchangeSourceNodes: {1=[N2]}
+  exchangeSourceNodes: {3=[N2]}
   tree: 
     Receiver
         fieldNames: [ID0, C10, C20, ID, C1, C2]
-        sourceFragmentId: 1
+        sourceFragmentId: 3
         est: (rows=1)
 
-Fragment#1
+Fragment#3
   distribution: table PUBLIC.T3_N1N2 in zone ZONE_3
   executionNodes: [N2]
   targetNodes: [N2]
-  exchangeSourceNodes: {3=[N2]}
+  exchangeSourceNodes: {4=[N2]}
   partitions: [T3_N1N2=[N2={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=15000)
       Project
           fieldNames: [ID0, C10, C20, ID, C1, C2]
@@ -362,10 +362,10 @@ Fragment#1
               est: (rows=100003)
           Receiver
               fieldNames: [ID, C1, C2]
-              sourceFragmentId: 3
+              sourceFragmentId: 4
               est: (rows=1)
 
-Fragment#3
+Fragment#4
   distribution: table PUBLIC.T2_N0N1N2 in zone ZONE_2
   executionNodes: [N2]
   targetNodes: [N2]
@@ -373,7 +373,7 @@ Fragment#3
   tree: 
     Sender
         distribution: table PUBLIC.T3_N1N2 in zone ZONE_3 by [ID]
-        targetFragmentId: 1
+        targetFragmentId: 3
         est: (rows=33301)
       TableScan
           table: PUBLIC.T2_N0N1N2
