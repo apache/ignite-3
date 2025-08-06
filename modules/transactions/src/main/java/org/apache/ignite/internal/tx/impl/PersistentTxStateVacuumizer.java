@@ -176,7 +176,7 @@ public class PersistentTxStateVacuumizer {
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
     }
 
-    private boolean expectedException(Throwable e) {
+    private static boolean expectedException(Throwable e) {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
