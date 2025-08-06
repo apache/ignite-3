@@ -20,7 +20,6 @@ package org.apache.ignite.example.tx;
 import static java.sql.DriverManager.getConnection;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -90,7 +89,7 @@ public class TransactionsExample {
             /* Drop table */
             System.out.println("\nDropping the table...");
             try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
                     Statement stmt = conn.createStatement()
             ) {
                 stmt.executeUpdate("DROP TABLE IF EXISTS accounts");
