@@ -230,12 +230,4 @@ public interface ConnectionProperties {
      * @return The size of the partition awareness metadata cache.
      */
     int getPartitionAwarenessMetadataCacheSize();
-
-    /**
-     * Set the size of the partition awareness metadata cache.
-     *
-     * @param size Cache size.
-     * @throws SQLException If the specified value is out of the allowed range (0 - {@link Integer#MAX_VALUE}).
-     */
-    void setPartitionAwarenessMetadataCacheSize(int size) throws SQLException;
 }
