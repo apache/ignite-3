@@ -498,7 +498,7 @@ public class JitComparatorGenerator {
                         .condition(and(outerIsPrefix, equal(constantInt(i + 1), prefixColumns)))
                         .ifTrue(inlineIf(
                                 equal(bitwiseAnd(outerFlagExpression, constantInt(EQUALITY_FLAG)), constantInt(0)),
-                                // Collation is ignored for prefixes, for some reason. The order is hard-coded.
+                                // Collation is ignored for prefixes.
                                 constantInt(-1),
                                 constantInt(1)
                         ).ret())

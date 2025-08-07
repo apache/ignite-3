@@ -27,15 +27,15 @@ import org.jetbrains.annotations.Nullable;
  * Options for {@link JitComparator} generation.
  */
 public class JitComparatorOptions {
-    private List<CatalogColumnCollation> columnCollations;
+    private final List<CatalogColumnCollation> columnCollations;
 
-    private List<NativeType> columnTypes;
+    private final List<NativeType> columnTypes;
 
-    private List<Boolean> nullableFlags;
+    private final List<Boolean> nullableFlags;
 
-    private @Nullable String className;
+    private final @Nullable String className;
 
-    boolean supportPrefixes;
+    private final boolean supportPrefixes;
 
     private JitComparatorOptions(
             List<CatalogColumnCollation> columnCollations,
