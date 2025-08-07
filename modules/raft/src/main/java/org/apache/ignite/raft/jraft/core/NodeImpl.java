@@ -2341,7 +2341,7 @@ public class NodeImpl implements Node, RaftServerService {
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
             ByteBuffer allData;
             if (request.data() != null) {
-                allData = request.data();
+                allData = request.data().duplicate();
                 allData.limit(0);
             } else {
                 allData = EMPTY_BYTE_BUFFER;
