@@ -22,6 +22,7 @@ import static org.apache.ignite.configuration.notifications.ConfigurationListene
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -82,9 +83,9 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
             }
         }
 
-        for (String type : cache.keySet()) {
-            if (!newCache.containsKey(type)) {
-                cache.get(type).stop();
+        for (Entry<String, Sink<?>> entry : cache.entrySet()) {
+            if (!newCache.containsKey(entry.getKey())) {
+                entry.getValue().stop();
             }
         }
 
