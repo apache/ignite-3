@@ -122,6 +122,6 @@ Partition Awareness,{yes},{yes},No
 Transactions,{yes},{yes},{yes}
 Compute API,{yes},{yes},{yes}
 Retry Policy,{yes},{yes},No
-Heartbeats,{yes},{yes},No
+Heartbeats,{yes},{yes},{yes}
 Data Streamer,{yes},{yes},No
 |===
