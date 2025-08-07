@@ -1915,7 +1915,7 @@ public class PersistentPageMemory implements PageMemory {
      *      checkpoint temporary buffer is used.
      * @param pageStoreWriter Checkpoint page writer.
      * @param tracker Checkpoint metrics tracker.
-     * @param useTryWriteLockLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
+     * @param useTryWriteLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
      *      <b>write lock</b> on page.
      */
     private void copyPageForCheckpoint(
@@ -1926,12 +1926,12 @@ public class PersistentPageMemory implements PageMemory {
             boolean pageSingleAcquire,
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker,
-            boolean useTryWriteLockLockOnPage
+            boolean useTryWriteLockOnPage
     ) throws IgniteInternalCheckedException {
         assert absPtr != 0 : hexLong(fullId.pageId());
         assert isAcquired(absPtr) || !isInCheckpoint(fullId) : hexLong(fullId.pageId());
 
-        if (useTryWriteLockLockOnPage) {
+        if (useTryWriteLockOnPage) {
             if (!rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
                 // We release the page only once here because this page will be copied sometime later and
                 // will be released properly then.
@@ -2026,7 +2026,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param buf Temporary buffer to write changes into.
      * @param pageStoreWriter Checkpoint page write context.
      * @param tracker Checkpoint metrics tracker.
-     * @param useTryWriteLockLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
+     * @param useTryWriteLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
      *      <b>write lock</b> on page.
      * @throws IgniteInternalCheckedException If failed to obtain page data.
      */
@@ -2035,9 +2035,9 @@ public class PersistentPageMemory implements PageMemory {
             ByteBuffer buf,
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker,
-            boolean useTryWriteLockLockOnPage
+            boolean useTryWriteLockOnPage
     ) throws IgniteInternalCheckedException {
-        assert buf.remaining() == pageSize() : buf.remaining();
+        assert buf.remaining() == pageSize() : "fullId=" + hexLong(fullId.pageId()) + ", remaining=" + buf.remaining();
 
         Segment seg = segment(fullId.groupId(), fullId.pageId());
 
@@ -2114,7 +2114,7 @@ public class PersistentPageMemory implements PageMemory {
                 pageSingleAcquire,
                 pageStoreWriter,
                 tracker,
-                useTryWriteLockLockOnPage
+                useTryWriteLockOnPage
         );
     }
 

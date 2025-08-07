@@ -232,7 +232,7 @@ public class CheckpointPagesWriter implements Runnable {
             boolean useTryWriteLockLockOnPage
     ) throws IgniteInternalCheckedException {
         // Should also be done for partitions that will be destroyed to remove their pages from the data region.
-        pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, true);
+        pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, useTryWriteLockLockOnPage);
 
         drainCheckpointBuffers(tmpWriteBuf);
     }
