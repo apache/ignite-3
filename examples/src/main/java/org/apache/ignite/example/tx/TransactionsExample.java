@@ -65,9 +65,7 @@ public class TransactionsExample {
             /* Using synchronous transactional API to update the balance */
             client.transactions().runInTransaction(tx -> {
                 Account acct = accounts.get(tx, key);
-                if (acct != null) {
-                    acct.balance += 200.0d;
-                }
+                acct.balance += 200.0d;
                 accounts.put(tx, key, acct);
             });
 
