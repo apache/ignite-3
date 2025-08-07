@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.JDBC_OVER_THIN_SQL_API;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
@@ -27,10 +28,12 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -49,6 +53,7 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
@@ -287,6 +292,38 @@ public class ClientSql implements IgniteSql {
             @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments) {
+        return executeAsyncInternal(
+                transaction,
+                mapper,
+                cancellationToken,
+                null,
+                statement,
+                arguments
+        );
+    }
+
+    /**
+     * Executes SQL statement in an asynchronous way.
+     *
+     * <p>Note: this method is not part of the public API, it is used to restrict execution of specific types of queries.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param statement SQL statement to execute.
+     * @param allowedQueryTypes Allowed SQL query types.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return Operation future.
+     */
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsyncInternal(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable Set<SqlQueryType> allowedQueryTypes,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(statement);
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
@@ -320,7 +357,7 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, statement, allowedQueryTypes, arguments, shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -382,6 +419,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
+            @Nullable Collection<SqlQueryType> allowedQueryTypes,
             @Nullable Object[] arguments,
             boolean requestAck
     ) {
@@ -410,6 +448,10 @@ public class ClientSql implements IgniteSql {
             if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
                 // Let's always request PA metadata from server, if enabled. Later we might introduce some throttling.
                 w.out().packBoolean(partitionAwarenessEnabled);
+            }
+
+            if (w.clientChannel().protocolContext().isFeatureSupported(JDBC_OVER_THIN_SQL_API)) {
+                packQueryTypes(allowedQueryTypes, w.out());
             }
 
             if (cancellationToken != null) {
@@ -570,6 +612,18 @@ public class ClientSql implements IgniteSql {
         }
 
         throw ExceptionUtils.sneakyThrow(ex);
+    }
+
+    private static void packQueryTypes(@Nullable Collection<SqlQueryType> queryTypes, ClientMessagePacker packer) {
+        if (queryTypes == null || queryTypes.isEmpty()) {
+            packer.packNil();
+        } else {
+            packer.packByte((byte) queryTypes.size());
+
+            for (SqlQueryType type : queryTypes) {
+                packer.packByte((byte) type.id());
+            }
+        }
     }
 
     private static class PaCacheKey {

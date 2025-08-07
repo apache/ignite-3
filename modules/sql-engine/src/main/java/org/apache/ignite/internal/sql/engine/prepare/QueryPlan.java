@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import javax.annotation.Nullable;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 

@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.SqlQueryType;
 
 /**
  * An object that keeps values of the properties.

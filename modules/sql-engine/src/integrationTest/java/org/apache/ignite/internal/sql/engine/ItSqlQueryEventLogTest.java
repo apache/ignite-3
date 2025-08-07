@@ -45,6 +45,7 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.QueryEventsFactory.FieldNames;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.CompletableFutures;

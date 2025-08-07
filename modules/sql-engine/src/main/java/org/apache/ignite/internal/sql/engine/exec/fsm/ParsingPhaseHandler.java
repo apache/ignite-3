@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.isMultiStatemen
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 
 /** Parses the query string and populate {@link Query query state} with results. */

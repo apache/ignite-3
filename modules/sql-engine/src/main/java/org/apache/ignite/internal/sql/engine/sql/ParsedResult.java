@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import org.apache.calcite.sql.SqlNode;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 
 /**
  * Result of the parse.

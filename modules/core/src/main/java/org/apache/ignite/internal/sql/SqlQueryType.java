@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -27,24 +27,53 @@ import java.util.stream.Collectors;
  */
 public enum SqlQueryType {
     /** Query. */
-    QUERY,
+    QUERY(0),
 
     /** DML. */
-    DML,
+    DML(1),
 
     /** DDL. */
-    DDL,
+    DDL(2),
 
     /** Explain. */
-    EXPLAIN,
+    EXPLAIN(3),
 
     /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
-    TX_CONTROL,
+    TX_CONTROL(4),
 
     /** Kill statement (such as {@code KILL QUERY <ID>}, {@code KILL TRANSACTION <ID>}, etc.  */
-    KILL,
+    KILL(5),
 
     ;
+
+    private static final SqlQueryType[] VALS = new SqlQueryType[values().length];
+
+    private final int id;
+
+    SqlQueryType(int id) {
+        this.id = id;
+    }
+
+    static {
+        for (SqlQueryType type : values()) {
+            assert VALS[type.id] == null : "Found duplicate id " + type.id;
+
+            VALS[type.id()] = type;
+        }
+    }
+
+    /** Returns operation type by identifier. */
+    public static SqlQueryType fromId(int id) {
+        if (id >= 0 && id < VALS.length) {
+            return VALS[id];
+        }
+
+        throw new IllegalArgumentException("Unexpected query type identifier: " + id);
+    }
+
+    public int id() {
+        return id;
+    }
 
     /** A set of statement types that can run only in single statement mode. **/
     public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.copyOf(Arrays.stream(values())

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.tostring.S;

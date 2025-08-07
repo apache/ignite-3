@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;

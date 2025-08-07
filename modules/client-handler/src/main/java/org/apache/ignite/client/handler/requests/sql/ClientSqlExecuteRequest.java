@@ -23,7 +23,9 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -39,10 +41,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -97,7 +99,8 @@ public class ClientSqlExecuteRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            @Nullable String username
+            @Nullable String username,
+            boolean jdbcOverThinSqlApiSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -117,6 +120,10 @@ public class ClientSqlExecuteRequest {
 
         boolean includePartitionAwarenessMeta = sqlPartitionAwarenessSupported && in.unpackBoolean();
 
+        Set<SqlQueryType> allowedQueryTypes = jdbcOverThinSqlApiSupported && !in.tryUnpackNil()
+                ? unpackQueryTypes(in)
+                : SqlQueryType.SINGLE_STMT_TYPES;
+
         return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
                 tx,
                 sql,
@@ -126,6 +133,7 @@ public class ClientSqlExecuteRequest {
                 props.pageSize(),
                 props.toSqlProps().userName(username),
                 () -> cancelHandles.remove(requestId),
+                allowedQueryTypes,
                 arguments
         ).thenCompose(asyncResultSet ->
                         writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta, sqlDirectTxMappingSupported))
@@ -244,11 +252,12 @@ public class ClientSqlExecuteRequest {
             int pageSize,
             SqlProperties props,
             Runnable onComplete,
+            Set<SqlQueryType> allowedTypes,
             @Nullable Object... arguments
     ) {
         try {
             SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(allowedTypes);
 
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
                         properties,
@@ -282,5 +291,19 @@ public class ClientSqlExecuteRequest {
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
+    }
+
+    private static Set<SqlQueryType> unpackQueryTypes(ClientMessageUnpacker unpacker) {
+        int size = unpacker.unpackByte();
+        Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
+
+        for (int i = 0; i < size; i++) {
+            byte typeId = unpacker.unpackByte();
+            SqlQueryType queryType = SqlQueryType.fromId(typeId);
+
+            result.add(queryType);
+        }
+
+        return result;
     }
 }

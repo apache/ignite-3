@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import java.util.List;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

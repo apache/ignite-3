@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,13 +32,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.sql.SqlQueryType;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -681,6 +688,45 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
         }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testSqlQueryWithType() {
+        ClientSql sql = (ClientSql) client().sql();
+
+        EnumSet<SqlQueryType> selectTypes = EnumSet.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
+        EnumSet<SqlQueryType> updateTypes = EnumSet.of(SqlQueryType.DDL, SqlQueryType.DML, SqlQueryType.KILL);
+        Statement updateStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY);");
+        Statement selectStatement = client().sql().createStatement("SELECT 1");
+
+        BiConsumer<Statement, Set<SqlQueryType>> check = (stmt, types) -> {
+            await(sql.executeAsyncInternal(
+                    null,
+                    () -> SqlRow.class,
+                    null,
+                    types,
+                    stmt
+            ));
+        };
+
+        // Incorrect type for UPDATE.
+        IgniteTestUtils.assertThrows(
+                SqlException.class,
+                () -> check.accept(updateStatement, selectTypes),
+                "Invalid SQL statement type"
+        );
+
+        // Incorrect type for SELECT.
+        IgniteTestUtils.assertThrows(
+                SqlException.class,
+                () -> check.accept(selectStatement, updateTypes),
+                "Invalid SQL statement type"
+        );
+
+        // No exception expected with correct query type.
+        check.accept(updateStatement, updateTypes);
+        check.accept(selectStatement, selectTypes);
     }
 
     private static class Pojo {

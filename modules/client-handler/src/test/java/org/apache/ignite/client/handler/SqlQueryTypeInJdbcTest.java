@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 

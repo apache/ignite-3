@@ -18,9 +18,9 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
-import static org.apache.ignite.internal.sql.engine.SqlQueryType.DDL;
-import static org.apache.ignite.internal.sql.engine.SqlQueryType.KILL;
-import static org.apache.ignite.internal.sql.engine.SqlQueryType.TX_CONTROL;
+import static org.apache.ignite.internal.sql.SqlQueryType.DDL;
+import static org.apache.ignite.internal.sql.SqlQueryType.KILL;
+import static org.apache.ignite.internal.sql.SqlQueryType.TX_CONTROL;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -34,9 +34,9 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.ExceptionUtils;
