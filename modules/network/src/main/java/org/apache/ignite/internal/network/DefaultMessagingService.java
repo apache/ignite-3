@@ -488,7 +488,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = longHandlingLoggingEnabled ? 0 : System.nanoTime();
+            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);

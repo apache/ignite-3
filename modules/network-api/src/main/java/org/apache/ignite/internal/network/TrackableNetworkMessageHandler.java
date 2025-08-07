@@ -48,7 +48,7 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
     @Override
     public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
-        long startTimeNanos = System.nanoTime();
+        long startTimeNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
         targetHandler.onReceived(message, sender, correlationId);
 
