@@ -61,7 +61,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
  * // TODO: after switching to zone-based replication
  */
-public class DistributionZoneRebalanceEngineV2 {
+public class DistributionZoneRebalanceEngineV2 implements DistributionZoneRebalanceEngineService {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
 
     /** Prevents double stopping of the component. */
@@ -104,10 +104,8 @@ public class DistributionZoneRebalanceEngineV2 {
         this.dataNodesListener = createDistributionZonesDataNodesListener();
     }
 
-    /**
-     * Starts the rebalance engine by registering corresponding meta storage and catalog listeners.
-     */
-    public CompletableFuture<Void> startAsync() {
+    @Override
+    public CompletableFuture<Void> startAsync(int catalogVersion) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
@@ -130,9 +128,7 @@ public class DistributionZoneRebalanceEngineV2 {
         });
     }
 
-    /**
-     * Stops the rebalance engine by unregistering meta storage watches.
-     */
+    @Override
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
