@@ -140,7 +140,7 @@ public class RaftGroupService {
 
         nodeManager.remove(this.node);
         this.started = false;
-        LOG.info("Stop the RaftGroupService successfully.");
+        LOG.info("Stop the RaftGroupService {} successfully.", this.node.getGroupId());
     }
 
     /**

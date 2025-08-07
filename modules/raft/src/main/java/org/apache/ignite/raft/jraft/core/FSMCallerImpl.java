@@ -39,7 +39,9 @@ import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
 import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
+import org.apache.ignite.raft.jraft.disruptor.INodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -95,10 +97,39 @@ public class FSMCallerImpl implements FSMCaller {
         }
     }
 
+    public interface IApplyTask extends INodeIdAware {
+        public TaskType getType();
+
+        public void setType(TaskType type);
+
+        public long getCommittedIndex();
+
+        public void setCommittedIndex(long committedIndex);
+
+        public long getTerm();
+
+        public void setTerm(long term);
+
+        public Status getStatus();
+
+        public void setStatus(Status status);
+
+        public LeaderChangeContext getLeaderChangeCtx();
+
+        public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx);
+
+        public Closure getDone();
+
+        public void setDone(Closure done);
+
+        public CountDownLatch getShutdownLatch();
+
+        public void setShutdownLatch(CountDownLatch shutdownLatch);
+    }
     /**
      * Apply task for disruptor.
      */
-    public static class ApplyTask extends NodeIdAware {
+    public static class ApplyTask extends NodeIdAware implements IApplyTask {
         public TaskType type;
         // union fields
         public long committedIndex;
@@ -106,7 +137,77 @@ public class FSMCallerImpl implements FSMCaller {
         Status status;
         LeaderChangeContext leaderChangeCtx;
         Closure done;
-        public CountDownLatch shutdownLatch;
+        private CountDownLatch shutdownLatch;
+
+        @Override
+        public TaskType getType() {
+            return type;
+        }
+
+        @Override
+        public void setType(TaskType type) {
+            this.type = type;
+        }
+
+        @Override
+        public long getCommittedIndex() {
+            return committedIndex;
+        }
+
+        @Override
+        public void setCommittedIndex(long committedIndex) {
+            this.committedIndex = committedIndex;
+        }
+
+        @Override
+        public long getTerm() {
+            return term;
+        }
+
+        @Override
+        public void setTerm(long term) {
+            this.term = term;
+        }
+
+        @Override
+        public Status getStatus() {
+            return status;
+        }
+
+        @Override
+        public void setStatus(Status status) {
+            this.status = status;
+        }
+
+        @Override
+        public LeaderChangeContext getLeaderChangeCtx() {
+            return leaderChangeCtx;
+        }
+
+        @Override
+        public void setLeaderChangeCtx(LeaderChangeContext leaderChangeCtx) {
+            this.leaderChangeCtx = leaderChangeCtx;
+        }
+
+        @Override
+        public Closure getDone() {
+            return done;
+        }
+
+        @Override
+        public void setDone(Closure done) {
+            this.done = done;
+        }
+
+        @Override
+        public CountDownLatch getShutdownLatch() {
+            return shutdownLatch;
+        }
+
+        @Override
+        public void setShutdownLatch(CountDownLatch shutdownLatch) {
+            this.shutdownLatch = shutdownLatch;
+        }
 
         @Override
         public void reset() {
@@ -120,14 +221,28 @@ public class FSMCallerImpl implements FSMCaller {
             this.done = null;
             this.shutdownLatch = null;
         }
+
+        @Override
+        public String toString() {
+            return "ApplyTask{" +
+                    "type=" + type +
+                    ", committedIndex=" + committedIndex +
+                    ", term=" + term +
+                    ", status=" + status +
+                    ", leaderChangeCtx=" + leaderChangeCtx +
+                    ", done=" + done +
+                    ", shutdownLatch=" + shutdownLatch +
+                    ", super=" + super.toString() +
+                    '}';
+        }
     }
 
-    private class ApplyTaskHandler implements EventHandler<ApplyTask> {
+    private class ApplyTaskHandler implements EventHandler<IApplyTask> {
         // max committed index in current batch, reset to -1 every batch
         private long maxCommittedIndex = -1;
 
         @Override
-        public void onEvent(final ApplyTask event, final long sequence, final boolean endOfBatch) throws Exception {
+        public void onEvent(final IApplyTask event, final long sequence, final boolean endOfBatch) throws Exception {
             this.maxCommittedIndex = runApplyTask(event, this.maxCommittedIndex, endOfBatch);
         }
     }
@@ -145,8 +260,8 @@ public class FSMCallerImpl implements FSMCaller {
     private volatile TaskType currTask;
     private final AtomicLong applyingIndex;
     private volatile RaftException error;
-    private StripedDisruptor<ApplyTask> disruptor;
-    private RingBuffer<ApplyTask> taskQueue;
+    private StripedDisruptor<IApplyTask> disruptor;
+    private RingBuffer<IApplyTask> taskQueue;
     private volatile CountDownLatch shutdownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
@@ -155,7 +270,6 @@ public class FSMCallerImpl implements FSMCaller {
     private volatile boolean shuttingDown;
 
     public FSMCallerImpl() {
-        super();
         this.currTask = TaskType.IDLE;
         this.lastAppliedIndex = new AtomicLong(0);
         this.applyingIndex = new AtomicLong(0);
@@ -177,7 +291,7 @@ public class FSMCallerImpl implements FSMCaller {
 
         disruptor = opts.getfSMCallerExecutorDisruptor();
 
-        taskQueue = disruptor.subscribe(this.nodeId, new ApplyTaskHandler());
+        taskQueue = disruptor.subscribe(this.nodeId, new ApplyTaskHandler(), DisruptorEventSourceType.FSM, null);
 
         if (this.nodeMetrics.getMetricRegistry() != null) {
             this.nodeMetrics.getMetricRegistry().register("jraft-fsm-caller-disruptor",
@@ -194,7 +308,7 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller...");
+        LOG.info("Shutting down FSMCaller {}...", this.nodeId);
 
         this.shuttingDown = true;
 
@@ -205,9 +319,10 @@ public class FSMCallerImpl implements FSMCaller {
             Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
                 task.reset();
 
-                task.nodeId = this.nodeId;
-                task.type = TaskType.SHUTDOWN;
-                task.shutdownLatch = latch;
+                task.setSrcType(DisruptorEventSourceType.FSM);
+                task.setNodeId(this.nodeId);
+                task.setType(TaskType.SHUTDOWN);
+                task.setShutdownLatch(latch);
             }));
         }
     }
@@ -222,7 +337,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.lastAppliedLogIndexListeners.remove(listener);
     }
 
-    private boolean enqueueTask(final EventTranslator<ApplyTask> tpl) {
+    private boolean enqueueTask(final EventTranslator<IApplyTask> tpl) {
         if (this.shutdownLatch != null) {
             // Shutting down
             LOG.warn("FSMCaller is stopped, can not apply new task.");
@@ -236,11 +351,11 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onCommitted(final long committedIndex) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.COMMITTED;
-            task.committedIndex = committedIndex;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.COMMITTED);
+            task.setCommittedIndex(committedIndex);
         });
     }
 
@@ -251,11 +366,11 @@ public class FSMCallerImpl implements FSMCaller {
     void flush() throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.FLUSH;
-            task.shutdownLatch = latch;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.FLUSH);
+            task.setShutdownLatch(latch);
         });
         latch.await();
     }
@@ -263,66 +378,66 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onSnapshotLoad(final LoadSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.SNAPSHOT_LOAD;
-            task.done = done;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.SNAPSHOT_LOAD);
+            task.setDone(done);
         });
     }
 
     @Override
     public boolean onSnapshotSave(final SaveSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.SNAPSHOT_SAVE;
-            task.done = done;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.SNAPSHOT_SAVE);
+            task.setDone(done);
         });
     }
 
     @Override
     public boolean onLeaderStop(final Status status) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.LEADER_STOP;
-            task.status = new Status(status);
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.LEADER_STOP);
+            task.setStatus(new Status(status));
         });
     }
 
     @Override
     public boolean onLeaderStart(final long term) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.LEADER_START;
-            task.term = term;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.LEADER_START);
+            task.setTerm(term);
         });
     }
 
     @Override
     public boolean onStartFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.START_FOLLOWING;
-            task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.START_FOLLOWING);
+            task.setLeaderChangeCtx(new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus()));
         });
     }
 
     @Override
     public boolean onStopFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.STOP_FOLLOWING;
-            task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.STOP_FOLLOWING);
+            task.setLeaderChangeCtx(new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus()));
         });
     }
 
@@ -358,11 +473,11 @@ public class FSMCallerImpl implements FSMCaller {
         }
         final OnErrorClosure c = new OnErrorClosure(error);
         return enqueueTask((task, sequence) -> {
-            task.nodeId = this.nodeId;
-            task.handler = null;
-            task.evtType = DisruptorEventType.REGULAR;
-            task.type = TaskType.ERROR;
-            task.done = c;
+            task.reset();
+            task.setSrcType(DisruptorEventSourceType.FSM);
+            task.setNodeId(this.nodeId);
+            task.setType(TaskType.ERROR);
+            task.setDone(c);
         });
     }
 
@@ -375,7 +490,7 @@ public class FSMCallerImpl implements FSMCaller {
     public synchronized void join() throws InterruptedException {
         if (this.shutdownLatch != null) {
             this.shutdownLatch.await();
-            this.disruptor.unsubscribe(this.nodeId);
+            this.disruptor.unsubscribe(this.nodeId, DisruptorEventSourceType.FSM);
             if (this.afterShutdown != null) {
                 this.afterShutdown.run(Status.OK());
                 this.afterShutdown = null;
@@ -385,11 +500,11 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     @SuppressWarnings("ConstantConditions")
-    private long runApplyTask(final ApplyTask task, long maxCommittedIndex, final boolean endOfBatch) {
+    private long runApplyTask(final IApplyTask task, long maxCommittedIndex, final boolean endOfBatch) {
         CountDownLatch shutdown = null;
-        if (task.type == TaskType.COMMITTED) {
-            if (task.committedIndex > maxCommittedIndex) {
-                maxCommittedIndex = task.committedIndex;
+        if (task.getType() == TaskType.COMMITTED) {
+            if (task.getCommittedIndex() > maxCommittedIndex) {
+                maxCommittedIndex = task.getCommittedIndex();
             }
             task.reset();
         }
@@ -401,58 +516,58 @@ public class FSMCallerImpl implements FSMCaller {
             }
             final long startMs = Utils.monotonicMs();
             try {
-                switch (task.type) {
+                switch (task.getType()) {
                     case COMMITTED:
                         Requires.requireTrue(false, "Impossible");
                         break;
                     case SNAPSHOT_SAVE:
                         this.currTask = TaskType.SNAPSHOT_SAVE;
-                        if (passByStatus(task.done)) {
-                            doSnapshotSave((SaveSnapshotClosure) task.done);
+                        if (passByStatus(task.getDone())) {
+                            doSnapshotSave((SaveSnapshotClosure) task.getDone());
                         }
                         break;
                     case SNAPSHOT_LOAD:
                         this.currTask = TaskType.SNAPSHOT_LOAD;
-                        if (passByStatus(task.done)) {
-                            doSnapshotLoad((LoadSnapshotClosure) task.done);
+                        if (passByStatus(task.getDone())) {
+                            doSnapshotLoad((LoadSnapshotClosure) task.getDone());
                         }
                         break;
                     case LEADER_STOP:
                         this.currTask = TaskType.LEADER_STOP;
-                        doLeaderStop(task.status);
+                        doLeaderStop(task.getStatus());
                         break;
                     case LEADER_START:
                         this.currTask = TaskType.LEADER_START;
-                        doLeaderStart(task.term);
+                        doLeaderStart(task.getTerm());
                         break;
                     case START_FOLLOWING:
                         this.currTask = TaskType.START_FOLLOWING;
-                        doStartFollowing(task.leaderChangeCtx);
+                        doStartFollowing(task.getLeaderChangeCtx());
                         break;
                     case STOP_FOLLOWING:
                         this.currTask = TaskType.STOP_FOLLOWING;
-                        doStopFollowing(task.leaderChangeCtx);
+                        doStopFollowing(task.getLeaderChangeCtx());
                         break;
                     case ERROR:
                         this.currTask = TaskType.ERROR;
-                        doOnError((OnErrorClosure) task.done);
+                        doOnError((OnErrorClosure) task.getDone());
                         break;
                     case IDLE:
                         Requires.requireTrue(false, "Can't reach here");
                         break;
                     case SHUTDOWN:
                         this.currTask = TaskType.SHUTDOWN;
-                        shutdown = task.shutdownLatch;
+                        shutdown = task.getShutdownLatch();
                         doShutdown();
                         break;
                     case FLUSH:
                         this.currTask = TaskType.FLUSH;
-                        shutdown = task.shutdownLatch;
+                        shutdown = task.getShutdownLatch();
                         break;
                 }
             }
             finally {
-                this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
+                this.nodeMetrics.recordLatency(task.getType().metricName(), Utils.monotonicMs() - startMs);
                 task.reset();
             }
         }

@@ -283,6 +283,16 @@ tasks.register('runClientGetBenchmark', JavaExec) {
     enableAssertions = true
 }
 
+tasks.register("runInsertBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.benchmark.InsertBenchmark"
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = false
+}
+
 jar {
     manifest {
         attributes(

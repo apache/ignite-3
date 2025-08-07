@@ -47,6 +47,9 @@ public final class IgniteSystemProperties {
     /** Enables zone based replication (aka colocation) feature. */
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
 
+    /** Use shared event loop. */
+    public static final String IGNITE_USE_SHARED_EVENT_LOOP = "IGNITE_USE_SHARED_EVENT_LOOP";
+
     /**
      * Enforces singleton.
      */
