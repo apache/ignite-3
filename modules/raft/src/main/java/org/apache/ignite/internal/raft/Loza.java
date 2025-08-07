@@ -61,6 +61,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -498,6 +499,16 @@ public class Loza implements RaftManager {
         }
     }
 
+    /**
+     * Returns current term of the node or throws an exception if the node is not running.
+     *
+     * @param nodeId ID of the Raft node.
+     * @return Current term.
+     */
+    public long currentTerm(RaftNodeId nodeId) {
+        return raftServer.currentTerm(nodeId);
+    }
+
     private <T extends RaftGroupService> T startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
@@ -631,10 +642,19 @@ public class Loza implements RaftManager {
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+    public boolean resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long term) {
+        // TODO: busylock?
         LOG.warn("Reset peers for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
 
-        raftServer.resetPeers(raftNodeId, peersAndLearners);
+        Status status = raftServer.resetPeers(raftNodeId, peersAndLearners, term);
+
+        if (status.getRaftError() == org.apache.ignite.raft.jraft.error.RaftError.ESTALE) {
+            throw new MismatchingTermException(status.getErrorMsg());
+        }
+
+        LOG.info("RRR-Reset peers for raft group {}, status is {}", raftNodeId, status);
+
+        return status.isOk();
     }
 
     /**

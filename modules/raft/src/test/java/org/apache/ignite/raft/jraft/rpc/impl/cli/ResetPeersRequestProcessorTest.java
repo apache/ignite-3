@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -25,9 +28,6 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetPeerRequest;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 public class ResetPeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ResetPeerRequest> {
 
     @Override
@@ -36,6 +36,7 @@ public class ResetPeersRequestProcessorTest extends AbstractCliRequestProcessorT
             .groupId(groupId)
             .peerId(peerId.toString())
             .newPeersList(List.of("localhost:8084", "localhost:8085"))
+            .term(100L)
             .build();
     }
 
@@ -47,7 +48,7 @@ public class ResetPeersRequestProcessorTest extends AbstractCliRequestProcessorT
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(interest, ResetPeerRequest.class.getName());
-        Mockito.verify(node).resetPeers(JRaftUtils.getConfiguration("localhost:8084,localhost:8085"));
+        Mockito.verify(node).resetPeers(JRaftUtils.getConfiguration("localhost:8084,localhost:8085"), 100L);
         assertNotNull(asyncContext.getResponseObject());
     }
 
