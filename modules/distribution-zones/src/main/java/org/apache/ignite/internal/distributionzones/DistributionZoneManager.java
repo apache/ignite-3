@@ -337,7 +337,7 @@ public class DistributionZoneManager extends
             timestamp = hybridTimestamp(catalogManager.catalog(catalogVersion).time());
         }
 
-        return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
+        return dataNodesManager.dataNodes(zoneId, timestamp);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
