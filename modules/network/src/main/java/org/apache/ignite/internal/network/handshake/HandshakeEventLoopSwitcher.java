@@ -176,7 +176,7 @@ public class HandshakeEventLoopSwitcher {
 
         EventLoop eventLoop = executors.get(index);
 
-        LOG.debug("Channel mapped to the loop [channelId={}, channelKey={}, eventLoopIndex={}]", channelId, channelKey, index);
+        LOG.info("PVD:: Channel mapped to the loop [channelId={}, channelKey={}, eventLoopIndex={}]", channelId, channelKey, index);
 
         return eventLoop;
     }
@@ -189,6 +189,8 @@ public class HandshakeEventLoopSwitcher {
     private synchronized void channelUnregistered(ChannelId channelId) {
         for (Set<ChannelId> channelKeys : activeChannelMap.values()) {
             if (channelKeys.remove(channelId)) {
+                LOG.info("PVD:: Channel unregistered from the loop [channelId={}]", channelId);
+
                 break;
             }
         }

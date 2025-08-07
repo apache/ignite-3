@@ -55,6 +55,7 @@ import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
@@ -181,7 +182,11 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 new HandshakeEventLoopSwitcher(List.of()) {
                     @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                    public CompletableFuture<Void> switchEventLoopIfNeeded(
+                            Channel channel,
+                            Runnable afterSwitching,
+                            ChannelKey channelKey
+                    ) {
                         // No need to switch event loop in tests, so we just call the callback immediately.
                         afterSwitching.run();
 

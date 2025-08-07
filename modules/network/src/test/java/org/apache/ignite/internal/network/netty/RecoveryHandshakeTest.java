@@ -769,7 +769,11 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 provider,
                 new HandshakeEventLoopSwitcher(List.of()) {
                     @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                    public CompletableFuture<Void> switchEventLoopIfNeeded(
+                            Channel channel,
+                            Runnable afterSwitching,
+                            ChannelKey channelKey
+                    ) {
                         // No need to switch event loop in tests, so we just call the callback immediately.
                         afterSwitching.run();
 
@@ -813,11 +817,15 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 provider,
                 new HandshakeEventLoopSwitcher(List.of()) {
                     @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
+                    public CompletableFuture<Void> switchEventLoopIfNeeded(
+                            Channel channel,
+                            Runnable afterSwitching,
+                            ChannelKey channelKey
+                    ) {
                         // No need to switch event loop in tests, so we just call the callback immediately.
                         afterSwitching.run();
 
-                        return  nullCompletedFuture();
+                        return nullCompletedFuture();
                     }
                 },
                 staleIdDetector,
