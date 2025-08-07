@@ -25,10 +25,13 @@ import io.netty.channel.EventLoop;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.netty.ChannelKey;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * A class responsible for managing the assignment of Netty channels to event loops
@@ -39,8 +42,15 @@ public class HandshakeEventLoopSwitcher {
 
     /** List of available event loops. */
     private final List<EventLoop> executors;
+
     /** Map to track the number of channels assigned to each event loop. */
-    private final HashMap<Integer, Set<ChannelId>> channelCountMap;
+    private final Map<Integer, Set<ChannelId>> activeChannelMap;
+
+    /**
+     * Map to track channel reservations for specific communication connections.
+     * The map prevents applying different event loops for the same chenell  key.
+     */
+    private final Map<ChannelKey, Integer> channelReservationMap;
 
     /**
      * Constructs a new instance of HandshakeEventLoopSwitcher.
@@ -49,7 +59,8 @@ public class HandshakeEventLoopSwitcher {
      */
     public HandshakeEventLoopSwitcher(List<EventLoop> eventLoops) {
         this.executors = eventLoops;
-        this.channelCountMap = new HashMap<>(eventLoops.size());
+        this.activeChannelMap = new HashMap<>(eventLoops.size());
+        this.channelReservationMap = new HashMap<>();
     }
 
     /**
@@ -60,7 +71,21 @@ public class HandshakeEventLoopSwitcher {
      * @return A CompletableFuture that completes when the event loop is switched.
      */
     public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
-        EventLoop targetEventLoop = eventLoopForKey(channel.id());
+        return switchEventLoopIfNeeded(channel, afterSwitching, null);
+    }
+
+    /**
+     * Switches the event loop of a given channel if needed.
+     *
+     * @param channel The channel to potentially switch to a different event loop.
+     * @param afterSwitching A callback to execute after the switching operation.
+     * @param channelKey The unique key identifying the channel.
+     * @return A CompletableFuture that completes when the event loop is switched.
+     */
+    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching, ChannelKey channelKey) {
+        ChannelId channelId = channel.id();
+
+        EventLoop targetEventLoop = eventLoopForKey(channelId, channelKey);
 
         if (targetEventLoop != channel.eventLoop()) {
             CompletableFuture<Void> fut = new CompletableFuture<>();
@@ -88,8 +113,9 @@ public class HandshakeEventLoopSwitcher {
                     }
 
                     channel.closeFuture().addListener(future -> {
-                        channelUnregistered(channel);
+                        channelUnregistered(channelId);
                     });
+
 
                     fut.complete(null);
 
@@ -105,18 +131,28 @@ public class HandshakeEventLoopSwitcher {
         return nullCompletedFuture();
     }
 
+
     /**
-     * Determines the appropriate event loop for a given channel ID.
+     * Determines the appropriate event loop for a given channel key.
      *
      * @param channelId The ID of the channel.
+     * @param channelKey The unique key identifying the channel.
      * @return The selected event loop for the channel.
      */
-    private synchronized EventLoop eventLoopForKey(ChannelId channelId) {
-        int minCnt = channelCountMap.getOrDefault(0, Set.of()).size();
+    private synchronized EventLoop eventLoopForKey(ChannelId channelId, ChannelKey channelKey) {
+        if (channelKey != null) {
+            Integer idx = channelReservationMap.get(channelKey);
+
+            if (idx != null) {
+                return executors.get(idx);
+            }
+        }
+
+        int minCnt = Integer.MAX_VALUE;
         int index = 0;
 
-        for (int i = 1; i < executors.size(); i++) {
-            Set<ChannelId> channelIds = channelCountMap.getOrDefault(i, Set.of());
+        for (int i = 0; i < executors.size(); i++) {
+            Set<ChannelId> channelIds = activeChannelMap.getOrDefault(i, Set.of());
 
             if (channelIds.contains(channelId)) {
                 return executors.get(index);
@@ -131,11 +167,16 @@ public class HandshakeEventLoopSwitcher {
         }
 
 
-        channelCountMap.computeIfAbsent(index, key -> new HashSet<>()).add(channelId);
+        activeChannelMap.computeIfAbsent(index, key -> new HashSet<>()).add(channelId);
+
+        if (channelKey != null) {
+            channelReservationMap.put(channelKey, index);
+        }
+
 
         EventLoop eventLoop = executors.get(index);
 
-        LOG.debug("Channel mapped to the loop [channelId={}, eventLoopIndex={}]", channelId, index);
+        LOG.debug("Channel mapped to the loop [channelId={}, channelKey={}, eventLoopIndex={}]", channelId, channelKey, index);
 
         return eventLoop;
     }
@@ -143,13 +184,23 @@ public class HandshakeEventLoopSwitcher {
     /**
      * Removes a channel from the event loop tracking map when it is unregistered.
      *
-     * @param channel The channel to unregister.
+     * @param channelId The unique ID identifying the channel to unregister.
      */
-    private synchronized void channelUnregistered(Channel channel) {
-        for (Set<ChannelId> channelIds : channelCountMap.values()) {
-            if (channelIds.remove(channel.id())) {
+    private synchronized void channelUnregistered(ChannelId channelId) {
+        for (Set<ChannelId> channelKeys : activeChannelMap.values()) {
+            if (channelKeys.remove(channelId)) {
                 break;
             }
         }
+    }
+
+    /**
+     * Removes all channels associated with a node from the event loop tracking map
+     * when the node leaves the topology.
+     *
+     * @param node The node that left the topology.
+     */
+    public synchronized void nodeLeftTopology(ClusterNode node) {
+        channelReservationMap.entrySet().removeIf(entry -> entry.getKey().launchId().equals(node.id()));
     }
 }
