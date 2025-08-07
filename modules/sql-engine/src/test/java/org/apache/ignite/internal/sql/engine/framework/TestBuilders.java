@@ -1959,6 +1959,11 @@ public class TestBuilders {
         }
 
         @Override
+        public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        @Override
         public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
         }

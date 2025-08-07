@@ -98,7 +98,6 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
             "SELECT * FROM table(system_range(1, 10)) WHERE x = 1",
             "SELECT count(*) FROM t WHERE c1=?",
             "UPDATE t SET c2=1 WHERE c1=?",
-            "DELETE FROM t WHERE c1=?",
     })
     public void noMetadata(String query) {
         node.initSchema("CREATE TABLE t (c1 INT PRIMARY KEY, c2 INT)");
@@ -136,7 +135,12 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("INSERT INTO t VALUES(1+1, ?)", null),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", dynamicParamsTrackingRequired(1)),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", dynamicParamsTrackingRequired(0)),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", null)
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", null),
+
+                // KV DELETE
+                Arguments.of("DELETE FROM t WHERE c1=?", dynamicParamsTrackingRequired(0)),
+                Arguments.of("DELETE FROM t WHERE c1=1", null),
+                Arguments.of("DELETE FROM t WHERE c1=1+1", null)
         );
     }
 
@@ -156,7 +160,6 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 // KV GET
                 Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", dynamicParams(0)),
                 Arguments.of("SELECT * FROM t WHERE c2=? and c3=?", dynamicParams(1)),
-                Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", dynamicParams(0)),
                 Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=?", dynamicParams(2)),
                 Arguments.of("SELECT * FROM t WHERE c3=? and c1=? and c2=?", dynamicParams(0)),
                 Arguments.of("SELECT * FROM t WHERE c3=? and c2=1", dynamicParams(0)),
@@ -174,7 +177,15 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
 
                 Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, 3)", null),
                 Arguments.of("INSERT INTO t (c1, c3, c2) VALUES (?, 3, ?)", null),
-                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", null)
+                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", null),
+
+                // KV DELETE
+                Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", dynamicParams(0)),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c3=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c3=? and c2=1", dynamicParams(0)),
+
+                Arguments.of("SELECT * FROM t WHERE c3=3", null),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", null)
         );
     }
 
@@ -207,7 +218,17 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 // KV PUT
                 Arguments.of("INSERT INTO t VALUES (?, ?, ?, ?)",  dynamicParamsTrackingRequired(2, 0, 1)),
                 Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, ?, ?)", dynamicParamsTrackingRequired(0, 3, 1)),
-                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParamsTrackingRequired(0, 2, 1))
+                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParamsTrackingRequired(0, 2, 1)),
+
+                // KV DELETE
+                Arguments.of("DELETE FROM t WHERE c1=? and c2=? and c3=?", dynamicParamsTrackingRequired(2, 0, 1)),
+                Arguments.of("DELETE FROM t WHERE c3=? and c1=? and c2=?", dynamicParamsTrackingRequired(0, 1, 2)),
+                Arguments.of("DELETE FROM t WHERE c3=? and c2=? and c1=?", dynamicParamsTrackingRequired(0, 2, 1)),
+
+                Arguments.of("DELETE FROM t WHERE c1=1 and c2=? and c3=?", null),
+                Arguments.of("DELETE FROM t WHERE c1=? and c2=2 and c3=?", null),
+                Arguments.of("DELETE FROM t WHERE c1=? and c2=? and c3=3", null),
+                Arguments.of("DELETE FROM t WHERE c1=1 and c2=2 and c3=3", null)
         );
     }
 
