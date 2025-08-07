@@ -1910,10 +1910,13 @@ public class PersistentPageMemory implements PageMemory {
      * @param absPtr Absolute page pointer.
      * @param fullId Full page ID.
      * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
+     * @param tag Current partition generation tag.
      * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
      *      checkpoint temporary buffer is used.
      * @param pageStoreWriter Checkpoint page writer.
      * @param tracker Checkpoint metrics tracker.
+     * @param useTryWriteLockLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
+     *      <b>write lock</b> on page.
      */
     private void copyPageForCheckpoint(
             long absPtr,
@@ -1922,31 +1925,32 @@ public class PersistentPageMemory implements PageMemory {
             int tag,
             boolean pageSingleAcquire,
             PageStoreWriter pageStoreWriter,
-            CheckpointMetricsTracker tracker
+            CheckpointMetricsTracker tracker,
+            boolean useTryWriteLockLockOnPage
     ) throws IgniteInternalCheckedException {
-        assert absPtr != 0;
-        assert isAcquired(absPtr) || !isInCheckpoint(fullId);
+        assert absPtr != 0 : hexLong(fullId.pageId());
+        assert isAcquired(absPtr) || !isInCheckpoint(fullId) : hexLong(fullId.pageId());
 
-        // Exception protection flag.
-        // No need to write if exception occurred.
-        boolean canWrite = false;
+        if (useTryWriteLockLockOnPage) {
+            if (!rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
+                // We release the page only once here because this page will be copied sometime later and
+                // will be released properly then.
+                if (!pageSingleAcquire) {
+                    PageHeader.releasePage(absPtr);
+                }
 
-        boolean locked = rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+                buf.clear();
 
-        if (!locked) {
-            // We release the page only once here because this page will be copied sometime later and
-            // will be released properly then.
-            if (!pageSingleAcquire) {
-                PageHeader.releasePage(absPtr);
+                if (isInCheckpoint(fullId)) {
+                    pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
+                }
+
+                return;
             }
+        } else {
+            boolean locked = rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
-            buf.clear();
-
-            if (isInCheckpoint(fullId)) {
-                pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
-            }
-
-            return;
+            assert locked : hexLong(fullId.pageId());
         }
 
         if (!removeOnCheckpoint(fullId)) {
@@ -1958,6 +1962,10 @@ public class PersistentPageMemory implements PageMemory {
 
             return;
         }
+
+        // Exception protection flag.
+        // No need to write if exception occurred.
+        boolean canWrite = false;
 
         try {
             long tmpRelPtr = tempBufferPointer(absPtr);
@@ -2010,20 +2018,24 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Prepare page for write during checkpoint. {@link PageStoreWriter} will be called when the page will be ready to write.
+     * Tries to copy a page from memory for checkpoint and then pass the contents to {@code pageStoreWriter} if it has not already been
+     * written or invalidated (due to partition destruction). {@link PageStoreWriter} will be called when the page will be ready to write.
      *
      * @param fullId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link #beginCheckpoint}
      *      method call.
      * @param buf Temporary buffer to write changes into.
      * @param pageStoreWriter Checkpoint page write context.
      * @param tracker Checkpoint metrics tracker.
+     * @param useTryWriteLockLockOnPage {@code True} if need to use the <b>try write lock</b> on page, {@code false} for blocking
+     *      <b>write lock</b> on page.
      * @throws IgniteInternalCheckedException If failed to obtain page data.
      */
     public void checkpointWritePage(
             FullPageId fullId,
             ByteBuffer buf,
             PageStoreWriter pageStoreWriter,
-            CheckpointMetricsTracker tracker
+            CheckpointMetricsTracker tracker,
+            boolean useTryWriteLockLockOnPage
     ) throws IgniteInternalCheckedException {
         assert buf.remaining() == pageSize() : buf.remaining();
 
@@ -2094,7 +2106,7 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
-        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker);
+        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker, useTryWriteLockLockOnPage);
     }
 
     /**
