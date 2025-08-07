@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.eventlog.impl;
 
 import static org.apache.ignite.internal.eventlog.impl.TestEventTypes.TEST_EVENT_TYPE_1;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -57,12 +58,12 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 UUID::randomUUID, "default");
         SinkFactory sinkFactory = new TestSinkFactory(defaultFactory, inMemoryCollectionSink);
         eventLog = new EventLogImpl(eventLogConfiguration, sinkFactory);
-        eventLog.startAsync(new ComponentContext());
+        assertThat(eventLog.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        eventLog.stopAsync();
+        assertThat(eventLog.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
