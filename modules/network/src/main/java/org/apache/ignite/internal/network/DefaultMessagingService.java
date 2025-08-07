@@ -495,7 +495,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             } catch (Throwable e) {
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                if (longHandlingLoggingEnabled) {
+                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
                     long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
                     if (tookMillis > 100) {
