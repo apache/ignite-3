@@ -115,6 +115,9 @@ public class JitComparatorOptions {
             return this;
         }
 
+        /**
+         * Builds a new {@link JitComparatorOptions} instance.
+         */
         public JitComparatorOptions build() {
             Objects.requireNonNull(columnCollations, "columnCollations is null");
             Objects.requireNonNull(columnTypes, "columnTypes is null");
