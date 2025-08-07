@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.d
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.instant;
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanWithAnySearchBounds;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreSearchBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -1014,7 +1014,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 sortedIdxName, columnName, tableName, columnName, condition);
 
         QueryChecker checker = assertQuery(query)
-                .matches(containsIndexScanWithAnySearchBounds("PUBLIC", tableName, sortedIdxName))
+                .matches(containsIndexScan("PUBLIC", tableName, sortedIdxName))
                 .withTimeZoneId(ZoneOffset.UTC);
 
         if (param != null) {
