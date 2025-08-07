@@ -60,6 +60,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -511,7 +512,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     mock(FailureProcessor.class),
                     new SystemPropertiesNodeProperties(),
                     LOCAL_NODE,
-                    zonePartitionId
+                    zonePartitionId,
+                    mock(IgniteThrottledLogger.class)
             );
 
             zoneReplicaListener.addTableReplicaProcessor(tableId, raftClient -> tableReplicaListener);
