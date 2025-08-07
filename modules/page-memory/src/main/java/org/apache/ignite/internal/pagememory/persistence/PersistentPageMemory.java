@@ -1910,7 +1910,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param absPtr Absolute page pointer.
      * @param fullId Full page ID.
      * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
-     * @param tag Current partition generation tag.
+     * @param partitionGeneration Current partition generation.
      * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
      *      checkpoint temporary buffer is used.
      * @param pageStoreWriter Checkpoint page writer.
@@ -1922,7 +1922,7 @@ public class PersistentPageMemory implements PageMemory {
             long absPtr,
             FullPageId fullId,
             ByteBuffer buf,
-            int tag,
+            int partitionGeneration,
             boolean pageSingleAcquire,
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker,
@@ -2006,7 +2006,7 @@ public class PersistentPageMemory implements PageMemory {
             if (canWrite) {
                 buf.rewind();
 
-                pageStoreWriter.writePage(fullId, buf, tag);
+                pageStoreWriter.writePage(fullId, buf, partitionGeneration);
 
                 buf.rewind();
             }
@@ -2045,7 +2045,7 @@ public class PersistentPageMemory implements PageMemory {
 
         long relPtr;
 
-        int tag;
+        int partitionGeneration;
 
         boolean pageSingleAcquire = false;
 
@@ -2056,7 +2056,7 @@ public class PersistentPageMemory implements PageMemory {
                 return;
             }
 
-            relPtr = resolveRelativePointer(seg, fullId, tag = generationTag(seg, fullId));
+            relPtr = resolveRelativePointer(seg, fullId, partitionGeneration = generationTag(seg, fullId));
 
             // Page may have been cleared during eviction. We have nothing to do in this case.
             if (relPtr == INVALID_REL_PTR) {
@@ -2106,7 +2106,16 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
-        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker, useTryWriteLockLockOnPage);
+        copyPageForCheckpoint(
+                absPtr,
+                fullId,
+                buf,
+                partitionGeneration,
+                pageSingleAcquire,
+                pageStoreWriter,
+                tracker,
+                useTryWriteLockLockOnPage
+        );
     }
 
     /**
