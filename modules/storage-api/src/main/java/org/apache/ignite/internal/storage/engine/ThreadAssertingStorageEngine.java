@@ -62,6 +62,8 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
 
     @Override
     public MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier) {
+        assertThreadAllowsToWrite();
+
         MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexDescriptorSupplier);
         return new ThreadAssertingMvTableStorage(tableStorage);
     }
