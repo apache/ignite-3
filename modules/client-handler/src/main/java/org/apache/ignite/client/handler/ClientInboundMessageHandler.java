@@ -112,6 +112,7 @@ import org.apache.ignite.client.handler.requests.table.partition.ClientTablePart
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
+import org.apache.ignite.internal.HIstMsgInfo;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
@@ -728,6 +729,39 @@ public class ClientInboundMessageHandler
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
+            var hist = locHisto.get();
+
+            switch (opCode) {
+                case ClientOp.SERVER_OP_RESPONSE:
+                    hist.add("ClientOp.SERVER_OP_RESPONSE");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_UPSERT:
+                    hist.add("ClientOp.TUPLE_UPSERT");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_GET:
+                    hist.add("ClientOp.TUPLE_GET");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                    hist.add("ClientOp.TUPLE_CONTAINS_ALL_KEYS");
+                    hist.println();
+                    break;
+
+                case ClientOp.TX_COMMIT:
+                    hist.add("ClientOp.TX_COMMIT");
+                    hist.println();
+                    break;
+
+                default:
+                    hist.add("ClientOp." + opCode);
+                    hist.println();
+            }
+
             if (opCode == ClientOp.SERVER_OP_RESPONSE) {
                 processServerOpResponse(requestId, in);
                 return;
@@ -760,12 +794,15 @@ public class ClientInboundMessageHandler
         }
     }
 
+    ThreadLocal<HIstMsgInfo> locHisto = ThreadLocal.withInitial(() -> new HIstMsgInfo(LOG));
+
     private CompletableFuture<ResponseWriter> processOperation(
             ClientMessageUnpacker in,
             int opCode,
             long requestId,
             HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
+
         switch (opCode) {
             case ClientOp.HEARTBEAT:
                 return nullCompletedFuture();
