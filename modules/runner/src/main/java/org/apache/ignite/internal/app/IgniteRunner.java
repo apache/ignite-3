@@ -24,19 +24,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import jdk.internal.misc.Signal;
 import jdk.internal.misc.Signal.Handler;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.NodeConfig;
+import org.apache.ignite.internal.app.config.NodeConfigFactory;
 import picocli.CommandLine;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
  * The main entry point for running new Ignite node. Command-line arguments can be provided using environment variables
- * {@code IGNITE_CONFIG_PATH}, {@code IGNITE_WORK_DIR} and {@code IGNITE_NODE_NAME} for {@code --config-path}, {@code --work-dir} and
+ * //TODO {@code IGNITE_CONFIG_PATH},
+ * {@code IGNITE_WORK_DIR} and {@code IGNITE_NODE_NAME} for {@code --config-path}, {@code --work-dir} and
  * {@code --node-name} command line arguments respectively.
  */
 @Command(name = "runner")
 public class IgniteRunner implements Callable<IgniteServer> {
-    @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
-    private Path configPath;
+    @ArgGroup(multiplicity = "1")
+    private ConfigOption config;
 
     @Option(names = "--work-dir", description = "Path to node working directory.", required = true)
     private Path workDir;
@@ -46,7 +50,29 @@ public class IgniteRunner implements Callable<IgniteServer> {
 
     @Override
     public IgniteServer call() throws Exception {
-        return IgniteServer.start(nodeName, configPath.toAbsolutePath(), workDir);
+        return IgniteServer.start(nodeName, config.configPath(), workDir);
+    }
+
+    private static class ConfigOption {
+        /**
+         * Node URL option.
+         */
+        @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
+        private Path configPath;
+
+        /**
+         * Node name option.
+         */
+        @Option(names = "--bootstrap-config", description = "Node bootstrap configuration in HOCON format.", required = true)
+        private String bootstrapConfig;
+
+        public NodeConfig configPath() {
+            if (configPath != null) {
+                return NodeConfigFactory.fromFile(configPath);
+            }
+
+            return NodeConfigFactory.fromBootstrap(bootstrapConfig);
+        }
     }
 
     /**
