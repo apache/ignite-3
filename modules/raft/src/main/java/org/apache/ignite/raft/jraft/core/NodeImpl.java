@@ -2339,7 +2339,13 @@ public class NodeImpl implements Node, RaftServerService {
             // Parse request
             long index = prevLogIndex;
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
-            ByteBuffer allData = request.data() != null ? request.data().asReadOnlyBuffer() : EMPTY_BYTE_BUFFER.asReadOnlyBuffer();
+            ByteBuffer allData;
+            if (request.data() != null) {
+                allData = request.data();
+                allData.limit(0);
+            } else {
+                allData = EMPTY_BYTE_BUFFER;
+            }
 
             final Collection<RaftOutter.EntryMeta> entriesList = request.entriesList();
             for (RaftOutter.EntryMeta entry : entriesList) {
@@ -2406,10 +2412,14 @@ public class NodeImpl implements Node, RaftServerService {
 
             final long dataLen = entry.dataLen();
             if (dataLen > 0) {
-                final byte[] bs = new byte[(int) dataLen];
                 assert allData != null;
-                allData.get(bs, 0, bs.length);
-                logEntry.setData(ByteBuffer.wrap(bs));
+
+                int length = (int) dataLen;
+                int limit = allData.limit();
+                allData.position(limit);
+                allData.limit(limit + length);
+
+                logEntry.setData(allData.slice());
             }
 
             if (entry.peersList() != null) {
