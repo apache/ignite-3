@@ -40,6 +40,7 @@ public class Account {
     public int getId() {
         return id;
     }
+
     public void setId(int id) {
         this.id = id;
     }
@@ -47,6 +48,7 @@ public class Account {
     public String getName() {
         return name;
     }
+
     public void setName(String name) {
         this.name = name;
     }
@@ -54,6 +56,7 @@ public class Account {
     public long getBalance() {
         return balance;
     }
+
     public void setBalance(long balance) {
         this.balance = balance;
     }
@@ -61,6 +64,7 @@ public class Account {
     public boolean isActive() {
         return active;
     }
+
     public void setActive(boolean active) {
         this.active = active;
     }
