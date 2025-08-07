@@ -217,31 +217,31 @@ public class JitComparatorGenerator {
         Variable outerEntrySize = scope.declareVariable(int.class, "outerEntrySize");
         Variable innerEntrySize = scope.declareVariable(int.class, "innerEntrySize");
 
-        // Variables for outer flag and its "isPrefix" state.
+        // Variables for outer header and its "isPrefix" state.
         // The latter will only be used if "options.supportPrefixes()" is "true".
-        Variable outerFlag = scope.declareVariable(byte.class, "outerFlag");
+        Variable outerHeader = scope.declareVariable(byte.class, "outerHeader");
         Variable outerIsPrefix = scope.declareVariable(boolean.class, "outerIsPrefix");
 
         if (options.supportPrefixes() || maxEntrySizeLog != 0) {
             // We only read outer accessor header if we need its bits.
             // Otherwise we optimize the code by avoiding this read.
-            body.append(outerFlag.set(outerAccessor.invoke("get", byte.class, constantInt(0))));
+            body.append(outerHeader.set(outerAccessor.invoke("get", byte.class, constantInt(0))));
         }
 
         if (options.supportPrefixes()) {
-            body.append(outerIsPrefix.set(notEqual(bitwiseAnd(outerFlag.cast(int.class), constantInt(PREFIX_FLAG)), constantInt(0))));
+            body.append(outerIsPrefix.set(notEqual(bitwiseAnd(outerHeader.cast(int.class), constantInt(PREFIX_FLAG)), constantInt(0))));
         }
 
         if (maxEntrySizeLog != 0) {
             // If entry size can be larger than 1 byte (and its logarithm larger than 0), then we read it from headers of tuples like this:
             //  int outerEntrySize = outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK;
             // Here "Size" still means logarithmic scale.
-            Variable innerFlag = scope.declareVariable(byte.class, "innerFlag");
+            Variable innerHeader = scope.declareVariable(byte.class, "innerHeader");
 
-            body.append(innerFlag.set(innerAccessor.invoke("get", byte.class, constantInt(0))));
+            body.append(innerHeader.set(innerAccessor.invoke("get", byte.class, constantInt(0))));
 
-            body.append(outerEntrySize.set(bitwiseAnd(outerFlag.cast(int.class), constantInt(VARSIZE_MASK))));
-            body.append(innerEntrySize.set(bitwiseAnd(innerFlag.cast(int.class), constantInt(VARSIZE_MASK))));
+            body.append(outerEntrySize.set(bitwiseAnd(outerHeader.cast(int.class), constantInt(VARSIZE_MASK))));
+            body.append(innerEntrySize.set(bitwiseAnd(innerHeader.cast(int.class), constantInt(VARSIZE_MASK))));
         }
 
         // Here we generate all possible combinations of comparators for all possible entry sizes. These methods will look like this
@@ -400,7 +400,8 @@ public class JitComparatorGenerator {
             body.append(new IfStatement()
                     .condition(outerIsPrefix)
                     .ifTrue(new BytecodeBlock()
-                            // "outerSize" is reduced by 4. This variable is later used as an "end" of the last column.
+                            // Last for bytes of prefix tuple contain the number of its columns in Little Endian format.
+                            // "outerSize" is thus reduced by 4 to reflect the real "end" of the last column.
                             .append(outerSize.set(subtract(outerSize, constantInt(Integer.BYTES))))
                             .append(prefixColumns.set(outerAccessor.invoke("getInt", int.class, outerSize)))
                     )
@@ -451,7 +452,7 @@ public class JitComparatorGenerator {
                 // Usage of "bitwiseAnd" and "bitwiseOr" make generated code easier to read when decompiled.
                 body.append(new IfStatement()
                         .condition(bitwiseAnd(outerInNull, innerInNull))
-                        .ifTrue(lastIteration && !options.supportPrefixes() ? constantInt(0).ret() : jump(endOfBlockLabel)) // <-------
+                        .ifTrue(lastIteration && !options.supportPrefixes() ? constantInt(0).ret() : jump(endOfBlockLabel))
                         .ifFalse(new IfStatement()
                                 .condition(bitwiseOr(outerInNull, innerInNull))
                                 .ifTrue(new IfStatement()
@@ -492,12 +493,12 @@ public class JitComparatorGenerator {
             if (options.supportPrefixes()) {
                 // If prefixes are supported, we must always check what column we compare,
                 // and return a corresponding value if it was the last column in the prefix.
-                BytecodeExpression outerFlagExpression = outerAccessor.invoke("get", byte.class, constantInt(0)).cast(int.class);
+                BytecodeExpression outerHeaderExpression = outerAccessor.invoke("get", byte.class, constantInt(0)).cast(int.class);
 
                 body.append(new IfStatement()
                         .condition(and(outerIsPrefix, equal(constantInt(i + 1), prefixColumns)))
                         .ifTrue(inlineIf(
-                                equal(bitwiseAnd(outerFlagExpression, constantInt(EQUALITY_FLAG)), constantInt(0)),
+                                equal(bitwiseAnd(outerHeaderExpression, constantInt(EQUALITY_FLAG)), constantInt(0)),
                                 // Collation is ignored for prefixes.
                                 constantInt(-1),
                                 constantInt(1)
