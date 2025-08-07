@@ -81,6 +81,8 @@ import org.jetbrains.annotations.TestOnly;
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
 
+    private final boolean longHandlingLoggingEnabled = IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false);
+
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
 
@@ -486,22 +488,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = System.nanoTime();
+            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
+                    long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                if (tookMillis > 100 && IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false)) {
-                    LOG.warn(
-                            "Processing of {} from {} took {} ms",
-                            LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
-                            inNetworkObject.sender(),
-                            tookMillis
-                    );
+                    if (tookMillis > 100) {
+                        LOG.warn(
+                                "Processing of {} from {} took {} ms",
+                                LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                                inNetworkObject.sender(),
+                                tookMillis
+                        );
+                    }
                 }
             }
         });
