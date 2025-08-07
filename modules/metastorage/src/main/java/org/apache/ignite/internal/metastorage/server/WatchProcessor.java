@@ -74,6 +74,8 @@ import org.jetbrains.annotations.VisibleForTesting;
  * will not get notified of a new revision until all Watches have finished processing a previous revision.
  */
 public class WatchProcessor implements ManuallyCloseable {
+    private final boolean timeBagEnabled = getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
+
     /** Reads an entry from the storage using a given key and revision. */
     @FunctionalInterface
     public interface EntryReader {
@@ -328,8 +330,8 @@ public class WatchProcessor implements ManuallyCloseable {
         return allOf(notifyWatchFutures);
     }
 
-    private static void maybeLogLongProcessing(List<Entry> updatedEntries, List<WatchAndEvents> watchAndEvents, long startTimeNanos) {
-        if (!getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
+    private void maybeLogLongProcessing(List<Entry> updatedEntries, List<WatchAndEvents> watchAndEvents, long startTimeNanos) {
+        if (!timeBagEnabled) {
             return;
         }
 
@@ -369,7 +371,6 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         var watchAndEvents = new ArrayList<WatchAndEvents>();
-        boolean timeBagEnabled = getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
 
         for (Watch watch : watches) {
             List<EntryEvent> events = List.of();
