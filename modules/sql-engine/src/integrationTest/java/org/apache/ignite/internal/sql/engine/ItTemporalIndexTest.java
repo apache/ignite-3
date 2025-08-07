@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.d
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.instant;
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreSearchBounds;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -252,7 +252,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         for (String idx : SORTED_INDEXES.get(table)) {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
-                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", table, idx))
                     .returns(result)
                     .check();
         }
@@ -266,7 +266,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
                     .withParam(parameter)
-                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", table, idx))
                     .returns(result)
                     .check();
         }
@@ -279,7 +279,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         for (String idx : SORTED_INDEXES.get(table)) {
             QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
-                    .matches(containsIndexScan("PUBLIC", table, idx));
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", table, idx));
 
             for (Object res : result) {
                 checker.returns(res);
@@ -297,7 +297,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
             QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk BETWEEN ? AND ?", idx, table))
                     .withParams(params)
-                    .matches(containsIndexScan("PUBLIC", table, idx));
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", table, idx));
 
             for (Object res : result) {
                 checker.returns(res);

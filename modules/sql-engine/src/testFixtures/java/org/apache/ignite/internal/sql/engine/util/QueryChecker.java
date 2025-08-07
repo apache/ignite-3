@@ -132,7 +132,7 @@ public interface QueryChecker {
      * @param idxName Index name.
      * @return Matcher.
      */
-    static Matcher<String> containsIndexScanIgnoreSearchBounds(String schema, String tblName, String idxName) {
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName, String idxName) {
         return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
                 + ".*?index: " + idxName);
     }
