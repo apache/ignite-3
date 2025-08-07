@@ -400,7 +400,7 @@ public class JitComparatorGenerator {
             body.append(new IfStatement()
                     .condition(outerIsPrefix)
                     .ifTrue(new BytecodeBlock()
-                            // Last for bytes of prefix tuple contain the number of its columns in Little Endian format.
+                            // Last four bytes of prefix tuple contain the number of its columns in Little Endian format.
                             // "outerSize" is thus reduced by 4 to reflect the real "end" of the last column.
                             .append(outerSize.set(subtract(outerSize, constantInt(Integer.BYTES))))
                             .append(prefixColumns.set(outerAccessor.invoke("getInt", int.class, outerSize)))
