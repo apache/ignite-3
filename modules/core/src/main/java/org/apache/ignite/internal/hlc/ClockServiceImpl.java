@@ -19,6 +19,7 @@ package org.apache.ignite.internal.hlc;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link ClockService}.
@@ -60,7 +61,13 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
-        return clock.update(requestTime);
+        HybridTimestamp result = clock.update(requestTime);
+
+        if (requestTime.getPhysical() - maxClockSkewMillis() > result.getPhysical()) {
+            Loggers.forClass(ClockServiceImpl.class).warn("Maximum allowed clock drift in the cluster exceeded");
+        }
+
+        return result;
     }
 
     @Override
