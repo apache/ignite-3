@@ -26,9 +26,9 @@ Fragment#2
   distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
   targetNodes: [N0]
-  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 0, 3], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
-  colocationGroup[0]: {nodes=[N1], sourceIds=[-1, 0, 3], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
-  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 0, 3], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender

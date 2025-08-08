@@ -174,6 +174,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
             assert colocationGroup != null : "No colocation group#" + sourceId;
 
             ColocationGroup newColocationGroup = PartitionPruningPredicate.prunePartitions(
+                    sourceId,
                     table, pruningColumns, dynamicParameters,
                     colocationGroup
             );
