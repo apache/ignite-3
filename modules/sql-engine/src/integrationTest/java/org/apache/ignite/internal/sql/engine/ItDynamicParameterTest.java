@@ -790,13 +790,13 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 arguments(ColumnType.DATE, "SELECT ?, ?::VARCHAR",
                         DATE_MAX, DATE_MAX, "9999-12-31"),
 
-                arguments(ColumnType.DATE, "SELECT ? + INTERVAL 86399 SECOND, (? + INTERVAL 86399 SECOND)::VARCHAR",
+                arguments(ColumnType.DATE, "SELECT ? + INTERVAL '86399' SECOND, (? + INTERVAL '86399' SECOND)::VARCHAR",
                         DATE_MAX, DATE_MAX, "9999-12-31"),
 
                 arguments(ColumnType.DATE, "SELECT ?, ?::VARCHAR",
                         DATE_MIN, DATE_MIN, "0001-01-01"),
 
-                arguments(ColumnType.DATE, "SELECT ? - INTERVAL 86399 SECOND, (? - INTERVAL 86399 SECOND)::VARCHAR",
+                arguments(ColumnType.DATE, "SELECT ? - INTERVAL '86399' SECOND, (? - INTERVAL '86399' SECOND)::VARCHAR",
                         DATE_MIN, DATE_MIN, "0001-01-01"),
 
                 // TIMESTAMP
@@ -838,39 +838,39 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // DATE
                 arguments(SqlTypeName.DATE, "?", DATE_MAX.plusDays(1)),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 86400 SECOND)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 DAY)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 MONTH)", DATE_MAX),
-                arguments(SqlTypeName.DATE, "(? + INTERVAL 1 YEAR)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '86400' SECOND)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' DAY)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' MONTH)", DATE_MAX),
+                arguments(SqlTypeName.DATE, "(? + INTERVAL '1' YEAR)", DATE_MAX),
                 arguments(SqlTypeName.DATE, "?", DATE_MIN.minusDays(1)),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 86400 SECOND)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 DAY)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 MONTH)", DATE_MIN),
-                arguments(SqlTypeName.DATE, "(? - INTERVAL 1 YEAR)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '86400' SECOND)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' DAY)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' MONTH)", DATE_MIN),
+                arguments(SqlTypeName.DATE, "(? - INTERVAL '1' YEAR)", DATE_MIN),
 
                 // TIMESTAMP
                 arguments(SqlTypeName.TIMESTAMP, "?", DATETIME_MAX.plusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 SECOND)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 DAY)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 MONTH)", DATETIME_MAX),
-                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL 1 YEAR)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' SECOND)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' DAY)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' MONTH)", DATETIME_MAX),
+                arguments(SqlTypeName.TIMESTAMP, "(? + INTERVAL '1' YEAR)", DATETIME_MAX),
                 arguments(SqlTypeName.TIMESTAMP, "?", DATETIME_MIN.minusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 SECOND)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 DAY)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 MONTH)", DATETIME_MIN),
-                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL 1 YEAR)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' SECOND)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' DAY)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' MONTH)", DATETIME_MIN),
+                arguments(SqlTypeName.TIMESTAMP, "(? - INTERVAL '1' YEAR)", DATETIME_MIN),
 
                 // TIMESTAMP WITH LOCAL TIME ZONE
                 arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "?", TIMESTAMP_MAX.plusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 SECOND)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 DAY)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 MONTH)", TIMESTAMP_MAX),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL 1 YEAR)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' SECOND)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' DAY)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' MONTH)", TIMESTAMP_MAX),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? + INTERVAL '1' YEAR)", TIMESTAMP_MAX),
                 arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "?", TIMESTAMP_MIN.minusNanos(1)),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 SECOND)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 DAY)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 MONTH)", TIMESTAMP_MIN),
-                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL 1 YEAR)", TIMESTAMP_MIN)
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' SECOND)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' DAY)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' MONTH)", TIMESTAMP_MIN),
+                arguments(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, "(? - INTERVAL '1' YEAR)", TIMESTAMP_MIN)
         );
     }
 

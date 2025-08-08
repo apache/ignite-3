@@ -39,6 +39,11 @@ public interface ConfigurationListener<VIEWT> {
     CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<VIEWT> ctx);
 
     /** Creates an adapter for a given callback. */
+    static <T> ConfigurationListener<T> fromNewValueConsumer(Consumer<T> callback) {
+        return fromConsumer(ctx -> callback.accept(ctx.newValue()));
+    }
+
+    /** Creates an adapter for a given callback. */
     static <T> ConfigurationListener<T> fromConsumer(Consumer<ConfigurationNotificationEvent<T>> callback) {
         return ctx -> {
             try {
