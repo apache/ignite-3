@@ -89,17 +89,17 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testPrimitiveToDecimal() {
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal((byte) 10, 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal((short) 10, 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(10, 10, 0)
         );
 
@@ -128,17 +128,17 @@ public class IgniteSqlFunctionsTest {
         assertNull(IgniteSqlFunctions.toBigDecimal((String) null, 10, 0));
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Byte.valueOf("10"), 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Short.valueOf("10"), 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Integer.valueOf(10), 10, 0)
         );
 
@@ -251,8 +251,9 @@ public class IgniteSqlFunctionsTest {
 
     /** Tests for ROUND(x) function. */
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testRound() {
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.sround(new BigDecimal("1.000")));
         assertEquals(new BigDecimal("2"), IgniteSqlFunctions.sround(new BigDecimal("1.5")));
         assertEquals(1, IgniteSqlFunctions.sround(1), "int");
         assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
@@ -370,8 +371,8 @@ public class IgniteSqlFunctionsTest {
     /** Tests for TRUNCATE(x) function. */
     @Test
     public void testTruncate() {
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.000")));
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.5")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.struncate(new BigDecimal("1.000")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.struncate(new BigDecimal("1.5")));
         assertEquals(1, IgniteSqlFunctions.struncate(1), "int");
         assertEquals(1L, IgniteSqlFunctions.struncate(1L), "long");
         assertEquals(1.0d, IgniteSqlFunctions.struncate(1.5d), "double");

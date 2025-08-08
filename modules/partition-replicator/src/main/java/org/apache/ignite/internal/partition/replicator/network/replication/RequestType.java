@@ -69,9 +69,6 @@ public enum RequestType {
         return requestTypeId;
     }
 
-    /** Cached array with all enum values. */
-    private static final RequestType[] VALUES = values();
-
     /**
      * Returns {@code true} if the operation is an RW read.
      */

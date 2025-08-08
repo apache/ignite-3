@@ -47,7 +47,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
         assert ars != null;
 
         this.ars = ars;
-        it = ars.hasRowSet() ? new IteratorImpl(ars) : null;
+        it = ars.hasRowSet() ? new IteratorImpl<>(ars) : null;
     }
 
     /** {@inheritDoc} */

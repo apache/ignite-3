@@ -549,7 +549,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
 
         assertTrue(root.hasNext());
 
-        assertArrayEquals(row(0, new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(10))), root.next());
+        assertArrayEquals(row(0, new BigDecimal(Long.MAX_VALUE).add(BigDecimal.TEN)), root.next());
 
         assertFalse(root.hasNext());
     }

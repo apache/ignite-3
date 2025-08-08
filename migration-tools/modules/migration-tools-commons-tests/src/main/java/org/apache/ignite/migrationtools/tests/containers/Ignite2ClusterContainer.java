@@ -161,8 +161,11 @@ public class Ignite2ClusterContainer implements Startable {
     /**
      * Waits for the next checkpoint to happen.
      *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @throws InterruptedException when the thread was interrupted while waiting.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public void waitForNextCheckpoint() throws InterruptedException {
         // TODO: Make a specific checkpoint log implementation.
         // TODO: In the future, we will be able to call shutdown(false) on the container to properly shutdown the nodes.

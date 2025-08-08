@@ -325,11 +325,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         StringBuilder stmt = new StringBuilder();
         for (int i = 0; i < 100; i++) {
             if (i > 0) {
-                stmt.append("UNION");
-                stmt.append(System.lineSeparator());
+                stmt.append("UNION")
+                        .append(System.lineSeparator());
             }
-            stmt.append("SELECT * FROM t WHERE c = ").append(i);
-            stmt.append(System.lineSeparator());
+            stmt.append("SELECT * FROM t WHERE c = ").append(i).append(System.lineSeparator());
         }
 
         ParsedResult parsedResult = parse(stmt.toString());

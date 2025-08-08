@@ -174,7 +174,9 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         };
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);

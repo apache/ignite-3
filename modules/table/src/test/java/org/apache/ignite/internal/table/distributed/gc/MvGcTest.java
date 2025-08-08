@@ -487,7 +487,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         when(safeTimeTracker.waitFor(any())).then(invocation -> {
             startAwaitSafeTimeFuture.complete(null);
 
-            return new CompletableFuture<Void>();
+            return new CompletableFuture<>();
         });
 
         when(gcUpdateHandler.getSafeTimeTracker()).thenReturn(safeTimeTracker);

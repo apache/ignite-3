@@ -72,7 +72,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return Excetion.
      */
     private static MessageSizeException overflowU32Size(int u32) {
-        long lv = (long) (u32 & 0x7fffffff) + 0x80000000L;
+        long lv = (u32 & 0x7fffffff) + 0x80000000L;
         return new MessageSizeException(lv);
     }
 

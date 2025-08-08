@@ -197,7 +197,9 @@ public class CollectionUtilsTest {
         assertEquals(List.of(1, 2, 3), collect(concat(List.of(List.of(1).iterator(), List.of(2, 3).iterator()))));
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Test
+    @SuppressWarnings("PMD.UnnecessaryCast")
     void testConcatList() {
         assertTrue(concat(new List[0]).isEmpty());
         assertTrue(concat((List<Object>[]) null).isEmpty());

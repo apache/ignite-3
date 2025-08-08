@@ -96,7 +96,7 @@ protobuf = "4.31.1"
 cytodynamics = "0.2.0"
 
 #Tools
-pmdTool = "6.55.0"
+pmdTool = "7.13.0"
 checkstyleTool = "10.3.3"
 spotbugsTool = "4.8.3"
 

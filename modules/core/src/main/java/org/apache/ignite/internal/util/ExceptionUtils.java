@@ -756,7 +756,7 @@ public final class ExceptionUtils {
     public static IgniteException wrap(Throwable e) {
         Objects.requireNonNull(e);
 
-        e = ExceptionUtils.unwrapCause(e);
+        e = unwrapCause(e);
 
         if (e instanceof IgniteException) {
             IgniteException iex = (IgniteException) e;

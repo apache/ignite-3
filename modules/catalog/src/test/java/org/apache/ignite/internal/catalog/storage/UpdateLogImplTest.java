@@ -490,7 +490,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
             } else if (id == MarshallableEntryType.VERSIONED_UPDATE.id()) {
                 serializer = new VersionedUpdateSerializerV1(this);
             } else {
-                serializer = CatalogEntrySerializerProvider.DEFAULT_PROVIDER.get(2, id);
+                serializer = DEFAULT_PROVIDER.get(2, id);
             }
 
             return (CatalogObjectSerializer<MarshallableEntry>) serializer;

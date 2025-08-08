@@ -117,6 +117,7 @@
 
 
     <!--
+        TODO: https://issues.apache.org/jira/browse/IGNITE-26174
         UnusedPrivateMethod has a known bug which leads to false positive triggering if
         method signature contains generic parameter and\or descendant class is passed as parameter.
         See for details: https://github.com/pmd/pmd/issues/770
@@ -127,7 +128,7 @@
     <rule name="Prohibited classes"
       language="java"
       message="Avoid using these classes."
-      class="net.sourceforge.pmd.lang.rule.XPathRule" >
+      class="net.sourceforge.pmd.lang.rule.xpath.XPathRule" >
         <description>
             Avoid using these classes.
         </description>

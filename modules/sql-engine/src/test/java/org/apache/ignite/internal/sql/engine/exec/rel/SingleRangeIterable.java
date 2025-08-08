@@ -53,7 +53,7 @@ final class SingleRangeIterable<T> implements RangeIterable<T> {
     /** {@inheritDoc} */
     @Override
     public Iterator<RangeCondition<T>> iterator() {
-        RangeCondition<T> range = new RangeCondition<T>() {
+        RangeCondition<T> range = new RangeCondition<>() {
             @Override
             public T lower() {
                 return lower;

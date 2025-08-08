@@ -278,7 +278,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -370,7 +370,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -466,7 +466,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -565,7 +565,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -657,7 +657,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {
@@ -753,7 +753,7 @@ public class ConfigurationListenerTest {
             return nullCompletedFuture();
         });
 
-        config.children().listenElements(new ConfigurationNamedListListener<ChildView>() {
+        config.children().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ChildView> ctx) {

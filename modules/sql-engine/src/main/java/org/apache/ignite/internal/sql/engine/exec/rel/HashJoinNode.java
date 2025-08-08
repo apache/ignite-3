@@ -804,6 +804,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         return Collections.emptyList();
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+    @SuppressWarnings("PMD.UseDiamondOperator")
     private static <RowT> Iterator<RowT> getUntouched(Map<Key, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
             private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();

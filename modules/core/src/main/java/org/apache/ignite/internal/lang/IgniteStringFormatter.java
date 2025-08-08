@@ -112,9 +112,8 @@ public final class IgniteStringFormatter {
                     if (!isDoubleEscaped(messagePattern, j)) {
                         l--; // DELIM_START was escaped, thus should not be incremented
 
-                        sbuf.append(messagePattern, i, j - 1);
-
-                        sbuf.append(DELIM_START);
+                        sbuf.append(messagePattern, i, j - 1)
+                                .append(DELIM_START);
 
                         i = j + 1;
                     } else {

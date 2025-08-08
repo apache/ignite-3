@@ -609,7 +609,7 @@ public class JdbcResultSet implements ResultSet {
         if (val instanceof Number) {
             return ((Number) val).floatValue();
         } else if (cls == Boolean.class) {
-            return (float) ((Boolean) val ? 1 : 0);
+            return ((Boolean) val ? 1 : 0);
         } else if (cls == String.class || cls == Character.class) {
             try {
                 return Float.parseFloat(val.toString());

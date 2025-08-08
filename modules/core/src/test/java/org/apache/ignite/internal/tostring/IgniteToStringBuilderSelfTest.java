@@ -238,7 +238,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
         int limit = 100;
 
         ArrayList[] arrOf = new ArrayList[limit + 1];
-        Arrays.fill(arrOf, new ArrayList());
+        Arrays.fill(arrOf, new ArrayList<>());
         ArrayList[] arr = Arrays.copyOf(arrOf, limit);
 
         arrOf[0].add(arrOf);
@@ -369,24 +369,23 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public void testToStringColAndMapLimitWithRecursion() {
         int limit = 100;
-        Map strMap = new TreeMap<>();
-        List strList = new ArrayList<>(limit + 1);
+        Map<String, String> strMap = new TreeMap<>();
+        List<String> strList = new ArrayList<>(limit + 1);
 
         TestClass1 testClass = new TestClass1();
         testClass.strMap = strMap;
         testClass.strListIncl = strList;
 
-        Map m = new TreeMap();
+        Map<String, Map<String, String>> m = new TreeMap<>();
         m.put("m", strMap);
 
-        List l = new ArrayList();
+        List<List<String>> l = new ArrayList<>();
         l.add(strList);
 
-        strMap.put("k0", m);
-        strList.add(l);
+        strMap.put("k0", m.toString());
+        strList.add(l.toString());
 
         for (int i = 1; i < limit; i++) {
             strMap.put("k" + i, "v");

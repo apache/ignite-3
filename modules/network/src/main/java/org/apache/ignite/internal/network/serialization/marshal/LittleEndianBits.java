@@ -47,6 +47,8 @@ class LittleEndianBits {
         return Float.intBitsToFloat(getInt(b, off));
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
     static long getLong(byte[] b, int off) {
         return ((b[off] & 0xFFL))
                 + ((b[off + 1] & 0xFFL) << 8)

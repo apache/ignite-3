@@ -416,7 +416,8 @@ class TupleImpl implements Tuple, Serializable {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(columnName(i)).append('=').append((Object) value(i));
+            Object value = value(i);
+            b.append(columnName(i)).append('=').append(value);
         }
         b.append(']');
 

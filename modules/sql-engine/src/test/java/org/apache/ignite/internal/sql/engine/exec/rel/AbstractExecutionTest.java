@@ -277,7 +277,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                                         return null;
                                 }
                             })
-                            .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
+                            .collect(Collectors.toList()).toArray(new Function[0])
             );
         }
 

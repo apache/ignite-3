@@ -60,15 +60,15 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
     private static final int[] NOT_UNIQUE_ROWS_IN_GROUP = {1, 10};
 
     private static final Pair<NativeType[], ImmutableIntList>[] ROW_TYPES = new Pair[]{
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT32}, ImmutableIntList.of(1)),
 
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.INT64, NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.DATE, NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.time(0), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(0),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.INT64, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.DATE, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.time(0), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair<>(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(0),
                     NativeTypes.DATE, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
     };
 

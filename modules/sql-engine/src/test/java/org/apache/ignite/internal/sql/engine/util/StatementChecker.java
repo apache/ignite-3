@@ -322,7 +322,7 @@ public class StatementChecker {
 
         // please do not replace generic in TypeSafeMatcher with diamond.
         // Sometimes IDEA goes crazy and start throwing error on compilation                                  V
-        return shouldFail(name, exception, new TypeSafeMatcher<Throwable>() {
+        return shouldFail(name, exception, new TypeSafeMatcher<>() {
             @Override
             protected boolean matchesSafely(Throwable t) {
                 if (t.getMessage() == null) {

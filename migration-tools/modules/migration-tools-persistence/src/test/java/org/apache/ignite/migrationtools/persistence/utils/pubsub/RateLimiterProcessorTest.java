@@ -33,12 +33,9 @@ class RateLimiterProcessorTest {
         RateLimiterProcessor<Integer> rateLimiterProcessor = new RateLimiterProcessor<>(2, TimeUnit.SECONDS, 4);
 
         publisher.subscribe(rateLimiterProcessor);
-        rateLimiterProcessor.subscribe(new Flow.Subscriber<Integer>() {
-            private Flow.Subscription subscription;
-
+        rateLimiterProcessor.subscribe(new Flow.Subscriber<>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
-                this.subscription = subscription;
                 subscription.request(Integer.MAX_VALUE);
             }
 

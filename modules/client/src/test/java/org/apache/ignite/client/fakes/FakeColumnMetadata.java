@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake column meta.
@@ -34,10 +35,10 @@ class FakeColumnMetadata implements ColumnMetadata {
 
     private final boolean nullable;
 
-    private final ColumnOrigin origin;
+    private final @Nullable ColumnOrigin origin;
 
     FakeColumnMetadata(String name, ColumnType type) {
-        this(name, type, ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null);
+        this(name, type, UNDEFINED_PRECISION, UNDEFINED_SCALE, false, null);
     }
 
     FakeColumnMetadata(
@@ -46,7 +47,8 @@ class FakeColumnMetadata implements ColumnMetadata {
             int precision,
             int scale,
             boolean nullable,
-            ColumnOrigin origin) {
+            @Nullable ColumnOrigin origin
+    ) {
         assert name != null;
         assert type != null;
 
@@ -96,7 +98,7 @@ class FakeColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnOrigin origin() {
+    public @Nullable ColumnOrigin origin() {
         return origin;
     }
 }

@@ -599,7 +599,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /**
      * Predicate builder for "Any child satisfy predicate" condition.
+     *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26177
      */
+    @SuppressWarnings("PMD.UseDiamondOperator")
     protected <T extends RelNode> Predicate<RelNode> hasChildThat(Predicate<T> predicate) {
         return new Predicate<RelNode>() {
             public boolean checkRecursively(RelNode node) {

@@ -225,6 +225,7 @@ public class RecordMarshallerValidationsTest {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private static class TestK1K2V1 {
         private int k1;
         private int k2;
@@ -241,6 +242,7 @@ public class RecordMarshallerValidationsTest {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private static class TestK2V1 {
         private int k2;
         private String v1;

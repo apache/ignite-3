@@ -101,7 +101,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to byte values. */
     public static byte sround(byte b0) {
-        return (byte) sround(b0, 0);
+        return sround(b0, 0);
     }
 
     /** SQL {@code ROUND} operator applied to byte values. */
@@ -194,7 +194,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */
     public static byte struncate(byte b0) {
-        return (byte) struncate(b0, 0);
+        return struncate(b0, 0);
     }
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */

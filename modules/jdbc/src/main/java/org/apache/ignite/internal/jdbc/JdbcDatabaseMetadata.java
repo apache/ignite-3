@@ -1540,7 +1540,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getSQLStateType() {
-        return DatabaseMetaData.sqlStateSQL99;
+        return sqlStateSQL99;
     }
 
     /** {@inheritDoc} */

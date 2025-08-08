@@ -542,14 +542,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public Entry get(byte[] key) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken unused = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.get(key);
         }
     }
 
     @Override
     public List<Entry> getAll(List<byte[]> keys) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken unused = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.getAll(keys);
         }
     }

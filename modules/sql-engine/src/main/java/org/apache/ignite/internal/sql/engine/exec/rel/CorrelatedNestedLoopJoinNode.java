@@ -139,7 +139,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
         if (idx == 0) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {
@@ -159,7 +159,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 }
             };
         } else if (idx == 1) {
-            return new Downstream<RowT>() {
+            return new Downstream<>() {
                 /** {@inheritDoc} */
                 @Override
                 public void push(RowT row) throws Exception {

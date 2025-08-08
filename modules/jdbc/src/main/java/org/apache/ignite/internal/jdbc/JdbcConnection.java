@@ -165,7 +165,7 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Connection initialization canceled.", e);
         }
 
-        txIsolation = Connection.TRANSACTION_NONE;
+        txIsolation = TRANSACTION_NONE;
 
         schema = normalizeSchema(connProps.getSchema());
 
@@ -516,11 +516,11 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         switch (level) {
-            case Connection.TRANSACTION_READ_UNCOMMITTED:
-            case Connection.TRANSACTION_READ_COMMITTED:
-            case Connection.TRANSACTION_REPEATABLE_READ:
-            case Connection.TRANSACTION_SERIALIZABLE:
-            case Connection.TRANSACTION_NONE:
+            case TRANSACTION_READ_UNCOMMITTED:
+            case TRANSACTION_READ_COMMITTED:
+            case TRANSACTION_REPEATABLE_READ:
+            case TRANSACTION_SERIALIZABLE:
+            case TRANSACTION_NONE:
                 break;
 
             default:

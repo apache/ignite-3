@@ -1391,6 +1391,7 @@ public class IgniteToStringBuilder {
      * @param triplets Triplets {@code {name, value, sensitivity}}.
      * @return String presentation.
      */
+    @SuppressWarnings("PMD.AvoidArrayLoops")
     public static String toString(String str, Object... triplets) {
         if (triplets.length % 3 != 0) {
             throw new IllegalArgumentException("Array length must be a multiple of 3");
@@ -2203,7 +2204,8 @@ public class IgniteToStringBuilder {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(tuple.columnName(i)).append('=').append((Object) tuple.value(i));
+            Object value = tuple.value(i);
+            b.append(tuple.columnName(i)).append('=').append(value);
         }
         b.append(']');
 

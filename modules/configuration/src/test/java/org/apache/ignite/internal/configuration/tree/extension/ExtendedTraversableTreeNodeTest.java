@@ -135,7 +135,7 @@ public class ExtendedTraversableTreeNodeTest {
 
         Collection<String> keys = new HashSet<>();
 
-        parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
+        parentNode.traverseChildren(new ConfigurationVisitor<>() {
             @Override
             public Object visitLeafNode(@Nullable Field field, String key, Serializable val) {
                 assertEquals("my-str", key);
@@ -166,7 +166,7 @@ public class ExtendedTraversableTreeNodeTest {
         var parentNode = newParentInstance();
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("my-str", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-str", new ConfigurationVisitor<>() {
                     @Override
                     public Void visitLeafNode(@Nullable Field field, String key, Serializable val) {
                         assertEquals("my-str", key);
@@ -177,7 +177,7 @@ public class ExtendedTraversableTreeNodeTest {
         );
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("my-child", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-child", new ConfigurationVisitor<>() {
                     @Override
                     public @Nullable Void visitInnerNode(@Nullable Field field, String key, InnerNode node) {
                         assertEquals("my-child", key);
@@ -188,7 +188,7 @@ public class ExtendedTraversableTreeNodeTest {
         );
 
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("my-elements", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-elements", new ConfigurationVisitor<>() {
                     @Override
                     public @Nullable Void visitNamedListNode(@Nullable Field field, String key, NamedListNode<?> node) {
                         assertEquals("my-elements", key);

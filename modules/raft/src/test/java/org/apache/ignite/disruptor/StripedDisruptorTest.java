@@ -331,7 +331,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         }
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Test
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public void testConcurrentSubscribe() throws Exception {
         Random random = new Random();
 

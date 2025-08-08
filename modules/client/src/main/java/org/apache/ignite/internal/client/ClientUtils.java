@@ -220,8 +220,8 @@ public class ClientUtils {
      * @return Logger.
      */
     public static <T> IgniteLogger logger(IgniteClientConfiguration cfg, Class<T> cls) {
-        var loggerFactory = cfg.loggerFactory() == null
-                ? (LoggerFactory) System::getLogger
+        LoggerFactory loggerFactory = cfg.loggerFactory() == null
+                ? System::getLogger
                 : cfg.loggerFactory();
 
         return loggerFactory == null
