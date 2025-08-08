@@ -84,7 +84,7 @@ public class Cloner {
         @Override
         public IgniteRel visit(IgniteRel rel) {
             if (rel instanceof SourceAwareIgniteRel && !(rel instanceof IgniteTrimExchange)) {
-                // Take into account account only actual source relations.
+                // Take into account only actual source relations.
                 SourceAwareIgniteRel src = (SourceAwareIgniteRel) rel;
 
                 int sourceId = sourceIndex++;
