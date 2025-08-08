@@ -254,7 +254,7 @@ public class CheckpointPagesWriter implements Runnable {
             );
         }
 
-        var newPageIdsToRetry = useTryWriteLockOnPage ? new HashMap<PersistentPageMemory, List<FullPageId>>() : null;
+        Map<PersistentPageMemory, List<FullPageId>> newPageIdsToRetry = useTryWriteLockOnPage ? new HashMap<>() : Map.of();
 
         for (Entry<PersistentPageMemory, List<FullPageId>> entry : pageIdsToRetry.entrySet()) {
             PersistentPageMemory pageMemory = entry.getKey();
