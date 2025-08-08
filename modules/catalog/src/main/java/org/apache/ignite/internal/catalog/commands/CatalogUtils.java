@@ -618,7 +618,6 @@ public class CatalogUtils {
         return defaultZone != null ? defaultZone.id() : null;
     }
 
-
     /**
      * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
      *

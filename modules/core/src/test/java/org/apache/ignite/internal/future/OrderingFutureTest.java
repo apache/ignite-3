@@ -410,7 +410,6 @@ class OrderingFutureTest {
         assertThat(causeRef.get().getCause(), is(cancellationException));
     }
 
-
     @Test
     void composeToCompletableSeesCompletionEffectsImmediatelyWithGetNow() {
         OrderingFuture<Integer> future = new OrderingFuture<>();
@@ -558,7 +557,6 @@ class OrderingFutureTest {
         assertThat(causeRef.get(), is(instanceOf(CompletionException.class)));
         assertThat(causeRef.get().getCause(), is(cancellationException));
     }
-
 
     @Test
     void composeSeesCompletionEffectsImmediatelyWithGetNow() {

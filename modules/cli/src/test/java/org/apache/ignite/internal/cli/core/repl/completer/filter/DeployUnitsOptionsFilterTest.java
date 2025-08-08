@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-
 @MicronautTest
 class DeployUnitsOptionsFilterTest {
     private final DeployUnitsOptionsFilter filter = new DeployUnitsOptionsFilter();

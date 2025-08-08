@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
-
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -318,7 +317,6 @@ public final class TupleWithSchemaMarshalling {
         }
         throw new UnsupportedObjectTypeMarshallingException("Tuple field is of unsupported type: " + value.getClass());
     }
-
 
     private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
         if (colTypeId == TYPE_ID_TUPLE) {

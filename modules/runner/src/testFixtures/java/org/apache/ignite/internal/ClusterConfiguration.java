@@ -191,7 +191,6 @@ public class ClusterConfiguration {
                 .anyMatch(a -> a.nodeIndex() == -1 || a.nodeIndex() == nodeIndex);
     }
 
-
     static Map<String, String> configOverrides(@Nullable TestInfo testInfo, int nodeIndex) {
         List<ConfigOverride> annotations = testInfo == null ? List.of() : annotations(testInfo);
 

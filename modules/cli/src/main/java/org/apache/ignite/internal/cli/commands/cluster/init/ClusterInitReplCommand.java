@@ -60,7 +60,6 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
         );
     }
 
-
     private FlowBuilder<String, ClusterInitCallInput> askQuestionIfConfigIsPath() {
         try {
             clusterInitOptions.clusterConfiguration();

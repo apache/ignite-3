@@ -545,7 +545,6 @@ public final class Commons {
         return res;
     }
 
-
     /**
      * Quietly closes given object ignoring possible checked exception.
      *
