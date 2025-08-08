@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublic
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -97,7 +98,8 @@ public class ClientSqlExecuteRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            @Nullable String username
+            @Nullable String username,
+            boolean sqlMultistatementsSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -117,6 +119,10 @@ public class ClientSqlExecuteRequest {
 
         boolean includePartitionAwarenessMeta = sqlPartitionAwarenessSupported && in.unpackBoolean();
 
+        Set<SqlQueryType> allowedQueryTypes = sqlMultistatementsSupported && !in.tryUnpackNil()
+                ? ClientSqlCommon.unpackAllowedQueryTypes(in)
+                : SqlQueryType.SINGLE_STMT_TYPES;
+
         return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
                 tx,
                 sql,
@@ -126,6 +132,7 @@ public class ClientSqlExecuteRequest {
                 props.pageSize(),
                 props.toSqlProps().userName(username),
                 () -> cancelHandles.remove(requestId),
+                allowedQueryTypes,
                 arguments
         ).thenCompose(asyncResultSet ->
                         writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta, sqlDirectTxMappingSupported))
@@ -244,11 +251,12 @@ public class ClientSqlExecuteRequest {
             int pageSize,
             SqlProperties props,
             Runnable onComplete,
+            Set<SqlQueryType> allowedTypes,
             @Nullable Object... arguments
     ) {
         try {
             SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(allowedTypes);
 
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
                         properties,

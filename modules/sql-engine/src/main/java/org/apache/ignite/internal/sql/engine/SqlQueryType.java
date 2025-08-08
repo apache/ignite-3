@@ -54,6 +54,18 @@ public enum SqlQueryType {
     /** A set of all query types. **/
     public static final Set<SqlQueryType> ALL = EnumSet.allOf(SqlQueryType.class);
 
+    /** A set of types that {@link #hasRowSet() has row set}. */
+    public static final Set<SqlQueryType> HAS_ROW_SET_TYPES = Arrays.stream(values())
+            .filter(SqlQueryType::hasRowSet).collect(Collectors.toCollection(() -> EnumSet.noneOf(SqlQueryType.class)));
+
+    /** A set of types that {@link #returnsAffectedRows() returns number of affected rows}. */
+    public static final Set<SqlQueryType> RETURNS_AFFECTED_ROWS_TYPES = Arrays.stream(values())
+            .filter(SqlQueryType::returnsAffectedRows).collect(Collectors.toCollection(() -> EnumSet.noneOf(SqlQueryType.class)));
+
+    /** A set of types that {@link #supportsWasApplied() returns boolean indiccating whether command was applied or not}. */
+    public static final Set<SqlQueryType> SUPPORT_WAS_APPLIED_TYPES = Arrays.stream(values())
+            .filter(SqlQueryType::supportsWasApplied).collect(Collectors.toCollection(() -> EnumSet.noneOf(SqlQueryType.class)));
+
     /**
      * Returns {@code true} if a parse tree of a statement of this type should be cached.
      * Otherwise returns {@code false}.

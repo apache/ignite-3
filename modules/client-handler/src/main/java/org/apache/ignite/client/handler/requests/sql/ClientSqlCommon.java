@@ -17,11 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.sql.AllowedQueryType;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -194,6 +199,39 @@ class ClientSqlCommon {
             } else {
                 out.packInt(tableIdx);
             }
+        }
+    }
+
+    static Set<SqlQueryType> unpackAllowedQueryTypes(ClientMessageUnpacker unpacker) {
+        int size = unpacker.unpackByte();
+        Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
+
+        for (int i = 0; i < size; i++) {
+            byte typeId = unpacker.unpackByte();
+            AllowedQueryType type = AllowedQueryType.fromId(typeId);
+
+            result.addAll(convertAllowedTypeToQueryType(type));
+        }
+
+        return result;
+    }
+
+    static Set<SqlQueryType> convertAllowedTypeToQueryType(AllowedQueryType allowedType) {
+        switch (allowedType) {
+            case ALLOW_ROW_SET_RESULT:
+                return SqlQueryType.HAS_ROW_SET_TYPES;
+
+            case ALLOW_AFFECTED_ROWS_RESULT:
+                return SqlQueryType.RETURNS_AFFECTED_ROWS_TYPES;
+
+            case ALLOW_APPLIED_RESULT:
+                return SqlQueryType.SUPPORT_WAS_APPLIED_TYPES;
+
+            case ALLOW_MULTISTATEMENT_RESULT:
+                return EnumSet.of(SqlQueryType.TX_CONTROL);
+
+            default:
+                throw new IllegalArgumentException("Unexpected type " + allowedType);
         }
     }
 }
