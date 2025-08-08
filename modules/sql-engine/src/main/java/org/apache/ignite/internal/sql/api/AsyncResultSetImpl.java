@@ -77,6 +77,16 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         return cursor.partitionAwarenessMetadata();
     }
 
+    /** Returns query cursor. */
+    public AsyncSqlCursor<InternalSqlRow> cursor() {
+        return cursor;
+    }
+
+    /** Returns page size. */
+    public int pageSize() {
+        return pageSize;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {

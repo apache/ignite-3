@@ -295,7 +295,38 @@ public class ClientSql implements IgniteSql {
                 transaction,
                 mapper,
                 cancellationToken,
+                false,
                 null,
+                statement,
+                arguments
+        );
+    }
+
+    /**
+     * Executes multi-statement query in an asynchronous way.
+     *
+     * <p>Note: This method isn't part of the public API, and doesn't support custom mappers.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param allowedQueryTypes Allowed SQL query types.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     */
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeScriptInternal(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable Set<AllowedQueryType> allowedQueryTypes,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        return executeAsyncInternal(
+                transaction,
+                null,
+                cancellationToken,
+                true,
+                allowedQueryTypes == null ? AllowedQueryType.ALL : allowedQueryTypes,
                 statement,
                 arguments
         );
@@ -310,6 +341,7 @@ public class ClientSql implements IgniteSql {
      * @param cancellationToken Cancellation token or {@code null}.
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
+     * @param allowMultiStatement Flag indicating whether multi-statement query execution is allowed.
      * @param allowedQueryTypes Allowed SQL query types.
      * @param arguments Arguments for the statement.
      * @param <T> A type of object contained in result set.
@@ -319,6 +351,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
+            boolean allowMultiStatement,
             @Nullable Set<AllowedQueryType> allowedQueryTypes,
             Statement statement,
             @Nullable Object... arguments
@@ -356,7 +389,8 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, allowedQueryTypes, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, statement, allowMultiStatement, allowedQueryTypes, arguments,
+                        shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -375,10 +409,11 @@ public class ClientSql implements IgniteSql {
                     && r.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS);
 
             boolean sqlDirectMappingSupported = r.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING);
+            boolean sqlMultistatementsSupported = r.clientChannel().protocolContext().allFeaturesSupported(SQL_MULTISTATEMENT_SUPPORT);
 
             DirectTxUtils.readTx(r, ctx, tx, ch.observableTimestamp());
             ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
-                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported
+                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported, sqlMultistatementsSupported
             );
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
@@ -418,6 +453,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
+            boolean allowMultiStatement,
             @Nullable Collection<AllowedQueryType> allowedQueryTypes,
             @Nullable Object[] arguments,
             boolean requestAck
@@ -450,7 +486,7 @@ public class ClientSql implements IgniteSql {
             }
 
             if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
-                packAllowedQueryTypes(allowedQueryTypes, w.out());
+                packAllowedQueryTypes(allowedQueryTypes, allowMultiStatement, w.out());
             }
 
             if (cancellationToken != null) {
@@ -613,10 +649,12 @@ public class ClientSql implements IgniteSql {
         throw ExceptionUtils.sneakyThrow(ex);
     }
 
-    private static void packAllowedQueryTypes(@Nullable Collection<AllowedQueryType> queryTypes, ClientMessagePacker packer) {
+    private static void packAllowedQueryTypes(@Nullable Collection<AllowedQueryType> queryTypes, boolean multiStatement,
+            ClientMessagePacker packer) {
         if (queryTypes == null || queryTypes.isEmpty()) {
             packer.packNil();
         } else {
+            packer.packBoolean(multiStatement);
             packer.packByte((byte) queryTypes.size());
 
             for (AllowedQueryType type : queryTypes) {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.sql.AllowedQueryType;
+import org.apache.ignite.internal.client.sql.ClientAsyncResultSet;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -706,8 +708,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         BiConsumer<Statement, Set<AllowedQueryType>> check = (stmt, types) -> {
             await(sql.executeAsyncInternal(
                     null,
-                    () -> SqlRow.class,
                     null,
+                    null,
+                    false,
                     types,
                     stmt
             ));
@@ -762,6 +765,45 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         check.accept(ddlStatement, AllowedQueryType.ALL);
         check.accept(dmlStatement, AllowedQueryType.ALL);
         check.accept(selectStatement, AllowedQueryType.ALL);
+    }
+
+    @Test
+    void testBasicMultiStatement() {
+        ClientSql clientSql = (ClientSql) client().sql();
+
+        {
+            Statement stmt = clientSql.createStatement("SELECT 1; SELECT 2;");
+
+            ClientAsyncResultSet<SqlRow> resultSet = (ClientAsyncResultSet<SqlRow>) clientSql.executeScriptInternal(
+                    null,
+                    null,
+                    null,
+                    stmt
+            ).join();
+
+            assertTrue(resultSet.hasMoreResults());
+
+            resultSet = (ClientAsyncResultSet<SqlRow>) resultSet.fetchNextResult().join();
+
+            assertFalse(resultSet.hasMoreResults());
+
+            SqlRow row = resultSet.currentPage().iterator().next();
+
+            assertThat(row.intValue(0), equalTo(2));
+        }
+
+        {
+            Statement stmt = clientSql.createStatement("SELECT 1;");
+
+            ClientAsyncResultSet<SqlRow> resultSet = (ClientAsyncResultSet<SqlRow>) clientSql.executeScriptInternal(
+                    null,
+                    null,
+                    null,
+                    stmt
+            ).join();
+
+            assertFalse(resultSet.hasMoreResults());
+        }
     }
 
     private static class Pojo {

@@ -203,8 +203,13 @@ class ClientSqlCommon {
     }
 
     static Set<SqlQueryType> unpackAllowedQueryTypes(ClientMessageUnpacker unpacker) {
-        int size = unpacker.unpackByte();
         Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
+
+        if (unpacker.unpackBoolean()) {
+            result.add(SqlQueryType.TX_CONTROL);
+        }
+
+        int size = unpacker.unpackByte();
 
         for (int i = 0; i < size; i++) {
             byte typeId = unpacker.unpackByte();
