@@ -113,13 +113,13 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new HeartbeatRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
         registerProcessor(new AddPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ChangePeersAndLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ChangePeersAndLearnersAsyncRequestProcessor(rpcExecutor, raftMessagesFactory));
-        registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new SnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new GetPeersRequestProcessor(rpcExecutor, raftMessagesFactory));
