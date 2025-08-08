@@ -26,8 +26,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -50,7 +52,7 @@ public final class FragmentPrinter {
 
     static String FRAGMENT_PREFIX = "Fragment#";
 
-    private final boolean verbose;
+    private boolean verbose;
     private final Output output;
     private final Int2ObjectMap<IgniteTable> tables;
 
@@ -129,6 +131,12 @@ public final class FragmentPrinter {
                         .toString()
                 );
             }
+            
+            Map<Long, ColocationGroup> orderedColocationGroups = new TreeMap<>(mappedFragment.groupsBySourceId());
+            for (Entry<Long, ColocationGroup> entry : orderedColocationGroups.entrySet()) {
+                ColocationGroup group = entry.getValue();
+                appendColocationGroup(entry.getKey(), group);
+            }
         }
 
         Int2ObjectMap<Map<String, BitSet>> tableIdToNodeNameToPartitionsMap = new Int2ObjectOpenHashMap<>();
@@ -178,6 +186,39 @@ public final class FragmentPrinter {
 
         IgniteRel clonedRoot = Cloner.clone(mappedFragment.fragment().root(), Commons.cluster());
         output.writeString(ExplainUtils.toString(clonedRoot, 2 * ATTRIBUTES_INDENT));
+    }
+
+    private void appendColocationGroup(long sourceId, ColocationGroup group) {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append("{");
+        sb.append("nodes=").append(new TreeSet<>(group.nodeNames()));
+        sb.append(", sourceIds=").append(new TreeSet<>(group.sourceIds()));
+
+        sb.append(", assignments=");
+        Map<String, String> assignments = new TreeMap<>();
+        for (Int2ObjectMap.Entry<NodeWithConsistencyToken> entry : group.assignments().int2ObjectEntrySet()) {
+            String assignment = entry.getValue().name() + ":" + entry.getValue().enlistmentConsistencyToken();
+            assignments.put("part_" + entry.getIntKey(), assignment);
+        }
+        sb.append(assignments);
+
+        sb.append(", partitionsWithConsistencyTokens=");
+        Map<String, String> partitionWithConsistencyTokens = new TreeMap<>();
+        for (String nodeName : group.nodeNames()) {
+            List<PartitionWithConsistencyToken> ppPerNode = group.partitionsWithConsistencyTokens(nodeName);
+
+            List<String> pps = ppPerNode.stream()
+                    .map(p -> "part_" + p.partId() + ":" + p.enlistmentConsistencyToken())
+                    .sorted()
+                    .collect(Collectors.toList());
+            
+            partitionWithConsistencyTokens.put(nodeName, pps.toString());
+        }
+        sb.append(partitionWithConsistencyTokens);
+        sb.append("}");
+        
+        output.writeKeyValue("colocationGroup[" + sourceId +"]", sb.toString());
     }
 
     /** Collects table descriptors to use them table names, column names in text output. */

@@ -5,6 +5,9 @@ Fragment#2 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {3=[N1], 4=[N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[4]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     ColocatedMinus
         all: false
@@ -22,6 +25,7 @@ Fragment#3
   distribution: random
   executionNodes: [N1]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender
@@ -37,6 +41,7 @@ Fragment#4
   distribution: random
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[1]: {nodes=[N2], sourceIds=[1], assignments={part_0=N2:1}, partitionsWithConsistencyTokens={N2=[part_0:1]}}
   partitions: [T2_N2=[N2={0}]]
   tree: 
     Sender
@@ -56,6 +61,8 @@ Fragment#2 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {3=[N1, N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     ReduceMinus
         all: false
@@ -69,6 +76,8 @@ Fragment#3
   distribution: random
   executionNodes: [N1, N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  colocationGroup[1]: {nodes=[N2], sourceIds=[1], assignments={part_0=N2:1}, partitionsWithConsistencyTokens={N2=[part_0:1]}}
   partitions: [T1_N1=[N1={0}], T2_N2=[N2={0}]]
   tree: 
     Sender

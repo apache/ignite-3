@@ -5,6 +5,8 @@ Fragment#1 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
@@ -15,6 +17,7 @@ Fragment#2
   distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender
@@ -34,6 +37,8 @@ Fragment#1 root
   distribution: single
   executionNodes: [N2]
   exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N2], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
+  colocationGroup[2]: {nodes=[N2], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
@@ -44,6 +49,7 @@ Fragment#2
   distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
   targetNodes: [N2]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender
@@ -63,6 +69,8 @@ Fragment#1 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {2=[N1]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
@@ -73,6 +81,7 @@ Fragment#2
   distribution: table PUBLIC.T1_N1 in zone ZONE_1
   executionNodes: [N1]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender
@@ -93,6 +102,8 @@ Fragment#1 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {2=[N1, N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
@@ -103,6 +114,7 @@ Fragment#2
   distribution: table PUBLIC.T2_N1N2 in zone ZONE_2
   executionNodes: [N1, N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1, N2], sourceIds=[0], assignments={part_0=N1:2, part_1=N2:2}, partitionsWithConsistencyTokens={N1=[part_0:2], N2=[part_1:2]}}
   partitions: [T2_N1N2=[N1={0}, N2={1}]]
   tree: 
     Sender

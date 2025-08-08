@@ -6,6 +6,8 @@ Fragment#1 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {2=[N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[2]: {nodes=[N1], sourceIds=[-1, 2], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2]
@@ -16,6 +18,7 @@ Fragment#2
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N2], sourceIds=[0], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
   partitions: [T1_N1N2N3=[N2={1}]]
   tree: 
     Sender
@@ -36,6 +39,9 @@ Fragment#2 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {3=[N2], 4=[N4]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[4]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     MergeJoin
         predicate: =(C1, C1$0)
@@ -55,6 +61,7 @@ Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N2], sourceIds=[0], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
   partitions: [T1_N1N2N3=[N2={1}]]
   tree: 
     Sender
@@ -74,6 +81,7 @@ Fragment#4
   distribution: table PUBLIC.T2_N4N5 in zone ZONE_2
   executionNodes: [N4]
   targetNodes: [N1]
+  colocationGroup[1]: {nodes=[N4], sourceIds=[1], assignments={part_0=N4:2}, partitionsWithConsistencyTokens={N4=[part_0:2]}}
   partitions: [T2_N4N5=[N4={0}]]
   tree: 
     Sender
@@ -97,6 +105,9 @@ Fragment#2 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {3=[N2], 4=[N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[4]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     MergeJoin
         predicate: =(C1, C1$0)
@@ -116,6 +127,7 @@ Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N2], sourceIds=[0], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
   partitions: [T1_N1N2N3=[N2={1}]]
   tree: 
     Sender
@@ -135,6 +147,7 @@ Fragment#4
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[1]: {nodes=[N2], sourceIds=[1], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
   partitions: [T1_N1N2N3=[N2={1}]]
   tree: 
     Sender
@@ -160,6 +173,8 @@ Fragment#2 root
   distribution: single
   executionNodes: [N1]
   exchangeSourceNodes: {3=[N2, N3]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Receiver
         fieldNames: [ID, C1, C2, ID$0, C1$0, C2$0]
@@ -170,6 +185,8 @@ Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N2, N3]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0, 1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
+  colocationGroup[1]: {nodes=[N3], sourceIds=[0, 1], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
   partitions: [T1_N1N2N3=[N2={1}, N3={2}]]
   tree: 
     Sender
@@ -208,6 +225,9 @@ Fragment#2 root
   distribution: single
   executionNodes: [N0]
   exchangeSourceNodes: {3=[N3], 4=[N1, N2, N3]}
+  colocationGroup[-1]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  colocationGroup[3]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  colocationGroup[4]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
   tree: 
     CorrelatedNestedLoopJoin
         predicate: true
@@ -227,6 +247,7 @@ Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N3]
   targetNodes: [N0]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
   partitions: [T1_N1N2N3=[N3={2}]]
   tree: 
     Sender
@@ -244,6 +265,7 @@ Fragment#4 correlated
   executionNodes: [N1, N2, N3]
   targetNodes: [N0]
   exchangeSourceNodes: {5=[N1, N2, N3]}
+  colocationGroup[5]: {nodes=[N1, N2, N3], sourceIds=[5], assignments={}, partitionsWithConsistencyTokens={N1=[], N2=[], N3=[]}}
   tree: 
     Sender
         distribution: single
@@ -266,6 +288,7 @@ Fragment#5 correlated
   distribution: random
   executionNodes: [N1, N2, N3]
   targetNodes: [N1, N2, N3]
+  colocationGroup[1]: {nodes=[N1, N2, N3], sourceIds=[1], assignments={part_0=N1:3, part_1=N2:3, part_2=N3:3}, partitionsWithConsistencyTokens={N1=[part_0:3], N2=[part_1:3], N3=[part_2:3]}}
   partitions: [T3_N1N2N3=[N1={0}, N2={1}, N3={2}]]
   tree: 
     Sender
@@ -289,6 +312,9 @@ Fragment#2 root
   distribution: single
   executionNodes: [N0]
   exchangeSourceNodes: {3=[N3], 4=[N4, N5]}
+  colocationGroup[-1]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  colocationGroup[3]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  colocationGroup[4]: {nodes=[N0], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
   tree: 
     CorrelatedNestedLoopJoin
         predicate: true
@@ -308,6 +334,7 @@ Fragment#3
   distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
   executionNodes: [N3]
   targetNodes: [N0]
+  colocationGroup[0]: {nodes=[N3], sourceIds=[0], assignments={part_2=N3:3}, partitionsWithConsistencyTokens={N3=[part_2:3]}}
   partitions: [T1_N1N2N3=[N3={2}]]
   tree: 
     Sender
@@ -325,6 +352,7 @@ Fragment#4 correlated
   executionNodes: [N4, N5]
   targetNodes: [N0]
   exchangeSourceNodes: {5=[N4, N5]}
+  colocationGroup[5]: {nodes=[N4, N5], sourceIds=[5], assignments={}, partitionsWithConsistencyTokens={N4=[], N5=[]}}
   tree: 
     Sender
         distribution: single
@@ -347,6 +375,7 @@ Fragment#5 correlated
   distribution: random
   executionNodes: [N4, N5]
   targetNodes: [N4, N5]
+  colocationGroup[1]: {nodes=[N4, N5], sourceIds=[1], assignments={part_0=N4:2, part_1=N5:2}, partitionsWithConsistencyTokens={N4=[part_0:2], N5=[part_1:2]}}
   partitions: [T2_N4N5=[N4={0}, N5={1}]]
   tree: 
     Sender

@@ -4,6 +4,7 @@ SELECT 1
 Fragment#0 root
   distribution: broadcast
   executionNodes: [N1]
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     Values
         fieldNames: [EXPR$0]
@@ -17,6 +18,7 @@ SELECT 1
 Fragment#0 root
   distribution: broadcast
   executionNodes: [N2]
+  colocationGroup[-1]: {nodes=[N2], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N2=[]}}
   tree: 
     Values
         fieldNames: [EXPR$0]

@@ -4,6 +4,7 @@ SELECT * FROM TABLE(system_range(1, 5))
 Fragment#1 root
   distribution: single
   executionNodes: [N0]
+  colocationGroup[-1]: {nodes=[N0], sourceIds=[-1], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
   tree: 
     TableFunctionScan
         fieldNames: [X]
