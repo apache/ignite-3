@@ -71,10 +71,10 @@ public class ClientComputeExecutePartitionedRequest {
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)
+                    .eventUser(clientContext.userDetails())
                     .taskId(taskId)
                     .tableName(table.name())
-                    .clientAddress(clientContext.remoteAddress().toString())
-                    .eventUser(clientContext.userDetails());
+                    .clientAddress(clientContext.remoteAddress().toString());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,

@@ -80,9 +80,9 @@ public class ClientComputeExecuteRequest {
         UUID taskId = clientContext.hasFeature(COMPUTE_EVENTS) ? in.unpackUuidNullable() : null;
 
         ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(taskId != null ? Type.BROADCAST : Type.SINGLE)
+                .eventUser(clientContext.userDetails())
                 .taskId(taskId)
-                .clientAddress(clientContext.remoteAddress().toString())
-                .eventUser(clientContext.userDetails());
+                .clientAddress(clientContext.remoteAddress().toString());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null

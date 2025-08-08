@@ -113,7 +113,7 @@ public class PriorityQueueExecutor {
         }
 
         ComputeEventMetadata eventMetadata = metadataBuilder
-                .nodeName(nodeName)
+                .targetNode(nodeName)
                 .build();
         logJobQueuedEvent(eventLog, eventMetadata);
 

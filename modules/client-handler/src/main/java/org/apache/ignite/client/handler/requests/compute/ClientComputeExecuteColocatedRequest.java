@@ -74,9 +74,9 @@ public class ClientComputeExecuteColocatedRequest {
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
                     ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .eventUser(clientContext.userDetails())
                             .tableName(table.name())
-                            .clientAddress(clientContext.remoteAddress().toString())
-                            .eventUser(clientContext.userDetails());
+                            .clientAddress(clientContext.remoteAddress().toString());
 
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,

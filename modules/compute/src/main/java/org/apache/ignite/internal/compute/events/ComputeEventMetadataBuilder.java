@@ -21,24 +21,29 @@ import java.util.UUID;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.security.authentication.UserDetails;
-import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metadata builder.
  */
 public class ComputeEventMetadataBuilder {
+    private EventUser eventUser;
     private Type type;
     private String jobClassName;
     private UUID jobId;
-    private UUID taskId;
-    private String tableName;
+    private String targetNode;
     private String initiatorNode;
-    private String clientAddress;
-    private EventUser eventUser;
-    private String nodeName;
+    private @Nullable UUID taskId;
+    private @Nullable String tableName;
+    private @Nullable String clientAddress;
 
     ComputeEventMetadataBuilder type(Type type) {
         this.type = type;
+        return this;
+    }
+
+    public ComputeEventMetadataBuilder eventUser(UserDetails userDetails) {
+        this.eventUser = EventUser.of(userDetails.username(), userDetails.providerName());
         return this;
     }
 
@@ -56,13 +61,8 @@ public class ComputeEventMetadataBuilder {
         return jobId;
     }
 
-    public ComputeEventMetadataBuilder taskId(UUID taskId) {
-        this.taskId = taskId;
-        return this;
-    }
-
-    public ComputeEventMetadataBuilder tableName(String tableName) {
-        this.tableName = tableName;
+    public ComputeEventMetadataBuilder targetNode(String targetNode) {
+        this.targetNode = targetNode;
         return this;
     }
 
@@ -71,24 +71,19 @@ public class ComputeEventMetadataBuilder {
         return this;
     }
 
+    public ComputeEventMetadataBuilder taskId(@Nullable UUID taskId) {
+        this.taskId = taskId;
+        return this;
+    }
+
+    public ComputeEventMetadataBuilder tableName(@Nullable String tableName) {
+        this.tableName = tableName;
+        return this;
+    }
+
     public ComputeEventMetadataBuilder clientAddress(String clientAddress) {
         this.clientAddress = clientAddress;
         return this;
-    }
-
-    public ComputeEventMetadataBuilder eventUser(UserDetails userDetails) {
-        this.eventUser = EventUser.of(userDetails.username(), userDetails.providerName());
-        return this;
-    }
-
-    public ComputeEventMetadataBuilder nodeName(String nodeName) {
-        this.nodeName = nodeName;
-        return this;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(this);
     }
 
     /**
@@ -98,15 +93,15 @@ public class ComputeEventMetadataBuilder {
      */
     public ComputeEventMetadata build() {
         return new ComputeEventMetadata(
+                eventUser,
                 type,
                 jobClassName,
                 jobId,
+                targetNode,
+                initiatorNode,
                 taskId,
                 tableName,
-                initiatorNode,
-                clientAddress,
-                eventUser,
-                nodeName
+                clientAddress
         );
     }
 }
