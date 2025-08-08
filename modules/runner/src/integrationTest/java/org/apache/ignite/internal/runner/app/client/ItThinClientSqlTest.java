@@ -695,8 +695,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     public void testSqlQueryWithType() {
         ClientSql sql = (ClientSql) client().sql();
 
-        Set<AllowedQueryType> selectTypes = EnumSet.of(AllowedQueryType.ALLOW_ROW_SET_RESULT);
-        Set<AllowedQueryType> updateTypes = EnumSet.of(AllowedQueryType.ALLOW_APPLIED_RESULT, AllowedQueryType.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<AllowedQueryType> selectType = EnumSet.of(AllowedQueryType.ALLOW_ROW_SET_RESULT);
+        Set<AllowedQueryType> dmlType = EnumSet.of(AllowedQueryType.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<AllowedQueryType> ddlType = EnumSet.of(AllowedQueryType.ALLOW_APPLIED_RESULT);
+
         Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
         Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
         Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
@@ -712,30 +714,54 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         };
 
         // Incorrect type for DDL.
-        IgniteTestUtils.assertThrows(
-                SqlException.class,
-                () -> check.accept(ddlStatement, selectTypes),
-                "Invalid SQL statement type"
-        );
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+        }
 
         // Incorrect type for DML.
-        IgniteTestUtils.assertThrows(
-                SqlException.class,
-                () -> check.accept(dmlStatement, selectTypes),
-                "Invalid SQL statement type"
-        );
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
 
         // Incorrect type for SELECT.
-        IgniteTestUtils.assertThrows(
-                SqlException.class,
-                () -> check.accept(selectStatement, updateTypes),
-                "Invalid SQL statement type"
-        );
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
 
         // No exception expected with correct query type.
-        check.accept(ddlStatement, updateTypes);
-        check.accept(dmlStatement, updateTypes);
-        check.accept(selectStatement, selectTypes);
+        check.accept(ddlStatement, AllowedQueryType.ALL);
+        check.accept(dmlStatement, AllowedQueryType.ALL);
+        check.accept(selectStatement, AllowedQueryType.ALL);
     }
 
     private static class Pojo {

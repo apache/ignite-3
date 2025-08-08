@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Classifier of SQL queries depending on the type of result returned.
  */
@@ -28,10 +31,9 @@ public enum AllowedQueryType {
     ALLOW_AFFECTED_ROWS_RESULT(1),
 
     /** DDL-like queries. */
-    ALLOW_APPLIED_RESULT(2),
+    ALLOW_APPLIED_RESULT(2);
 
-    /** Queries with multiple statements. */
-    ALLOW_MULTISTATEMENT_RESULT(3);
+    public static final Set<AllowedQueryType> ALL = EnumSet.allOf(AllowedQueryType.class);
 
     private static final AllowedQueryType[] VALS = new AllowedQueryType[values().length];
 

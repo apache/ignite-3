@@ -52,10 +52,6 @@ public class ClientSqlCommonTest {
                     assertTrue(sqlQueryType.supportsWasApplied());
                     break;
 
-                case ALLOW_MULTISTATEMENT_RESULT:
-                    assertFalse(sqlQueryType.supportsIndependentExecution());
-                    break;
-
                 default:
                     fail("Unsupported type " + type);
             }

@@ -227,9 +227,6 @@ class ClientSqlCommon {
             case ALLOW_APPLIED_RESULT:
                 return SqlQueryType.SUPPORT_WAS_APPLIED_TYPES;
 
-            case ALLOW_MULTISTATEMENT_RESULT:
-                return EnumSet.of(SqlQueryType.TX_CONTROL);
-
             default:
                 throw new IllegalArgumentException("Unexpected type " + allowedType);
         }
