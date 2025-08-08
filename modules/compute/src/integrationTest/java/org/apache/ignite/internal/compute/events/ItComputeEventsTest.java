@@ -360,15 +360,6 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         return executionFut.join();
     }
 
-    private EventMatcher jobEvent(
-            IgniteEventType eventType,
-            @Nullable UUID jobId,
-            String jobClassName,
-            String targetNode
-    ) {
-        return jobEvent(eventType, SINGLE, jobId, jobClassName, targetNode);
-    }
-
     private EventMatcher broadcastJobEvent(
             IgniteEventType eventType,
             @Nullable UUID jobId,
@@ -377,6 +368,15 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
             UUID taskId
     ) {
         return jobEvent(eventType, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId);
+    }
+
+    private EventMatcher jobEvent(
+            IgniteEventType eventType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode
+    ) {
+        return jobEvent(eventType, SINGLE, jobId, jobClassName, targetNode);
     }
 
     protected EventMatcher jobEvent(
