@@ -110,6 +110,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.TestOnly;
 
@@ -167,6 +168,10 @@ public class DistributionZoneManager extends
     /** Configuration of HA mode. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
+    private final MetricManager metricManager;
+
+    private final String localNodeName;
+
     /**
      * Constructor.
      */
@@ -178,7 +183,8 @@ public class DistributionZoneManager extends
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockService clockService
+            ClockService clockService//,
+           // MetricManager metricManager
     ) {
         this(
                 nodeName,
@@ -189,7 +195,8 @@ public class DistributionZoneManager extends
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                null
         );
     }
 
@@ -214,12 +221,14 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
+        this.localNodeName = nodeName;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -252,6 +261,8 @@ public class DistributionZoneManager extends
                 this::fireTopologyReduceLocalEvent,
                 partitionDistributionResetTimeoutConfiguration::currentValue
         );
+
+        this.metricManager = metricManager;
     }
 
     @Override
@@ -402,7 +413,16 @@ public class DistributionZoneManager extends
     private CompletableFuture<?> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
+        //return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
+        LOG.warn(">>>>> onCreateZone [zoneName=" + zone.name() + ", id=" + zone.id() + ']');
+        return dataNodesManager
+                .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
+                .whenComplete((unused, err) -> {
+                    ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
+
+                    metricManager.registerSource(source);
+                    metricManager.enable(source);
+                });
     }
 
     /**
@@ -762,6 +782,9 @@ public class DistributionZoneManager extends
         long causalityToken = parameters.causalityToken();
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+
+        // TODO mapping zoneId to ZoneMetricSource(name)
+        LOG.warn(">>>>> onDropZoneBusy [zoneName=" + parameters.zoneId() + ']');
 
         return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
     }
