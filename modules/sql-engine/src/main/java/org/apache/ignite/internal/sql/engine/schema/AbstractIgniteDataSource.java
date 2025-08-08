@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
-
 /**
  * Base implementation of {@link IgniteDataSource}.
  */

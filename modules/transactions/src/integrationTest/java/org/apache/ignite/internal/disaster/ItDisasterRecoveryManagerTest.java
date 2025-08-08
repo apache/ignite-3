@@ -244,7 +244,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertTrue(compareRows(getFut.get(), keyValueRow0));
     }
 
-
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void testRestartZonePartitions() {

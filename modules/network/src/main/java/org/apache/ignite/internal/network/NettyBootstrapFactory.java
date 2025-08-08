@@ -198,7 +198,6 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         return nullCompletedFuture();
     }
 
-
     @Override
     public List<EventLoop> channelEventLoops() {
         return channelEventLoops;

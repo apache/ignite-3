@@ -73,7 +73,6 @@ public class Statement {
         return iif;
     }
 
-
     /**
      * Returns Update or {@code null}, if no update value.
      * Note: check which field is filled by {@link #isTerminal()}

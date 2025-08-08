@@ -43,7 +43,6 @@ public class TransactionException extends IgniteException {
         super(code, message);
     }
 
-
     /**
      * Creates a new transaction exception with the given trace id, error code and cause.
      *

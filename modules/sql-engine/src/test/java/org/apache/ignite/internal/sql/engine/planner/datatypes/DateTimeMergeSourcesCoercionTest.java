@@ -129,7 +129,6 @@ public class DateTimeMergeSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIME_9_TIME_9)
                         .opMatches(ofTypeWithoutCast(Types.TIME_9)),
 
-
                 // TIMESTAMP 0
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
@@ -179,7 +178,6 @@ public class DateTimeMergeSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.TIMESTAMP_6)),
 
                 // TIMESTAMP 9
-
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),

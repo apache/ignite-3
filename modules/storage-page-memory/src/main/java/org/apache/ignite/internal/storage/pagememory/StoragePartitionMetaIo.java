@@ -296,7 +296,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return new UUID(high, low);
     }
 
-
     /**
      * Sets the primary replica node name first page id.
      *

@@ -43,7 +43,6 @@ public class IgniteSqlExplain extends SqlCall {
                 }
             };
 
-
     private SqlNode explicandum;
     private SqlNode mode;
     private final int dynamicParameterCount;

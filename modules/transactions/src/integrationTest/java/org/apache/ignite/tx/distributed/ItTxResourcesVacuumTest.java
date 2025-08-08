@@ -210,7 +210,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                         : new TablePartitionId(tableId(node, TABLE_NAME), partId)
         );
 
-
         view.upsert(tx, tuple);
         view.upsert(parallelTx1, tupleForParallelTx);
 

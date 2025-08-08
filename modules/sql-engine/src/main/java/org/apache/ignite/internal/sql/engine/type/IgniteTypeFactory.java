@@ -427,7 +427,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
     }
 
-
     private static int getPrecision(RelDataType dataType) {
         if (dataType.getPrecision() == PRECISION_NOT_SPECIFIED) {
             return IgniteTypeSystem.INSTANCE.getDefaultPrecision(dataType.getSqlTypeName());

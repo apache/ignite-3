@@ -174,7 +174,6 @@ public class HashUtils {
         return hashInternal(data, seed);
     }
 
-
     /**
      * Generates 64-bit hash from the long value.
      *

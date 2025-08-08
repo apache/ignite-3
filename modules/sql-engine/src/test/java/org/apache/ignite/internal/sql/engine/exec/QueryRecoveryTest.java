@@ -310,7 +310,6 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
             this.ex = ex;
         }
 
-
         @Override
         public boolean hasNext() {
             sneakyThrow(ex);
