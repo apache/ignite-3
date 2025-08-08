@@ -34,7 +34,6 @@ public final class IgniteSqlValidatorErrorMessages {
                 "matched using NATURAL keyword or USING clause has incompatible types in this context:"
         );
 
-
         private final String toReplace;
         private final String replacement;
 

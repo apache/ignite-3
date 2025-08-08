@@ -61,7 +61,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final SearchBoundsImplementor searchBoundsImplementor;
     private final ValuesImplementor valuesImplementor;
 
-
     /**
      * Constructs the object.
      *

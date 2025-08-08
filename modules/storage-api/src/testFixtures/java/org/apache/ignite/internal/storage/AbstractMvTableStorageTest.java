@@ -445,7 +445,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
         checkForPresenceRows(null, hashIndexStorage2, null, rows);
     }
 
-
     @Test
     public void testHashIndexIndependence() {
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID);

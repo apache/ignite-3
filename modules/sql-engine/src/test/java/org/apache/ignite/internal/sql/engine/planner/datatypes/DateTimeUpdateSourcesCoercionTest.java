@@ -144,7 +144,6 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIME_9_TIME_9)
                         .opMatches(ofTypeWithoutCast(Types.TIME_9)),
 
-
                 // TIMESTAMP 0
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
@@ -303,7 +302,6 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
         diff.put(DatetimePair.TIMESTAMP_6_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_6_TIMESTAMP_9)
                 .opMatches(castTo(Types.TIMESTAMP_6)));
 
-
         // TIMESTAMP LTZ
 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_0, forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_0)
@@ -334,7 +332,6 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_6_TIMESTAMP_WLTZ_9)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_6)));
-
 
         return argsForUpdateWithLiteralValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }

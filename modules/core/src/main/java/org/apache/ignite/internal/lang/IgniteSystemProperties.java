@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,17 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * the behavior of Ignite.
  */
 public final class IgniteSystemProperties {
-    /**
-     * Setting to {@code PLAIN} enables writing sensitive information in {@code toString()} output. Setting to {@code HASH"} enables writing
-     * hash of sensitive information in {@code toString()} output. Setting to {@code NONE} disables writing sensitive information in {@code
-     * toString()} output.
-     *
-     * <p>Default: {@code HASH}.
-     *
-     * @see IgniteToStringBuilder
-     */
-    public static final String IGNITE_SENSITIVE_DATA_LOGGING = "IGNITE_SENSITIVE_DATA_LOGGING";
-
     /** Name of the property controlling whether thread assertions are enabled. */
     public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
 

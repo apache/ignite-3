@@ -223,7 +223,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testDateAndTime() {
-        assertExpression("DATE '2021-01-01' + interval (1) days").returns(LocalDate.parse("2021-01-02")).check();
+        assertExpression("DATE '2021-01-01' + interval '1' days").returns(LocalDate.parse("2021-01-02")).check();
         assertExpression("(DATE '2021-03-01' - DATE '2021-01-01') months").returns(Period.ofMonths(2)).check();
         assertExpression("(DATE '2021-03-02' - DATE '2021-03-01') hours").returns(Duration.ofHours(24)).check();
         assertExpression("EXTRACT(DAY FROM DATE '2021-01-15')").returns(15L).check();
@@ -296,8 +296,8 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("COMPRESS('')").returns(new byte[]{}).check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
         assertExpression("OCTET_LENGTH('text')").returns(4).check();
-        assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
-        assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL '1' SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL '1' DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }
 
     @Test

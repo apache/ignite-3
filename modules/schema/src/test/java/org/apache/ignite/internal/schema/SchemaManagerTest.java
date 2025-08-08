@@ -126,7 +126,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
 
-
         Catalog catalog = mock(Catalog.class);
         when(catalogService.catalog(CATALOG_VERSION_1)).thenReturn(catalog);
         when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_1);

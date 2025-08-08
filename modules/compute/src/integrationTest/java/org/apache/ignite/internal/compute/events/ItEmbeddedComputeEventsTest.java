@@ -15,36 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.streaming.pojo;
+package org.apache.ignite.internal.compute.events;
 
-/**
- * POJO class that represents Account key.
- */
-public class AccountKey {
-    /** Account number. */
-    private int accountNumber;
+import org.apache.ignite.compute.IgniteCompute;
 
-    /**
-     * Default constructor (required for deserialization).
-     */
-    @SuppressWarnings("unused")
-    public AccountKey() {
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param accountNumber Account number.
-     */
-    public AccountKey(int accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    /** {@inheritDoc} */
+class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
     @Override
-    public String toString() {
-        return "AccountKey{" +
-                "accountNumber=" + accountNumber +
-                '}';
+    protected IgniteCompute compute() {
+        return node(0).compute();
     }
 }

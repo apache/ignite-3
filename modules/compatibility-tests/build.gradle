@@ -58,10 +58,8 @@ dependencies {
     testFixturesImplementation project(':ignite-rest-api')
 }
 
-private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {
-    def notations = [dependencyNotation]
-    notations.addAll(additionalNotations)
-    def dependencies = notations.collect {
+private def resolveAllDependencies(String... dependencyNotations) {
+    def dependencies = dependencyNotations.collect {
         dependencies.create(it)
     }
     Configuration detached = configurations.detachedConfiguration(dependencies as Dependency[])
@@ -76,7 +74,7 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
                 objects.named(TargetJvmEnvironment.class, TargetJvmEnvironment.STANDARD_JVM)
         )
     }
-    println "resolving $dependencyNotation"
+    println "resolving $dependencyNotations"
     return detached.resolve()  // Set<File> of *.jar
 }
 
@@ -108,8 +106,8 @@ integrationTest.dependsOn resolveCompatibilityTestDependencies
 
 tasks.register('constructArgFile') {
     doLast {
-        def depNotation = project.property('dependencyNotation')
-        def jars = resolveAllDependencies(depNotation)
+        String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
+        def jars = resolveAllDependencies(dependencies)
         def jarFiles = files(jars)
         def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')
