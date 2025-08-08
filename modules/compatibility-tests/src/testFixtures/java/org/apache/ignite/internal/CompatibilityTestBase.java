@@ -162,16 +162,16 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     protected abstract void setupBaseVersion(Ignite baseIgnite);
 
-    protected List<List<Object>> sql(String query) {
-        return sql(node(0), query);
+    protected List<List<Object>> sql(String query, Object... args) {
+        return sql(node(0), query, args);
     }
 
-    protected static List<List<Object>> sql(Ignite ignite, String query) {
-        return sql(ignite, null, query);
+    protected static List<List<Object>> sql(Ignite ignite, String query, Object... args) {
+        return sql(ignite, null, query, args);
     }
 
-    protected static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String query) {
-        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, query);
+    protected static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String query, Object... args) {
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, query, args);
     }
 
     protected Ignite node(int index) {
