@@ -65,6 +65,7 @@ import org.apache.ignite.internal.table.distributed.storage.RowBatch;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
@@ -312,6 +313,16 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         return rowBatchByPartitionId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+        assert explicitTx != null;
+
+        BinaryRowEx keyRow = rowConverter.toKeyRow(ectx, key);
+
+        return table.delete(keyRow, explicitTx);
     }
 
     /** {@inheritDoc} */

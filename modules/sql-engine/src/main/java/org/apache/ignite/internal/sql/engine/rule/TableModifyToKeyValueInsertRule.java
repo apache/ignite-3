@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.Values;
@@ -37,39 +36,39 @@ import org.immutables.value.Value;
 
 /**
  * Rule that converts {@link TableModify} representing INSERT operation with a determined source
- * to a Key-Value PUT operation.
+ * to a Key-Value INSERT operation.
  *
  * <p>Note: at the moment, this rule support only single row insert.
  */
 @Value.Enclosing
-public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValuePutRule.Config> {
+public class TableModifyToKeyValueInsertRule extends RelRule<TableModifyToKeyValueInsertRule.Config> {
     public static final RelOptRule VALUES = Config.VALUES.toRule();
     public static final RelOptRule PROJECT = Config.PROJECT.toRule();
 
-    private TableModifyToKeyValuePutRule(Config cfg) {
+    private TableModifyToKeyValueInsertRule(Config cfg) {
         super(cfg);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onMatch(RelOptRuleCall call) {
-        List<RelNode> operands = call.getRelList();
+        int operandsCount = call.getRelList().size();
 
-        TableModify modify = cast(operands.get(0));
+        TableModify modify = call.rel(0);
 
         assert modify.getOperation() == TableModify.Operation.INSERT : modify.getOperation();
 
         List<RexNode> expressions;
-        if (operands.size() == 2) {
-            Values values = cast(operands.get(1));
+        if (operandsCount == 2) {
+            Values values = call.rel(1);
 
             assert values.getTuples().size() == 1 : "Expected exactly one tuple, but was " + values.getTuples().size();
 
             expressions = List.copyOf(values.getTuples().get(0));
         } else {
-            assert operands.size() == 3 : operands;
+            assert operandsCount == 3 : call.getRelList();
 
-            Values values = cast(operands.get(2));
+            Values values = call.rel(2);
 
             assert values.getTuples().size() == 1 : "Expected exactly one tuple, but was " + values.getTuples().size();
 
@@ -82,7 +81,7 @@ public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValueP
                 }
             };
 
-            Project project = cast(operands.get(1));
+            Project project = call.rel(1);
 
             expressions = inputInliner.visitList(project.getProjects());
         }
@@ -94,14 +93,10 @@ public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValueP
                                 .replace(IgniteConvention.INSTANCE)
                                 .replace(IgniteDistributions.single()),
                         modify.getTable(),
-                        Operation.PUT,
+                        Operation.INSERT,
                         expressions
                 )
         );
-    }
-
-    private static <T extends RelNode> T cast(RelNode node) {
-        return (T) node;
     }
 
     /**
@@ -110,8 +105,8 @@ public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValueP
     @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
     @Value.Immutable
     public interface Config extends RelRule.Config {
-        Config VALUES = ImmutableTableModifyToKeyValuePutRule.Config.of()
-                .withDescription("TableModifyToKeyValuePutRule:VALUES")
+        Config VALUES = ImmutableTableModifyToKeyValueInsertRule.Config.of()
+                .withDescription("TableModifyToKeyValueInsertRule:VALUES")
                 .withOperandSupplier(o0 ->
                         o0.operand(TableModify.class)
                                 .predicate(TableModify::isInsert)
@@ -121,8 +116,8 @@ public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValueP
                                                 .noInputs()))
                 .as(Config.class);
 
-        Config PROJECT = ImmutableTableModifyToKeyValuePutRule.Config.of()
-                .withDescription("TableModifyToKeyValuePutRule:PROJECT")
+        Config PROJECT = ImmutableTableModifyToKeyValueInsertRule.Config.of()
+                .withDescription("TableModifyToKeyValueInsertRule:PROJECT")
                 .withOperandSupplier(o0 ->
                         o0.operand(TableModify.class)
                                 .predicate(TableModify::isInsert)
@@ -135,8 +130,8 @@ public class TableModifyToKeyValuePutRule extends RelRule<TableModifyToKeyValueP
 
         /** {@inheritDoc} */
         @Override
-        default TableModifyToKeyValuePutRule toRule() {
-            return new TableModifyToKeyValuePutRule(this);
+        default TableModifyToKeyValueInsertRule toRule() {
+            return new TableModifyToKeyValueInsertRule(this);
         }
     }
 }

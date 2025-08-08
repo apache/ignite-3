@@ -371,9 +371,12 @@ Optimized operator which leverages Key-Value API in DML queries.
 Attributes:
 
 - `table`: Table being accessed.
-- `sourceExpression`: Source expressions used for row computations.
 - `type`: Type of data modification operation (e.g., INSERT, UPDATE, DELETE).
 - `est`: Estimated number of output rows.
+- `sourceExpression`: Source expressions used for row computations for INSERT operation.
+Optional.
+- `key`: Source expressions used for row computations for DELETE operation.
+Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 

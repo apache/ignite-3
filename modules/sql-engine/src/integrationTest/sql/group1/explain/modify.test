@@ -82,33 +82,6 @@ Project
                   tuples: [[0]]
                   est: (rows=1)
 
-# delete by key simple
-explain plan
-DELETE FROM test_table WHERE c1 = 1
-----
-Project
-    fieldNames: [ROWCOUNT]
-    projection: [CAST($f0):BIGINT NOT NULL]
-    est: (rows=1)
-  ColocatedHashAggregate
-      fieldNames: [$f0]
-      group: []
-      aggregation: [$SUM0(ROWCOUNT)]
-      est: (rows=1)
-    Exchange
-        distribution: single
-        est: (rows=1)
-      TableModify
-          table: PUBLIC.TEST_TABLE
-          fieldNames: [ROWCOUNT]
-          type: DELETE
-          est: (rows=1)
-        TableScan
-            table: PUBLIC.TEST_TABLE
-            predicate: =(C1, 1)
-            fieldNames: [C1]
-            est: (rows=1)
-
 # delete by key complex
 explain plan
 DELETE FROM test_table WHERE c1 in (1, 2, 3)

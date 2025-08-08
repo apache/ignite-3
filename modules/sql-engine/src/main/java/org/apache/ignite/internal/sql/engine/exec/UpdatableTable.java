@@ -83,6 +83,23 @@ public interface UpdatableTable {
     );
 
     /**
+     * Performs a delete by primary key.
+     *
+     * <p>Note: this operation may be performed on initiator node only since it requires an
+     * original transaction rather than attributes, and transaction is only available on
+     * initiator node.
+     *
+     * @param <RowT> A type of row.
+     * @param explicitTx Transaction to use to perform delete.
+     * @param ectx Execution context.
+     * @param key A key to delete.
+     * @return A future representing result of operation.
+     */
+    <RowT> CompletableFuture<Boolean> delete(
+            @Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key
+    );
+
+    /**
      * Removes rows from the table if they are exactly the same as any of the specified rows.
      *
      * <p>Though this method has delete-exact semantic, implementations are allowed to apply optimisations like delete by primary key.
