@@ -129,6 +129,17 @@ public interface QueryChecker {
      *
      * @param schema Schema name.
      * @param tblName Table name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+    }
+
+    /**
+     * Ignite index scan matcher which ignores search bounds.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param idxName Index name.
      * @return Matcher.
      */
