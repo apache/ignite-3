@@ -73,7 +73,7 @@ public class ClientComputeExecutePartitionedRequest {
             ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)
                     .taskId(taskId)
                     .tableName(table.name())
-                    .initiatorClient(clientContext.remoteAddress().toString())
+                    .clientAddress(clientContext.remoteAddress().toString())
                     .eventUser(clientContext.userDetails());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(

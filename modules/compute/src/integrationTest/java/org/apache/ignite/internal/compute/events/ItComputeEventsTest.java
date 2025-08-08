@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsInRelativeOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -131,9 +131,9 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode)
         );
     }
 
@@ -154,20 +154,15 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         assertThat(taskId, notNullValue());
 
         String jobClassName = jobDescriptor.jobClassName();
-        EventMatcher[] matchers = broadcastExecution.executions().stream()
-                .map(execution -> {
-                    UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
-                    String targetNode = execution.node().name();
-                    return List.of(
-                            jobEvent(COMPUTE_JOB_QUEUED, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId),
-                            jobEvent(COMPUTE_JOB_EXECUTING, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId),
-                            jobEvent(COMPUTE_JOB_COMPLETED, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId)
-                    );
-                })
-                .flatMap(List::stream)
-                .toArray(EventMatcher[]::new);
-
-        assertThat(events, containsInAnyOrder(matchers));
+        broadcastExecution.executions().forEach(execution -> {
+            UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
+            String targetNode = execution.node().name();
+            assertThat(events, containsInRelativeOrder(
+                    broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId),
+                    broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId),
+                    broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId)
+            ));
+        });
     }
 
     @Test
@@ -190,20 +185,16 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         assertThat(taskId, notNullValue());
 
         String jobClassName = jobDescriptor.jobClassName();
-        EventMatcher[] matchers = broadcastExecution.executions().stream()
-                .map(execution -> {
-                    UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
-                    String targetNode = execution.node().name();
-                    return List.of(
-                            jobEvent(COMPUTE_JOB_QUEUED, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId),
-                            jobEvent(COMPUTE_JOB_EXECUTING, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId),
-                            jobEvent(COMPUTE_JOB_COMPLETED, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId)
-                    );
-                })
-                .flatMap(List::stream)
-                .toArray(EventMatcher[]::new);
-
-        assertThat(events, containsInAnyOrder(matchers));
+        String tableName = QualifiedName.parse("test").toCanonicalForm();
+        broadcastExecution.executions().forEach(execution -> {
+            UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
+            String targetNode = execution.node().name();
+            assertThat(events, containsInRelativeOrder(
+                    broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
+                    broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
+                    broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId).withTableName(tableName)
+            ));
+        });
     }
 
     @ParameterizedTest
@@ -219,9 +210,9 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_FAILED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, targetNode)
         );
     }
 
@@ -246,10 +237,10 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId, jobClassName, targetNode)
         );
     }
 
@@ -286,12 +277,12 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         // First job should transition queued->executing->canceling->canceled
         // Second one should transition queued->canceled
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId2, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId2, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELING, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId1, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_QUEUED, jobId2, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId2, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELING, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId1, jobClassName, targetNode)
         );
     }
 
@@ -311,9 +302,9 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         String tableName = QualifiedName.parse("test").toCanonicalForm();
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode).withTableName(tableName)
         );
     }
 
@@ -333,9 +324,9 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         String tableName = QualifiedName.parse("test").toCanonicalForm();
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode).withTableName(tableName)
         );
     }
 
@@ -369,6 +360,25 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         return executionFut.join();
     }
 
+    private EventMatcher jobEvent(
+            IgniteEventType eventType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode
+    ) {
+        return jobEvent(eventType, SINGLE, jobId, jobClassName, targetNode);
+    }
+
+    private EventMatcher broadcastJobEvent(
+            IgniteEventType eventType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            UUID taskId
+    ) {
+        return jobEvent(eventType, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId);
+    }
+
     protected EventMatcher jobEvent(
             IgniteEventType eventType,
             Type jobType,
@@ -384,8 +394,8 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
                 .withClassName(jobClassName)
                 .withJobId(jobId)
                 .withTargetNode(targetNode)
-                .withInitiatorNode(nullValue())
-                .withInitiatorClient(nullValue());
+                .withInitiatorNode(is(node(0).name()))
+                .withClientAddress(nullValue());
     }
 
     @SafeVarargs

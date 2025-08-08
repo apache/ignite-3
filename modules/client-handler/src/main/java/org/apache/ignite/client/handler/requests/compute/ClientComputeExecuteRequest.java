@@ -81,7 +81,7 @@ public class ClientComputeExecuteRequest {
 
         ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(taskId != null ? Type.BROADCAST : Type.SINGLE)
                 .taskId(taskId)
-                .initiatorClient(clientContext.remoteAddress().toString())
+                .clientAddress(clientContext.remoteAddress().toString())
                 .eventUser(clientContext.userDetails());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(

@@ -104,8 +104,8 @@ public class ComputeEventsFactory {
             fields.put(FieldNames.TARGET_NODE, eventMetadata.nodeName());
             putIfNotNull(fields, FieldNames.TABLE_NAME, eventMetadata.tableName());
             putIfNotNull(fields, FieldNames.TASK_ID, eventMetadata.taskId());
-            putIfNotNull(fields, FieldNames.INITIATOR_CLIENT, eventMetadata.initiatorClient());
-            putIfNotNull(fields, FieldNames.INITIATOR_NODE, eventMetadata.initiatorNodeId());
+            putIfNotNull(fields, FieldNames.CLIENT_ADDRESS, eventMetadata.clientAddress());
+            putIfNotNull(fields, FieldNames.INITIATOR_NODE, eventMetadata.initiatorNode());
 
             EventUser user = eventMetadata.eventUser();
 
@@ -133,6 +133,6 @@ public class ComputeEventsFactory {
         static final String TARGET_NODE = "targetNode";
         static final String TASK_ID = "taskId";
         static final String INITIATOR_NODE = "initiatorNode";
-        static final String INITIATOR_CLIENT = "initiatorClient";
+        static final String CLIENT_ADDRESS = "clientAddress";
     }
 }

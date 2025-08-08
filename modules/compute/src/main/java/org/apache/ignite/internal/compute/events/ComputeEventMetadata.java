@@ -39,11 +39,11 @@ public class ComputeEventMetadata {
     /** For colocated jobs. */
     private final String tableName;
 
-    /** For embedded API. */
-    private final String initiatorNodeId;
+    /** Node that initiated execution. */
+    private final String initiatorNode;
 
     /** For client API. */
-    private final String initiatorClient;
+    private final String clientAddress;
 
     /** Event user. */
     private final EventUser eventUser;
@@ -57,8 +57,8 @@ public class ComputeEventMetadata {
             UUID jobId,
             UUID taskId,
             String tableName,
-            String initiatorNodeId,
-            String initiatorClient,
+            String initiatorNode,
+            String clientAddress,
             EventUser eventUser,
             String nodeName
     ) {
@@ -67,8 +67,8 @@ public class ComputeEventMetadata {
         this.jobId = jobId;
         this.taskId = taskId;
         this.tableName = tableName;
-        this.initiatorNodeId = initiatorNodeId;
-        this.initiatorClient = initiatorClient;
+        this.initiatorNode = initiatorNode;
+        this.clientAddress = clientAddress;
         this.eventUser = eventUser;
         this.nodeName = nodeName;
     }
@@ -112,12 +112,12 @@ public class ComputeEventMetadata {
         return tableName;
     }
 
-    String initiatorNodeId() {
-        return initiatorNodeId;
+    String initiatorNode() {
+        return initiatorNode;
     }
 
-    String initiatorClient() {
-        return initiatorClient;
+    String clientAddress() {
+        return clientAddress;
     }
 
     EventUser eventUser() {

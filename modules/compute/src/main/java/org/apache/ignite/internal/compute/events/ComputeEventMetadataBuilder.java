@@ -32,8 +32,8 @@ public class ComputeEventMetadataBuilder {
     private UUID jobId;
     private UUID taskId;
     private String tableName;
-    private String initiatorNodeId;
-    private String initiatorClient;
+    private String initiatorNode;
+    private String clientAddress;
     private EventUser eventUser;
     private String nodeName;
 
@@ -66,13 +66,13 @@ public class ComputeEventMetadataBuilder {
         return this;
     }
 
-    public ComputeEventMetadataBuilder initiatorNodeId(String initiatorNodeId) {
-        this.initiatorNodeId = initiatorNodeId;
+    public ComputeEventMetadataBuilder initiatorNode(String initiatorNode) {
+        this.initiatorNode = initiatorNode;
         return this;
     }
 
-    public ComputeEventMetadataBuilder initiatorClient(String initiatorClient) {
-        this.initiatorClient = initiatorClient;
+    public ComputeEventMetadataBuilder clientAddress(String clientAddress) {
+        this.clientAddress = clientAddress;
         return this;
     }
 
@@ -103,8 +103,8 @@ public class ComputeEventMetadataBuilder {
                 jobId,
                 taskId,
                 tableName,
-                initiatorNodeId,
-                initiatorClient,
+                initiatorNode,
+                clientAddress,
                 eventUser,
                 nodeName
         );

@@ -46,7 +46,7 @@ public class EventMatcher extends TypeSafeMatcher<String> {
     private Matcher<? super UUID> taskIdMatcher;
     private Matcher<? super String> targetNodeMatcher;
     private Matcher<? super String> initiatorNodeMatcher;
-    private Matcher<? super String> initiatorClientMatcher;
+    private Matcher<? super String> clientAddressMatcher;
 
     private EventMatcher(String eventType) {
         this.eventTypeMatcher = is(eventType);
@@ -106,8 +106,8 @@ public class EventMatcher extends TypeSafeMatcher<String> {
         return this;
     }
 
-    EventMatcher withInitiatorClient(Matcher<? super String> initiatorClientMatcher) {
-        this.initiatorClientMatcher = initiatorClientMatcher;
+    EventMatcher withClientAddress(Matcher<? super String> clientAddressMatcher) {
+        this.clientAddressMatcher = clientAddressMatcher;
         return this;
     }
 
@@ -127,7 +127,7 @@ public class EventMatcher extends TypeSafeMatcher<String> {
                     && (taskIdMatcher == null || taskIdMatcher.matches(event.fields.taskId))
                     && (targetNodeMatcher == null || targetNodeMatcher.matches(event.fields.targetNode))
                     && (initiatorNodeMatcher == null || initiatorNodeMatcher.matches(event.fields.initiatorNode))
-                    && (initiatorClientMatcher == null || initiatorClientMatcher.matches(event.fields.initiatorClient));
+                    && (clientAddressMatcher == null || clientAddressMatcher.matches(event.fields.clientAddress));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -146,7 +146,7 @@ public class EventMatcher extends TypeSafeMatcher<String> {
         appendDescription(description, "task ID", taskIdMatcher);
         appendDescription(description, "target node", targetNodeMatcher);
         appendDescription(description, "initiator node", initiatorNodeMatcher);
-        appendDescription(description, "initiator client", initiatorClientMatcher);
+        appendDescription(description, "client address", clientAddressMatcher);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class EventMatcher extends TypeSafeMatcher<String> {
                     .describeMismatch(taskIdMatcher, event.fields.taskId, "task ID")
                     .describeMismatch(targetNodeMatcher, event.fields.targetNode, "target node")
                     .describeMismatch(initiatorNodeMatcher, event.fields.initiatorNode, "initiator node")
-                    .describeMismatch(initiatorClientMatcher, event.fields.initiatorClient, "initiator client");
+                    .describeMismatch(clientAddressMatcher, event.fields.clientAddress, "client address");
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -213,8 +213,8 @@ public class EventMatcher extends TypeSafeMatcher<String> {
             @JsonProperty(FieldNames.INITIATOR_NODE)
             public String initiatorNode;
 
-            @JsonProperty(FieldNames.INITIATOR_CLIENT)
-            public String initiatorClient;
+            @JsonProperty(FieldNames.CLIENT_ADDRESS)
+            public String clientAddress;
         }
     }
 }

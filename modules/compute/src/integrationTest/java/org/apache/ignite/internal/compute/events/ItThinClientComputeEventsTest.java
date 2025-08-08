@@ -44,6 +44,6 @@ class ItThinClientComputeEventsTest extends ItComputeEventsTest {
     protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, UUID jobId, String jobClassName, String targetNode) {
         return super.jobEvent(eventType, jobType, jobId, jobClassName, targetNode)
                 .withUsername(is("unknown"))
-                .withInitiatorClient(notNullValue(String.class));
+                .withClientAddress(notNullValue(String.class));
     }
 }
