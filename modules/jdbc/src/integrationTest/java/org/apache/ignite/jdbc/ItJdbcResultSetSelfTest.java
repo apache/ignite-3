@@ -100,17 +100,19 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testIntervalResult() throws SQLException {
-        assertEquals(Duration.ofDays(4), eval("INTERVAL 4 DAYS"));
-        assertEquals(Duration.ofSeconds(1), eval("INTERVAL 1 SECONDS"));
-        assertEquals(Duration.ofSeconds(-1), eval("INTERVAL -1 SECONDS"));
-        assertEquals(Duration.ofSeconds(123), eval("INTERVAL 123 SECONDS"));
+        assertEquals(Duration.ofDays(4), eval("INTERVAL '4' DAYS"));
+        assertEquals(Duration.ofSeconds(1), eval("INTERVAL '1' SECONDS"));
+        assertEquals(Duration.ofSeconds(-1), eval("INTERVAL - '1' SECONDS"));
+        assertEquals(Duration.ofSeconds(-1), eval("INTERVAL '-1' SECONDS"));
+        assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS"));
         assertEquals(Duration.ofSeconds(123), eval("INTERVAL '123' SECONDS(3)"));
-        assertEquals(Duration.ofMinutes(2), eval("INTERVAL 2 MINUTES"));
-        assertEquals(Duration.ofHours(3), eval("INTERVAL 3 HOURS"));
-        assertEquals(Duration.ofDays(4), eval("INTERVAL 4 DAYS"));
-        assertEquals(Period.ofMonths(5), eval("INTERVAL 5 MONTHS"));
-        assertEquals(Period.ofMonths(-5), eval("INTERVAL -5 MONTHS"));
-        assertEquals(Period.ofYears(6), eval("INTERVAL 6 YEARS"));
+        assertEquals(Duration.ofMinutes(2), eval("INTERVAL '2' MINUTES"));
+        assertEquals(Duration.ofHours(3), eval("INTERVAL '3' HOURS"));
+        assertEquals(Duration.ofDays(4), eval("INTERVAL '4' DAYS"));
+        assertEquals(Period.ofMonths(5), eval("INTERVAL '5' MONTHS"));
+        assertEquals(Period.ofMonths(-5), eval("INTERVAL - '5' MONTHS"));
+        assertEquals(Period.ofMonths(-5), eval("INTERVAL '-5' MONTHS"));
+        assertEquals(Period.ofYears(6), eval("INTERVAL '6' YEARS"));
         assertEquals(Period.of(1, 2, 0), eval("INTERVAL '1-2' YEAR TO MONTH"));
         assertEquals(Duration.ofHours(25), eval("INTERVAL '1 1' DAY TO HOUR"));
         assertEquals(Duration.ofMinutes(62), eval("INTERVAL '1:2' HOUR TO MINUTE"));
@@ -123,13 +125,13 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testTemporalArithmetic() throws SQLException {
-        assertEquals(LocalDate.parse("2021-01-02"), eval("DATE '2021-01-01' + interval (1) days"));
+        assertEquals(LocalDate.parse("2021-01-02"), eval("DATE '2021-01-01' + interval '1' days"));
         assertEquals(Period.ofMonths(2), eval("(DATE '2021-03-01' - DATE '2021-01-01') months"));
         assertEquals(Duration.ofHours(24), eval("(DATE '2021-03-02' - DATE '2021-03-01') hours"));
-        assertEquals(Duration.ofHours(48), eval("INTERVAL (3) DAYS - INTERVAL (1) DAYS"));
-        assertEquals(Period.ofMonths(1), eval("INTERVAL 5 MONTHS - INTERVAL 4 MONTHS"));
-        assertEquals(Duration.ofSeconds(1), eval("INTERVAL 5 SECONDS - INTERVAL 4 SECONDS"));
-        assertEquals(Duration.ofSeconds(10), eval("INTERVAL 5 SECONDS * 2"));
+        assertEquals(Duration.ofHours(48), eval("INTERVAL '3' DAYS - INTERVAL '1' DAYS"));
+        assertEquals(Period.ofMonths(1), eval("INTERVAL '5' MONTHS - INTERVAL '4' MONTHS"));
+        assertEquals(Duration.ofSeconds(1), eval("INTERVAL '5' SECONDS - INTERVAL '4' SECONDS"));
+        assertEquals(Duration.ofSeconds(10), eval("INTERVAL '5' SECONDS * 2"));
     }
 
     private Object eval(String exp) throws SQLException {
