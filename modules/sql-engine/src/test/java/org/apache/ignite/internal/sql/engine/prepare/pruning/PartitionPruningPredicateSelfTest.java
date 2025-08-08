@@ -69,7 +69,7 @@ import org.mockito.Mockito;
 public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
     private static final long SOURCE_ID = ThreadLocalRandom.current().nextLong();
-    
+
     private final long seed = System.nanoTime();
 
     @BeforeEach
@@ -217,7 +217,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         // Apply partition pruning to obtain new colocation group.
         ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(SOURCE_ID, table, pruningColumns, dynamicParameters, group);
-        
+
         assertNotNull(newGroup);
         assertEquals(LongList.of(SOURCE_ID), newGroup.sourceIds(), "sourceIds");
 

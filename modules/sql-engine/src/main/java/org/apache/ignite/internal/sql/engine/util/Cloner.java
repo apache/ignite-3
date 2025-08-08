@@ -58,7 +58,7 @@ public class Cloner {
 
     /**
      * Clones and assigns source ids to all source relations.
-     * 
+     *
      * @param root Plan.
      * @param cluster Cluster.
      * @return The number of source relations in the given plan and the plan itself.
@@ -72,7 +72,7 @@ public class Cloner {
     }
 
     private static class CloneAndAssignIds extends IgniteRelShuttle {
-        
+
         private final RelOptCluster cluster;
 
         private int sourceIndex;
@@ -89,21 +89,21 @@ public class Cloner {
 
                 int sourceId = sourceIndex++;
                 IgniteRel relWithSourceId = src.clone(sourceId);
-                
+
                 for (int i = 0; i < rel.getInputs().size(); i++) {
                     IgniteRel childNode = visit((IgniteRel) rel.getInput(i));
                     relWithSourceId.replaceInput(i, childNode);
                 }
-                
+
                 return relWithSourceId;
             } else {
                 List<IgniteRel> newChildren = new ArrayList<>(rel.getInputs().size());
-                
+
                 for (int i = 0; i < rel.getInputs().size(); i++) {
                     IgniteRel childNode = visit((IgniteRel) rel.getInput(i));
                     newChildren.add(childNode);
                 }
-                
+
                 return rel.clone(cluster, newChildren);
             }
         }

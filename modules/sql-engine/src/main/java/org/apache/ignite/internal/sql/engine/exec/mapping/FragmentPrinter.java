@@ -62,7 +62,7 @@ public final class FragmentPrinter {
         this.verbose = verbose;
     }
 
-    /** Wraps mapped fragments into string representation.  */
+    /** Wraps mapped fragments into string representation. */
     public static String fragmentsToString(boolean verbose, List<MappedFragment> mappedFragments) {
         var collector = new TableDescriptorCollector();
 
@@ -88,7 +88,7 @@ public final class FragmentPrinter {
             return ((IgniteSender) rel).sourceDistribution();
         }
 
-        return rel.distribution(); 
+        return rel.distribution();
     }
 
     private void print(MappedFragment mappedFragment) {
@@ -131,7 +131,7 @@ public final class FragmentPrinter {
                         .toString()
                 );
             }
-            
+
             Map<Long, ColocationGroup> orderedColocationGroups = new TreeMap<>(mappedFragment.groupsBySourceId());
             for (Entry<Long, ColocationGroup> entry : orderedColocationGroups.entrySet()) {
                 ColocationGroup group = entry.getValue();
@@ -190,20 +190,22 @@ public final class FragmentPrinter {
 
     private void appendColocationGroup(long sourceId, ColocationGroup group) {
         StringBuilder sb = new StringBuilder();
-        
-        sb.append("{");
-        sb.append("nodes=").append(new TreeSet<>(group.nodeNames()));
-        sb.append(", sourceIds=").append(new TreeSet<>(group.sourceIds()));
 
-        sb.append(", assignments=");
+        sb.append('{')
+                .append("nodes=")
+                .append(new TreeSet<>(group.nodeNames()))
+                .append(", sourceIds=").append(new TreeSet<>(group.sourceIds()))
+                .append(", assignments=");
+
         Map<String, String> assignments = new TreeMap<>();
         for (Int2ObjectMap.Entry<NodeWithConsistencyToken> entry : group.assignments().int2ObjectEntrySet()) {
             String assignment = entry.getValue().name() + ":" + entry.getValue().enlistmentConsistencyToken();
             assignments.put("part_" + entry.getIntKey(), assignment);
         }
-        sb.append(assignments);
 
-        sb.append(", partitionsWithConsistencyTokens=");
+        sb.append(assignments)
+                .append(", partitionsWithConsistencyTokens=");
+
         Map<String, String> partitionWithConsistencyTokens = new TreeMap<>();
         for (String nodeName : group.nodeNames()) {
             List<PartitionWithConsistencyToken> ppPerNode = group.partitionsWithConsistencyTokens(nodeName);
@@ -212,13 +214,13 @@ public final class FragmentPrinter {
                     .map(p -> "part_" + p.partId() + ":" + p.enlistmentConsistencyToken())
                     .sorted()
                     .collect(Collectors.toList());
-            
+
             partitionWithConsistencyTokens.put(nodeName, pps.toString());
         }
-        sb.append(partitionWithConsistencyTokens);
-        sb.append("}");
-        
-        output.writeKeyValue("colocationGroup[" + sourceId +"]", sb.toString());
+        sb.append(partitionWithConsistencyTokens)
+                .append('}');
+
+        output.writeKeyValue("colocationGroup[" + sourceId + "]", sb.toString());
     }
 
     /** Collects table descriptors to use them table names, column names in text output. */

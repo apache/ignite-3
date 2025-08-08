@@ -155,7 +155,7 @@ public class MappedFragment {
                 assert !existing.sourceIds().isEmpty() : "ColocationGroup has no sources. Source id: "
                         + e.getLongKey() + " node names: " + existing.nodeNames() + " assignments: " + existing.assignments()
                         + " replaced groups: " + replacedGroups.keySet();
-                
+
                 newGroups.add(existing);
             }
         }

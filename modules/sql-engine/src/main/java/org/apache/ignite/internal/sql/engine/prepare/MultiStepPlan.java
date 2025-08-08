@@ -45,9 +45,9 @@ public class MultiStepPlan implements ExplainablePlan {
     private final int catalogVersion;
 
     private final @Nullable QueryPlan fastPlan;
-    
-    private final int numTables;
-    
+
+    private final int numSources;
+
     private final PartitionAwarenessMetadata partitionAwarenessMetadata;
 
     private final PartitionPruningMetadata partitionPruningMetadata;
@@ -60,7 +60,7 @@ public class MultiStepPlan implements ExplainablePlan {
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata,
             int catalogVersion,
-            int numTables,
+            int numSources,
             @Nullable QueryPlan fastPlan,
             @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata,
             @Nullable PartitionPruningMetadata partitionPruningMetadata
@@ -72,7 +72,7 @@ public class MultiStepPlan implements ExplainablePlan {
         this.parameterMetadata = parameterMetadata;
         this.catalogVersion = catalogVersion;
         this.fastPlan = fastPlan;
-        this.numTables = numTables;
+        this.numSources = numSources;
         this.partitionAwarenessMetadata = partitionAwarenessMetadata;
         this.partitionPruningMetadata = partitionPruningMetadata;
     }
@@ -110,7 +110,7 @@ public class MultiStepPlan implements ExplainablePlan {
     /** {@inheritDoc} */
     @Override
     public int numSources() {
-        return numTables;
+        return numSources;
     }
 
     /** {@inheritDoc} */

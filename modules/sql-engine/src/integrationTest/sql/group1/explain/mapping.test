@@ -129,7 +129,7 @@ Fragment#0 root
 explain mapping
 SELECT c1 FROM (VALUES(1), (2)) t(c1)
 ----
-Fragment#0 root
+Fragment#1 root
   distribution: broadcast
   executionNodes: [sqllogic0]
   tree: 

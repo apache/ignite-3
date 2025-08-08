@@ -68,19 +68,19 @@ public class PartitionPruningMetadata implements Serializable {
 
     /**
      * Returns a subset of this metadata that uses the given tables.
-     * 
-     * @param tables Tables
+     *
+     * @param tables Tables.
      * @return Metadata.
      */
     public PartitionPruningMetadata subset(Long2ObjectMap<IgniteTable> tables) {
         Long2ObjectMap<PartitionPruningColumns> out = new Long2ObjectOpenHashMap<>();
-        
+
         for (Long2ObjectMap.Entry<PartitionPruningColumns> e : data.long2ObjectEntrySet()) {
             if (tables.containsKey(e.getLongKey())) {
                 out.put(e.getLongKey(), e.getValue());
             }
         }
-        
+
         return new PartitionPruningMetadata(out);
     }
 }

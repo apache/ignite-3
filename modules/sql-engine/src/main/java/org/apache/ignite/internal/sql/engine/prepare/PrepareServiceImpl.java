@@ -726,7 +726,12 @@ public class PrepareServiceImpl implements PrepareService {
         );
     }
 
-    private RelWithMetadata doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, @Nullable Runnable onTimeoutAction) {
+    private RelWithMetadata doOptimize(
+            PlanningContext ctx, 
+            SqlNode validatedNode, 
+            IgnitePlanner planner, 
+            @Nullable Runnable onTimeoutAction
+    ) {
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
@@ -758,10 +763,10 @@ public class PrepareServiceImpl implements PrepareService {
 
         PartitionAwarenessMetadata partitionAwarenessMetadata =
                 PartitionAwarenessMetadataExtractor.getMetadata(rel);
-        
+
         PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor()
                 .go(rel);
-        
+
         return new RelWithMetadata(rel, numTables, partitionAwarenessMetadata, partitionPruningMetadata);
     }
 
@@ -851,7 +856,7 @@ public class PrepareServiceImpl implements PrepareService {
             LOG.debug("Plan prepared: \n{}\n\n{}", queryString, plan.explain());
         }
     }
-    
+
     private static class RelWithMetadata {
         final IgniteRel rel;
         final @Nullable PartitionAwarenessMetadata paMetadata;

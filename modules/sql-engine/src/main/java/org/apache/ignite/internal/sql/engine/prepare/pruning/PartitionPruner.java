@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
-import org.jetbrains.annotations.Nullable;
 
 /** Applies partition pruning. */
 @FunctionalInterface

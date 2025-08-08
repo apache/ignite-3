@@ -178,12 +178,12 @@ final class MappingTestRunner {
             }
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
-            
+
             IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
             rel = pair.second();
-            
+
             PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor().go(rel);
-            
+
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
                     resultSetMetadata, parameterMetadata, schema.catalogVersion(),
                     pair.firstInt(), null, null, partitionPruningMetadata
