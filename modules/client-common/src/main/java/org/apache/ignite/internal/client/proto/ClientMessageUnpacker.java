@@ -689,6 +689,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads an UUID.
+     *
+     * @return UUID value.
+     * @throws MessageTypeException when type is not UUID.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public @Nullable UUID unpackUuidNullable() {
+        return tryUnpackNil() ? null : unpackUuid();
+    }
+
+    /**
      * Reads a bit set.
      *
      * @return Bit set.

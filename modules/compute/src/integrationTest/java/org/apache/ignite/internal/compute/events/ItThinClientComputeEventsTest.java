@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.events;
 
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.UUID;
@@ -42,6 +43,7 @@ class ItThinClientComputeEventsTest extends ItComputeEventsTest {
     @Override
     protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, UUID jobId, String jobClassName, String targetNode) {
         return super.jobEvent(eventType, jobType, jobId, jobClassName, targetNode)
+                .withUsername(is("unknown"))
                 .withInitiatorClient(notNullValue(String.class));
     }
 }
