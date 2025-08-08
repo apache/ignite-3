@@ -30,6 +30,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -128,7 +129,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         var dataRegionList = new ArrayList<DataRegion<PersistentPageMemory>>();
 
-        checkpointManager = new CheckpointManager(
+        checkpointManager = spy(new CheckpointManager(
                 NODE_NAME,
                 null,
                 failureManager,
@@ -140,7 +141,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 mock(LogSyncer.class),
                 executorService,
                 PAGE_SIZE
-        );
+        ));
 
         pageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
@@ -187,19 +188,23 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint.
             doAnswer(invocation -> {
                 startWritePagesOnCheckpointFuture.complete(null);
 
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return invocation.callRealMethod();
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement.
-                startWritePagesOnPageReplacementFuture.complete(null);
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+
+                    startWritePagesOnPageReplacementFuture.complete(null);
+                }
 
                 return invocation.callRealMethod();
-            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+            }).when(filePageStore).write(anyLong(), any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
@@ -269,14 +274,18 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return callRealMethodResult;
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement, let's hold it.
-                startWritePagesOnPageReplacementFuture.complete(null);
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
 
-                assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+                    // Second time the method should be invoked on page replacement, let's hold it.
+                    startWritePagesOnPageReplacementFuture.complete(null);
+
+                    assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+                }
 
                 return invocation.callRealMethod();
-            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+            }).when(filePageStore).write(anyLong(), any());
 
             doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
 
@@ -400,9 +409,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private void createAndFillTestSimpleValuePages(BooleanSupplier continuePredicate) throws Exception {
         while (continuePredicate.getAsBoolean()) {
-            long pageId = pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA);
-            createAndFillTestSimpleValuePage(pageId);
-            createAndFillTestSimpleValuePage(pageId);
+            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
         }
     }
 }

@@ -55,7 +55,7 @@ public interface CheckpointProgress {
      * Returns the sorted dirty pages to be written on the checkpoint, {@code null} if there were no dirty pages, or they have already been
      * written.
      */
-    @Nullable CheckpointDirtyPages dirtyPages();
+    @Nullable CheckpointDirtyPages pagesToWrite();
 
     /**
      * Returns a number of fsync-ed checkpoint pages.

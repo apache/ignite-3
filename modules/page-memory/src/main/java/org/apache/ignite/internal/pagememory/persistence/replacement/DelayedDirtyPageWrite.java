@@ -141,7 +141,6 @@ public class DelayedDirtyPageWrite {
         checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(fullPageId));
 
         try {
-            // TODO check
             flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get(), newPage);
         } catch (Throwable t) {
             errorOnWrite = t;

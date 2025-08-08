@@ -99,7 +99,7 @@ public class CheckpointDirtyPages {
      * @param grpId Group ID.
      * @param partId Partition ID.
      */
-    public @Nullable CheckpointDirtyPages.CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
+    public @Nullable CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
         for (int i = 0; i < dirtyPagesAndPartitions.size(); i++) {
             if (dirtyPagesAndPartitions.get(i).pageMemory == pageMemory) {
                 return getPartitionView(i, grpId, partId);
@@ -109,7 +109,7 @@ public class CheckpointDirtyPages {
         throw new IllegalArgumentException("Unknown PageMemory: " + pageMemory);
     }
 
-    private @Nullable CheckpointDirtyPages.CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
+    private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
         FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
@@ -191,13 +191,11 @@ public class CheckpointDirtyPages {
             return dirtyPagesAndPartitions.get(this.regionIndex).modifiedPages[fromPosition + index];
         }
 
-        /**
-         * Returns the newly allocated page by index.
-         *
-         * @param index Newly allocated page index.
-         */
-        public FullPageId getNewPage(int index) {
-            return dirtyPagesAndPartitions.get(this.regionIndex).newPagesByGroupPartitionId.get(partitionId)[index];
+        /** Returns the newly allocated pages. */
+        public FullPageId[] getNewPages() {
+            FullPageId[] newPages = dirtyPagesAndPartitions.get(this.regionIndex).newPagesByGroupPartitionId.get(partitionId);
+
+            return newPages == null ? new FullPageId[0] : newPages;
         }
 
         /**
@@ -212,12 +210,6 @@ public class CheckpointDirtyPages {
          */
         public int modifiedPagesSize() {
             return toPosition - fromPosition;
-        }
-
-        public int newPagesSize() {
-            FullPageId[] partitionNewPages = dirtyPagesAndPartitions.get(regionIndex).newPagesByGroupPartitionId.get(partitionId);
-
-            return partitionNewPages == null ? 0 : partitionNewPages.length;
         }
     }
 

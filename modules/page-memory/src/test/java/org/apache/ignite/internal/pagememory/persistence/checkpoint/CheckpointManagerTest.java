@@ -66,6 +66,8 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.invocation.InvocationOnMock;
 
 /**
@@ -152,7 +154,12 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory0, Map.of(), dirtyPageArray(0, 0, 1)),
+                createDirtyPagesAndPartitions(
+                        pageMemory0,
+                        // New pages are not included in the delta file page store.
+                        Map.of(new GroupPartitionId(0, 0), dirtyPageArray(0, 0, 5, 6, 7)),
+                        dirtyPageArray(0, 0, 1)
+                ),
                 createDirtyPagesAndPartitions(pageMemory1, Map.of(), dirtyPageArray(0, 1, 2, 3, 4))
         ));
 
@@ -166,7 +173,12 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory0, Map.of(), dirtyPageArray(0, 0, 0, 1)),
+                createDirtyPagesAndPartitions(
+                        pageMemory0,
+                        // New pages are not included in the delta file page store.
+                        Map.of(new GroupPartitionId(0, 0), dirtyPageArray(0, 0, 5, 6, 7)),
+                        dirtyPageArray(0, 0, 0, 1)
+                ),
                 createDirtyPagesAndPartitions(pageMemory1, Map.of(), dirtyPageArray(0, 1, 0, 2, 3, 4))
         ));
 
@@ -174,8 +186,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
     }
 
-    @Test
-    void testWritePageToFilePageStore() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testWritePageToFilePageStore(boolean newPage) throws Exception {
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -214,20 +227,24 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         CheckpointProgress checkpointProgress = mock(CheckpointProgress.class);
 
-        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, Map.of(), dirtyPageId)));
+        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, newPage, dirtyPageId)));
 
         when(checkpointProgress.inProgress()).thenReturn(true);
 
-        when(checkpointProgress.dirtyPages()).thenReturn(dirtyPages);
+        when(checkpointProgress.pagesToWrite()).thenReturn(dirtyPages);
 
         when(checkpointManager.lastCheckpointProgress()).thenReturn(checkpointProgress);
 
         // Spying because mocking ByteBuffer does not work on Java 21.
         ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
-        checkpointManager.writePageToFilePageStore(pageMemory, dirtyPageId, pageBuf, false);
+        checkpointManager.writePageToFilePageStore(pageMemory, dirtyPageId, pageBuf, newPage);
 
-        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
+        if (newPage) {
+            verify(filePageStore, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
+        } else {
+            verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
+        }
     }
 
     private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {

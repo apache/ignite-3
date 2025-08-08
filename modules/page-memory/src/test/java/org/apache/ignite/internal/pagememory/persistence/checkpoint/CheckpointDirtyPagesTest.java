@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -45,15 +46,28 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * For {@link CheckpointDirtyPages} testing.
  */
 public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
+    private static final FullPageId PAGE_ID_000 = of(0, 0, 0);
+    private static final FullPageId PAGE_ID_001 = of(0, 0, 1);
+    private static final FullPageId PAGE_ID_100 = of(1, 0, 0);
+    private static final FullPageId PAGE_ID_101 = of(1, 0, 1);
+    private static final FullPageId PAGE_ID_102 = of(1, 0, 2);
+    private static final FullPageId PAGE_ID_200 = of(2, 0, 0);
+    private static final FullPageId PAGE_ID_210 = of(2, 1, 0);
+    private static final FullPageId PAGE_ID_322 = of(3, 2, 2);
+    private static final GroupPartitionId GROUP_PARTITION_00 = new GroupPartitionId(0, 0);
+    private static final GroupPartitionId GROUP_PARTITION_10 = new GroupPartitionId(1, 0);
+
     @Test
     void testModifiedPagesCount() {
-        DirtyPagesAndPartitions dirtyPages0 = createModifiedPagesAndPartitions(of(0, 0, 0), of(0, 0, 1));
-        DirtyPagesAndPartitions dirtyPages1 = createModifiedPagesAndPartitions(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
+        DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(PAGE_ID_000, PAGE_ID_001);
+        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(PAGE_ID_100, PAGE_ID_101, PAGE_ID_102);
 
         assertEquals(0, EMPTY.modifiedPagesCount());
         assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).modifiedPagesCount());
@@ -62,12 +76,36 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testNewPagesCount() {
+        DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(
+                Map.of(GROUP_PARTITION_00, new FullPageId[]{PAGE_ID_000, PAGE_ID_001})
+        );
+
+        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(
+                Map.of(GROUP_PARTITION_10, new FullPageId[]{PAGE_ID_100, PAGE_ID_101, PAGE_ID_102})
+        );
+
+        assertEquals(0, EMPTY.newPagesCount());
+        assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).newPagesCount());
+        assertEquals(3, new CheckpointDirtyPages(List.of(dirtyPages1)).newPagesCount());
+        assertEquals(5, new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1)).newPagesCount());
+    }
+
+    @Test
     void testToDirtyPartitionQueue() {
         assertTrue(EMPTY.toDirtyPartitionQueue().isEmpty());
 
-        DirtyPagesAndPartitions dirtyPages0 = createModifiedPagesAndPartitions(of(0, 0, 0));
-        DirtyPagesAndPartitions dirtyPages1 = createModifiedPagesAndPartitions(of(1, 0, 0), of(1, 0, 1));
-        DirtyPagesAndPartitions dirtyPages2 = createModifiedPagesAndPartitions(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
+        DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(
+                Map.of(GROUP_PARTITION_00, new FullPageId[]{PAGE_ID_001}),
+                PAGE_ID_000
+        );
+        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(
+                Map.of(GROUP_PARTITION_10, new FullPageId[]{PAGE_ID_102}),
+                PAGE_ID_100,
+                PAGE_ID_101
+        );
+
+        DirtyPagesAndPartitions dirtyPages2 = createDirtyPagesAndPartitions(PAGE_ID_200, PAGE_ID_210, PAGE_ID_322);
 
         var checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
 
@@ -77,17 +115,18 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Test
-    void testGetPartitionViewByPageMemory() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testGetPartitionViewByPageMemory(boolean newPages) {
         assertThrows(IllegalArgumentException.class, () -> EMPTY.getPartitionView(mock(PersistentPageMemory.class), 0, 0));
 
-        DirtyPagesAndPartitions dirtyPages0 = createModifiedPagesAndPartitions(of(0, 0, 0));
-        DirtyPagesAndPartitions dirtyPages1 = createModifiedPagesAndPartitions(of(5, 0, 0));
-        DirtyPagesAndPartitions dirtyPages2 = createModifiedPagesAndPartitions(of(1, 0, 0), of(1, 0, 1));
-        DirtyPagesAndPartitions dirtyPages3 = createModifiedPagesAndPartitions(
+        DirtyPagesAndPartitions dirtyPages0 = createDirtyPagesAndPartitions(of(0, 0, 0));
+        DirtyPagesAndPartitions dirtyPages1 = createDirtyPagesAndPartitions(of(5, 0, 0));
+        DirtyPagesAndPartitions dirtyPages2 = createDirtyPagesAndPartitions(of(1, 0, 0), PAGE_ID_101);
+        DirtyPagesAndPartitions dirtyPages3 = createDirtyPagesAndPartitions(
                 of(2, 0, 0), of(2, 0, 1),
                 of(2, 1, 1),
-                of(3, 2, 2), of(3, 2, 3)
+                PAGE_ID_322, of(3, 2, 3)
         );
 
         var checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
@@ -100,33 +139,33 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
         assertNull(checkpointDirtyPages.getPartitionView(dirtyPages2.pageMemory, 5, 0));
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages0.pageMemory, 0, 0)),
-                equalTo(toListDirtyPagePair(dirtyPages0))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages0.pageMemory, 0, 0)),
+                equalTo(toListDirtyPagePair(newPages, dirtyPages0))
         );
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages1.pageMemory, 5, 0)),
-                equalTo(toListDirtyPagePair(dirtyPages1))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages1.pageMemory, 5, 0)),
+                equalTo(toListDirtyPagePair(newPages, dirtyPages1))
         );
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages2.pageMemory, 1, 0)),
-                equalTo(toListDirtyPagePair(dirtyPages2))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages2.pageMemory, 1, 0)),
+                equalTo(toListDirtyPagePair(newPages, dirtyPages2))
         );
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 2, 0)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 0), dirtyPages3))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 2, 0)),
+                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 0), newPages, dirtyPages3))
         );
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 2, 1)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 1), dirtyPages3))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 2, 1)),
+                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(2, 1), newPages, dirtyPages3))
         );
 
         assertThat(
-                toListDirtyPagePair(checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 3, 2)),
-                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(3, 2), dirtyPages3))
+                toListDirtyPagePair(newPages, checkpointDirtyPages.getPartitionView(dirtyPages3.pageMemory, 3, 2)),
+                equalTo(toListDirtyPagePair(equalsByGroupAndPartition(3, 2), newPages, dirtyPages3))
         );
     }
 
@@ -150,7 +189,14 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static DirtyPagesAndPartitions createModifiedPagesAndPartitions(FullPageId... pageIds) {
+    private static DirtyPagesAndPartitions createDirtyPagesAndPartitions(
+            Map<GroupPartitionId, FullPageId[]> newPageIds,
+            FullPageId... pageIds
+    ) {
+        return TestCheckpointUtils.createDirtyPagesAndPartitions(mock(PersistentPageMemory.class), newPageIds, pageIds);
+    }
+
+    private static DirtyPagesAndPartitions createDirtyPagesAndPartitions(FullPageId... pageIds) {
         return TestCheckpointUtils.createDirtyPagesAndPartitions(mock(PersistentPageMemory.class), Map.of(), pageIds);
     }
 
@@ -180,24 +226,47 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
                 .collect(toList());
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(DirtyPagesAndPartitions... dirtyPages) {
-        return toListDirtyPagePair(dirtyPageId -> true, dirtyPages);
+    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(
+            boolean newPages,
+            DirtyPagesAndPartitions... dirtyPages 
+    ) {
+        return toListDirtyPagePair(dirtyPageId -> true, newPages, dirtyPages);
     }
 
     private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(
             Predicate<FullPageId> predicate,
+            boolean newPages,
             DirtyPagesAndPartitions... dirtyPages
     ) {
         return Stream.of(dirtyPages)
-                .flatMap(pages -> Stream.of(pages.modifiedPages)
+                .flatMap(pages -> getPagesStream(pages, newPages)
                         .filter(predicate)
                         .map(pageId -> new IgniteBiTuple<>(pages.pageMemory, pageId))
                 )
                 .collect(toList());
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(CheckpointDirtyPagesView view) {
-        return IntStream.range(0, view.modifiedPagesSize()).mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.getModifiedPage(i))).collect(toList());
+    private static Stream<FullPageId> getPagesStream(DirtyPagesAndPartitions pages, boolean newPages) {
+        if (newPages) {
+            return pages.newPagesByGroupPartitionId.values().stream().flatMap(Arrays::stream);
+        }
+
+        return Stream.of(pages.modifiedPages);
+    }
+
+    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(
+            boolean newPages,
+            CheckpointDirtyPagesView view
+    ) {
+        if (newPages) {
+            return Arrays.stream(view.getNewPages())
+                    .map(pageId -> new IgniteBiTuple<>(view.pageMemory(), pageId))
+                    .collect(toList());
+        } else {
+            return IntStream.range(0, view.modifiedPagesSize())
+                    .mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.getModifiedPage(i)))
+                    .collect(toList());
+        }
     }
 
     private static Predicate<FullPageId> equalsByGroupAndPartition(int grpId, int partId) {

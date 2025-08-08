@@ -84,6 +84,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * For {@link Checkpointer} testing.
@@ -356,13 +358,16 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         assertThat(exception.getCause(), instanceOf(NodeStoppingException.class));
     }
 
-    @Test
-    void testDoCheckpoint() throws Exception {
-        CheckpointDirtyPages dirtyPages = spy(dirtyPages(
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testDoCheckpoint(boolean newPage) throws Exception {
+        DirtyPagesAndPartitions dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
                 mock(PersistentPageMemory.class),
-                Map.of(),
+                newPage,
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
-        ));
+        );
+
+        CheckpointDirtyPages dirtyPages = spy(new CheckpointDirtyPages(List.of(dirtyPagesAndPartitions)));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
 
@@ -517,14 +522,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         onPartitionDestructionFuture.get(1, SECONDS);
     }
 
-    private static CheckpointDirtyPages dirtyPages(
-            PersistentPageMemory pageMemory,
-            Map<GroupPartitionId, FullPageId[]> newPages,
-            FullPageId... pageIds
-    ) {
-        return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, newPages, pageIds)));
-    }
-
     private static CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
@@ -538,7 +535,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
             CheckpointProgressImpl progress = answer.getArgument(1);
 
             if (dirtyPages.hasDelta()) {
-                progress.dirtyPages(dirtyPages);
+                progress.pagesToWrite(dirtyPages);
 
                 progress.initCounters(dirtyPages.dirtyPagesCount());
             }

@@ -203,8 +203,10 @@ public class CheckpointPagesWriter implements Runnable {
                 processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getModifiedPage(i));
             }
 
-            for (int i = 0; i < checkpointDirtyPagesView.newPagesSize() && !shutdownNow.getAsBoolean(); i++) {
-                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, checkpointDirtyPagesView.getNewPage(i));
+            FullPageId[] newPages = checkpointDirtyPagesView.getNewPages();
+
+            for (int i = 0; i < newPages.length && !shutdownNow.getAsBoolean(); i++) {
+                processPage(pageMemory, tmpWriteBuf, pageStoreWriter, newPages[i]);
             }
         } finally {
             checkpointProgress.unblockPartitionDestruction(partitionId);
@@ -409,8 +411,7 @@ public class CheckpointPagesWriter implements Runnable {
 
         FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
-        //TODO check
-        pageWriter.write(pageMemory, fullPageId, buffer.rewind(), pageMemory.hasLoadedPage(fullPageId));
+        pageWriter.write(pageMemory, fullPageId, buffer.rewind(), false);
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
@@ -420,7 +421,7 @@ public class CheckpointPagesWriter implements Runnable {
     }
 
     private CheckpointDirtyPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
-        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.dirtyPages();
+        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.pagesToWrite();
 
         assert checkpointDirtyPages != null;
 
