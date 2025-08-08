@@ -106,7 +106,8 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?searchBounds: ");
     }
 
     /**
@@ -119,21 +120,32 @@ public interface QueryChecker {
      */
     static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
         return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
-                + ".*?index: " + idxName);
+                + ".*?index: " + idxName
+                + ".*?searchBounds: ");
     }
 
     /**
-     * Ignite index scan matcher which checks for the presence of search bounds.
+     * Ignite index scan matcher which ignores search bounds.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
+    }
+
+    /**
+     * Ignite index scan matcher which ignores search bounds.
      *
      * @param schema Schema name.
      * @param tblName Table name.
      * @param idxName Index name.
      * @return Matcher.
      */
-    static Matcher<String> containsIndexScanWithAnySearchBounds(String schema, String tblName, String idxName) {
+    static Matcher<String> containsIndexScanIgnoreBounds(String schema, String tblName, String idxName) {
         return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
-                + ".*?index: " + idxName
-                + ".*?searchBounds: ");
+                + ".*?index: " + idxName);
     }
 
     /**
