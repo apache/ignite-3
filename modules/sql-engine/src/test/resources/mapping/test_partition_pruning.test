@@ -389,3 +389,47 @@ Fragment#5 correlated
           projection: [true]
           est: (rows=1)
 ---
+
+N0
+SELECT id, c1 FROM (SELECT id, c1 FROM t1_n1n2n3 EXCEPT ALL SELECT id, c1 FROM t1_n1n2n3 WHERE id IN (1, 1, 3, 3)) tmp ORDER BY id ASC
+---
+Fragment#2 root
+  distribution: single
+  executionNodes: [N0]
+  exchangeSourceNodes: {3=[N1, N2, N3]}
+  colocationGroup[-1]: {nodes=[N0], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  colocationGroup[3]: {nodes=[N0], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N0=[]}}
+  tree: 
+    Receiver
+        fieldNames: [ID, C1]
+        sourceFragmentId: 3
+        est: (rows=1)
+
+Fragment#3
+  distribution: table PUBLIC.T1_N1N2N3 in zone ZONE_1
+  executionNodes: [N1, N2, N3]
+  targetNodes: [N0]
+  colocationGroup[0]: {nodes=[N2], sourceIds=[0, 1], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
+  colocationGroup[1]: {nodes=[N2], sourceIds=[0, 1], assignments={part_1=N2:3}, partitionsWithConsistencyTokens={N2=[part_1:3]}}
+  partitions: [T1_N1N2N3=[N1={0}, N2={1}, N3={2}]]
+  tree: 
+    Sender
+        distribution: single
+        targetFragmentId: 2
+        est: (rows=71577)
+      Sort
+          collation: [ID ASC]
+          est: (rows=71577)
+        ColocatedMinus
+            all: true
+            est: (rows=71577)
+          TableScan
+              table: PUBLIC.T1_N1N2N3
+              fieldNames: [ID, C1]
+              est: (rows=100001)
+          TableScan
+              table: PUBLIC.T1_N1N2N3
+              predicate: SEARCH(ID, Sarg[1, 3])
+              fieldNames: [ID, C1]
+              est: (rows=56847)
+---
