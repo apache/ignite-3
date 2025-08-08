@@ -45,8 +45,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
