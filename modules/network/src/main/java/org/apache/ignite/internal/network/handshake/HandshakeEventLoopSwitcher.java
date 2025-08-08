@@ -167,7 +167,6 @@ public class HandshakeEventLoopSwitcher {
             }
         }
 
-
         activeChannelMap.computeIfAbsent(index, key -> new HashSet<>()).add(channelId);
 
         if (channelKey != null) {
