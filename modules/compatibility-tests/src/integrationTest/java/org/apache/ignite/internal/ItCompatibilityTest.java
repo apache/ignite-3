@@ -52,7 +52,7 @@ class ItCompatibilityTest extends CompatibilityTestBase {
         sql(baseIgnite, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         Transaction tx = baseIgnite.transactions().begin();
-        baseIgnite.sql().execute(tx, "INSERT INTO TEST VALUES (1, 'str')");
+        sql(baseIgnite, tx, "INSERT INTO TEST VALUES (1, 'str')");
         tx.commit();
 
         List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST");
@@ -67,7 +67,7 @@ class ItCompatibilityTest extends CompatibilityTestBase {
 
         // Insert new data
         Transaction tx = node(0).transactions().begin();
-        node(0).sql().execute(tx, "INSERT INTO TEST VALUES (2, 'str2')");
+        sql(node(0), tx, "INSERT INTO TEST VALUES (2, 'str2')");
         tx.commit();
 
         // Verify all data
