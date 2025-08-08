@@ -264,7 +264,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
-        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, () -> proceedAfterSavingIds(handshakeStartMessage), channelKey);
+        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, channelKey).thenRun(() -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
     private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {

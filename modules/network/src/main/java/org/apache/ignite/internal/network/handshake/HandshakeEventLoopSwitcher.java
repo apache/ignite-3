@@ -32,6 +32,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.network.ClusterNode;
+import reactor.util.annotation.Nullable;
 
 /**
  * A class responsible for managing the assignment of Netty channels to event loops
@@ -48,9 +49,9 @@ public class HandshakeEventLoopSwitcher {
 
     /**
      * Map to track channel reservations for specific communication connections.
-     * The map prevents applying different event loops for the same chenell  key.
+     * The map prevents applying different event loops for the same chаnell  key.
      */
-    private final Map<ChannelKey, Integer> channelReservationMap;
+    private final Map<ChannelKey, Integer> channelReservationMap = new HashMap<>();
 
     /**
      * Constructs a new instance of HandshakeEventLoopSwitcher.
@@ -60,29 +61,28 @@ public class HandshakeEventLoopSwitcher {
     public HandshakeEventLoopSwitcher(List<EventLoop> eventLoops) {
         this.executors = eventLoops;
         this.activeChannelMap = new HashMap<>(eventLoops.size());
-        this.channelReservationMap = new HashMap<>();
     }
 
     /**
      * Switches the event loop of a given channel if needed.
      *
      * @param channel The channel to potentially switch to a different event loop.
-     * @param afterSwitching A callback to execute after the switching operation.
-     * @return A CompletableFuture that completes when the event loop is switched.
+     * @return A CompletableFuture that completes when the event loop is switched. The future completes in the target event loop.
      */
-    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching) {
-        return switchEventLoopIfNeeded(channel, afterSwitching, null);
+    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel) {
+        return switchEventLoopIfNeeded(channel, null);
     }
 
     /**
      * Switches the event loop of a given channel if needed.
      *
      * @param channel The channel to potentially switch to a different event loop.
-     * @param afterSwitching A callback to execute after the switching operation.
-     * @param channelKey The unique key identifying the channel.
-     * @return A CompletableFuture that completes when the event loop is switched.
+     * @param channelKey The unique key identifying the channel. That is a logical identifier of the connection between two nodes
+     *         (it would be {@code null} for a client-server connection). The purpose is to have strict message ordering in a reliable
+     *         connection.
+     * @return A CompletableFuture that completes when the event loop is switched. The future completes in the target event loop.
      */
-    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, Runnable afterSwitching, ChannelKey channelKey) {
+    public CompletableFuture<Void> switchEventLoopIfNeeded(Channel channel, @Nullable ChannelKey channelKey) {
         ChannelId channelId = channel.id();
 
         EventLoop targetEventLoop = eventLoopForKey(channelId, channelKey);
@@ -116,21 +116,15 @@ public class HandshakeEventLoopSwitcher {
                         channelUnregistered(channelId);
                     });
 
-
                     fut.complete(null);
-
-                    afterSwitching.run();
                 });
             });
 
             return fut;
         }
 
-        afterSwitching.run();
-
         return nullCompletedFuture();
     }
-
 
     /**
      * Determines the appropriate event loop for a given channel key.
@@ -139,7 +133,7 @@ public class HandshakeEventLoopSwitcher {
      * @param channelKey The unique key identifying the channel.
      * @return The selected event loop for the channel.
      */
-    private synchronized EventLoop eventLoopForKey(ChannelId channelId, ChannelKey channelKey) {
+    private synchronized EventLoop eventLoopForKey(ChannelId channelId, @Nullable ChannelKey channelKey) {
         if (channelKey != null) {
             Integer idx = channelReservationMap.get(channelKey);
 
@@ -163,6 +157,11 @@ public class HandshakeEventLoopSwitcher {
             if (cnt < minCnt) {
                 minCnt = cnt;
                 index = i;
+
+                if (cnt == 0) {
+                    // If we found an event loop with no channels, we can stop searching.
+                    break;
+                }
             }
         }
 
@@ -172,7 +171,6 @@ public class HandshakeEventLoopSwitcher {
         if (channelKey != null) {
             channelReservationMap.put(channelKey, index);
         }
-
 
         EventLoop eventLoop = executors.get(index);
 

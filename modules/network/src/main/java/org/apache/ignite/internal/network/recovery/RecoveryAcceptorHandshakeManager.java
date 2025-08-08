@@ -228,7 +228,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.remoteChannelId = message.connectionId();
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), remoteChannelId);
-        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, () -> tryAcquireDescriptorAndFinishHandshake(message), channelKey);
+        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, channelKey)
+                .thenRun(() -> tryAcquireDescriptorAndFinishHandshake(message));
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {

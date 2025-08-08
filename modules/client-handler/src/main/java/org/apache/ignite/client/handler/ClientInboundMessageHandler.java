@@ -465,22 +465,22 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel(),
-                            () -> authenticationManager.authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
-                                    .handleAsync((user, err) -> {
-                                        if (err != null) {
-                                            handshakeError(ctx, packer, err);
-                                        } else {
-                                            handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
-                                        }
+            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel()).whenComplete((unused, throwable) -> {
+                if (throwable != null) {
+                    handshakeError(ctx, packer, throwable);
+                    return;
+                }
 
-                                        return null;
-                                    }, ctx.executor()))
-                    .exceptionally(t -> {
-                        handshakeError(ctx, packer, t);
+                authenticationManager.authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions)).handleAsync((user, err) -> {
+                    if (err != null) {
+                        handshakeError(ctx, packer, err);
+                    } else {
+                        handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
+                    }
 
-                        return null;
-                    });
+                    return null;
+                }, ctx.executor());
+            });
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
         }

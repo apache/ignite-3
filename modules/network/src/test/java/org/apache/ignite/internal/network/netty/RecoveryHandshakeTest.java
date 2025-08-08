@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,7 +29,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,8 +40,8 @@ import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
@@ -767,19 +765,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
-                new HandshakeEventLoopSwitcher(List.of()) {
-                    @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(
-                            Channel channel,
-                            Runnable afterSwitching,
-                            ChannelKey channelKey
-                    ) {
-                        // No need to switch event loop in tests, so we just call the callback immediately.
-                        afterSwitching.run();
-
-                        return nullCompletedFuture();
-                    }
-                },
+                new NoOpHandshakeEventLoopSwitcher(),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},
@@ -815,19 +801,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
-                new HandshakeEventLoopSwitcher(List.of()) {
-                    @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(
-                            Channel channel,
-                            Runnable afterSwitching,
-                            ChannelKey channelKey
-                    ) {
-                        // No need to switch event loop in tests, so we just call the callback immediately.
-                        afterSwitching.run();
-
-                        return nullCompletedFuture();
-                    }
-                },
+                new NoOpHandshakeEventLoopSwitcher(),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},

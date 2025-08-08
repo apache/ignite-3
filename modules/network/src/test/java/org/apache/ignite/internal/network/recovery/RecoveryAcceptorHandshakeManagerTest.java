@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network.recovery;
 
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -41,7 +40,6 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -52,10 +50,9 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
-import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
@@ -180,19 +177,7 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
-                new HandshakeEventLoopSwitcher(List.of()) {
-                    @Override
-                    public CompletableFuture<Void> switchEventLoopIfNeeded(
-                            Channel channel,
-                            Runnable afterSwitching,
-                            ChannelKey channelKey
-                    ) {
-                        // No need to switch event loop in tests, so we just call the callback immediately.
-                        afterSwitching.run();
-
-                        return nullCompletedFuture();
-                    }
-                },
+                new NoOpHandshakeEventLoopSwitcher(),
                 new AllIdsAreFresh(),
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
