@@ -19,16 +19,21 @@ package org.apache.ignite.internal.hlc;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link ClockService}.
  */
 public class ClockServiceImpl implements ClockService {
+    private static final IgniteLogger LOG = Loggers.forClass(ClockServiceImpl.class);
+
     private final HybridClock clock;
     private final ClockWaiter clockWaiter;
 
     private final LongSupplier maxClockSkewMsSupplier;
+
+    private final long maxClockSkewMillis;
 
     /**
      * Constructor.
@@ -37,6 +42,7 @@ public class ClockServiceImpl implements ClockService {
         this.clock = clock;
         this.clockWaiter = clockWaiter;
         this.maxClockSkewMsSupplier = maxClockSkewMsSupplier;
+        this.maxClockSkewMillis = maxClockSkewMsSupplier.getAsLong();
     }
 
     @Override
@@ -61,13 +67,12 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
-        HybridTimestamp result = clock.update(requestTime);
-
-        if (requestTime.getPhysical() - maxClockSkewMillis() > result.getPhysical()) {
-            Loggers.forClass(ClockServiceImpl.class).warn("Maximum allowed clock drift in the cluster exceeded");
+        if (requestTime.getPhysical() - maxClockSkewMillis > clock.current().getPhysical()) {
+            // TODO sanpwc add details to log message.
+            LOG.warn("Maximum allowed clock drift exceeded.");
         }
 
-        return result;
+        return clock.update(requestTime);
     }
 
     @Override
@@ -77,6 +82,6 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public long maxClockSkewMillis() {
-        return maxClockSkewMsSupplier.getAsLong();
+        return maxClockSkewMillis;
     }
 }
