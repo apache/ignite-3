@@ -35,6 +35,8 @@ import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -164,8 +166,12 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         return sql(node(0), query);
     }
 
-    protected List<List<Object>> sql(Ignite ignite, String query) {
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, query);
+    protected static List<List<Object>> sql(Ignite ignite, String query) {
+        return sql(ignite, null, query);
+    }
+
+    protected static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String query) {
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, query);
     }
 
     protected Ignite node(int index) {
