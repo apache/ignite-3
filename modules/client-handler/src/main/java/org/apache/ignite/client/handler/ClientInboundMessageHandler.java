@@ -468,13 +468,14 @@ public class ClientInboundMessageHandler
             AuthenticationRequest<?, ?> authReq = createAuthenticationRequest(clientHandshakeExtensions);
 
             handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel())
-                    .thenCompose(unused -> authenticationManager.authenticateAsync(authReq).whenCompleteAsync((user, err) -> {
+                    .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
+                    .whenCompleteAsync((user, err) -> {
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
                             handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
                         }
-                    }, ctx.executor()));
+                    }, ctx.executor());
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
         }
