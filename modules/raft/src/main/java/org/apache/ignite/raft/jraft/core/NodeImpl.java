@@ -102,7 +102,6 @@ import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorGroupOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotExecutorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseBuilder;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.GetLeaderResponseBuilder;
@@ -1914,24 +1913,38 @@ public class NodeImpl implements Node, RaftServerService {
             return;
         }
 
-        final List<PeerId> peers = this.conf.getConf().getPeers();
-        Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
+        ReadOnlyOption readOnlyOpt = this.raftOptions.getReadOnlyOptions();
+        if (readOnlyOpt == ReadOnlyOption.ReadOnlyLeaseBased && !isLeaderLeaseValid()) {
+            // If leader lease timeout, we must change option to ReadOnlySafe
+            readOnlyOpt = ReadOnlyOption.ReadOnlySafe;
+        }
 
-        final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone = new QuorumConfirmedHeartbeatResponseClosure<>(
-                response -> {
-                    closure.setResponse(response);
-                    closure.run(Status.OK());
-                },
-                success -> respBuilder.build(),
-                quorum,
-                peers.size()
-        );
-        // Send heartbeat requests to followers
-        for (final PeerId peer : peers) {
-            if (peer.equals(this.serverId)) {
-                continue;
-            }
-            this.replicatorGroup.sendHeartbeat(peer, heartbeatDone);
+        switch (readOnlyOpt) {
+            case ReadOnlySafe:
+                final List<PeerId> peers = this.conf.getConf().getPeers();
+                Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
+                final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone =
+                        new QuorumConfirmedHeartbeatResponseClosure<>(
+                            response -> {
+                                closure.setResponse(response);
+                                closure.run(Status.OK());
+                            },
+                            success -> respBuilder.build(),
+                            quorum,
+                            peers.size()
+                        );
+                // Send heartbeat requests to followers
+                for (final PeerId peer : peers) {
+                    if (peer.equals(this.serverId)) {
+                        continue;
+                    }
+                    this.replicatorGroup.sendHeartbeat(peer, heartbeatDone);
+                }
+                break;
+            case ReadOnlyLeaseBased:
+                closure.setResponse(respBuilder.build());
+                closure.run(Status.OK());
+                break;
         }
     }
 
