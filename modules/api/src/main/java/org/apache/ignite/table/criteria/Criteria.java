@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Represents a criteria query predicate.
  *
  * <pre>{@code
- *      public ClosableCursor<Product> uncategorizedProducts() {
+ *      public ClosableCursor<Product> findUser() {
  *         return products.recordView(Product.class).query(null, columnValue("name", equalTo("John Doe")));
  *      }
  * }</pre>
