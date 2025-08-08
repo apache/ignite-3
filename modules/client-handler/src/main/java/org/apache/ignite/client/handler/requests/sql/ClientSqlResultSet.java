@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -29,6 +31,8 @@ import org.apache.ignite.sql.async.AsyncResultSet;
  * Client result set wrapper.
  */
 class ClientSqlResultSet {
+    private final AsyncSqlCursor<InternalSqlRow> cursor;
+
     /** Result set. */
     private final AsyncResultSet<SqlRow> resultSet;
 
@@ -38,18 +42,23 @@ class ClientSqlResultSet {
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
+    private final int pageSize;
+
     /**
      * Constructor.
      *
      * @param resultSet Result set.
      * @param metrics Metrics.
      */
-    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, ClientHandlerMetricSource metrics) {
+    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, AsyncSqlCursor<InternalSqlRow> cursor, int pageSize,
+            ClientHandlerMetricSource metrics) {
         assert resultSet != null;
         assert metrics != null;
 
+        this.cursor = cursor;
         this.resultSet = resultSet;
         this.metrics = metrics;
+        this.pageSize = pageSize;
     }
 
     /**
@@ -59,6 +68,14 @@ class ClientSqlResultSet {
      */
     public AsyncResultSet<SqlRow> resultSet() {
         return resultSet;
+    }
+
+    public AsyncSqlCursor<InternalSqlRow> cursor() {
+        return cursor;
+    }
+
+    public int pageSize() {
+        return pageSize;
     }
 
     /**

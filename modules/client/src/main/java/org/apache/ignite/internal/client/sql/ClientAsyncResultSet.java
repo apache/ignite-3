@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
+public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
 
@@ -84,6 +85,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Closed flag. */
     private volatile boolean closed;
 
+    private boolean hasMoreResults;
+
     /**
      * Constructor.
      *
@@ -100,7 +103,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             ClientMessageUnpacker in,
             @Nullable Mapper<T> mapper,
             boolean partitionAwarenessEnabled,
-            boolean sqlDirectMappingSupported
+            boolean sqlDirectMappingSupported,
+            boolean sqlMultiStatementsSupported
     ) {
         this.ch = ch;
 
@@ -115,6 +119,10 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in, sqlDirectMappingSupported);
         } else {
             partitionAwarenessMetadata = null;
+        }
+
+        if (sqlMultiStatementsSupported) {
+            hasMoreResults = in.unpackBoolean();
         }
 
         this.mapper = mapper;
@@ -137,6 +145,27 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public boolean hasRowSet() {
         return hasRowSet;
+    }
+
+    public boolean hasMoreResults() {
+        return hasMoreResults;
+    }
+
+    /** TODO Fetches next result. */
+    public CompletableFuture<AsyncResultSet<T>> fetchNextResult() {
+        if (!hasMoreResults) {
+            return CompletableFuture.failedFuture(new NoSuchElementException("Query has no more results"));
+        }
+
+        assert marshaller == null : "Multi-statement execution doesn't support custom mapper";
+
+        return ch.serviceAsync(
+                ClientOp.SQL_CURSOR_NEXT_RESULT_SET,
+                w -> w.out().packLong(resourceId),
+                r -> new ClientAsyncResultSet<>(
+                        r.clientChannel(), null, r.in(), null, false, false, true
+                )
+        );
     }
 
     /** {@inheritDoc} */
