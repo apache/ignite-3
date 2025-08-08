@@ -43,6 +43,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
@@ -203,7 +204,7 @@ public class ReplicaService {
 
                                 if (throwable0 instanceof TimeoutException) {
                                     res.completeExceptionally(withCause(
-                                            ReplicationTimeoutException::new,
+                                            AwaitReplicaTimeoutException::new,
                                             REPLICA_TIMEOUT_ERR,
                                             format(
                                                     "Could not wait for the replica readiness due to timeout [replicaGroupId={}, req={}]",
