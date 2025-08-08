@@ -60,6 +60,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -675,7 +676,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            Function<RaftGroupService, ReplicaListener> listenerFactory,
+            BiFunction<RaftGroupService, IgniteThrottledLogger, ReplicaListener> listenerFactory,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -710,7 +711,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                         return new ZonePartitionReplicaImpl(
                                 replicaGrpId,
-                                listenerFactory.apply(raftClient),
+                                listenerFactory.apply(raftClient, throttledLog),
                                 raftClient,
                                 placementDriverMessageProcessor
                         );

@@ -19,11 +19,15 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -32,6 +36,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.handlers.MinimumActiveTxTimeReplicaRequestHandler;
@@ -49,6 +54,7 @@ import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
@@ -71,6 +77,12 @@ import org.jetbrains.annotations.VisibleForTesting;
  */
 public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
+
+    private static final int MAXIMUM_ATTEMPTS_WITHOUT_LOGGING = 10;
+
+    private final AtomicInteger timeoutedAttemptsCounter = new AtomicInteger();
+
+    private final IgniteLogger safeTimeTimeoutLogger;
 
     // tableId -> tableProcessor.
     private final Map<Integer, ReplicaTableProcessor> replicaProcessors = new ConcurrentHashMap<>();
@@ -116,7 +128,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             FailureProcessor failureProcessor,
             NodeProperties nodeProperties,
             ClusterNode localNode,
-            ZonePartitionId replicationGroupId
+            ZonePartitionId replicationGroupId,
+            IgniteThrottledLogger safeTimeTimeoutLogger
     ) {
         this.raftClient = raftClient;
         this.failureProcessor = failureProcessor;
@@ -194,6 +207,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
 
         replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
+
+        this.safeTimeTimeoutLogger = safeTimeTimeoutLogger;
     }
 
     private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
@@ -207,7 +222,23 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
         return replicaPrimacyEngine.validatePrimacy(request)
                 .thenCompose(replicaPrimacy -> processRequest(request, replicaPrimacy, senderId))
-                .thenApply(res -> {
+                .handle((res, ex) -> {
+                    if (ex == null) {
+                        timeoutedAttemptsCounter.set(0);
+
+                        return res;
+                    }
+
+                    if (request instanceof ReplicaSafeTimeSyncRequest) {
+                        if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
+                            tryToLogTimeoutFailure(ex);
+                        } else {
+                            timeoutedAttemptsCounter.set(0);
+                        }
+                    }
+
+                    throw new CompletionException(ex);
+                }).thenApply(res -> {
                     if (res instanceof ReplicaResult) {
                         return (ReplicaResult) res;
                     } else {
@@ -294,6 +325,21 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }
         return completedFuture(new ReplicaResult(null, null));
+    }
+
+    private void tryToLogTimeoutFailure(Throwable timeoutException) {
+        int currentAttempt = timeoutedAttemptsCounter.incrementAndGet();
+
+        if (currentAttempt < MAXIMUM_ATTEMPTS_WITHOUT_LOGGING) {
+            return;
+        }
+
+        safeTimeTimeoutLogger.warn(
+                "Failed to sync safe time for partition [groupId={}, attempt={}].",
+                timeoutException,
+                replicationGroupId,
+                currentAttempt
+        );
     }
 
     @Override

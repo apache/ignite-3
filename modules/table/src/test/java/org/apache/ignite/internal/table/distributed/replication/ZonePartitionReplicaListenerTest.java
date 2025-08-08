@@ -113,6 +113,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -626,7 +627,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 failureManager,
                 new SystemPropertiesNodeProperties(),
                 localNode,
-                zonePartitionId
+                zonePartitionId,
+                mock(IgniteThrottledLogger.class)
         );
 
         tableReplicaProcessor = new PartitionReplicaListener(
