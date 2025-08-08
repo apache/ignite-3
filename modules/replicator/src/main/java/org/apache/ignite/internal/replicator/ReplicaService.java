@@ -160,6 +160,7 @@ public class ReplicaService {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
                 if (response instanceof TimestampAware) {
+                    // TODO sanpwc use clockServiceInstead.
                     clock.update(((TimestampAware) response).timestamp());
                 }
 
