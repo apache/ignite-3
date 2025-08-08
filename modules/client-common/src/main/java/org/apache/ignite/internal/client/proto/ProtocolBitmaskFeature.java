@@ -77,7 +77,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Direct mapping for SQL queries within explicit transactions.
      */
-    SQL_DIRECT_TX_MAPPING(10);
+    SQL_DIRECT_TX_MAPPING(10),
+
+    /**
+     * Thin SQL client supports iteration over the results of script execution.
+     */
+    SQL_MULTISTATEMENT_SUPPORT(11);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
