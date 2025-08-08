@@ -149,6 +149,8 @@ public class HandshakeEventLoopSwitcher {
             Set<ChannelId> channelIds = activeChannelMap.getOrDefault(i, Set.of());
 
             if (channelIds.contains(channelId)) {
+                assert channelKey == null : "Channel key should be null if the channel is already registered in the event loop";
+
                 return executors.get(index);
             }
 
