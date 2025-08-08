@@ -90,7 +90,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     private static final TestCluster cluster;
     private static final ClockService CLOCK_SERVICE = new TestClockService(new TestHybridClock(System::currentTimeMillis));
     private static final MappingParameters PARAMS = MappingParameters.EMPTY;
-    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
+    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams, ppMetadata) -> fragments;
     private long topologyVer;
     private boolean topologyChange;
 

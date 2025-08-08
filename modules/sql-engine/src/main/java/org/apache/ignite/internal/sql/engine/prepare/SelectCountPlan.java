@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -148,6 +149,16 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return null;
+    }
+
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return null;
+    }
+
+    @Override
+    public int numSources() {
+        return 1;
     }
 
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {

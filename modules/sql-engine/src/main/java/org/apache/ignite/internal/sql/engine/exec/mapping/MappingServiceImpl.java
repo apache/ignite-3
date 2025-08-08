@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
@@ -138,6 +139,7 @@ public class MappingServiceImpl implements MappingService {
 
         boolean mapOnBackups = parameters.mapOnBackups();
         Predicate<String> nodeExclusionFilter = parameters.nodeExclusionFilter();
+        PartitionPruningMetadata partitionPruningMetadata = multiStepPlan.partitionPruningMetadata();
 
         CompletableFuture<MappedFragments> mappedFragments;
         if (nodeExclusionFilter != null) {
@@ -149,7 +151,7 @@ public class MappingServiceImpl implements MappingService {
             ).mappedFragments;
         }
 
-        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters));
+        return mappedFragments.thenApply(frags -> applyPartitionPruning(frags.fragments, parameters, partitionPruningMetadata));
     }
 
     private MappingsCacheValue computeMappingCacheKey(
@@ -360,14 +362,21 @@ public class MappingServiceImpl implements MappingService {
                 : factory.allOf(nodes);
     }
 
-    private List<MappedFragment> applyPartitionPruning(List<MappedFragment> mappedFragments, MappingParameters parameters) {
-        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters());
+    private List<MappedFragment> applyPartitionPruning(
+            List<MappedFragment> mappedFragments, 
+            MappingParameters parameters, 
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
+    ) {
+        if (partitionPruningMetadata == null) {
+            return mappedFragments;
+        }
+        return partitionPruner.apply(mappedFragments, parameters.dynamicParameters(), partitionPruningMetadata);
     }
 
     private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan) {
         // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
         return templatesCache.get(plan.id(), key -> {
-            IdGenerator idGenerator = new IdGenerator(0);
+            IdGenerator idGenerator = new IdGenerator(plan.numSources());
 
             RelOptCluster cluster = Commons.cluster();
 

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -79,6 +80,18 @@ public class KillPlan implements QueryPlan {
     @Override
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return 0;
     }
 
     /** {@inheritDoc} */

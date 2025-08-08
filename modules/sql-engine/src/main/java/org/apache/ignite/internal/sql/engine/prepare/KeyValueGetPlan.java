@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -72,6 +73,8 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private final ParameterMetadata parameterMetadata;
     @Nullable
     private final PartitionAwarenessMetadata partitionAwarenessMetadata;
+    @Nullable
+    private final PartitionPruningMetadata partitionPruningMetadata;
 
     private volatile Performable<?> operation;
 
@@ -81,7 +84,8 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             IgniteKeyValueGet lookupNode,
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata,
-            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata,
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
     ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
@@ -89,6 +93,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
         this.partitionAwarenessMetadata = partitionAwarenessMetadata;
+        this.partitionPruningMetadata = partitionPruningMetadata;
     }
 
     /** {@inheritDoc} */
@@ -119,6 +124,18 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return partitionAwarenessMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return partitionPruningMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return 1;
     }
 
     /** Returns a table in question. */
