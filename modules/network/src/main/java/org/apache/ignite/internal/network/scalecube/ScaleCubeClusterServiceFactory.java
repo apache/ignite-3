@@ -174,8 +174,8 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
                     public void onDisappeared(ClusterNode member) {
-                        connectionMgr.handleNodeLeft(member.id());
-                        nettyBootstrapFactory.handshakeEventLoopSwitcher().nodeLeftTopology(member);
+                        connectionMgr.handleNodeLeft(member.id()).thenRun(() ->
+                                nettyBootstrapFactory.handshakeEventLoopSwitcher().nodeLeftTopology(member));
                     }
                 });
 

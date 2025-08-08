@@ -632,10 +632,13 @@ public class ConnectionManager implements ChannelCreationListener {
      * it's ID that gets regenerated at each node restart) and recovery descriptors corresponding to it.
      *
      * @param id ID of the node (it must have already left the topology).
+     * @return Future that completes when all the channels and descriptors are closed.
      */
-    public void handleNodeLeft(UUID id) {
+    public CompletableFuture<Void> handleNodeLeft(UUID id) {
         // We rely on the fact that the node with the given ID has already left the physical topology.
         assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         // TODO: IGNITE-21207 - remove descriptors for good.
 
@@ -644,8 +647,12 @@ public class ConnectionManager implements ChannelCreationListener {
                     // Closing descriptors separately (as some of them might not have an operating channel attached, but they
                     // still might have unacknowledged messages/futures).
                     disposeRecoveryDescriptorsOfLeftNode(id);
+
+                    future.complete(null);
                 }, connectionMaintenanceExecutor)
         );
+
+        return future;
     }
 
     private CompletableFuture<Void> closeChannelsWith(UUID id) {

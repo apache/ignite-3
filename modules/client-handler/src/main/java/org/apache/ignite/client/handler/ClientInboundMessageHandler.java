@@ -467,23 +467,14 @@ public class ClientInboundMessageHandler
 
             AuthenticationRequest<?, ?> authReq = createAuthenticationRequest(clientHandshakeExtensions);
 
-            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel()).whenComplete((unused, throwable) -> {
-                if (throwable != null) {
-                    handshakeError(ctx, packer, throwable);
-
-                    return;
-                }
-
-                authenticationManager.authenticateAsync(authReq).handleAsync((user, err) -> {
-                    if (err != null) {
-                        handshakeError(ctx, packer, err);
-                    } else {
-                        handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
-                    }
-
-                    return null;
-                }, ctx.executor());
-            });
+            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel())
+                    .thenCompose(unused -> authenticationManager.authenticateAsync(authReq).whenCompleteAsync((user, err) -> {
+                        if (err != null) {
+                            handshakeError(ctx, packer, err);
+                        } else {
+                            handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
+                        }
+                    }, ctx.executor()));
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
         }
