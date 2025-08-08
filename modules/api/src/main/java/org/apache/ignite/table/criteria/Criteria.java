@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <pre>{@code
  *      public ClosableCursor<Product> uncategorizedProducts() {
- *         return products.recordView(Product.class).queryCriteria(null, columnValue("category", nullValue()));
+ *         return products.recordView(Product.class).query(null, columnValue("name", equalTo("John Doe")));
  *      }
  * }</pre>
  *
