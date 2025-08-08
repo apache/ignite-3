@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import java.util.List;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,17 +32,21 @@ class RemoteExecutionContext {
 
     private final String jobClassName;
 
+    private final ComputeEventMetadataBuilder metadataBuilder;
+
     private final ComputeJobDataHolder arg;
 
     RemoteExecutionContext(
+            ExecutionOptions executionOptions,
             List<DeploymentUnit> units,
             String jobClassName,
-            ExecutionOptions executionOptions,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
+        this.metadataBuilder = metadataBuilder;
         this.arg = arg;
     }
 
@@ -55,6 +60,10 @@ class RemoteExecutionContext {
 
     String jobClassName() {
         return jobClassName;
+    }
+
+    ComputeEventMetadataBuilder metadataBuilder() {
+        return metadataBuilder;
     }
 
     @Nullable ComputeJobDataHolder arg() {

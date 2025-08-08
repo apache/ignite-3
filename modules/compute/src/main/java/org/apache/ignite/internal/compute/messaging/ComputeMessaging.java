@@ -49,8 +49,11 @@ import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionManager;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobStarter;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
+import org.apache.ignite.internal.compute.message.ExecuteRequestV2;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -167,28 +170,31 @@ public class ComputeMessaging {
     /**
      * Submit Compute job to execution on remote node.
      *
-     * @param options Job execution options.
      * @param remoteNode The job will be executed on this node.
+     * @param options Job execution options.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
+     * @param metadataBuilder Event metadata builder.
      * @param input Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
     public CompletableFuture<UUID> remoteExecuteRequestAsync(
-            ExecutionOptions options,
             ClusterNode remoteNode,
+            ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
                 .collect(toList());
 
-        ExecuteRequest executeRequest = messagesFactory.executeRequest()
+        ExecuteRequestV2 executeRequest = messagesFactory.executeRequestV2()
                 .executeOptions(options)
                 .deploymentUnits(deploymentUnitMsgs)
                 .jobClassName(jobClassName)
+                .metadataBuilder(metadataBuilder)
                 .input(input)
                 .build();
 
@@ -199,7 +205,11 @@ public class ComputeMessaging {
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        starter.start(request.executeOptions(), units, request.jobClassName(), request.input())
+        ComputeEventMetadataBuilder metadataBuilder = request instanceof ExecuteRequestV2
+                ? ((ExecuteRequestV2) request).metadataBuilder()
+                : ComputeEventMetadata.builder();
+
+        starter.start(request.executeOptions(), units, request.jobClassName(), metadataBuilder, request.input())
                 .whenComplete((execution, err) -> {
                             if (err != null) {
                                 sendExecuteResponse(null, err, sender, correlationId);

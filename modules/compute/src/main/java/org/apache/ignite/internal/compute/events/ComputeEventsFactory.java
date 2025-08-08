@@ -29,6 +29,7 @@ import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute events factory.
@@ -101,11 +102,12 @@ public class ComputeEventsFactory {
             fields.put(FieldNames.TYPE, eventMetadata.type());
             fields.put(FieldNames.CLASS_NAME, eventMetadata.jobClassName());
             fields.put(FieldNames.JOB_ID, eventMetadata.jobId());
-            fields.put(FieldNames.TARGET_NODE, eventMetadata.nodeName());
-            putIfNotNull(fields, FieldNames.TABLE_NAME, eventMetadata.tableName());
+            fields.put(FieldNames.TARGET_NODE, eventMetadata.targetNode());
+            fields.put(FieldNames.INITIATOR_NODE, eventMetadata.initiatorNode());
+
             putIfNotNull(fields, FieldNames.TASK_ID, eventMetadata.taskId());
-            putIfNotNull(fields, FieldNames.INITIATOR_CLIENT, eventMetadata.initiatorClient());
-            putIfNotNull(fields, FieldNames.INITIATOR_NODE, eventMetadata.initiatorNodeId());
+            putIfNotNull(fields, FieldNames.TABLE_NAME, eventMetadata.tableName());
+            putIfNotNull(fields, FieldNames.CLIENT_ADDRESS, eventMetadata.clientAddress());
 
             EventUser user = eventMetadata.eventUser();
 
@@ -118,7 +120,7 @@ public class ComputeEventsFactory {
         });
     }
 
-    private static void putIfNotNull(Map<String, Object> map, String key, Object value) {
+    private static void putIfNotNull(Map<String, Object> map, String key, @Nullable Object value) {
         if (value != null) {
             map.put(key, value);
         }
@@ -126,13 +128,16 @@ public class ComputeEventsFactory {
 
     /** Compute events field names. */
     static class FieldNames {
+        // Required fields
         static final String TYPE = "type";
         static final String CLASS_NAME = "className";
-        static final String TABLE_NAME = "tableName";
         static final String JOB_ID = "jobId";
         static final String TARGET_NODE = "targetNode";
-        static final String TASK_ID = "taskId";
         static final String INITIATOR_NODE = "initiatorNode";
-        static final String INITIATOR_CLIENT = "initiatorClient";
+
+        // Optional fields
+        static final String TASK_ID = "taskId";
+        static final String TABLE_NAME = "tableName";
+        static final String CLIENT_ADDRESS = "clientAddress";
     }
 }

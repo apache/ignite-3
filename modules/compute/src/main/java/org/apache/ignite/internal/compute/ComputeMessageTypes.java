@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
+import org.apache.ignite.internal.compute.message.ExecuteRequestV2;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -81,4 +82,8 @@ public class ComputeMessageTypes {
 
     /** Type for {@link JobStatesResponse}. */
     public static final short JOB_STATES_RESPONSE = 12;
+
+    /** Type for {@link ExecuteRequestV2}. */
+    public static final short EXECUTE_REQUEST_V2 = 13;
+
 }

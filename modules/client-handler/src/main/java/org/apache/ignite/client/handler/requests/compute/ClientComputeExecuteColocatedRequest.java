@@ -35,8 +35,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -73,10 +73,10 @@ public class ClientComputeExecuteColocatedRequest {
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
-                    Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                    ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .eventUser(clientContext.userDetails())
                             .tableName(table.name())
-                            .initiatorClient(clientContext.remoteAddress().toString())
-                            .eventUser(clientContext.userDetails());
+                            .clientAddress(clientContext.remoteAddress().toString());
 
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,
