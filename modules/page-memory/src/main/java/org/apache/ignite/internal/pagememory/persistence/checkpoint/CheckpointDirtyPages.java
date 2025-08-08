@@ -99,7 +99,7 @@ public class CheckpointDirtyPages {
      * @param grpId Group ID.
      * @param partId Partition ID.
      */
-    public @Nullable CheckpointDirtyPages.CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
+    public @Nullable CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
         for (int i = 0; i < dirtyPagesAndPartitions.size(); i++) {
             if (dirtyPagesAndPartitions.get(i).pageMemory == pageMemory) {
                 return getPartitionView(i, grpId, partId);
@@ -109,7 +109,7 @@ public class CheckpointDirtyPages {
         throw new IllegalArgumentException("Unknown PageMemory: " + pageMemory);
     }
 
-    private @Nullable CheckpointDirtyPages.CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
+    private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
         FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 

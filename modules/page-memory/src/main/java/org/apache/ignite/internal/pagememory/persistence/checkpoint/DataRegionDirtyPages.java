@@ -37,7 +37,8 @@ class DataRegionDirtyPages<T> {
      * Constructor.
      *
      * @param pageMemory Page memory.
-     * @param modifiedPages Container of dirty pages.
+     * @param modifiedPages Container of modified pages.
+     * @param newPagesByPartitionId Newly allocated pages by partition ID.
      */
     DataRegionDirtyPages(PersistentPageMemory pageMemory, T modifiedPages, Map<GroupPartitionId, T> newPagesByPartitionId) {
         this.pageMemory = pageMemory;

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
@@ -24,6 +26,8 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -34,16 +38,41 @@ class TestCheckpointUtils {
     static DirtyPagesAndPartitions createDirtyPagesAndPartitions(
             PersistentPageMemory pageMemory,
             Map<GroupPartitionId, FullPageId[]> newPages,
-            FullPageId... dirtyPages
+            FullPageId... modifiedPages
     ) {
-        Arrays.sort(dirtyPages, DIRTY_PAGE_COMPARATOR);
+        Arrays.sort(modifiedPages, DIRTY_PAGE_COMPARATOR);
+
+        Set<GroupPartitionId> dirtyPartitions = Arrays.stream(modifiedPages)
+                .map(GroupPartitionId::convert).collect(toSet());
+
+        dirtyPartitions.addAll(newPages.keySet());
 
         return new DirtyPagesAndPartitions(
                 pageMemory,
-                dirtyPages,
-                Arrays.stream(dirtyPages).map(GroupPartitionId::convert).collect(toSet()),
+                modifiedPages,
+                dirtyPartitions,
                 newPages
         );
+    }
+
+    /** Sorts dirty pages and creates a new instance {@link DirtyPagesAndPartitions}. */
+    static DirtyPagesAndPartitions createDirtyPagesAndPartitions(
+            PersistentPageMemory pageMemory,
+            boolean newPage,
+            FullPageId... pages
+    ) {
+        Map<GroupPartitionId, FullPageId[]> newPages = newPage ? newPagesMap(pages) : Map.of();
+
+        var modifiedPages = newPage ? new FullPageId[]{} : pages;
+
+        return createDirtyPagesAndPartitions(pageMemory, newPages, modifiedPages);
+    }
+
+    private static Map<GroupPartitionId, FullPageId[]> newPagesMap(FullPageId[] pages) {
+        return Arrays.stream(pages)
+                .collect(groupingBy(page -> new GroupPartitionId(page.groupId(), page.partitionId())))
+                .entrySet().stream()
+                .collect(toMap(Entry::getKey, entry -> entry.getValue().toArray(FullPageId[]::new)));
     }
 
     /**

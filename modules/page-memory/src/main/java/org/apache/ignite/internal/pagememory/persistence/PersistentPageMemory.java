@@ -1342,6 +1342,7 @@ public class PersistentPageMemory implements PageMemory {
 
         for (Segment seg : segments) {
             res.addAll(seg.dirtyPages.modifiedPages());
+            res.addAll(seg.dirtyPages.newPages());
         }
 
         return res;
@@ -1687,7 +1688,7 @@ public class PersistentPageMemory implements PageMemory {
                     + ", loaded=" + loadedPages.size()
                     + ", dirtyPagesSoftThreshold=" + dirtyPagesSoftThreshold
                     + ", dirtyPagesHardThreshold=" + dirtyPagesHardThreshold
-                    + ", dirtyPagess=" + dirtyPages.size()
+                    + ", dirtyPages=" + dirtyPages.size()
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + dataRegionConfiguration.name()

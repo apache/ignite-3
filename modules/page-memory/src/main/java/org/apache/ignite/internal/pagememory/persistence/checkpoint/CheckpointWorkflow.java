@@ -280,14 +280,14 @@ class CheckpointWorkflow {
             updateHeartbeat.run();
         }
 
-        if (dirtyPages.modifiedPageCount > 0 || dirtyPages.newPageCount > 0) {
+        if (dirtyPages.dirtyPageCount() > 0) {
             tracker.onSplitAndSortCheckpointPagesStart();
 
             updateHeartbeat.run();
 
             CheckpointDirtyPages checkpointPages = createAndSortCheckpointDirtyPages(dirtyPages);
 
-            curr.dirtyPages(checkpointPages);
+            curr.pagesToWrite(checkpointPages);
 
             curr.initCounters(checkpointPages.dirtyPagesCount());
 
@@ -315,7 +315,7 @@ class CheckpointWorkflow {
         }
 
         if (chp.hasDelta()) {
-            chp.progress.dirtyPages(null);
+            chp.progress.pagesToWrite(null);
 
             chp.progress.clearCounters();
         }
@@ -421,7 +421,7 @@ class CheckpointWorkflow {
 
         int realPagesArrSize = 0;
 
-        // Collects dirty pages into an array (then we will sort them) and collects dirty partitions.
+        // Collects dirty pages into an array (then we will sort them), also collects dirty partitions and newly allocated pages.
         for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
             var partitionIds = new HashSet<GroupPartitionId>();
 
@@ -458,14 +458,14 @@ class CheckpointWorkflow {
             ));
         }
 
-        // Add tasks to sort arrays of dirty page IDs in parallel if their number is greater than or equal to PARALLEL_SORT_THRESHOLD.
+        // Add tasks to sort arrays of modified page IDs in parallel if their number is greater than or equal to PARALLEL_SORT_THRESHOLD.
         List<ForkJoinTask<?>> parallelSortTasks = checkpointDirtyPages.stream()
                 .map(dirtyPagesAndPartitions -> dirtyPagesAndPartitions.modifiedPages)
                 .filter(pageIds -> pageIds.length >= PARALLEL_SORT_THRESHOLD)
                 .map(pageIds -> parallelSortThreadPool.submit(() -> Arrays.parallelSort(pageIds, DIRTY_PAGE_COMPARATOR)))
                 .collect(toList());
 
-        // Sort arrays of dirty page IDs if their number is less than PARALLEL_SORT_THRESHOLD.
+        // Sort arrays of modified page IDs if their number is less than PARALLEL_SORT_THRESHOLD.
         for (DirtyPagesAndPartitions dirtyPagesAndPartitions : checkpointDirtyPages) {
             if (dirtyPagesAndPartitions.modifiedPages.length < PARALLEL_SORT_THRESHOLD) {
                 Arrays.sort(dirtyPagesAndPartitions.modifiedPages, DIRTY_PAGE_COMPARATOR);

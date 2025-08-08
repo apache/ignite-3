@@ -71,6 +71,8 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -93,9 +95,10 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ioRegistry = null;
     }
 
-    @Test
-    void testWriteDirtyPages() throws Exception {
-        PersistentPageMemory pageMemory = createPageMemory(3);
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testWriteDirtyPages(boolean newPage) throws Exception {
+        PersistentPageMemory pageMemory = createPageMemory(3, newPage);
 
         FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
         FullPageId fullPageId2 = new FullPageId(pageId(0, FLAG_DATA, 2), 0);
@@ -107,14 +110,13 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(
                         pageMemory,
-                        Map.of(),
+                        newPage,
                         fullPageId1,
                         fullPageId2,
                         fullPageId3,
                         fullPageId4,
                         fullPageId5,
-                        fullPageId6
-                )
+                        fullPageId6)
         ));
 
         GroupPartitionId groupPartId0 = groupPartId(0, 0);
@@ -135,7 +137,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
-        progressImpl.dirtyPages(checkpointDirtyPages);
+        progressImpl.pagesToWrite(checkpointDirtyPages);
 
         PartitionMeta partitionMeta0 = mock(PartitionMeta.class);
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
@@ -219,7 +221,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ));
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
-        checkpointProgress.dirtyPages(checkpointDirtyPages);
+        checkpointProgress.pagesToWrite(checkpointDirtyPages);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
@@ -273,7 +275,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
-        checkpointProgress.dirtyPages(checkpointDirtyPages);
+        checkpointProgress.pagesToWrite(checkpointDirtyPages);
 
         IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
                 = checkpointDirtyPages.toDirtyPartitionQueue();
@@ -307,7 +309,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
      * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PersistentPageMemory#TRY_AGAIN_TAG}.
      * @throws Exception If failed.
      */
-    private static PersistentPageMemory createPageMemory(int tryAgainTagFirstPageCount) throws Exception {
+    private static PersistentPageMemory createPageMemory(int tryAgainTagFirstPageCount, boolean newPage) throws Exception {
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         AtomicInteger pageCount = new AtomicInteger();
@@ -323,7 +325,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
             new TestPageIo().initNewPage(bufferAddress(buffer), fullPageId.pageId(), PAGE_SIZE);
 
-            pageStoreWriter.writePage(fullPageId, buffer, false, tag);
+            pageStoreWriter.writePage(fullPageId, buffer, newPage, tag);
 
             return null;
         })

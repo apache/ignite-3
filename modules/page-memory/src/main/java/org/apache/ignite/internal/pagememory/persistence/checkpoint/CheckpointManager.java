@@ -322,14 +322,14 @@ public class CheckpointManager {
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
         assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
 
-        CheckpointDirtyPages dirtyPages = lastCheckpointProgress.dirtyPages();
+        CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
 
-        assert dirtyPages != null : "Dirty pages must be sorted out";
+        assert pagesToWrite != null : "Dirty pages must be sorted out";
 
         CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
                 index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
                 () -> {
-                    CheckpointDirtyPagesView partitionView = dirtyPages.getPartitionView(
+                    CheckpointDirtyPagesView partitionView = pagesToWrite.getPartitionView(
                             pageMemory,
                             pageId.groupId(),
                             pageId.partitionId()

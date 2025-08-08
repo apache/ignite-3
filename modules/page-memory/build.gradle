@@ -34,8 +34,8 @@ dependencies {
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
-    testAnnotationProcessor libs.auto.service
 
+    testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-failure-handler')

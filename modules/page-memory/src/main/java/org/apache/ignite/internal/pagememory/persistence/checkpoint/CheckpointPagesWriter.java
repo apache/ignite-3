@@ -420,7 +420,7 @@ public class CheckpointPagesWriter implements Runnable {
     }
 
     private CheckpointDirtyPagesView checkpointDirtyPagesView(PersistentPageMemory pageMemory, GroupPartitionId partitionId) {
-        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.dirtyPages();
+        CheckpointDirtyPages checkpointDirtyPages = checkpointProgress.pagesToWrite();
 
         assert checkpointDirtyPages != null;
 

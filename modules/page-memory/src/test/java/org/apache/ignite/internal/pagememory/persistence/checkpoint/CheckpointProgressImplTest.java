@@ -357,15 +357,15 @@ public class CheckpointProgressImplTest {
     void testDirtyPages() {
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
 
-        assertNull(progressImpl.dirtyPages());
+        assertNull(progressImpl.pagesToWrite());
 
-        progressImpl.dirtyPages(CheckpointDirtyPages.EMPTY);
+        progressImpl.pagesToWrite(CheckpointDirtyPages.EMPTY);
 
-        assertSame(CheckpointDirtyPages.EMPTY, progressImpl.dirtyPages());
+        assertSame(CheckpointDirtyPages.EMPTY, progressImpl.pagesToWrite());
 
-        progressImpl.dirtyPages(null);
+        progressImpl.pagesToWrite(null);
 
-        assertNull(progressImpl.dirtyPages());
+        assertNull(progressImpl.pagesToWrite());
     }
 
     @Test

@@ -248,7 +248,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, never()).run();
@@ -275,7 +275,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, never()).run();
@@ -304,7 +304,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
-                verify(progressImpl, never()).dirtyPages(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
 
                 verify(onReleaseWriteLock, times(1)).run();
@@ -328,7 +328,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        verify(progressImpl, times(1)).dirtyPages(any(CheckpointDirtyPages.class));
+        verify(progressImpl, times(1)).pagesToWrite(any(CheckpointDirtyPages.class));
         verify(progressImpl, times(1)).initCounters(anyInt());
 
         CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.getPartitionView(pageMemory, 0, 0);
@@ -392,7 +392,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(progressImpl, times(1)).dirtyPages(isNull());
+                verify(progressImpl, times(1)).pagesToWrite(isNull());
                 verify(progressImpl, times(1)).clearCounters();
             }
         };
@@ -412,7 +412,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         verify(pageMemory, times(1)).finishCheckpoint();
 
-        verify(progressImpl, times(1)).dirtyPages(isNull());
+        verify(progressImpl, times(1)).pagesToWrite(isNull());
 
         verify(progressImpl, times(1)).clearCounters();
 

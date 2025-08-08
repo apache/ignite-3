@@ -77,6 +77,7 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -214,10 +215,9 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
     private static Stream<String> storageEngines() {
         return Stream.of(
-//                RocksDbStorageEngine.ENGINE_NAME,
-                // TODO return
-                PersistentPageMemoryStorageEngine.ENGINE_NAME
-//                VolatilePageMemoryStorageEngine.ENGINE_NAME
+                RocksDbStorageEngine.ENGINE_NAME,
+                PersistentPageMemoryStorageEngine.ENGINE_NAME,
+                VolatilePageMemoryStorageEngine.ENGINE_NAME
         );
     }
 

@@ -24,33 +24,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * For {@link Checkpoint} testing.
  */
 public class CheckpointTest extends BaseIgniteAbstractTest {
-    @Test
-    void testHasDelta() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testHasDelta(boolean newPage) {
         CheckpointProgressImpl progress = mock(CheckpointProgressImpl.class);
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
         DirtyPagesAndPartitions dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
                 mock(PersistentPageMemory.class),
-                Map.of(), new FullPageId(0, 1)
+                newPage,
+                new FullPageId(0, 1)
         );
-
-        assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(dirtyPagesAndPartitions)), progress).hasDelta());
-
-        dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
-                mock(PersistentPageMemory.class),
-                Map.of(new GroupPartitionId(1, 1), new FullPageId[]{new FullPageId(0, 1)}));
 
         assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(dirtyPagesAndPartitions)), progress).hasDelta());
     }
