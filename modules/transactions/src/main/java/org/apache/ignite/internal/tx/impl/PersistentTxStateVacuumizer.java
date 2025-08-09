@@ -186,6 +186,8 @@ public class PersistentTxStateVacuumizer {
                 // We can ignore the exception in this case because we rely on the placement driver, that it won't prolong the non-existing
                 // replica's lease, the primary replica will be moved to another node and that another node will handle the vacuumization of
                 // the persistent tx state.
+                // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
+                // happen on another node.
                 AwaitReplicaTimeoutException.class
         );
     }
