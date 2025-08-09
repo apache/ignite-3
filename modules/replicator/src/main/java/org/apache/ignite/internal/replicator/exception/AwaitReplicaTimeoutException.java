@@ -18,22 +18,12 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.ErrorGroups.Replicator;
 
 /**
- * The exception is thrown when a replication process has been timed out.
+ * This exception is thrown when replica service is not able to wait for replica on the local node to handle a request.
  */
-public class ReplicationTimeoutException extends ReplicationException {
-    /**
-     * The constructor.
-     *
-     * @param replicaGrpId Replication group id.
-     */
-    public ReplicationTimeoutException(ReplicationGroupId replicaGrpId) {
-        super(Replicator.REPLICA_TIMEOUT_ERR, IgniteStringFormatter.format("Replication is timed out [replicaGrpId={}]", replicaGrpId));
-    }
+public class AwaitReplicaTimeoutException extends ReplicationTimeoutException {
+    private static final long serialVersionUID = -2089762711985049755L;
 
     /**
      * The constructor is used for creating an exception instance that is thrown from a server processing the replica request.
@@ -43,7 +33,7 @@ public class ReplicationTimeoutException extends ReplicationException {
      * @param message Error message.
      * @param cause   Cause exception.
      */
-    public ReplicationTimeoutException(UUID traceId, int code, String message, Throwable cause) {
+    public AwaitReplicaTimeoutException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

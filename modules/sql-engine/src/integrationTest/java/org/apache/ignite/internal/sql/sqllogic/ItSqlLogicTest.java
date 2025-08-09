@@ -60,7 +60,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -152,8 +151,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 // The following is to make sure we unlock LWM on data nodes promptly so that dropped tables are destroyed fast.
 @WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group1")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-25191 - remove FailureManager logging mute.
-@MuteFailureManagerLogging
 public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
