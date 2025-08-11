@@ -23,7 +23,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryStartRequest interface.
@@ -66,8 +65,4 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
 
     /** Time of the operation. */
     HybridTimestamp operationTime();
-
-    /** Name of user who starts the query. */
-    @Nullable
-    String username();
 }

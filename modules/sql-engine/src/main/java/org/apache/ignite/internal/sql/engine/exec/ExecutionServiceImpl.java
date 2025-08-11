@@ -104,6 +104,7 @@ import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.QueryStartRequestV2;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
@@ -306,6 +307,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     @Override
     public void start() {
         messageService.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
+        messageService.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST_V2);
         messageService.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
         messageService.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
         messageService.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
@@ -699,7 +701,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(new ExecutionId(msg.queryId(), msg.executionToken()), key -> {
             SqlOperationContext operationContext = createOperationContext(
-                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime(), msg.username()
+                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime(),
+                    msg instanceof QueryStartRequestV2 ? ((QueryStartRequestV2) msg).username() : null
             );
 
             return new DistributedQueryManager(key, coordinatorNodeName, operationContext);
@@ -909,7 +912,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes, int catalogVersion
         ) {
-            QueryStartRequest request = FACTORY.queryStartRequest()
+            QueryStartRequestV2 request = FACTORY.queryStartRequestV2()
                     .queryId(executionId.queryId())
                     .executionToken(executionId.executionToken())
                     .fragmentId(desc.fragmentId())
