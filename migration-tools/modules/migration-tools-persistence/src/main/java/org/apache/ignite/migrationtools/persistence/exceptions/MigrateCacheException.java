@@ -36,10 +36,20 @@ public class MigrateCacheException extends Exception {
         this.tableName = tableName;
     }
 
+    /**
+     * Gets the source cache name for the underlying migration request.
+     *
+     * @return Cache Name.
+     */
     public String cacheName() {
         return cacheName;
     }
 
+    /**
+     * Gets the target table name for the underlying migration request.
+     *
+     * @return Table Name.
+     */
     public String tableName() {
         return tableName;
     }
