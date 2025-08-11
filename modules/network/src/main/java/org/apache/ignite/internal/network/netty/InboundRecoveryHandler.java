@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -38,6 +39,12 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
     /** Messages factory. */
     private final NetworkMessagesFactory factory;
+
+    /**
+     * Flag indicating if the handler should schedule sending of acknowledgement messages.
+     * This is used to prevent sending too many acknowledgements in a short period of time.
+     */
+    private boolean scheduleAcknolagement = true;
 
     /**
      * Constructor.
@@ -61,10 +68,23 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
             descriptor.acknowledge(receivedMessages);
         } else if (message.needAck()) {
-            AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
-                    .receivedMessages(descriptor.onReceive()).build();
+            descriptor.onReceive();
 
-            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+            if (scheduleAcknolagement) {
+                scheduleAcknolagement = false;
+
+                ctx.channel().eventLoop().schedule(
+                        () -> {
+                            scheduleAcknolagement = true;
+
+                            AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
+                                    .receivedMessages(descriptor.receivedCount()).build();
+
+                            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList()));
+                        },
+                        5, TimeUnit.SECONDS
+                );
+            }
         }
 
         super.channelRead(ctx, message);

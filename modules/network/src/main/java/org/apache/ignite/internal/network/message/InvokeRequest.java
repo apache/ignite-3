@@ -36,6 +36,11 @@ public interface InvokeRequest extends NetworkMessage {
     NetworkMessage message();
 
     @Override
+    default boolean needAck() {
+        return false;
+    }
+
+    @Override
     default String toStringForLightLogging() {
         return getClass() + ": [correlationId=" + correlationId() + ", message=" + message().getClass() + ']';
     }
