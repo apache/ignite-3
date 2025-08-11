@@ -17,13 +17,20 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.client.sql.AllowedQueryType;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -52,9 +59,34 @@ public class ClientSqlCommonTest {
                     assertTrue(sqlQueryType.supportsWasApplied());
                     break;
 
+                case ALLOW_MULTISTATEMENT_RESULT:
+                    assertFalse(sqlQueryType.supportsIndependentExecution());
+                    break;
+
                 default:
                     fail("Unsupported type " + type);
             }
         });
+    }
+
+    @Test
+    void testAllQueryTypesCoveredByAllowedTypes() {
+        Set<SqlQueryType> sqlQueryTypesFromAllowedTypes = EnumSet.noneOf(SqlQueryType.class);
+
+        for (AllowedQueryType type : AllowedQueryType.values()) {
+            Set<SqlQueryType> allowedQueryTypes = ClientSqlCommon.convertAllowedTypeToQueryType(type);
+
+            for (SqlQueryType queryType : allowedQueryTypes) {
+                boolean added = sqlQueryTypesFromAllowedTypes.add(queryType);
+
+                assertTrue(added, "Duplicate type: " + queryType);
+            }
+        }
+
+        Set<SqlQueryType> allQueryTypes = Arrays.stream(SqlQueryType.values()).collect(Collectors.toSet());
+
+        allQueryTypes.removeAll(sqlQueryTypesFromAllowedTypes);
+
+        assertThat(allQueryTypes, is(empty()));
     }
 }

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.ZoneId;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -617,11 +618,13 @@ public class ClientSql implements IgniteSql {
         if (queryTypes == null || queryTypes.isEmpty()) {
             packer.packNil();
         } else {
-            packer.packByte((byte) queryTypes.size());
+            BitSet bitSet = new BitSet(queryTypes.size());
 
             for (AllowedQueryType type : queryTypes) {
-                packer.packByte((byte) type.id());
+                bitSet.set(type.id());
             }
+
+            packer.packBitSet(bitSet);
         }
     }
 

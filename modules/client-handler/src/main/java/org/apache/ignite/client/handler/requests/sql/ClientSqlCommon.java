@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -203,12 +204,11 @@ class ClientSqlCommon {
     }
 
     static Set<SqlQueryType> unpackAllowedQueryTypes(ClientMessageUnpacker unpacker) {
-        int size = unpacker.unpackByte();
+        BitSet bitSet = unpacker.unpackBitSet();
         Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
 
-        for (int i = 0; i < size; i++) {
-            byte typeId = unpacker.unpackByte();
-            AllowedQueryType type = AllowedQueryType.fromId(typeId);
+        for (int idx = bitSet.nextSetBit(0); idx >= 0; idx = bitSet.nextSetBit(idx + 1)) {
+            AllowedQueryType type = AllowedQueryType.fromId(idx);
 
             result.addAll(convertAllowedTypeToQueryType(type));
         }
@@ -226,6 +226,9 @@ class ClientSqlCommon {
 
             case ALLOW_APPLIED_RESULT:
                 return SqlQueryType.SUPPORT_WAS_APPLIED_TYPES;
+
+            case ALLOW_MULTISTATEMENT_RESULT:
+                return EnumSet.of(SqlQueryType.TX_CONTROL);
 
             default:
                 throw new IllegalArgumentException("Unexpected type " + allowedType);
