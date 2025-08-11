@@ -33,7 +33,7 @@ public class ClockServiceImpl implements ClockService {
 
     private final LongSupplier maxClockSkewMsSupplier;
 
-    private final long maxClockSkewMillis;
+    private volatile long maxClockSkewMillis = -1;
 
     /**
      * Constructor.
@@ -42,7 +42,6 @@ public class ClockServiceImpl implements ClockService {
         this.clock = clock;
         this.clockWaiter = clockWaiter;
         this.maxClockSkewMsSupplier = maxClockSkewMsSupplier;
-        this.maxClockSkewMillis = maxClockSkewMsSupplier.getAsLong();
     }
 
     @Override
@@ -67,9 +66,10 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
-        if (requestTime.getPhysical() - maxClockSkewMillis > clock.current().getPhysical()) {
-            // TODO sanpwc add details to log message.
-            LOG.warn("Maximum allowed clock drift exceeded.");
+        HybridTimestamp currentLocalTimestamp = clock.current();
+        if (requestTime.getPhysical() - maxClockSkewMillis() > currentLocalTimestamp.getPhysical()) {
+            LOG.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
+                    currentLocalTimestamp, maxClockSkewMillis());
         }
 
         return clock.update(requestTime);
@@ -82,6 +82,11 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public long maxClockSkewMillis() {
+        // -1 is an invalid maxClockSkewMillis, thus it might be used as a special "non-initialized" value.
+        if (maxClockSkewMillis == -1) {
+            maxClockSkewMillis = maxClockSkewMsSupplier.getAsLong();
+        }
+
         return maxClockSkewMillis;
     }
 }
