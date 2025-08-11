@@ -66,6 +66,9 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
+        // Since clock.current() is also called inside clock.update formally it's a method call duplication.
+        // However, since benchmarks did not show any noticeable performance penalty due to the aforementioned call duplication,
+        // design purity was prioritized over call redundancy.
         HybridTimestamp currentLocalTimestamp = clock.current();
         if (requestTime.getPhysical() - maxClockSkewMillis() > currentLocalTimestamp.getPhysical()) {
             LOG.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
