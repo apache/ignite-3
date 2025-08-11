@@ -113,8 +113,6 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             src.inc();
 
             waitForOutput(pushOutputStream, "TestMetricsSource:\nMetric:1");
-
-
         }
     }
 

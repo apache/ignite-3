@@ -68,7 +68,7 @@ public class ReplicationException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for creating an exception instance that is thrown from a remote server.
+     * The constructor is used for creating an exception instance that is thrown from a server processing the replica request.
      *
      * @param traceId Trace id.
      * @param code    Error code.

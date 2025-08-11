@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;

@@ -270,7 +270,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         Runnable::run,
                                         features,
                                         randomExtensions(),
-                                        unused -> null
+                                        unused -> null,
+                                        bootstrapFactory.handshakeEventLoopSwitcher()
                                 )
                         );
                     }

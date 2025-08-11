@@ -187,7 +187,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 tableWithColumn("B1", "COL1", rhs)
         );
 
-
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 != B1.col1";
         assertPlan(query, igniteSchema, isInstanceOf(IgniteNestedLoopJoin.class).and(new NestedLoopWithFilter(expected)));
     }

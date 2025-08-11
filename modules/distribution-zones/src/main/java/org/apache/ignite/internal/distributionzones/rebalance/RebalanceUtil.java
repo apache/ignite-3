@@ -250,7 +250,6 @@ public class RebalanceUtil {
         byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
 
-
         //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))

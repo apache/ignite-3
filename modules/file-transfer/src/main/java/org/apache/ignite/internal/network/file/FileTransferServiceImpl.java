@@ -419,7 +419,6 @@ public class FileTransferServiceImpl implements FileTransferService {
         );
     }
 
-
     private CompletableFuture<Void> sendFiles(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
         return fileSender.send(targetNodeConsistentId, transferId, paths)
                 .whenComplete((v, e) -> {

@@ -372,7 +372,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                 )
         );
 
-
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
         assertThat(thrown.getMessage(), containsString(
                         String.format(
