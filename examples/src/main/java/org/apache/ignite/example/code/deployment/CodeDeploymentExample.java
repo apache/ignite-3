@@ -48,11 +48,12 @@ public class CodeDeploymentExample {
 
             JobDescriptor<String, String> job = JobDescriptor.builder(MyJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                    .resultClass(String.class)
                     .build();
 
             JobTarget target = JobTarget.anyNode(client.cluster().nodes());
                 System.out.println("\nExecuting compute job'" + "'...");
-                String result = client.compute().execute(target, job, "Hello there");
+                String result = client.compute().execute(target, job, "Hello from job");
                 System.out.println("\n=== Result ===\n" + result);
         }
     }
