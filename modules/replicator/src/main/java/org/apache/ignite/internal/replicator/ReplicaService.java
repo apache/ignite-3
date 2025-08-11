@@ -35,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
@@ -59,8 +60,8 @@ public class ReplicaService {
     /** Message service. */
     private final MessagingService messagingService;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    /** A hybrid logical clock service. */
+    private final ClockService clockService;
 
     private final Executor partitionOperationsExecutor;
 
@@ -78,18 +79,18 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param replicationConfiguration Replication configuration.
      */
     @TestOnly
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             ReplicationConfiguration replicationConfiguration
     ) {
         this(
                 messagingService,
-                clock,
+                clockService,
                 ForkJoinPool.commonPool(),
                 replicationConfiguration,
                 null
@@ -100,20 +101,20 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param partitionOperationsExecutor Partition operation executor.
      * @param replicationConfiguration Replication configuration.
      * @param retryExecutor Retry executor.
      */
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             Executor partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             @Nullable ScheduledExecutorService retryExecutor
     ) {
         this.messagingService = messagingService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicationConfiguration = replicationConfiguration;
         this.retryExecutor = retryExecutor;
@@ -160,8 +161,7 @@ public class ReplicaService {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
                 if (response instanceof TimestampAware) {
-                    // TODO sanpwc use clockServiceInstead.
-                    clock.update(((TimestampAware) response).timestamp());
+                    clockService.updateClock(((TimestampAware) response).timestamp());
                 }
 
                 if (response instanceof ErrorReplicaResponse) {

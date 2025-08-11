@@ -221,7 +221,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txManager,
                 tableStorage,
                 txStateStorage,
-                new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
+                new ReplicaService(clusterService.messagingService(), clockService, replicationConfiguration),
                 clockService,
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
