@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -199,7 +200,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
@@ -251,7 +253,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
@@ -322,7 +325,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         return pageMemory;

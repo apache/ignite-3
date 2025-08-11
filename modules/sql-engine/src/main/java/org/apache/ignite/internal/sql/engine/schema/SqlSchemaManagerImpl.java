@@ -405,7 +405,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IllegalArgumentException("Unexpected system view type: " + systemViewType);
         }
 
-
         return new TableDescriptorImpl(colDescriptors, distribution);
     }
 

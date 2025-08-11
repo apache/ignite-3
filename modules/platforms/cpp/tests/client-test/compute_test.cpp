@@ -222,21 +222,16 @@ TEST_F(compute_test, unknown_node_execute_throws) {
         ignite_error);
 }
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-21553
-TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
+TEST_F(compute_test, unknown_node_broadcast_throws) {
     auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
-    EXPECT_THROW(
-        {
-            try {
-                m_client.get_compute().submit_broadcast(broadcast_job_target::node(unknown_node), m_echo_job, {"unused"});
-            } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(),
-                    testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
-                throw;
-            }
-        },
-        ignite_error);
+    auto results =
+        m_client.get_compute().submit_broadcast(broadcast_job_target::node(unknown_node), m_echo_job, {"unused"});
+
+    EXPECT_TRUE(results.get_job_executions()[0].has_error());
+
+    auto& e = results.get_job_executions()[0].error();
+    EXPECT_THAT(e.what_str(), testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
 }
 
 TEST_F(compute_test, all_arg_types) {

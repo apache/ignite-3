@@ -59,7 +59,6 @@ public class ConfigurationValidationExceptionHandlerTest extends BaseIgniteAbstr
                 new ValidationIssue("key1", "Some issue1"),
                 new ValidationIssue("key2", "Some issue2"));
 
-
         return Stream.of(
                 Arguments.of(
                         // given

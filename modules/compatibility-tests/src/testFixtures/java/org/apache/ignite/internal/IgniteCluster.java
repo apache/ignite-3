@@ -42,12 +42,15 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -69,6 +72,8 @@ import org.gradle.tooling.model.build.BuildEnvironment;
  */
 public class IgniteCluster {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteCluster.class);
+
+    private static final String IGNITE_RUNNER_DEPENDENCY_ID = "org.apache.ignite:ignite-runner";
 
     // Embedded nodes
     private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
@@ -92,13 +97,15 @@ public class IgniteCluster {
      *
      * @param igniteVersion Ignite version to run the nodes with.
      * @param nodesCount Number of nodes in the cluster.
+     * @param extraIgniteModuleIds Gradle dependency id notation of the extra dependencies
+     *                             that should be loaded together with requested ignite version.
      */
-    public void start(String igniteVersion, int nodesCount) {
+    public void start(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
 
-        runnerNodes = startRunnerNodes(igniteVersion, nodesCount);
+        runnerNodes = startRunnerNodes(igniteVersion, nodesCount, extraIgniteModuleIds);
     }
 
     /**
@@ -289,7 +296,7 @@ public class IgniteCluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount) {
+    private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         try (ProjectConnection connection = GradleConnector.newConnector()
                 .forProjectDirectory(getProjectRoot())
                 .connect()
@@ -297,7 +304,16 @@ public class IgniteCluster {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
 
             File javaHome = environment.getJava().getJavaHome();
-            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion, false);
+
+            Set<String> dependencyIds = new HashSet<>();
+            dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
+            dependencyIds.addAll(extraIgniteModuleIds);
+
+            String dependenciesListNotation = dependencyIds.stream()
+                    .map(dependency -> dependency + ":" + igniteVersion)
+                    .collect(Collectors.joining(","));
+
+            File argFile = constructArgFile(connection, dependenciesListNotation, false);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {

@@ -67,7 +67,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     void beforeAll(String clientVer, TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         clientVersion = clientVer;
 
-        cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
+        cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
         cluster.startEmbedded(1, true);
 
         createDefaultTables(cluster.node(0));

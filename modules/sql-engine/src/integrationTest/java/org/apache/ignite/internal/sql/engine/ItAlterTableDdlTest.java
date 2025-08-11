@@ -341,7 +341,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
         }
     }
 
-
     @Test
     public void testAddColumnWithIncorrectType() {
         sql("CREATE TABLE test(id INTEGER PRIMARY KEY, val INTEGER)");
