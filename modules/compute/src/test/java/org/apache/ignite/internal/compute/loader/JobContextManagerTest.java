@@ -99,7 +99,6 @@ class JobContextManagerTest extends BaseIgniteAbstractTest {
                 })
                 .collect(Collectors.toList());
 
-
         JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, getClass().getClassLoader());
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);

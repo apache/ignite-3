@@ -37,6 +37,8 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.internal.compute.loader.JobContext;
@@ -123,6 +125,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -136,7 +139,9 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> future =
                     mapClassLoaderExceptions(classLoaderFut, jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(context, options, jobClassName, arg);
+                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(
+                                        context, options, jobClassName, metadataBuilder, arg
+                                );
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
 
@@ -332,15 +337,15 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         return nullCompletedFuture();
     }
 
-
     private JobExecutionInternal<ComputeJobDataHolder> execJob(
             JobContext context,
             ExecutionOptions options,
             String jobClassName,
+            Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
         try {
-            return executor.executeJob(options, jobClassName, context.classLoader(), arg);
+            return executor.executeJob(options, jobClassName, context.classLoader(), metadataBuilder, arg);
         } catch (Throwable e) {
             context.close();
             throw e;

@@ -123,6 +123,8 @@ public final class Commons {
     // Old name for partition column. Kept for backward compatibility.
     public static final String PART_COL_NAME_LEGACY = "__part";
 
+    public static final String SYSTEM_USER_NAME = "SYSTEM";
+
     public static final int IN_BUFFER_SIZE = 512;
 
     public static final int IO_BATCH_SIZE = 256;
@@ -542,7 +544,6 @@ public final class Commons {
 
         return res;
     }
-
 
     /**
      * Quietly closes given object ignoring possible checked exception.

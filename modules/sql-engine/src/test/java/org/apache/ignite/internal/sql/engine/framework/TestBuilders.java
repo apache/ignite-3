@@ -636,7 +636,8 @@ public class TestBuilders {
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,
                     -1,
-                    clock
+                    clock,
+                    null
             );
         }
     }
@@ -1676,7 +1677,6 @@ public class TestBuilders {
 
         return newRow;
     }
-
 
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {

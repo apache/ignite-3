@@ -17,7 +17,6 @@
 
 package org.apache.ignite.marshalling;
 
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -89,7 +88,6 @@ class ByteArrayMarshallerTest {
 
         assertEquals(obj, marshaller.unmarshal(marshaller.marshal(obj)));
     }
-
 
     @Test
     void byteArray() {

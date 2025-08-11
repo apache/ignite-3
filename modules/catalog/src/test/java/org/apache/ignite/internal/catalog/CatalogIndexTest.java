@@ -258,7 +258,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertNull(latestCatalog.index(index.id()));
     }
 
-
     @Test
     public void testGetTableIdOnDropIndexEvent() {
         createTableWithIndex(TABLE_NAME, INDEX_NAME);

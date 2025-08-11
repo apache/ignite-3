@@ -192,7 +192,7 @@ public class BinaryTupleParser {
             return Readability.READABLE;
         }
 
-        if (offset >=  buffer.capacity()) {
+        if (offset >= buffer.capacity()) {
             return Readability.NOT_READABLE;
         }
 

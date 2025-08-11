@@ -40,6 +40,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -106,6 +108,9 @@ import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorGroupOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotExecutorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseBuilder;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import org.apache.ignite.raft.jraft.rpc.GetLeaderResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
@@ -1850,21 +1855,24 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * ReadIndex response closure
      */
-    public static class ReadIndexHeartbeatResponseClosure extends RpcResponseClosureAdapter<AppendEntriesResponse> {
-        final ReadIndexResponseBuilder respBuilder;
-        final RpcResponseClosure<ReadIndexResponse> closure;
+    public static class QuorumConfirmedHeartbeatResponseClosure<T extends Message> extends RpcResponseClosureAdapter<AppendEntriesResponse>{
+        final Function<Boolean, T> responseBuilder;
+        final Consumer<T> responseConsumer;
         final int quorum;
         final int failPeersThreshold;
         int ackSuccess;
         int ackFailures;
         boolean isDone;
 
-        ReadIndexHeartbeatResponseClosure(final RpcResponseClosure<ReadIndexResponse> closure,
-            final ReadIndexResponseBuilder rb, final int quorum,
-            final int peersCount) {
+        QuorumConfirmedHeartbeatResponseClosure(
+                final Consumer<T> responseConsumer,
+                final Function<Boolean, T> responseBuilder,
+                final int quorum,
+                final int peersCount
+        ) {
             super();
-            this.closure = closure;
-            this.respBuilder = rb;
+            this.responseConsumer = responseConsumer;
+            this.responseBuilder = responseBuilder;
             this.quorum = quorum;
             this.failPeersThreshold = peersCount % 2 == 0 ? (quorum - 1) : quorum;
             this.ackSuccess = 0;
@@ -1883,17 +1891,16 @@ public class NodeImpl implements Node, RaftServerService {
             else {
                 this.ackFailures++;
             }
+
             // Include leader self vote yes.
             if (this.ackSuccess + 1 >= this.quorum) {
-                this.respBuilder.success(true);
-                this.closure.setResponse(this.respBuilder.build());
-                this.closure.run(Status.OK());
+                T response = responseBuilder.apply(true);
+                responseConsumer.accept(response);
                 this.isDone = true;
             }
             else if (this.ackFailures >= this.failPeersThreshold) {
-                this.respBuilder.success(false);
-                this.closure.setResponse(this.respBuilder.build());
-                this.closure.run(Status.OK());
+                T response = responseBuilder.apply(false);
+                responseConsumer.accept(response);
                 this.isDone = true;
             }
         }
@@ -1903,8 +1910,10 @@ public class NodeImpl implements Node, RaftServerService {
      * Handle read index request.
      */
     @Override
-    public void handleReadIndexRequest(final ReadIndexRequest request,
-        final RpcResponseClosure<ReadIndexResponse> done) {
+    public void handleReadIndexRequest(
+            final ReadIndexRequest request,
+            final RpcResponseClosure<ReadIndexResponse> done
+    ) {
         final long startMs = Utils.monotonicMs();
         this.readLock.lock();
         try {
@@ -1927,6 +1936,104 @@ public class NodeImpl implements Node, RaftServerService {
             this.readLock.unlock();
             this.metrics.recordLatency("handle-read-index", Utils.monotonicMs() - startMs);
             this.metrics.recordSize("handle-read-index-entries", Utils.size(request.entriesList()));
+        }
+    }
+
+    @Override
+    public void handleGetLeaderAndTermRequest(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> done) {
+        final long startMs = Utils.monotonicMs();
+        this.readLock.lock();
+        try {
+            switch (this.state) {
+                case STATE_LEADER:
+                    getLeaderFromLeader(done);
+                    break;
+                case STATE_FOLLOWER:
+                    getLeaderFromFollower(request, done);
+                    break;
+                case STATE_TRANSFERRING:
+                    done.run(new Status(RaftError.EBUSY, "Is transferring leadership."));
+                    break;
+                default:
+                    done.run(new Status(RaftError.UNKNOWN, "Invalid state for getLeaderAndTerm: %s.", this.state));
+                    break;
+            }
+        }
+        finally {
+            this.readLock.unlock();
+            this.metrics.recordLatency("handle-get-leader", Utils.monotonicMs() - startMs);
+        }
+    }
+
+    private void getLeaderFromFollower(GetLeaderRequest request, RpcResponseClosure<GetLeaderResponse> closure) {
+       PeerId leaderId = this.leaderId;
+
+       if (leaderId == null || leaderId.isEmpty()) {
+            closure.run(new Status(RaftError.UNKNOWN, "No leader at term %d.", this.currTerm));
+            return;
+        }
+        // send request to leader.
+        final GetLeaderRequest newRequest = raftOptions.getRaftMessagesFactory()
+            .getLeaderRequest()
+            .groupId(request.groupId())
+            .peerId(leaderId.toString())
+            .build();
+
+        this.rpcClientService.getLeaderAndTerm(leaderId, newRequest, -1, closure);
+    }
+
+    private void getLeaderFromLeader(RpcResponseClosure<GetLeaderResponse> closure) {
+       PeerId leaderId = this.leaderId;
+
+       if (leaderId == null || leaderId.isEmpty()) {
+            closure.run(new Status(RaftError.UNKNOWN, "No leader at term %d.", this.currTerm));
+            return;
+        }
+
+        GetLeaderResponseBuilder respBuilder = raftOptions.getRaftMessagesFactory().getLeaderResponse()
+            .leaderId(leaderId.toString())
+            .currentTerm(this.getCurrentTerm());
+
+        final int quorum = getQuorum();
+        if (quorum <= 1) {
+            // Only one peer, fast path.
+            closure.setResponse(respBuilder.build());
+            closure.run(Status.OK());
+            return;
+        }
+
+        ReadOnlyOption readOnlyOpt = this.raftOptions.getReadOnlyOptions();
+        if (readOnlyOpt == ReadOnlyOption.ReadOnlyLeaseBased && !isLeaderLeaseValid()) {
+            // If leader lease timeout, we must change option to ReadOnlySafe
+            readOnlyOpt = ReadOnlyOption.ReadOnlySafe;
+        }
+
+        switch (readOnlyOpt) {
+            case ReadOnlySafe:
+                final List<PeerId> peers = this.conf.getConf().getPeers();
+                Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
+                final QuorumConfirmedHeartbeatResponseClosure<GetLeaderResponse> heartbeatDone =
+                        new QuorumConfirmedHeartbeatResponseClosure<>(
+                            response -> {
+                                closure.setResponse(response);
+                                closure.run(Status.OK());
+                            },
+                            success -> respBuilder.build(),
+                            quorum,
+                            peers.size()
+                        );
+                // Send heartbeat requests to followers
+                for (final PeerId peer : peers) {
+                    if (peer.equals(this.serverId)) {
+                        continue;
+                    }
+                    this.replicatorGroup.sendHeartbeat(peer, heartbeatDone);
+                }
+                break;
+            case ReadOnlyLeaseBased:
+                closure.setResponse(respBuilder.build());
+                closure.run(Status.OK());
+                break;
         }
     }
 
@@ -2001,8 +2108,19 @@ public class NodeImpl implements Node, RaftServerService {
             case ReadOnlySafe:
                 final List<PeerId> peers = this.conf.getConf().getPeers();
                 Requires.requireTrue(peers != null && !peers.isEmpty(), "Empty peers");
-                final ReadIndexHeartbeatResponseClosure heartbeatDone = new ReadIndexHeartbeatResponseClosure(closure,
-                    respBuilder, quorum, peers.size());
+                final QuorumConfirmedHeartbeatResponseClosure<ReadIndexResponse> heartbeatDone =
+                    new QuorumConfirmedHeartbeatResponseClosure<>(
+                            response -> {
+                                closure.setResponse(response);
+                                closure.run(Status.OK());
+                            },
+                            success -> {
+                                respBuilder.success(success);
+                                return respBuilder.build();
+                            },
+                            quorum,
+                            peers.size()
+                    );
                 // Send heartbeat requests to followers
                 for (final PeerId peer : peers) {
                     if (peer.equals(this.serverId)) {
