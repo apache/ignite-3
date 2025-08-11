@@ -134,7 +134,6 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
-
     @Test
     @DisplayName("--url http://localhost:10300 --cluster-name cluster")
     void initSuccessNoMsCmg() {

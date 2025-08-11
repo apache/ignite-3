@@ -1088,7 +1088,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-
     private CompletableFuture<Boolean> onTablePrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         if (thisNodeHoldsLease(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
@@ -1818,7 +1817,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableDescriptor.primaryKeyIndexId()
         );
     }
-
 
     /**
      * Creates local structures for a table.

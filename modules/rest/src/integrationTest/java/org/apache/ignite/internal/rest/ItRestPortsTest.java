@@ -69,7 +69,6 @@ public class ItRestPortsTest extends BaseIgniteAbstractTest {
     /** SSL HTTP client that is expected to be defined in subclasses. */
     private HttpClient sslClient;
 
-
     @BeforeEach
     void beforeEach(TestInfo testInfo)
             throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException, KeyManagementException {

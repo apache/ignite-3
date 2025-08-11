@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
@@ -37,10 +36,10 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
-import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
@@ -92,7 +91,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
 
-    private final ChannelEventLoopsSource channelEventLoopsSource;
+    private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -119,7 +118,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ClusterNode localNode,
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
-            ChannelEventLoopsSource channelEventLoopsSource,
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
@@ -129,7 +128,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
-        this.channelEventLoopsSource = channelEventLoopsSource;
+        this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
@@ -229,7 +228,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.remoteChannelId = message.connectionId();
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), remoteChannelId);
-        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> tryAcquireDescriptorAndFinishHandshake(message));
+        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, channelKey)
+                .thenRun(() -> tryAcquireDescriptorAndFinishHandshake(message));
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {

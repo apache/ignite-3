@@ -414,7 +414,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         ColumnDefinition column4 = column("COL4", ColumnType.VARCHAR);
         ColumnDefinition column5 = column("COL5", ColumnType.DECIMAL);
 
-
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
                 .zone(ZONE_NAME)
                 .columns(List.of(column1, column2, column3, column4, column5))

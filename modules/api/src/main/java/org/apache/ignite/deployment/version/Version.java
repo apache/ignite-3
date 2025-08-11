@@ -17,7 +17,6 @@
 
 package org.apache.ignite.deployment.version;
 
-
 /**
  * Unit version interface. Version implementations should be comparable.
  */

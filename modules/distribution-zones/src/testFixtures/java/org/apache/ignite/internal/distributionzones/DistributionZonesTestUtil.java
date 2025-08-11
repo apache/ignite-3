@@ -81,7 +81,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
-
 /**
  * Utils to manage distribution zones inside tests.
  */

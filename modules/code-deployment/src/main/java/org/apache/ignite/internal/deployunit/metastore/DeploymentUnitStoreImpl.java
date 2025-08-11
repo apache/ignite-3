@@ -253,7 +253,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                     }
                     byte[] newValue = mapper.apply(value);
 
-
                     if (newValue == null) {
                         return falseCompletedFuture();
                     }

@@ -321,7 +321,6 @@ public class JdbcMetadataCatalog {
         return toRegex.substring(1);
     }
 
-
     /**
      * Resolves the precision of the specified column.
      * Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if precision is not applicable for this column type.

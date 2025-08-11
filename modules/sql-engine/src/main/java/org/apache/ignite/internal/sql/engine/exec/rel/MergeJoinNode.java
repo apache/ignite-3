@@ -325,7 +325,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                         return;
                     }
 
-
                     if (left == null) {
                         left = leftInBuf.remove();
                     }

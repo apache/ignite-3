@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.security.authentication.configuration;
 
-
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;

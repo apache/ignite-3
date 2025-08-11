@@ -224,7 +224,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
         }
     }
 
-
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
             "CREATE TABLE t(id int DEFAULT (SELECT count(col) FROM t), val int); Query expression encountered in illegal context",
