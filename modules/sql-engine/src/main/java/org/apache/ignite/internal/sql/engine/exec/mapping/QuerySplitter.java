@@ -167,7 +167,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((SourceAwareIgniteRel) processNode(rel)).clone(idGenerator.nextId());
+        return ((SourceAwareIgniteRel) processNode(rel)).clone(rel.sourceId());
     }
 
     /** {@inheritDoc} */

@@ -52,7 +52,7 @@ public final class FragmentPrinter {
 
     static String FRAGMENT_PREFIX = "Fragment#";
 
-    private boolean verbose;
+    private final boolean verbose;
     private final Output output;
     private final Int2ObjectMap<IgniteTable> tables;
 

@@ -24,7 +24,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 
 /**
@@ -83,7 +82,7 @@ public class Cloner {
 
         @Override
         public IgniteRel visit(IgniteRel rel) {
-            if (rel instanceof SourceAwareIgniteRel && !(rel instanceof IgniteTrimExchange)) {
+            if (rel instanceof SourceAwareIgniteRel) {
                 // Take into account only actual source relations.
                 SourceAwareIgniteRel src = (SourceAwareIgniteRel) rel;
 
