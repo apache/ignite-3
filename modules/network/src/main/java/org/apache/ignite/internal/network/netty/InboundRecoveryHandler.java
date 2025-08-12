@@ -82,7 +82,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
                             ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList()));
                         },
-                        5, TimeUnit.SECONDS
+                        100, TimeUnit.MILLISECONDS
                 );
             }
         }
