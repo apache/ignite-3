@@ -28,7 +28,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.client.sql.AllowedQueryType;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,9 +39,9 @@ import org.junit.jupiter.params.provider.EnumSource;
  */
 public class ClientSqlCommonTest {
     @ParameterizedTest
-    @EnumSource(AllowedQueryType.class)
-    void testConvertAllowedTypeToQueryType(AllowedQueryType type) {
-        Set<SqlQueryType> sqlQueryTypes = ClientSqlCommon.convertAllowedTypeToQueryType(type);
+    @EnumSource(QueryModifier.class)
+    void testConvertQueryModifierToQueryType(QueryModifier type) {
+        Set<SqlQueryType> sqlQueryTypes = ClientSqlCommon.convertQueryModifierToQueryType(type);
 
         assertFalse(sqlQueryTypes.isEmpty());
 
@@ -59,7 +59,7 @@ public class ClientSqlCommonTest {
                     assertTrue(sqlQueryType.supportsWasApplied());
                     break;
 
-                case ALLOW_MULTISTATEMENT_RESULT:
+                case ALLOW_TX_CONTROL:
                     assertFalse(sqlQueryType.supportsIndependentExecution());
                     break;
 
@@ -70,13 +70,13 @@ public class ClientSqlCommonTest {
     }
 
     @Test
-    void testAllQueryTypesCoveredByAllowedTypes() {
+    void testAllQueryTypesCoveredByQueryModifiers() {
         Set<SqlQueryType> sqlQueryTypesFromAllowedTypes = EnumSet.noneOf(SqlQueryType.class);
 
-        for (AllowedQueryType type : AllowedQueryType.values()) {
-            Set<SqlQueryType> allowedQueryTypes = ClientSqlCommon.convertAllowedTypeToQueryType(type);
+        for (QueryModifier modifier : QueryModifier.values()) {
+            Set<SqlQueryType> queryTypes = ClientSqlCommon.convertQueryModifierToQueryType(modifier);
 
-            for (SqlQueryType queryType : allowedQueryTypes) {
+            for (SqlQueryType queryType : queryTypes) {
                 boolean added = sqlQueryTypesFromAllowedTypes.add(queryType);
 
                 assertTrue(added, "Duplicate type: " + queryType);

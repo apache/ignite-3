@@ -45,10 +45,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.client.sql.AllowedQueryType;
 import org.apache.ignite.internal.client.sql.ClientDirectTxMode;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -270,12 +270,12 @@ public class ClientSqlTest extends AbstractClientTableTest {
     }
 
     @ParameterizedTest(name = "{0} => {1}")
-    @MethodSource("allowedQueryTypesArgs")
-    void testAllowedQueryTypes(AllowedQueryType type, String expectedQueryTypes) {
+    @MethodSource("testQueryModifiersArgs")
+    void testQueryModifiers(QueryModifier modifier, String expectedQueryTypes) {
         IgniteSql sql = client.sql();
 
         AsyncResultSet<SqlRow> results = await(((ClientSql) sql).executeAsyncInternal(
-                null, null, null, Set.of(type), sql.createStatement("SELECT ALLOWED QUERY TYPES")));
+                null, null, null, Set.of(modifier), sql.createStatement("SELECT ALLOWED QUERY TYPES")));
 
         assertTrue(results.hasRowSet());
 
@@ -284,13 +284,13 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertThat(row.stringValue(0), equalTo(expectedQueryTypes));
     }
 
-    private static List<Arguments> allowedQueryTypesArgs() {
+    private static List<Arguments> testQueryModifiersArgs() {
         List<Arguments> res = new ArrayList<>();
 
-        for (AllowedQueryType type : AllowedQueryType.values()) {
+        for (QueryModifier modifier : QueryModifier.values()) {
             String expected;
 
-            switch (type) {
+            switch (modifier) {
                 case ALLOW_ROW_SET_RESULT:
                     expected = "EXPLAIN, QUERY";
                     break;
@@ -303,15 +303,15 @@ public class ClientSqlTest extends AbstractClientTableTest {
                     expected = "DDL, KILL";
                     break;
 
-                case ALLOW_MULTISTATEMENT_RESULT:
+                case ALLOW_TX_CONTROL:
                     expected = "TX_CONTROL";
                     break;
 
                 default:
-                    throw new IllegalArgumentException("Unexpected type: " + type);
+                    throw new IllegalArgumentException("Unexpected type: " + modifier);
             }
 
-            res.add(Arguments.of(type, expected));
+            res.add(Arguments.of(modifier, expected));
         }
 
         return res;

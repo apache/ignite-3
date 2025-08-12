@@ -26,7 +26,7 @@ import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.client.sql.AllowedQueryType;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
@@ -203,20 +203,20 @@ class ClientSqlCommon {
         }
     }
 
-    static Set<SqlQueryType> unpackAllowedQueryTypes(ClientMessageUnpacker unpacker) {
+    static Set<SqlQueryType> unpackQueryModifiersAndConvertToQueryTypes(ClientMessageUnpacker unpacker) {
         BitSet bitSet = unpacker.unpackBitSet();
         Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
 
         for (int idx = bitSet.nextSetBit(0); idx >= 0; idx = bitSet.nextSetBit(idx + 1)) {
-            AllowedQueryType type = AllowedQueryType.fromId(idx);
+            QueryModifier type = QueryModifier.fromId(idx);
 
-            result.addAll(convertAllowedTypeToQueryType(type));
+            result.addAll(convertQueryModifierToQueryType(type));
         }
 
         return result;
     }
 
-    static Set<SqlQueryType> convertAllowedTypeToQueryType(AllowedQueryType allowedType) {
+    static Set<SqlQueryType> convertQueryModifierToQueryType(QueryModifier allowedType) {
         switch (allowedType) {
             case ALLOW_ROW_SET_RESULT:
                 return SqlQueryType.HAS_ROW_SET_TYPES;
@@ -227,7 +227,7 @@ class ClientSqlCommon {
             case ALLOW_APPLIED_RESULT:
                 return SqlQueryType.SUPPORT_WAS_APPLIED_TYPES;
 
-            case ALLOW_MULTISTATEMENT_RESULT:
+            case ALLOW_TX_CONTROL:
                 return EnumSet.of(SqlQueryType.TX_CONTROL);
 
             default:

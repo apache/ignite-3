@@ -41,8 +41,8 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.client.sql.AllowedQueryType;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -695,15 +695,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     public void testSqlQueryWithType() {
         ClientSql sql = (ClientSql) client().sql();
 
-        Set<AllowedQueryType> selectType = EnumSet.of(AllowedQueryType.ALLOW_ROW_SET_RESULT);
-        Set<AllowedQueryType> dmlType = EnumSet.of(AllowedQueryType.ALLOW_AFFECTED_ROWS_RESULT);
-        Set<AllowedQueryType> ddlType = EnumSet.of(AllowedQueryType.ALLOW_APPLIED_RESULT);
+        Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+        Set<QueryModifier> dmlType = EnumSet.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<QueryModifier> ddlType = EnumSet.of(QueryModifier.ALLOW_APPLIED_RESULT);
 
         Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
         Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
         Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
 
-        BiConsumer<Statement, Set<AllowedQueryType>> check = (stmt, types) -> {
+        BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
             await(sql.executeAsyncInternal(
                     null,
                     () -> SqlRow.class,
@@ -759,9 +759,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // No exception expected with correct query type.
-        check.accept(ddlStatement, AllowedQueryType.ALL);
-        check.accept(dmlStatement, AllowedQueryType.ALL);
-        check.accept(selectStatement, AllowedQueryType.ALL);
+        check.accept(ddlStatement, QueryModifier.ALL);
+        check.accept(dmlStatement, QueryModifier.ALL);
+        check.accept(selectStatement, QueryModifier.ALL);
     }
 
     private static class Pojo {

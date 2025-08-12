@@ -311,7 +311,7 @@ public class ClientSql implements IgniteSql {
      * @param cancellationToken Cancellation token or {@code null}.
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
-     * @param allowedQueryTypes Allowed SQL query types.
+     * @param queryModifiers Allowed SQL query types.
      * @param arguments Arguments for the statement.
      * @param <T> A type of object contained in result set.
      * @return Operation future.
@@ -320,7 +320,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
-            @Nullable Set<AllowedQueryType> allowedQueryTypes,
+            @Nullable Set<QueryModifier> queryModifiers,
             Statement statement,
             @Nullable Object... arguments
     ) {
@@ -357,7 +357,7 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, allowedQueryTypes, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, statement, queryModifiers, arguments, shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -419,7 +419,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
             Statement statement,
-            @Nullable Collection<AllowedQueryType> allowedQueryTypes,
+            @Nullable Collection<QueryModifier> queryModifiers,
             @Nullable Object[] arguments,
             boolean requestAck
     ) {
@@ -451,7 +451,7 @@ public class ClientSql implements IgniteSql {
             }
 
             if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
-                packAllowedQueryTypes(allowedQueryTypes, w.out());
+                packQueryModifiers(queryModifiers, w.out());
             }
 
             if (cancellationToken != null) {
@@ -614,13 +614,13 @@ public class ClientSql implements IgniteSql {
         throw ExceptionUtils.sneakyThrow(ex);
     }
 
-    private static void packAllowedQueryTypes(@Nullable Collection<AllowedQueryType> queryTypes, ClientMessagePacker packer) {
-        if (queryTypes == null || queryTypes.isEmpty()) {
+    private static void packQueryModifiers(@Nullable Collection<QueryModifier> queryModifiers, ClientMessagePacker packer) {
+        if (queryModifiers == null || queryModifiers.isEmpty()) {
             packer.packNil();
         } else {
-            BitSet bitSet = new BitSet(queryTypes.size());
+            BitSet bitSet = new BitSet(queryModifiers.size());
 
-            for (AllowedQueryType type : queryTypes) {
+            for (QueryModifier type : queryModifiers) {
                 bitSet.set(type.id());
             }
 

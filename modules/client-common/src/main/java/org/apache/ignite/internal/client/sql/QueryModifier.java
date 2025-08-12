@@ -23,7 +23,7 @@ import java.util.Set;
 /**
  * Classifier of SQL queries depending on the type of result returned.
  */
-public enum AllowedQueryType {
+public enum QueryModifier {
     /** SELECT-like queries. */
     ALLOW_ROW_SET_RESULT(0),
 
@@ -33,15 +33,15 @@ public enum AllowedQueryType {
     /** DDL-like queries. */
     ALLOW_APPLIED_RESULT(2),
 
-    /** Queries with multiple statements. */
-    ALLOW_MULTISTATEMENT_RESULT(3);
+    /** Queries with transaction control statements. */
+    ALLOW_TX_CONTROL(3);
 
-    public static final Set<AllowedQueryType> ALL = EnumSet.allOf(AllowedQueryType.class);
+    public static final Set<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
 
-    private static final AllowedQueryType[] VALS = new AllowedQueryType[values().length];
+    private static final QueryModifier[] VALS = new QueryModifier[values().length];
 
     static {
-        for (AllowedQueryType type : values()) {
+        for (QueryModifier type : values()) {
             assert VALS[type.id] == null : "Found duplicate id " + type.id;
 
             VALS[type.id()] = type;
@@ -50,7 +50,7 @@ public enum AllowedQueryType {
 
     private final int id;
 
-    AllowedQueryType(int id) {
+    QueryModifier(int id) {
         this.id = id;
     }
 
@@ -59,7 +59,7 @@ public enum AllowedQueryType {
     }
 
     /** Returns allowed query type by identifier. */
-    public static AllowedQueryType fromId(int id) {
+    public static QueryModifier fromId(int id) {
         if (id >= 0 && id < VALS.length) {
             return VALS[id];
         }
