@@ -756,7 +756,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
-
     private static int tableId(IgniteImpl node) {
         return tableId(node, TABLE_NAME);
     }
