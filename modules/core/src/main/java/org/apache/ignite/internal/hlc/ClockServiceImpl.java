@@ -26,7 +26,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * Default implementation of {@link ClockService}.
  */
 public class ClockServiceImpl implements ClockService {
-    private static final IgniteLogger LOG = Loggers.forClass(ClockServiceImpl.class);
+    private final IgniteLogger LOG = Loggers.forClass(ClockServiceImpl.class);
 
     private final HybridClock clock;
     private final ClockWaiter clockWaiter;
