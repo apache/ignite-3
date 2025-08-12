@@ -23,6 +23,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
@@ -32,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,7 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiPredicate;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -55,8 +59,9 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -84,6 +89,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -235,9 +241,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
-        // Start a transaction to insert a row, but do not commit it.
-
-
         IgniteImpl nodeToCleanup = findNodeConformingOptions(tableName, primaryReplica, raftLeader);
 
         CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
@@ -253,6 +256,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(1, 1, tableName);
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
         assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
     }
 
@@ -294,7 +298,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
-        IgniteImpl primaryNode = unwrapIgniteImpl(findPrimaryIgniteNode(node, new TablePartitionId(tableId(node), 0)));
+        IgniteImpl primaryNode = unwrapIgniteImpl(findPrimaryIgniteNode(node, new TablePartitionId(tableId(node, tableName), 0)));
 
         IgniteImpl nodeToCleanup;
 
@@ -327,12 +331,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 .getConfiguration(ReplicationExtensionConfiguration.KEY)
                 .replication();
 
-        Thread.sleep(config.leaseExpirationIntervalMillis().value());
+        Thread.sleep(config.leaseExpirationIntervalMillis().value() + 1000L);
 
         if (primaryReplica) {
-            tx.commit();
-            assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
-            //assertThrows(TransactionException.class, () -> tx.commit(),"Primary replica has expired, transaction will be rolled back");
+            assertThrows(TransactionException.class, tx::commit, "Primary replica has expired, transaction will be rolled back");
         } else {
             tx.commit();
 
@@ -340,57 +342,78 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         }
     }
 
-//    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-//    @ParameterizedTest(name = "fullData={0}")
-//    @CsvSource({"true", "false"})
-//    void testRestartTablePartitionsWithCleanUpConcurrentRebalance(boolean fullData) throws Exception {
-//        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-//        IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
-//
-//        //IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
-//
-//        String testZone = "TEST_ZONE";
-//
-//        createZone(node.catalogManager(), testZone, 1, 2);
-//
-//        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
-//
-//        String tableName = "TABLE_NAME";
-//
-//        node.sql().executeScript(String.format(
-//                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-//                tableName
-//        ));
-//
-//        insert(0, 0, tableName);
-//
-//        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
-//
-//        TablePartitionId replicationGroupId = new TablePartitionId(tableId(node), 0);
-//
-//        String raftLeaderNodeName = cluster.leaderServiceFor(replicationGroupId).getServerId().getConsistentId();
-//
-//        blockMessage();
-//
-//        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
-//                Set.of(nodeToCleanup.name()),
-//                testZone,
-//                SqlCommon.DEFAULT_SCHEMA_NAME,
-//                tableName,
-//                Set.of(0)
-//        );
-//
-//        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
-//
-//        insert(1, 1, tableName);
-//
-//        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
-//        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
-//    }
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    void testRestartTablePartitionsWithCleanUpConcurrentRebalance() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+        IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
 
-    // нам необходимо у рестартуемой праймари реприки лиз отозвать
-    // -- зачем это нужно? по контракту она должны быть up-to-date, во время рестарта рафт лог может отстать
-    // -- проще всего просто отозвать праймарность (гарантировать expire старой PR)
+        String testZone = "TEST_ZONE";
+
+        createZone(node.catalogManager(), testZone, 1, 2);
+
+        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        String tableName = "TABLE_NAME";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName
+        ));
+
+        insert(0, 0, tableName);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
+
+        int catalogVersion = node.catalogManager().latestCatalogVersion();
+
+        long timestamp = node.catalogManager().catalog(catalogVersion).time();
+
+        Assignments assignmentPending = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        );
+
+        TablePartitionId replicationGroupId = new TablePartitionId(tableId(node, tableName), 0);
+
+        AtomicBoolean blocked = new AtomicBoolean(true);
+
+        AtomicBoolean reached = new AtomicBoolean(false);
+
+        blockMessage(cluster, (nodeName, msg) -> {
+            reached.set(true);
+            return blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentPending);
+        });
+
+        alterZone(node.catalogManager(), testZone, 3);
+
+        waitForCondition(reached::get, 10_000L);
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node2.name()),
+                testZone,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName,
+                Set.of(0)
+        );
+
+        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
+
+        insert(1, 1, tableName);
+
+        blocked.set(false);
+
+        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(3, runningNodes.size(), "Expected 3 running nodes after zone alteration");
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
+    }
 
     private IgniteImpl findNodeConformingOptions(String tableName, boolean primaryReplica, boolean raftLeader) throws InterruptedException {
         Ignite nodeToCleanup;
@@ -740,7 +763,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     private static int tableId(IgniteImpl node, String tableName) {
-        return ((Wrapper) node.tables().table(TABLE_NAME)).unwrap(TableImpl.class).tableId();
+        return ((Wrapper) node.tables().table(tableName)).unwrap(TableImpl.class).tableId();
     }
 
     private static int zoneId(IgniteImpl node) {
@@ -787,17 +810,5 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     private static boolean compareRows(BinaryRow row1, BinaryRow row2) {
         return row1.schemaVersion() == row2.schemaVersion() && row1.tupleSlice().equals(row2.tupleSlice());
-    }
-
-    private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(predicate);
-            } else {
-                node.dropMessages(oldPredicate.or(predicate));
-            }
-        });
     }
 }
