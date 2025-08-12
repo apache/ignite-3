@@ -278,6 +278,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
     }
 
+    @Override
+    public boolean supportDefaults() {
+        return false;
+    }
+
     private void saveConfigFile() {
         if (!Files.isWritable(configPath)) {
             NodeConfigWriteException e = new NodeConfigWriteException(

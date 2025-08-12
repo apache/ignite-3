@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.StringJoiner;
 import java.util.TreeMap;
@@ -671,12 +672,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             validateConfiguration(curRoots, changes);
 
-            if (onStartup) {
-                allChanges = createFlattenedUpdatesMap(
-                        new SuperRoot(rootCreator()),
-                        localRoots.rootsWithoutDefaults,
-                        new TreeMap<>()
-                );
+            // In some cases some storages may not want to persist configuration defaults.
+            // Need to filter it from change map before write to storage.
+            if (!storage.supportDefaults()) {
+                removeDefaultValues(allChanges);
             }
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
@@ -793,6 +792,29 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
         allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.storageData.containsKey(entry.getKey()));
+    }
+
+    private void removeDefaultValues(Map<String, Serializable> allChanges) {
+        SuperRoot superRoot = new SuperRoot(rootCreator());
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
+            superRoot.addRoot(rootKey, createRootNode(rootKey));
+        }
+
+        SuperRoot defaults = superRoot.copy();
+        addDefaults(defaults);
+
+        Map<String, Serializable> defaultsMap = createFlattenedUpdatesMap(
+                superRoot,
+                defaults,
+                new TreeMap<>()
+        );
+
+        defaultsMap.forEach((key, defaultValue) -> {
+            Serializable change = allChanges.get(key);
+            if (Objects.deepEquals(change, defaultValue)) {
+                allChanges.remove(key);
+            }
+        });
     }
 
     /** {@inheritDoc} */
