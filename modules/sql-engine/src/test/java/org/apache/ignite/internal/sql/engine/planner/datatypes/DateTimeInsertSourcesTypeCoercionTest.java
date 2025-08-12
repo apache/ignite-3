@@ -269,7 +269,6 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
         // TIMESTAMP 3
 
-
         diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_3, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
         diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_6, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_6)
@@ -288,7 +287,6 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
         diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
                 .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)));
-
 
         // TIMESTAMP LTZ 0
 

@@ -41,7 +41,6 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
@@ -188,7 +188,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
-                () -> List.of(thisChannel.eventLoop()),
+                new NoOpHandshakeEventLoopSwitcher(),
                 new AllIdsAreFresh(),
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,

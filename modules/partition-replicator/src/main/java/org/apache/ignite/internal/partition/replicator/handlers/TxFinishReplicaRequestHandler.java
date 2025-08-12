@@ -95,7 +95,6 @@ public class TxFinishReplicaRequestHandler {
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
 
-
     /** Constructor. */
     public TxFinishReplicaRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,

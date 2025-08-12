@@ -305,7 +305,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static String makeUsableIntervalFromType(String typeName) {
         if (typeName.toLowerCase().contains("interval")) {
-            return typeName.replace("_", " 1 ");
+            return typeName.replace("_", " '1' ");
         }
 
         return makeSpaceName(typeName);

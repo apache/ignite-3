@@ -601,7 +601,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("hello world", row.str);
     }
 
-
     @Test
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";

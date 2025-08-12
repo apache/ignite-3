@@ -412,7 +412,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         assertEquals(newLeader, msRaftClient.leader());
     }
 
-
     @Test
     public void testLeaseProlongAfterRedirect() throws Exception {
         var declinedNodeRef = new AtomicReference<String>();

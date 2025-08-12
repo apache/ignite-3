@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
-
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 

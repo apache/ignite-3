@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSD
 
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.TestInfo;
@@ -77,7 +78,7 @@ public class PlatformCompatibilityTestNodeRunner {
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
-        cluster.start(version, 1);
+        cluster.start(version, 1, Collections.emptyList());
         cluster.init(x -> {});
 
         try (var client = cluster.createClient()) {
