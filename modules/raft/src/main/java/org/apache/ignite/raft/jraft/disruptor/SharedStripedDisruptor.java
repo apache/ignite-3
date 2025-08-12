@@ -123,7 +123,7 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
 
                     boolean endB = true;
 
-                    if (i < cached.size() - 1) {
+                    if (i != cached.size() - 1) {
                         T next = cached.get(i + 1);
 
                         // Batch events of same class.

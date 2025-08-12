@@ -80,6 +80,7 @@ import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
 import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.INodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.SharedStripedDisruptor;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -1449,8 +1450,7 @@ public class NodeImpl implements Node, RaftServerService {
         } else {
             int stripes = opts.getStripes();
 
-            StripedDisruptor<SharedEvent> sharedDisruptor =
-                    opts.getfSMCallerExecutorDisruptor() == null ? new StripedDisruptor<>(
+            StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
                             opts.getServerName(),
                             "JRaft-Shared-Disruptor",
                             (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
@@ -1460,16 +1460,13 @@ public class NodeImpl implements Node, RaftServerService {
                             logStorage instanceof RocksDbSharedLogStorage,
                             false,
                             opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
-                    ) : null;
+                    );
 
-            if (sharedDisruptor != null) {
-                opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
-                opts.setLogManagerDisruptor(
-                        (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
-                opts.setNodeApplyDisruptor(
-                        (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
-                opts.setLogStripes(IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList()));
-            }
+            opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
+            opts.setLogManagerDisruptor(
+                    (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
+            opts.setNodeApplyDisruptor(
+                    (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

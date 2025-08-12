@@ -380,7 +380,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
-            StripedDisruptor<SharedEvent> sharedDisruptor = opts.getfSMCallerExecutorDisruptor() == null ? new SharedStripedDisruptor<>(
+            StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
                     (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
@@ -390,17 +390,14 @@ public class JraftServerImpl implements RaftServer {
                     false,
                     false,
                     opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
-            ) : null;
+            );
 
-            if (sharedDisruptor != null) {
-                assert opts.getfSMCallerExecutorDisruptor() == null && opts.getLogManagerDisruptor() == null
-                        && opts.getNodeApplyDisruptor() == null : "Invalid configuration";
+            assert opts.getfSMCallerExecutorDisruptor() == null && opts.getLogManagerDisruptor() == null
+                    && opts.getNodeApplyDisruptor() == null : "Invalid configuration";
 
-                opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
-                opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
-                // opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
-                opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
-            }
+            opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
+            opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
+            opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
