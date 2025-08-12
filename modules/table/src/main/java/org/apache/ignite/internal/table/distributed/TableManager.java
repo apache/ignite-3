@@ -3448,8 +3448,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             Assignment localAssignment = localAssignment(stableAssignments);
 
-            System.out.println("!@# QWE");
-
             return stopPartitionAndDestroyForRestart(tablePartitionId, table)
                     .thenComposeAsync(unused1 ->
                             createPartitionAndStartClient(
