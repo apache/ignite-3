@@ -135,7 +135,6 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
-import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -498,7 +497,7 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final EventLog eventLog;
+    private final EventLogImpl eventLog;
 
     private final KillCommandHandler killCommandHandler;
 
@@ -1585,7 +1584,8 @@ public class IgniteImpl implements Ignite {
                                 sql,
                                 systemPropertiesComponent,
                                 resourceVacuumManager,
-                                metaStorageCompactionTrigger
+                                metaStorageCompactionTrigger,
+                                eventLog
                         );
 
                         // The system view manager comes last because other components

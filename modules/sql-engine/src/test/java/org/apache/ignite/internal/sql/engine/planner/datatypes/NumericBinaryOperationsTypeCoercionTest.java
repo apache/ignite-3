@@ -215,7 +215,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_18_15),
 
-
                 forTypePairEx(NumericPair.SMALLINT_SMALLINT)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -286,7 +285,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_20_15),
 
-
                 forTypePairEx(NumericPair.INT_INT)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -351,7 +349,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_25_15),
-
 
                 forTypePairEx(NumericPair.BIGINT_BIGINT)
                         .firstOpBeSame()
@@ -468,7 +465,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_16_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -519,7 +515,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_16_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -565,7 +560,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_16_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -606,7 +600,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_17_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -642,7 +635,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_17_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -673,7 +665,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_17_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -699,7 +690,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_20_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -720,7 +710,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_20_15),
 
-
                 forTypePairEx(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
                         .firstOpBeSame()
                         .secondOpBeSame()
@@ -736,7 +725,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_20_15),
 
-
                 forTypePairEx(NumericPair.REAL_REAL)
                         .firstOpMatches(castTo(Types.DECIMAL_14_7))
                         .secondOpMatches(castTo((Types.DECIMAL_14_7)))
@@ -746,7 +734,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpMatches(castTo(Types.DECIMAL_14_7))
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
                         .resultWillBe(Types.DECIMAL_22_15),
-
 
                 forTypePairEx(NumericPair.DOUBLE_DOUBLE)
                         .firstOpMatches(castTo(Types.DECIMAL_30_15))

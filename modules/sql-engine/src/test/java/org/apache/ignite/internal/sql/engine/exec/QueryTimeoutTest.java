@@ -94,7 +94,6 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
         cluster.start();
 
-
         gatewayNode = cluster.node(NODE_NAME);
 
         gatewayNode.initSchema("CREATE TABLE my_table (id INT PRIMARY KEY, val VARCHAR(128))");

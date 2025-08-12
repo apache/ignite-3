@@ -644,7 +644,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp(setOp)
                 + "SELECT * FROM affinity_tbl1 ";
 
-
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)
                         .and(input(0, isTableScan("identity_tbl1")))
@@ -655,7 +654,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         sql = "SELECT * FROM affinity_tbl1 "
                 + setOp(setOp)
                 + "SELECT * FROM identity_tbl1 ";
-
 
         assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
                 .and(hasChildThat(isInstanceOf(setOp.map)

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage;
 
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.raft.jraft.entity.LogId;

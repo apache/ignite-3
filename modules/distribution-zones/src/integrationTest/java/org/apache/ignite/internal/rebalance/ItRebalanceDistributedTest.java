@@ -849,7 +849,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ));
     }
 
-
     @Test
     void testClientsAreUpdatedAfterPendingRebalanceHandled() throws Exception {
         Node node = getNode(0);

@@ -88,7 +88,6 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
         assertThat(onPartitionsUpdateFuture, willCompleteSuccessfully());
     }
 
-
     @Test
     void testOnUpdateReplicas() {
         CompletableFuture<Void> onZoneUpdateFuture = new CompletableFuture<>();

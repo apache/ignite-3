@@ -57,7 +57,6 @@ public class ItDivisionDecimalTest extends BaseSqlIntegrationTest {
         dropAllTables();
     }
 
-
     @AfterEach
     void clearTable() {
         sql("DELETE FROM t");
@@ -124,7 +123,6 @@ public class ItDivisionDecimalTest extends BaseSqlIntegrationTest {
                         .scale(rt.getScale()))
                 .check();
     }
-
 
     @Test
     public void decimalTinyint() {

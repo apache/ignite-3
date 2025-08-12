@@ -122,7 +122,6 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
         return out.stream();
     }
 
-
     @ParameterizedTest
     @MethodSource("timestampWithTzValues")
     public void testTimestampWithTz(String format, String str, LocalDateTime value) {
