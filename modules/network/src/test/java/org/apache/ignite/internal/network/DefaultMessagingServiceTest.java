@@ -664,7 +664,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         localNode,
                         connectionId,
                         recoveryDescriptorProvider,
-                        bootstrapFactory,
+                        bootstrapFactory.handshakeEventLoopSwitcher(),
                         staleIdDetector,
                         clusterIdSupplier,
                         channel -> {},

@@ -43,6 +43,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -174,11 +175,20 @@ public class PersistentTxStateVacuumizer {
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
     }
 
-    private boolean expectedException(Throwable e) {
+    private static boolean expectedException(Throwable e) {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
-                GroupOverloadedException.class
+                GroupOverloadedException.class,
+                // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
+                // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
+                // on the receiver (during rebalancing, or distribution zone is deleted, etc.).
+                // We can ignore the exception in this case because we rely on the placement driver, that it won't prolong the non-existing
+                // replica's lease, the primary replica will be moved to another node and that another node will handle the vacuumization of
+                // the persistent tx state.
+                // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
+                // happen on another node.
+                AwaitReplicaTimeoutException.class
         );
     }
 
