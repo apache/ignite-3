@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -47,12 +49,6 @@ class ComputeJobFailover {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
-     * Thread to run failover logic. We can not perform time-consuming operations in the same thread where we discover topology changes (it
-     * is network id thread).
-     */
-    private final Executor executor;
-
-    /**
      * Compute component that is called when the {@link #runningWorkerNode} has left the cluster.
      */
     private final ComputeComponent computeComponent;
@@ -68,9 +64,10 @@ class ComputeJobFailover {
     private final TopologyService topologyService;
 
     /**
-     * The selector that returns the next worker node to execute job on.
+     * Thread to run failover logic. We can not perform time-consuming operations in the same thread where we discover topology changes (it
+     * is network id thread).
      */
-    private final NextWorkerSelector nextWorkerSelector;
+    private final Executor executor;
 
     /**
      * The node where the job is being executed at a given moment. If node leaves the cluster, then the job is restarted on one of the
@@ -79,9 +76,19 @@ class ComputeJobFailover {
     private final AtomicReference<ClusterNode> runningWorkerNode;
 
     /**
+     * The selector that returns the next worker node to execute job on.
+     */
+    private final NextWorkerSelector nextWorkerSelector;
+
+    /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
     private final RemoteExecutionContext jobContext;
+
+    /**
+     * Job id of the execution.
+     */
+    private final UUID jobId = UUID.randomUUID();
 
     private FailSafeJobExecution failSafeExecution;
 
@@ -91,56 +98,65 @@ class ComputeJobFailover {
      * @param computeComponent compute component.
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
+     * @param executor the thread pool where the failover should run on.
      * @param workerNode the node to execute the job on.
      * @param nextWorkerSelector the selector that returns the next worker to execute job on.
-     * @param executor the thread pool where the failover should run on.
+     * @param executionOptions execution options like priority or max retries.
      * @param units deployment units.
      * @param jobClassName the name of the job class.
-     * @param executionOptions execution options like priority or max retries.
+     * @param metadataBuilder Event metadata builder.
      * @param arg the arguments of the job.
      */
     private ComputeJobFailover(
             ComputeComponent computeComponent,
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
+            Executor executor,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
-            Executor executor,
+            ExecutionOptions executionOptions,
             List<DeploymentUnit> units,
             String jobClassName,
-            ExecutionOptions executionOptions,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
         this.computeComponent = computeComponent;
-        this.runningWorkerNode = new AtomicReference<>(workerNode);
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
-        this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext(units, jobClassName, executionOptions, arg);
         this.executor = executor;
+        this.runningWorkerNode = new AtomicReference<>(workerNode);
+        this.nextWorkerSelector = nextWorkerSelector;
+
+        // Assign failover job id so that it is consistent for any remote job.
+        metadataBuilder.jobId(jobId);
+
+        this.jobContext = new RemoteExecutionContext(executionOptions, units, jobClassName, metadataBuilder, arg);
     }
 
     static CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> failSafeExecute(
             ComputeComponent computeComponent,
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
+            Executor executor,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
-            Executor executor,
+            ExecutionOptions executionOptions,
             List<DeploymentUnit> units,
             String jobClassName,
-            ExecutionOptions executionOptions,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg
     ) {
-        return new ComputeJobFailover(computeComponent,
+        return new ComputeJobFailover(
+                computeComponent,
                 logicalTopologyService,
                 topologyService,
+                executor,
                 workerNode,
                 nextWorkerSelector,
-                executor,
+                executionOptions,
                 units,
                 jobClassName,
-                executionOptions,
+                metadataBuilder,
                 arg
         ).execute();
     }
@@ -153,7 +169,7 @@ class ComputeJobFailover {
     private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> execute() {
         return launchJobOn(runningWorkerNode.get())
                 .thenApply(execution -> {
-                    failSafeExecution = new FailSafeJobExecution(execution);
+                    failSafeExecution = new FailSafeJobExecution(execution, jobId);
 
                     LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
                     logicalTopologyService.addEventListener(nodeLeftEventListener);
@@ -167,11 +183,13 @@ class ComputeJobFailover {
     private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
-                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(),
+                    jobContext.metadataBuilder(), jobContext.arg(), null
             );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
+                    runningWorkerNode, jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(),
+                    jobContext.metadataBuilder(), jobContext.arg(), null
             );
         }
     }

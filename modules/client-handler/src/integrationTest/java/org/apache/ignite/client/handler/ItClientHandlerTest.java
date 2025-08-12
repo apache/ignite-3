@@ -545,6 +545,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(8);
             expected.set(9);
             expected.set(10);
+            expected.set(11);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();

@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_EVENTS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
@@ -41,8 +42,8 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -76,9 +77,12 @@ public class ClientComputeExecuteRequest {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
 
-        Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
-                .initiatorClient(clientContext.remoteAddress().toString())
-                .eventUser(clientContext.userDetails());
+        UUID taskId = clientContext.hasFeature(COMPUTE_EVENTS) ? in.unpackUuidNullable() : null;
+
+        ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(taskId != null ? Type.BROADCAST : Type.SINGLE)
+                .eventUser(clientContext.userDetails())
+                .taskId(taskId)
+                .clientAddress(clientContext.remoteAddress().toString());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
