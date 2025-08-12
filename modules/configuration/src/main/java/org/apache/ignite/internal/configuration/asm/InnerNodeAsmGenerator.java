@@ -280,7 +280,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         return classDefs;
     }
 
-
     /**
      * Construct a {@link InnerNode} definition for a configuration schema.
      *

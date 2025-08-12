@@ -66,7 +66,6 @@ public class IgniteSqlCreateIndex extends SqlCreate {
     /** Columns involved. */
     private final SqlNodeList columnList;
 
-
     /** Creates a SqlCreateIndex. */
     public IgniteSqlCreateIndex(SqlParserPos pos, boolean ifNotExists, SqlIdentifier idxName, SqlIdentifier tblName,
             IgniteSqlIndexType type, SqlNodeList columnList) {

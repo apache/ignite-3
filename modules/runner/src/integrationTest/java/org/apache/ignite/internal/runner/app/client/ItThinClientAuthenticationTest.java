@@ -240,7 +240,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         }
     }
 
-
     private static CompletableFuture<Void> checkConnection(IgniteClient client) {
         return client.sql().executeAsync(null, "select 1 as num, 'hello' as str")
                 .thenApply(ignored -> null);

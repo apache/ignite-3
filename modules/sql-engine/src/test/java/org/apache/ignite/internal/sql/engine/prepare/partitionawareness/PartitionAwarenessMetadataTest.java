@@ -169,7 +169,6 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", null),
                 Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=3", null),
 
-
                 // KV PUT
                 Arguments.of("INSERT INTO t VALUES (?, ?, ?)",  dynamicParamsTrackingRequired(2)),
                 Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, ?)", dynamicParamsTrackingRequired(2)),

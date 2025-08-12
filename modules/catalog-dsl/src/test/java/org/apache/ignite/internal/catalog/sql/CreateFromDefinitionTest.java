@@ -132,7 +132,6 @@ class CreateFromDefinitionTest {
         );
     }
 
-
     @Test
     void createFromTableBuilderQuoteNames() {
         TableDefinition table = TableDefinition.builder("\"builder test\"")

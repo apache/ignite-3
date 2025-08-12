@@ -197,7 +197,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         }
     }
 
-
     /** Internal event. */
     private static class DestroyTableEvent {
         final int catalogVersion;

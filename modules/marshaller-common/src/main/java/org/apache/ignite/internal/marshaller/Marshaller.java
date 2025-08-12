@@ -312,7 +312,6 @@ public abstract class Marshaller {
             return null;
         }
 
-
         @Override
         public Object readObject(MarshallerReader reader, @Nullable Object target) {
             return null;

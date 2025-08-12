@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.eventlog.impl;
 
 import static org.apache.ignite.internal.eventlog.impl.TestEventTypes.TEST_EVENT_TYPE_1;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -27,11 +28,12 @@ import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +47,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(polymorphicExtensions = InMemoryCollectionSinkConfigurationSchema.class)
     private EventLogConfiguration eventLogConfiguration;
 
-    private EventLog eventLog;
+    private EventLogImpl eventLog;
 
     private InMemoryCollectionSink inMemoryCollectionSink;
 
@@ -56,6 +58,12 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 UUID::randomUUID, "default");
         SinkFactory sinkFactory = new TestSinkFactory(defaultFactory, inMemoryCollectionSink);
         eventLog = new EventLogImpl(eventLogConfiguration, sinkFactory);
+        assertThat(eventLog.startAsync(new ComponentContext()), willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    void tearDown() {
+        assertThat(eventLog.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

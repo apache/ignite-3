@@ -1141,7 +1141,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return t -> t.size(size);
     }
 
-
     /** Unspecified dynamic parameter. */
     public enum Unspecified {
         /** Placeholder for unspecified dynamic parameter. */

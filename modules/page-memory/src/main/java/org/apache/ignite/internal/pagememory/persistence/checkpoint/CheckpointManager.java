@@ -328,7 +328,7 @@ public class CheckpointManager {
                             pageId.partitionId()
                     );
 
-                    assert partitionView != null : String.format("Unable to find view for dirty pages: [patitionId=%s, pageMemory=%s]",
+                    assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
                     return pageIndexesForDeltaFilePageStore(partitionView);

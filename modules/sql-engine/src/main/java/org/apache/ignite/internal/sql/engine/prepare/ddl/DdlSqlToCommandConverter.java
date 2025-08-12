@@ -745,7 +745,6 @@ public class DdlSqlToCommandConverter {
         return builder.build();
     }
 
-
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
      */

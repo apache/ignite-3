@@ -698,7 +698,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
     }
 
-
     private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
         List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);
 

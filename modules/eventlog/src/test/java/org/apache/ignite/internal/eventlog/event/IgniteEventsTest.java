@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.eventlog.event;
 
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 

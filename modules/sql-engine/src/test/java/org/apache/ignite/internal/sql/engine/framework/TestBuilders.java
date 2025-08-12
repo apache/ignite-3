@@ -1678,7 +1678,6 @@ public class TestBuilders {
         return newRow;
     }
 
-
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
         return new ExecutionDistributionProviderBuilder();
