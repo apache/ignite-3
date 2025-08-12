@@ -54,13 +54,13 @@ public class ClockServiceTest extends BaseIgniteAbstractTest {
         ClockServiceImpl clockService = new ClockServiceImpl(clock, clockWaiter, () -> MAX_CLOCK_SKEW_MILLIS);
 
         // Check that request time less than max clock skew won't trigger log warning.
-        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS/2));
+        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS / 2));
         logInspector.assertNoMessages();
 
         // Check that request time gt than max clock skew will trigger log warning.
         var timeFromFuture1 = clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10);
         clockService.updateClock(timeFromFuture1);
-        logInspector.assertMessageMatchedNTimes(1);
+        logInspector.assertMessageMatchedNtimes(1);
 
         // Check that a request time greater than max clock skew will trigger log warning once only.
         // Or in other words, check that logs won't be flooded with dozens of warnings caused by the same or similar clock skew.
@@ -68,13 +68,13 @@ public class ClockServiceTest extends BaseIgniteAbstractTest {
         clockService.updateClock(timeFromFuture2);
         clockService.updateClock(timeFromFuture2);
         // 1 for timeFromFuture1 + timeFromFuture2
-        logInspector.assertMessageMatchedNTimes(2);
+        logInspector.assertMessageMatchedNtimes(2);
 
         // Check that another request time greater than max clock skew will trigger log warning once only.
         var timeFromFuture3 = clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10);
         clockService.updateClock(timeFromFuture3);
         // 1 for timeFromFuture1 + timeFromFuture2 + timeFromFuture3
-        logInspector.assertMessageMatchedNTimes(3);
+        logInspector.assertMessageMatchedNtimes(3);
     }
 
     private static class ClockServiceLogInspector {
@@ -103,7 +103,7 @@ public class ClockServiceTest extends BaseIgniteAbstractTest {
             assertThat(String.format("Error message '%s' is present in the log.", EXPECTED_MESSAGE), msgCount.get(), is(0));
         }
 
-        void assertMessageMatchedNTimes(int n) {
+        void assertMessageMatchedNtimes(int n) {
             assertThat(String.format("Expected error message '%s' count doesn't matched.", EXPECTED_MESSAGE), msgCount.get(),
                     is(n));
         }

@@ -36,7 +36,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
