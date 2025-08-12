@@ -129,6 +129,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     @Nullable
     private volatile CompletableFuture<CmgRaftService> raftService;
 
+    @Nullable
+    private CompletableFuture<Void> topologyReconfigurationFuture;
+
     /** Lock for the {@code raftService} field. */
     private final Object raftServiceLock = new Object();
 
@@ -957,16 +960,31 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         // If the future is not here yet, this means we are still starting, so learners will be updated after start
         // (if we happen to become a leader).
-
-        if (serviceFuture != null) {
-            serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
-                if (!isLeader) {
-                    return nullCompletedFuture();
-                }
-
-                return service.updateLearners(term);
-            }));
+        if (serviceFuture == null) {
+            return;
         }
+
+        synchronized (raftServiceLock) {
+            if (topologyReconfigurationFuture == null) {
+                topologyReconfigurationFuture =
+                        serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term));
+            } else {
+                topologyReconfigurationFuture =
+                        topologyReconfigurationFuture.thenCompose(v ->
+                                serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term))
+                        );
+            }
+        }
+    }
+
+    private static CompletableFuture<Void> updateLearnersOnLeader(CmgRaftService service, long term) {
+        return service.isCurrentNodeLeader().thenCompose(isLeader -> {
+            if (!isLeader) {
+                return nullCompletedFuture();
+            }
+
+            return service.updateLearners(term);
+        });
     }
 
     /**
