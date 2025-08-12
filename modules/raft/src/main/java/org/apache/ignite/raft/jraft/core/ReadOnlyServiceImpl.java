@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.ReadOnlyService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
 import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
@@ -273,7 +274,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
         readIndexDisruptor = opts.getReadOnlyServiceDisruptor();
 
-        readIndexQueue = readIndexDisruptor.subscribe(this.node.getNodeId(), new ReadIndexEventHandler());
+        readIndexQueue = readIndexDisruptor.subscribe(this.node.getNodeId(), new ReadIndexEventHandler(), DisruptorEventSourceType.RO, null);
 
         if (this.nodeMetrics.getMetricRegistry() != null) {
             this.nodeMetrics.getMetricRegistry() //
@@ -303,6 +304,9 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         this.shutdownLatch = new CountDownLatch(1);
         Utils.runInThread(this.node.getOptions().getCommonExecutor(),
             () -> this.readIndexQueue.publishEvent((event, sequence) -> {
+                event.reset();
+
+                event.srcType = DisruptorEventSourceType.RO;
                 event.nodeId = this.node.getNodeId();
                 event.handler = null;
                 event.evtType = DisruptorEventType.REGULAR;
@@ -315,7 +319,7 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         if (this.shutdownLatch != null) {
             this.shutdownLatch.await();
         }
-        this.readIndexDisruptor.unsubscribe(this.node.getNodeId());
+        this.readIndexDisruptor.unsubscribe(this.node.getNodeId(), DisruptorEventSourceType.RO);
         resetPendingStatusError(new Status(RaftError.ESTOP, "Node is quit."));
     }
 
@@ -328,6 +332,9 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
         try {
             EventTranslator<ReadIndexEvent> translator = (event, sequence) -> {
+                event.reset();
+
+                event.srcType = DisruptorEventSourceType.RO;
                 event.nodeId = this.node.getNodeId();
                 event.handler = null;
                 event.evtType = DisruptorEventType.REGULAR;
@@ -415,6 +422,9 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     void flush() throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
         this.readIndexQueue.publishEvent((task, sequence) -> {
+            task.reset();
+
+            task.srcType = DisruptorEventSourceType.RO;
             task.nodeId = this.node.getNodeId();
             task.handler = null;
             task.evtType = DisruptorEventType.REGULAR;

@@ -39,7 +39,7 @@ public class LogManagerOptions {
     private RaftOptions raftOptions;
     private NodeMetrics nodeMetrics;
     private LogEntryCodecFactory logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
-    private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+    private StripedDisruptor<LogManagerImpl.IStableClosureEvent> logManagerDisruptor;
     private List<Stripe> logStripes;
 
     public void setLogStripes(List<Stripe> logStripes) {
@@ -50,11 +50,11 @@ public class LogManagerOptions {
         return this.logStripes;
     }
 
-    public StripedDisruptor<LogManagerImpl.StableClosureEvent> getLogManagerDisruptor() {
+    public StripedDisruptor<LogManagerImpl.IStableClosureEvent> getLogManagerDisruptor() {
         return logManagerDisruptor;
     }
 
-    public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor) {
+    public void setLogManagerDisruptor(StripedDisruptor<LogManagerImpl.IStableClosureEvent> logManagerDisruptor) {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 

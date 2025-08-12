@@ -162,6 +162,7 @@ public class Loza implements RaftManager {
 
         NodeOptions options = new NodeOptions();
 
+        //options.setUseVirtualThreads(true); // TODO use config.
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
 

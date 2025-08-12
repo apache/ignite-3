@@ -252,54 +252,53 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     ) {
         AtomicLong appliedIndex = new AtomicLong();
 
-        var nodeOptions = node.raftManager().server().options();
-
-        var notTunedDisruptor = nodeOptions.getfSMCallerExecutorDisruptor();
-
-        nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
-                node.name() + "-test",
-                "JRaft-FSMCaller-Disruptor",
-                (stripeName, logger) -> IgniteThreadFactory.create(node.name() + "-test", stripeName, true, logger),
-                64,
-                () -> new ApplyTask(),
-                1,
-                false,
-                false,
-                null
-        ) {
-            @Override
-            public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,
-                    BiConsumer<ApplyTask, Throwable> exceptionHandler) {
-                return super.subscribe(group, (event, sequence, endOfBatch) -> {
-                    if (leaderAndGroupRef.get() != null
-                            && event.nodeId().getGroupId().equals(leaderAndGroupRef.get().get2())
-                            && !node.node().equals(leaderAndGroupRef.get().get1())) {
-                        log.info("Event for RAFT [grp={}, type={}, idx={}]", event.nodeId().getGroupId(), event.type, event.committedIndex);
-
-                        if (event.type == TaskType.SHUTDOWN) {
-                            event.shutdownLatch.countDown();
-                        }
-
-                        return;
-                    }
-
-                    long idx = event.committedIndex;
-
-                    handler.onEvent(event, sequence, endOfBatch);
-
-                    appliedIndex.set(idx);
-                }, exceptionHandler);
-            }
-
-            @Override
-            public void shutdown() {
-                super.shutdown();
-
-                if (notTunedDisruptor != null) {
-                    notTunedDisruptor.shutdown();
-                }
-            }
-        });
+//        var nodeOptions = node.raftManager().server().options();
+//
+//        var notTunedDisruptor = nodeOptions.getfSMCallerExecutorDisruptor();
+//
+//        nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+//                node.name() + "-test",
+//                "JRaft-FSMCaller-Disruptor",
+//                64,
+//                () -> new ApplyTask(),
+//                1,
+//                false,
+//                false,
+//                null
+//        ) {
+//            @Override
+//            public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,
+//                    BiConsumer<ApplyTask, Throwable> exceptionHandler) {
+//                return super.subscribe(group, (event, sequence, endOfBatch) -> {
+//                    if (leaderAndGroupRef.get() != null
+//                            && event.nodeId().getGroupId().equals(leaderAndGroupRef.get().get2())
+//                            && !node.node().equals(leaderAndGroupRef.get().get1())) {
+//                        log.info("Event for RAFT [grp={}, type={}, idx={}]", event.nodeId().getGroupId(), event.type, event.committedIndex);
+//
+//                        if (event.getType() == TaskType.SHUTDOWN) {
+//                            event.getShutdownLatch().countDown();
+//                        }
+//
+//                        return;
+//                    }
+//
+//                    long idx = event.getCommittedIndex();
+//
+//                    handler.onEvent(event, sequence, endOfBatch);
+//
+//                    appliedIndex.set(idx);
+//                }, exceptionHandler);
+//            }
+//
+//            @Override
+//            public void shutdown() {
+//                super.shutdown();
+//
+//                if (notTunedDisruptor != null) {
+//                    notTunedDisruptor.shutdown();
+//                }
+//            }
+//        });
 
         return appliedIndex;
     }

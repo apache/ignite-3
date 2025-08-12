@@ -37,13 +37,13 @@ public class FSMCallerOptions {
     private ClosureQueue closureQueue;
     private NodeImpl node;
     private RaftMessagesFactory raftMessagesFactory;
-    private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
+    private StripedDisruptor<FSMCallerImpl.IApplyTask> fSMCallerExecutorDisruptor;
 
-    public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
+    public StripedDisruptor<FSMCallerImpl.IApplyTask> getfSMCallerExecutorDisruptor() {
         return fSMCallerExecutorDisruptor;
     }
 
-    public void setfSMCallerExecutorDisruptor(StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor) {
+    public void setfSMCallerExecutorDisruptor(StripedDisruptor<FSMCallerImpl.IApplyTask> fSMCallerExecutorDisruptor) {
         this.fSMCallerExecutorDisruptor = fSMCallerExecutorDisruptor;
     }
 
