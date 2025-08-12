@@ -577,7 +577,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService()
         );
 
-
         maxClockSkewFuture.complete(clockService::maxClockSkewMillis);
 
         var placementDriverManager = new PlacementDriverManager(
@@ -621,7 +620,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
-
 
         var replicaService = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
