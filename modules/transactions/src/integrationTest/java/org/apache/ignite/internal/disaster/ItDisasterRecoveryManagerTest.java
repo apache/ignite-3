@@ -197,7 +197,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive node to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
     }
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
