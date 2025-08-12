@@ -185,7 +185,6 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     ? Mappings.invert(Mappings.source(requiredColumns, tableRowSize))
                     : Mappings.createIdentity(tableRowSize);
 
-
             List<IntPair> pairs = new ArrayList<>(projects.size());
             for (int i = 0; i < projects.size(); i++) {
                 RexNode rex = projects.get(i);

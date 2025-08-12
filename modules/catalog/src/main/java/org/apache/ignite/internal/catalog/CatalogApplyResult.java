@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-
 import java.util.BitSet;
 
 /** Represent result of applying Catalog command. */

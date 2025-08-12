@@ -135,7 +135,6 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
-import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -441,6 +440,8 @@ public class IgniteImpl implements Ignite {
     /** Creator for volatile {@link LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
+    private final SystemPropertiesComponent systemPropertiesComponent;
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -496,7 +497,7 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final EventLog eventLog;
+    private final EventLogImpl eventLog;
 
     private final KillCommandHandler killCommandHandler;
 
@@ -1212,7 +1213,13 @@ public class IgniteImpl implements Ignite {
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
-                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
+                this,
+                stateMachine,
+                computeCfg,
+                clusterSvc.topologyService(),
+                clockService,
+                eventLog
+        );
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1283,6 +1290,7 @@ public class IgniteImpl implements Ignite {
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
+        systemPropertiesComponent = new SystemPropertiesComponent(systemDistributedConfiguration);
 
         restComponent = createRestComponent(name);
 
@@ -1574,8 +1582,10 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
+                                systemPropertiesComponent,
                                 resourceVacuumManager,
-                                metaStorageCompactionTrigger
+                                metaStorageCompactionTrigger,
+                                eventLog
                         );
 
                         // The system view manager comes last because other components

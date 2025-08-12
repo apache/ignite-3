@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.netty;
+package org.apache.ignite.internal.compute.events;
 
-import io.netty.channel.EventLoop;
-import java.util.List;
+import org.apache.ignite.compute.IgniteCompute;
 
-/**
- * Allows to obtain a list of all event loops with which {@link io.netty.channel.Channel}s might be registered.
- */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ChannelEventLoopsSource {
-    /**
-     * Returns list of all event loops with which {@link io.netty.channel.Channel}s might be registered.
-     * This must always return the same event loops in the same order.
-     */
-    List<EventLoop> channelEventLoops();
+class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
+    @Override
+    protected IgniteCompute compute() {
+        return node(0).compute();
+    }
 }

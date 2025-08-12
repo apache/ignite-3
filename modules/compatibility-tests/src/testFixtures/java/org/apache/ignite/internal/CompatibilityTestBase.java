@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSD
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -41,8 +42,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the embedded
@@ -50,11 +49,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-@ParameterizedClass
-@MethodSource("baseVersions")
 public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+    public static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -82,6 +79,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     protected IgniteCluster cluster;
 
+    protected List<String> extraIgniteModuleIds() {
+        return Collections.emptyList();
+    }
+
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
@@ -90,7 +91,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         cluster = createCluster(testInfo, workDir);
 
         int nodesCount = nodesCount();
-        cluster.start(baseVersion, nodesCount);
+        cluster.start(baseVersion, nodesCount, extraIgniteModuleIds());
 
         cluster.init(this::configureInitParameters);
 
@@ -112,9 +113,20 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @param workDir Work directory.
      * @return A new instance of {@link IgniteCluster}.
      */
-    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+    public IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+        return createCluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
+    }
+
+    /**
+     * Creates a cluster with the given test info and work directory.
+     *
+     * @param testInfo Test information.
+     * @param workDir Work directory.
+     * @return A new instance of {@link IgniteCluster}.
+     */
+    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfigTemplate) {
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
-                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .defaultNodeBootstrapConfigTemplate(nodeBootstrapConfigTemplate)
                 .build();
 
         return new IgniteCluster(clusterConfiguration);

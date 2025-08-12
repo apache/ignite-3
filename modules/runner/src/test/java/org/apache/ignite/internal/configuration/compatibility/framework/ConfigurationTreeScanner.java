@@ -244,6 +244,11 @@ public class ConfigurationTreeScanner {
             flags.add(Flags.IS_VALUE);
         }
 
+        Value value = field.getAnnotation(Value.class);
+        if (value != null && value.hasDefault()) {
+            flags.add(Flags.HAS_DEFAULT);
+        }
+
         if (field.isAnnotationPresent(Deprecated.class)) {
             flags.add(Flags.IS_DEPRECATED);
         }

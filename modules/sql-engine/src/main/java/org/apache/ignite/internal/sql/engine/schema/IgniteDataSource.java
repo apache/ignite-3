@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.engine.schema;
 
 import org.apache.calcite.rel.type.RelDataType;

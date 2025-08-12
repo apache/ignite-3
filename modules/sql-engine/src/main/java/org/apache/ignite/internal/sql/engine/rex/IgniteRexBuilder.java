@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.rex;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.NlsString;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -97,5 +102,34 @@ public class IgniteRexBuilder extends RexBuilder {
         }
 
         return super.makeLiteral(value, type, allowCast, trim);
+    }
+
+    @Override
+    public RexNode makeCast(
+            SqlParserPos pos,
+            RelDataType type,
+            RexNode exp,
+            boolean matchNullability,
+            boolean safe,
+            RexLiteral format) {
+        if (exp instanceof RexLiteral) {
+            // Override cast for DECIMAL from INTERVAL literal, to be consistent with INTERVAL call behavior
+            if (SqlTypeUtil.isExactNumeric(type) && SqlTypeUtil.isInterval(exp.getType())) {
+                return makeCastIntervalToExact(pos, type, exp);
+            }
+        }
+
+        return super.makeCast(pos, type, exp, matchNullability, safe, format);
+    }
+
+    // Copy-pasted from RexBuilder.
+    private RexNode makeCastIntervalToExact(SqlParserPos pos, RelDataType toType, RexNode exp) {
+        TimeUnit endUnit = exp.getType().getSqlTypeName().getEndUnit();
+        TimeUnit baseUnit = baseUnit(exp.getType().getSqlTypeName());
+        BigDecimal multiplier = baseUnit.multiplier;
+        BigDecimal divider = endUnit.multiplier;
+        RexNode value =
+                multiplyDivide(pos, decodeIntervalOrDecimal(pos, exp), multiplier, divider);
+        return ensureType(pos, toType, value, false);
     }
 }

@@ -15,36 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.streaming.pojo;
+package org.apache.ignite.internal.replicator.exception;
+
+import java.util.UUID;
 
 /**
- * POJO class that represents Account key.
+ * This exception is thrown when replica service is not able to wait for replica on the local node to handle a request.
  */
-public class AccountKey {
-    /** Account number. */
-    private int accountNumber;
+public class AwaitReplicaTimeoutException extends ReplicationTimeoutException {
+    private static final long serialVersionUID = -2089762711985049755L;
 
     /**
-     * Default constructor (required for deserialization).
-     */
-    @SuppressWarnings("unused")
-    public AccountKey() {
-    }
-
-    /**
-     * Constructor.
+     * The constructor is used for creating an exception instance that is thrown from a server processing the replica request.
      *
-     * @param accountNumber Account number.
+     * @param traceId Trace id.
+     * @param code    Error code.
+     * @param message Error message.
+     * @param cause   Cause exception.
      */
-    public AccountKey(int accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "AccountKey{" +
-                "accountNumber=" + accountNumber +
-                '}';
+    public AwaitReplicaTimeoutException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

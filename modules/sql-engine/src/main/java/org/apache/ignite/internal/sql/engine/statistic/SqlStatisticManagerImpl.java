@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -198,7 +197,6 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         }
     }
 
-
     /** Internal event. */
     private static class DestroyTableEvent {
         final int catalogVersion;
@@ -233,7 +231,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      * Returns feature for the last run update statistics to have ability wait update statistics.
      */
     @TestOnly
-    public Future<Void> lastUpdateStatisticFuture() {
+    public CompletableFuture<Void> lastUpdateStatisticFuture() {
         return latestUpdateFut.get();
     }
 

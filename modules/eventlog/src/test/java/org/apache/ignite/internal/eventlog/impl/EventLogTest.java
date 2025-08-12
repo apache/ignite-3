@@ -169,6 +169,14 @@ class EventLogTest {
                     .filter(channel -> channel.types().contains(igniteEventType))
                     .collect(HashSet::new, Set::add, Set::addAll);
         }
+
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public void stop() {
+        }
     }
 
     private static class TestSinkRegistry implements SinkRegistry {
@@ -193,6 +201,14 @@ class EventLogTest {
                 return Set.of();
             }
             return Set.of(sinks.get(channel));
+        }
+
+        @Override
+        public void start() {
+        }
+
+        @Override
+        public void stop() {
         }
     }
 }

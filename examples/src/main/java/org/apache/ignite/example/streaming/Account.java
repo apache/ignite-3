@@ -15,48 +15,57 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.streaming.pojo;
+package org.apache.ignite.example.streaming;
 
-/**
- * POJO class that represents Account value.
- */
-public class AccountValue {
-    /** Name. */
-    private String name;
-
-    /** Balance. */
-    private long balance;
-
-    /** Is account active. */
+public class Account {
+    private int     id;
+    private String  name;
+    private long    balance;
     private boolean active;
 
-    /**
-     * Default constructor (required for deserialization).
-     */
-    @SuppressWarnings("unused")
-    public AccountValue() {
+    public Account() {
     }
 
-    /**
-     * Constructor.
-     *
-     * @param name Name.
-     * @param balance Balance.
-     * @param active Is account active.
-     */
-    public AccountValue(String name, long balance, boolean active) {
-        this.name = name;
+    public Account(int id, String name, long balance, boolean active) {
+        this.id      = id;
+        this.name    = name;
         this.balance = balance;
-        this.active = active;
+        this.active  = active;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "AccountValue{" +
-                "name='" + name + '\'' +
-                ", balance=" + balance +
-                ", active=" + active +
-                '}';
+    public Account(int id) {
+        this.id = id;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public long getBalance() {
+        return balance;
+    }
+
+    public void setBalance(long balance) {
+        this.balance = balance;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

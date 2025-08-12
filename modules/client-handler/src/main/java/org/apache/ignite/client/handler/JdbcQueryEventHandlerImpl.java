@@ -108,11 +108,12 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId) {
+    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, String username) {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                     txManager,
-                    timeZoneId
+                    timeZoneId,
+                    username
             );
 
             long connectionId = resources.put(new ClientResource(
@@ -153,9 +154,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         boolean multiStatement = req.multiStatement();
         ZoneId timeZoneId = connectionContext.timeZoneId();
         long timeoutMillis = req.queryTimeoutMillis();
+        String userName = connectionContext.userName();
 
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
-        SqlProperties properties = createProperties(reqStmtType, defaultSchemaName, multiStatement, timeZoneId, timeoutMillis);
+        SqlProperties properties = createProperties(reqStmtType, defaultSchemaName, multiStatement, timeZoneId, timeoutMillis, userName);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
@@ -177,7 +179,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             String defaultSchemaName,
             boolean multiStatement,
             ZoneId timeZoneId,
-            long queryTimeoutMillis
+            long queryTimeoutMillis,
+            @Nullable String userName
     ) {
         Set<SqlQueryType> allowedTypes;
 
@@ -201,7 +204,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .allowedQueryTypes(allowedTypes)
                 .timeZoneId(timeZoneId)
                 .defaultSchema(schemaNameInCanonicalForm)
-                .queryTimeout(queryTimeoutMillis);
+                .queryTimeout(queryTimeoutMillis)
+                .userName(userName);
     }
 
     /** {@inheritDoc} */
@@ -309,7 +313,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 defaultSchemaName,
                 false,
                 context.timeZoneId(),
-                timeoutMillis
+                timeoutMillis,
+                context.userName()
         );
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(

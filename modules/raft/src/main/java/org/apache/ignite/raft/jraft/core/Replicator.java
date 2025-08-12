@@ -129,6 +129,8 @@ public class Replicator implements ThreadId.OnError {
 
     private final String metricName;
 
+    private final String inflightsCountMetricName;
+
     /** This set is used only for logging. */
     private final Set<PeerId> deadPeers = ConcurrentHashMap.newKeySet();
 
@@ -170,6 +172,7 @@ public class Replicator implements ThreadId.OnError {
         this.raftOptions = raftOptions;
         this.rpcService = replicatorOptions.getRaftRpcService();
         this.metricName = getReplicatorMetricName(replicatorOptions);
+        this.inflightsCountMetricName = name(this.metricName, "replicate-inflights-count");
         setState(State.Created);
     }
 
@@ -553,7 +556,7 @@ public class Replicator implements ThreadId.OnError {
         final int seq, final Future<Message> rpcInfly) {
         this.rpcInFly = new Inflight(reqType, startIndex, count, size, seq, rpcInfly);
         this.inflights.add(this.rpcInFly);
-        this.nodeMetrics.recordSize(name(this.metricName, "replicate-inflights-count"), this.inflights.size());
+        this.nodeMetrics.recordSize(inflightsCountMetricName, this.inflights.size());
     }
 
     /**

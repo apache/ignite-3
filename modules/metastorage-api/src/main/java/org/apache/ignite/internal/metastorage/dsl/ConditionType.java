@@ -69,7 +69,6 @@ public enum ConditionType {
     /** Not-tombstone condition type for a key. */
     NOT_TOMBSTONE(15);
 
-
     private final int id;
 
     ConditionType(int id) {

@@ -483,7 +483,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         }, 10_000), "Row comparison failed within the timeout.");
     }
 
-
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void testRestartZonePartitions() {

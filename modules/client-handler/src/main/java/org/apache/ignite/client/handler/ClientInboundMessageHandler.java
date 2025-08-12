@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
@@ -141,6 +140,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -260,6 +260,8 @@ public class ClientInboundMessageHandler
 
     private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
+    private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
+
     /**
      * Constructor.
      *
@@ -298,7 +300,8 @@ public class ClientInboundMessageHandler
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc
+            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -330,6 +333,7 @@ public class ClientInboundMessageHandler
         this.clockService = clockService;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
@@ -461,16 +465,16 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            authenticationManager
-                    .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
-                    .handleAsync((user, err) -> {
+            AuthenticationRequest<?, ?> authReq = createAuthenticationRequest(clientHandshakeExtensions);
+
+            handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channelHandlerContext.channel())
+                    .thenCompose(unused -> authenticationManager.authenticateAsync(authReq))
+                    .whenCompleteAsync((user, err) -> {
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
                             handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
                         }
-
-                        return null;
                     }, ctx.executor());
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
@@ -505,7 +509,8 @@ public class ClientInboundMessageHandler
             actualFeatures = this.features;
         }
 
-        clientContext = new ClientContext(clientVer, clientCode, HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures), user);
+        BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
+        clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
 
         sendHandshakeResponse(ctx, packer, actualFeatures);
     }
@@ -847,7 +852,7 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.JDBC_CONNECT:
-                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
+                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler, resolveCurrentUsername());
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler, tsTracker);
@@ -897,8 +902,7 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(TX_PIGGYBACK));
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
@@ -907,7 +911,7 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
@@ -917,7 +921,7 @@ public class ClientInboundMessageHandler
                         igniteTables,
                         clusterService,
                         notificationSender(requestId),
-                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
+                        clientContext
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
@@ -939,7 +943,7 @@ public class ClientInboundMessageHandler
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
                         clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        clockService, notificationSender(requestId)
+                        clockService, notificationSender(requestId), resolveCurrentUsername()
                 );
 
             case ClientOp.OPERATION_CANCEL:
@@ -959,7 +963,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker, resolveCurrentUsername()
                 );
 
             case ClientOp.SQL_QUERY_META:
@@ -969,7 +973,8 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker
+                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        resolveCurrentUsername()
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
@@ -997,6 +1002,15 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
+    }
+
+    /**
+     * Return authenticated user name or {@code unknown} if not authorized.
+     *
+     * @see UserDetails#UNKNOWN
+     */
+    private String resolveCurrentUsername() {
+        return clientContext.userDetails().username();
     }
 
     private void processOperationInternal(

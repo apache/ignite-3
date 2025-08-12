@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 

@@ -82,7 +82,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         }
     }
 
-
     @AfterAll
     public static void afterClass() throws Exception {
         try (Statement statement = conn.createStatement()) {

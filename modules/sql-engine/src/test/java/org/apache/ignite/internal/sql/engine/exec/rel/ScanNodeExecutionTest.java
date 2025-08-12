@@ -88,7 +88,6 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
         }
     }
 
-
     @ParameterizedTest
     @MethodSource("exceptionArgs")
     @SuppressWarnings("unchecked")

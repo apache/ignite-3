@@ -42,4 +42,14 @@ interface ChannelRegistry {
      */
     @Nullable
     Set<EventChannel> findAllChannelsByEventType(String type);
+
+    /**
+     * Starts the registry.
+     */
+    void start();
+
+    /**
+     * Stops the registry.
+     */
+    void stop();
 }

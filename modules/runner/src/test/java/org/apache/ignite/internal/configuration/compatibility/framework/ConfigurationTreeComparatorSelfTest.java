@@ -559,7 +559,6 @@ public class ConfigurationTreeComparatorSelfTest {
         assertCompatible(metadataVer2, metadataVer3, ComparisonContext.create(allModules));
     }
 
-
     @Test
     public void polymorphicConfigNoChanges() {
         ConfigNode root = createRoot("root");
