@@ -1438,12 +1438,15 @@ public abstract class GridUnsafe {
         } catch (SecurityException ignored) {
             try {
                 return AccessController.doPrivileged(
-                        (PrivilegedExceptionAction<Unsafe>) () -> {
-                            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+                        new PrivilegedExceptionAction<>() {
+                            @Override
+                            public Unsafe run() throws Exception {
+                                Field f = Unsafe.class.getDeclaredField("theUnsafe");
 
-                            f.setAccessible(true);
+                                f.setAccessible(true);
 
-                            return (Unsafe) f.get(null);
+                                return (Unsafe) f.get(null);
+                            }
                         });
             } catch (PrivilegedActionException e) {
                 throw new RuntimeException("Could not initialize intrinsics.", e.getCause());
@@ -1459,19 +1462,22 @@ public abstract class GridUnsafe {
     private static long bufferAddressOffset() {
         final ByteBuffer maybeDirectBuf = ByteBuffer.allocateDirect(1);
 
-        Field addrField = AccessController.doPrivileged((PrivilegedAction<Field>) () -> {
-            try {
-                Field addrFld = Buffer.class.getDeclaredField("address");
+        Field addrField = AccessController.doPrivileged(new PrivilegedAction<>() {
+            @Override
+            public Field run() {
+                try {
+                    Field addrFld = Buffer.class.getDeclaredField("address");
 
-                addrFld.setAccessible(true);
+                    addrFld.setAccessible(true);
 
-                if (addrFld.getLong(maybeDirectBuf) == 0) {
-                    throw new RuntimeException("java.nio.DirectByteBuffer.address field is unavailable.");
+                    if (addrFld.getLong(maybeDirectBuf) == 0) {
+                        throw new RuntimeException("java.nio.DirectByteBuffer.address field is unavailable.");
+                    }
+
+                    return addrFld;
+                } catch (Exception e) {
+                    throw new RuntimeException("java.nio.DirectByteBuffer.address field is unavailable.", e);
                 }
-
-                return addrFld;
-            } catch (Exception e) {
-                throw new RuntimeException("java.nio.DirectByteBuffer.address field is unavailable.", e);
             }
         });
 
