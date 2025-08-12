@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.util.Pair;
@@ -40,7 +41,7 @@ import org.immutables.value.Value;
  *
  * <p>Conversion will be successful if: <ol>
  *     <li>there is condition</li>
- *     <li>table has primary key index</li>
+ *     <li>table has primary key index (i.e. there is an index for which {@link IgniteIndex#primaryKey()} returns {@code true})</li>
  *     <li>condition covers all columns of primary key index</li>
  *     <li>condition doesn't involve other columns</li>
  *     <li>only single search key is derived from condition</li>
