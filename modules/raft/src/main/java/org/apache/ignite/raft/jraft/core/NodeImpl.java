@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
@@ -646,6 +647,8 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
         this.currTerm = this.metaStorage.getTerm();
+        LOG.info("Term update {} init meta storage success, uri={}, term={}.", this.serverId, this.options.getRaftMetaUri(),
+            this.currTerm);
         this.votedId = this.metaStorage.getVotedFor().copy();
         return true;
     }
@@ -1145,11 +1148,12 @@ public class NodeImpl implements Node, RaftServerService {
      * If there is an externally enforced config index (in the {@link #options}), then the node abstains from becoming a leader
      * in configurations whose index precedes the externally enforced index.
      *
-     * <p>The idea is that, if a Raft group was forcefully repaired (because it lost majority) using {@link #resetPeers( Configuration)},
+     * <p>The idea is that, if a Raft group was forcefully repaired (because it lost majority) using
+     * {@link #resetPeers( Configuration, long)},
      * the old majority nodes might come back online. If this happens and we do nothing, they might elect a leader from the old majority
      * that could hijack leadership and cause havoc in the repaired group.
      *
-     * <p>To prevent this, on a starup or subsequent config changes, current voting set (aka peers) of the repaired group may be 'broken'
+     * <p>To prevent this, on a startup or subsequent config changes, current voting set (aka peers) of the repaired group may be 'broken'
      * to make it impossible for the current node to become a leader. This is enabled by setting a non-null value to
      * {@link NodeOptions#getExternallyEnforcedConfigIndex ()}. When it's set, on each change of configuration (happening to this.conf),
      * including the one at startup (in {@link #init( NodeOptions)}), we check whether the applied config precedes the externally enforced
@@ -1420,6 +1424,7 @@ public class NodeImpl implements Node, RaftServerService {
             resetLeaderId(PeerId.emptyPeer(), new Status(RaftError.ERAFTTIMEDOUT,
                 "A follower's leader_id is reset to NULL as it begins to request_vote."));
             this.state = State.STATE_CANDIDATE;
+            LOG.warn("Term update electSelf: before={}, after={}.", this.currTerm, this.currTerm+1);
             this.currTerm++;
             this.votedId = this.serverId.copy();
             LOG.debug("Node {} start vote timer, term={} .", getNodeId(), this.currTerm);
@@ -1586,6 +1591,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         // meta state
         if (term > this.currTerm) {
+            LOG.warn("Term update stepdown: term={}, currTerm={}.", term, this.currTerm);
             this.currTerm = term;
             this.votedId = PeerId.emptyPeer();
             this.metaStorage.setTermAndVotedFor(term, this.votedId);
@@ -3639,7 +3645,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public Status resetPeers(final Configuration newPeers) {
+    public Status resetPeers(final Configuration newPeers, long term) {
         if (options.getExternallyEnforcedConfigIndex() != null) {
             throw new IllegalStateException("Using both externallyEnforcedConfigIndex and resetPeers() is not supported "
                     + "[externallyEnforcedConfigIndex=" + options.getExternallyEnforcedConfigIndex() + "]");
@@ -3658,6 +3664,15 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} is in state {}, can't set peers.", getNodeId(), this.state);
                 return new Status(RaftError.EPERM, "Bad state: %s", this.state);
             }
+            long currentTerm = getCurrentTerm();
+
+            if (term != IndexWithTerm.UNSET_TERM && currentTerm != term) {
+                LOG.warn("Node {} rejected the reset because of mismatching terms. Current term is {}, but provided is {}.",
+                    getNodeId(), currentTerm, term);
+
+                return new Status(RaftError.ESTALE, "Mismatching terms, Current term is %d, but provided is %d", currentTerm, term);
+            }
+
             // bootstrap?
             if (this.conf.getConf().isEmpty()) {
                 LOG.info("Node {} set peers to {} from empty.", getNodeId(), newPeers);

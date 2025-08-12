@@ -1128,7 +1128,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private void onRevisionApplied(long revision) {
+    protected void onRevisionApplied(long revision) {
         appliedRevision = revision;
     }
 
@@ -1178,7 +1178,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 RaftNodeId raftNodeId = raftNodeId();
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
-                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+                Loza loza = (Loza) raftMgr;
+
+                loza.resetPeers(raftNodeId, newConfiguration, IndexWithTerm.UNSET_TERM);
             }
         });
     }

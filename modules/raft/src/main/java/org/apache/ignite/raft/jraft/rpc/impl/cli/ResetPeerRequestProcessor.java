@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.internal.raft.IndexWithTerm;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -59,9 +59,12 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
                     .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
-        LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
-            .getRemoteAddress(), newConf);
-        final Status st = ctx.node.resetPeers(newConf);
+
+        Long term = request.term();
+
+        LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}, term is {}", ctx.node.getNodeId(), done.getRpcCtx()
+            .getRemoteAddress(), newConf, term);
+        Status st = ctx.node.resetPeers(newConf, term==null? IndexWithTerm.UNSET_TERM : term);
         return RaftRpcFactory.DEFAULT //
             .newResponse(msgFactory(), st);
     }
