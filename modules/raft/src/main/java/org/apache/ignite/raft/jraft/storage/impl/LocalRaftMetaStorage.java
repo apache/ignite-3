@@ -38,9 +38,10 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Raft meta storage,it's not thread-safe.
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
-
     private static final IgniteLogger LOG = Loggers.forClass(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
+    // The limit that determines whether we will log the saving of raft meta in info or debug level.
+    private static final int SAVE_RAFT_META_COST_MS_SOFT_LIMIT = 10;
 
     private boolean isInited;
     private final String path;
@@ -124,12 +125,18 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return false;
         }
         finally {
-            final long cost = Utils.monotonicMs() - start;
+            long cost = Utils.monotonicMs() - start;
             if (this.nodeMetrics != null) {
                 this.nodeMetrics.recordLatency("save-raft-meta", cost);
             }
-            LOG.info("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
-                this.votedFor, cost);
+            if (cost > SAVE_RAFT_META_COST_MS_SOFT_LIMIT) {
+                LOG.info("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
+                    this.votedFor, cost);
+            } else {
+                LOG.debug("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
+                    this.votedFor, cost);
+            }
+
         }
     }
 
