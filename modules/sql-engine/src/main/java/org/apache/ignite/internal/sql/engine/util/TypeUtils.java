@@ -32,11 +32,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -53,13 +51,11 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -88,8 +84,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TypeUtils {
     public static final SchemaAwareConverter<Object, Object> IDENTITY_ROW_CONVERTER = (idx, r) -> r;
-
-    private static final ZoneId ZONE_ID_UTC = ZoneId.of("UTC");
 
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
@@ -354,34 +348,6 @@ public class TypeUtils {
                 var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, spec);
                 return customType != null ? customType : val;
             }
-        }
-    }
-
-    /** Return literal holding java object according to it`s type. */
-    public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        if (physicalType.spec() == ColumnType.DATE) {
-            Calendar calendar = lit.getValueAs(Calendar.class);
-            Instant instant = calendar.toInstant();
-            return LocalDate.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == ColumnType.TIME) {
-            Calendar calendar = lit.getValueAs(Calendar.class);
-            Instant instant = calendar.toInstant();
-
-            return LocalTime.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
-            TimestampString timestampString = lit.getValueAs(TimestampString.class);
-            assert timestampString != null;
-
-            return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-        } else if (physicalType.spec() == ColumnType.DATETIME) {
-            TimestampString timestampString = lit.getValueAs(TimestampString.class);
-            assert timestampString != null;
-
-            Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-            return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
-        } else {
-            Class<?> javaClass = physicalType.spec().javaClass();
-            return lit.getValueAs(javaClass);
         }
     }
 

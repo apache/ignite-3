@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.getValueFromLiteral;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;

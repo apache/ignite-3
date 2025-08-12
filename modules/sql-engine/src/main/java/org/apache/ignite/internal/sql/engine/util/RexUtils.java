@@ -47,8 +47,14 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -96,6 +102,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Sarg;
+import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.Util.FoundOne;
 import org.apache.calcite.util.mapping.MappingType;
@@ -109,6 +116,8 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -118,6 +127,8 @@ import org.jetbrains.annotations.Nullable;
 public class RexUtils {
     /** Maximum amount of search bounds tuples per scan. */
     public static final int MAX_SEARCH_BOUNDS_COMPLEXITY = 100;
+
+    private static final ZoneId ZONE_ID_UTC = ZoneId.of("UTC");
 
     /** Hash index permitted search operations. */
     private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
@@ -1189,6 +1200,34 @@ public class RexUtils {
         }
 
         return val;
+    }
+
+    /** Return literal holding java object according to it`s type. */
+    public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
+        if (physicalType.spec() == ColumnType.DATE) {
+            Calendar calendar = lit.getValueAs(Calendar.class);
+            Instant instant = calendar.toInstant();
+            return LocalDate.ofInstant(instant, ZONE_ID_UTC);
+        } else if (physicalType.spec() == ColumnType.TIME) {
+            Calendar calendar = lit.getValueAs(Calendar.class);
+            Instant instant = calendar.toInstant();
+
+            return LocalTime.ofInstant(instant, ZONE_ID_UTC);
+        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
+            TimestampString timestampString = lit.getValueAs(TimestampString.class);
+            assert timestampString != null;
+
+            return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
+        } else if (physicalType.spec() == ColumnType.DATETIME) {
+            TimestampString timestampString = lit.getValueAs(TimestampString.class);
+            assert timestampString != null;
+
+            Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
+            return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
+        } else {
+            Class<?> javaClass = physicalType.spec().javaClass();
+            return lit.getValueAs(javaClass);
+        }
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
