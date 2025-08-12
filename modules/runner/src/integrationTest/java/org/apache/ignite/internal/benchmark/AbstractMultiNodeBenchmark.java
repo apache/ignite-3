@@ -194,6 +194,10 @@ public class AbstractMultiNodeBenchmark {
         IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
+    public IgniteImpl node(int idx) {
+        return unwrapIgniteImpl(igniteServers.get(idx).api());
+    }
+
     private void startCluster() throws Exception {
         if (remote) {
             throw new AssertionError("Can't start the cluster in remote mode");

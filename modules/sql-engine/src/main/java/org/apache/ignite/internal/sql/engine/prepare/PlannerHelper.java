@@ -342,7 +342,7 @@ public final class PlannerHelper {
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
-                Operation.PUT,
+                Operation.INSERT,
                 expressions
         );
     }

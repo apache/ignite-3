@@ -24,6 +24,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -80,7 +81,7 @@ public class PartitionAwarenessMetadataExtractor {
 
         List<RexNode> expressions = kv.expressions();
 
-        return buildMetadata(optTable, true, expressions, DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
+        return buildMetadata(optTable, kv.operation() == Operation.INSERT, expressions, DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
     }
 
     private static @Nullable PartitionAwarenessMetadata buildMetadata(
