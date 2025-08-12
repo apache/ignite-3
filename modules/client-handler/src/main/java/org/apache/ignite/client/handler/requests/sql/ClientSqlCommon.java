@@ -203,7 +203,7 @@ class ClientSqlCommon {
         }
     }
 
-    static Set<SqlQueryType> unpackQueryModifiersAndConvertToQueryTypes(ClientMessageUnpacker unpacker) {
+    static Set<SqlQueryType> unpackQueryModifiersToQueryTypes(ClientMessageUnpacker unpacker) {
         BitSet bitSet = unpacker.unpackBitSet();
         Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
 
@@ -216,8 +216,8 @@ class ClientSqlCommon {
         return result;
     }
 
-    static Set<SqlQueryType> convertQueryModifierToQueryType(QueryModifier allowedType) {
-        switch (allowedType) {
+    static Set<SqlQueryType> convertQueryModifierToQueryType(QueryModifier queryModifier) {
+        switch (queryModifier) {
             case ALLOW_ROW_SET_RESULT:
                 return SqlQueryType.HAS_ROW_SET_TYPES;
 
@@ -231,7 +231,7 @@ class ClientSqlCommon {
                 return EnumSet.of(SqlQueryType.TX_CONTROL);
 
             default:
-                throw new IllegalArgumentException("Unexpected type " + allowedType);
+                throw new IllegalArgumentException("Unexpected modifier " + queryModifier);
         }
     }
 }

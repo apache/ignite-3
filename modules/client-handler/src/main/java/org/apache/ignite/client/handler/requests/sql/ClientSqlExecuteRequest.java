@@ -120,7 +120,7 @@ public class ClientSqlExecuteRequest {
         boolean includePartitionAwarenessMeta = sqlPartitionAwarenessSupported && in.unpackBoolean();
 
         Set<SqlQueryType> allowedQueryTypes = sqlMultistatementsSupported && !in.tryUnpackNil()
-                ? ClientSqlCommon.unpackQueryModifiersAndConvertToQueryTypes(in)
+                ? ClientSqlCommon.unpackQueryModifiersToQueryTypes(in)
                 : SqlQueryType.SINGLE_STMT_TYPES;
 
         return nullCompletedFuture().thenComposeAsync(none -> executeAsync(

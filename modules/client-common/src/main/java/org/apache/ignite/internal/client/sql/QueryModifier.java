@@ -58,12 +58,12 @@ public enum QueryModifier {
         return id;
     }
 
-    /** Returns allowed query type by identifier. */
+    /** Returns query modifier by ID. */
     public static QueryModifier fromId(int id) {
         if (id >= 0 && id < VALS.length) {
             return VALS[id];
         }
 
-        throw new IllegalArgumentException("Unexpected query type identifier: " + id);
+        throw new IllegalArgumentException("Unexpected query modifier ID: " + id);
     }
 }

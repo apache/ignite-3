@@ -311,7 +311,7 @@ public class ClientSql implements IgniteSql {
      * @param cancellationToken Cancellation token or {@code null}.
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
-     * @param queryModifiers Allowed SQL query types.
+     * @param queryModifiers Query modifiers.
      * @param arguments Arguments for the statement.
      * @param <T> A type of object contained in result set.
      * @return Operation future.

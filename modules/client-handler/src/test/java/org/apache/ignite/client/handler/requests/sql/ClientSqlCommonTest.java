@@ -71,13 +71,13 @@ public class ClientSqlCommonTest {
 
     @Test
     void testAllQueryTypesCoveredByQueryModifiers() {
-        Set<SqlQueryType> sqlQueryTypesFromAllowedTypes = EnumSet.noneOf(SqlQueryType.class);
+        Set<SqlQueryType> sqlQueryTypesFromModifiers = EnumSet.noneOf(SqlQueryType.class);
 
         for (QueryModifier modifier : QueryModifier.values()) {
             Set<SqlQueryType> queryTypes = ClientSqlCommon.convertQueryModifierToQueryType(modifier);
 
             for (SqlQueryType queryType : queryTypes) {
-                boolean added = sqlQueryTypesFromAllowedTypes.add(queryType);
+                boolean added = sqlQueryTypesFromModifiers.add(queryType);
 
                 assertTrue(added, "Duplicate type: " + queryType);
             }
@@ -85,7 +85,7 @@ public class ClientSqlCommonTest {
 
         Set<SqlQueryType> allQueryTypes = Arrays.stream(SqlQueryType.values()).collect(Collectors.toSet());
 
-        allQueryTypes.removeAll(sqlQueryTypesFromAllowedTypes);
+        allQueryTypes.removeAll(sqlQueryTypesFromModifiers);
 
         assertThat(allQueryTypes, is(empty()));
     }
