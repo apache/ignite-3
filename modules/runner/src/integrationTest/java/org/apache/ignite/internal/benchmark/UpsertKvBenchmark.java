@@ -66,7 +66,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"8"})
+    @Param({"1"})
     private int partitionCount;
 
     @Param({"0"})
@@ -75,10 +75,12 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"100"})
     private int fieldLength;
 
-    @Param({"HASH", "SORTED"})
+    //@Param({"HASH", "SORTED"})
+    @Param({"HASH"})
     private String indexType;
 
     @Param({"uniquePrefix", "uniquePostfix"})
+    //@Param({"uniquePrefix", "uniquePostfix"})
     private String fieldValueGeneration;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();

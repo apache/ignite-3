@@ -82,9 +82,7 @@ import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.util.ThreadUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -98,10 +96,10 @@ import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
 import org.apache.ignite.raft.jraft.core.NodeImpl.ILogEntryAndClosure;
 import org.apache.ignite.raft.jraft.core.NodeImpl.LogEntryAndClosure;
-import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl.ReadIndexEvent;
 import org.apache.ignite.raft.jraft.core.SharedEvent;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
+import org.apache.ignite.raft.jraft.disruptor.SharedStripedDisruptor;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -382,7 +380,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
-            StripedDisruptor<SharedEvent> sharedDisruptor = opts.getfSMCallerExecutorDisruptor() == null ? new StripedDisruptor<>(
+            StripedDisruptor<SharedEvent> sharedDisruptor = opts.getfSMCallerExecutorDisruptor() == null ? new SharedStripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
                     (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
@@ -400,7 +398,7 @@ public class JraftServerImpl implements RaftServer {
 
                 opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
                 opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
-                opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+                // opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
                 opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
             }
 
