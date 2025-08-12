@@ -41,7 +41,6 @@ import org.jline.terminal.Terminal;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
 
-
 /**
  * Ignite cli entry point.
  */

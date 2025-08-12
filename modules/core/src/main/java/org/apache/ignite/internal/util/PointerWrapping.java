@@ -175,7 +175,6 @@ abstract class PointerWrapping {
         }
     }
 
-
     /**
      * Creates and tests constructor for Direct ByteBuffer. Test is wrapping one-byte unsafe memory into a buffer.
      *

@@ -914,18 +914,20 @@ public final class IgniteTestUtils {
                 thread.interrupt();
             }
 
-            fail("Race operations took too long.");
+            throw createAssertionError("Race operations took too long.", e, throwables);
         }
 
         if (!throwables.isEmpty()) {
-            AssertionError assertionError = new AssertionError("One or several threads have failed.");
-
-            for (Throwable throwable : throwables) {
-                assertionError.addSuppressed(throwable);
-            }
-
-            throw assertionError;
+            throw createAssertionError("One or several threads have failed.", null, throwables);
         }
+    }
+
+    private static AssertionError createAssertionError(String errorMessage, @Nullable Throwable cause, Collection<Throwable> suppressed) {
+        var error = new AssertionError(errorMessage, cause);
+
+        suppressed.forEach(error::addSuppressed);
+
+        return error;
     }
 
     /**

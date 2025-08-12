@@ -570,7 +570,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         public final double salary;
 
-
         /** Default constructor. */
         public Person() {
             this(0, null, 0);

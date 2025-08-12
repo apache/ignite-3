@@ -31,11 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -240,17 +238,7 @@ public class TestNode implements LifecycleAware {
                 executionService,
                 NoOpTransactionalOperationTracker.INSTANCE,
                 new QueryIdGenerator(nodeName.hashCode()),
-                new EventLog() {
-                    @Override
-                    public void log(Event event) {
-                        // No-op.
-                    }
-
-                    @Override
-                    public void log(String type, Supplier<Event> eventProvider) {
-                        // No-op.
-                    }
-                },
+                EventLog.NOOP,
                 new SqlQueryMetricSource()
         ));
     }
@@ -359,7 +347,6 @@ public class TestNode implements LifecycleAware {
 
         return plans;
     }
-
 
     /** Executes the given script. */
     public void initSchema(String script) {

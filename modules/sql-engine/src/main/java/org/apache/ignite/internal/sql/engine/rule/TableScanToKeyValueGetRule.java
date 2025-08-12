@@ -41,12 +41,14 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.immutables.value.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,10 +75,34 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
     public void onMatch(RelOptRuleCall call) {
         IgniteLogicalTableScan scan = cast(call.rel(0));
 
+        Pair<List<RexNode>, RexNode> expressionsAndPostFilter = analyzeCondition(scan);
+
+        if (expressionsAndPostFilter == null || expressionsAndPostFilter.getFirst() == null) {
+            return;
+        }
+
+        call.transformTo(
+                new IgniteKeyValueGet(
+                        scan.getCluster(),
+                        scan.getTraitSet()
+                                .replace(IgniteConvention.INSTANCE)
+                                .replace(IgniteDistributions.single()),
+                        scan.getTable(),
+                        scan.getHints(),
+                        expressionsAndPostFilter.getFirst(),
+                        scan.fieldNames(), 
+                        scan.projects(),
+                        expressionsAndPostFilter.getSecond(),
+                        scan.requiredColumns()
+                )
+        );
+    }
+
+    static @Nullable Pair<List<RexNode>, @Nullable RexNode> analyzeCondition(ProjectableFilterableTableScan scan) {
         List<SearchBounds> bounds = deriveSearchBounds(scan);
 
         if (nullOrEmpty(bounds)) {
-            return;
+            return null;
         }
 
         List<RexNode> expressions = new ArrayList<>(bounds.size());
@@ -90,7 +116,7 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
             // iteration over a number of search keys are not supported yet,
             // thus we need to make sure only single key was derived
             if (!(bound instanceof ExactBounds)) {
-                return;
+                return null;
             }
 
             condition.remove(bound.condition());
@@ -98,7 +124,7 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
         }
 
         if (nullOrEmpty(expressions)) {
-            return;
+            return null;
         }
 
         RexNode resultingCondition = RexUtil.composeConjunction(rexBuilder, condition);
@@ -106,24 +132,10 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
             resultingCondition = null;
         }
 
-        call.transformTo(
-                new IgniteKeyValueGet(
-                        cluster,
-                        scan.getTraitSet()
-                                .replace(IgniteConvention.INSTANCE)
-                                .replace(IgniteDistributions.single()),
-                        scan.getTable(),
-                        scan.getHints(),
-                        expressions,
-                        scan.fieldNames(), 
-                        scan.projects(),
-                        resultingCondition,
-                        scan.requiredColumns()
-                )
-        );
+        return new Pair<>(expressions, resultingCondition);
     }
 
-    private static @Nullable List<SearchBounds> deriveSearchBounds(IgniteLogicalTableScan scan) {
+    private static @Nullable List<SearchBounds> deriveSearchBounds(ProjectableFilterableTableScan scan) {
         RexNode condition = scan.condition();
 
         if (condition == null) {

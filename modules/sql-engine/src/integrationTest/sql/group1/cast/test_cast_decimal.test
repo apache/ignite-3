@@ -115,7 +115,7 @@ SELECT CAST(x'00'::VARBINARY AS DECIMAL);
 for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 query T
-SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL);
+SELECT CAST(INTERVAL '11' ${interval_type} AS DECIMAL);
 ----
 11
 
@@ -126,7 +126,7 @@ endfor
 for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 query T
-SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL(5,2));
+SELECT CAST(INTERVAL '11' ${interval_type} AS DECIMAL(5,2));
 ----
 11
 
@@ -165,7 +165,7 @@ SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS DECIMAL(5));
 for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL(1));
+SELECT CAST(INTERVAL '11' ${interval_type} AS DECIMAL(1));
 
 endfor
 

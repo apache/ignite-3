@@ -56,11 +56,14 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     /** Enumeration of supported modification operations. */
     public enum Operation {
-        PUT(TableModify.Operation.INSERT);
+        INSERT(SqlKind.INSERT, TableModify.Operation.INSERT),
+        DELETE(SqlKind.DELETE, TableModify.Operation.DELETE);
 
+        private final SqlKind kind;
         private final TableModify.Operation op;
 
-        Operation(TableModify.Operation op) {
+        Operation(SqlKind kind, TableModify.Operation op) {
+            this.kind = kind;
             this.op = op;
         }
     }
@@ -93,9 +96,12 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
         this.expressions = expressions;
     }
 
+    public Operation operation() {
+        return operation;
+    }
+
     @Override public RelDataType deriveRowType() {
-        return RelOptUtil.createDmlRowType(
-                SqlKind.INSERT, getCluster().getTypeFactory());
+        return RelOptUtil.createDmlRowType(operation.kind, getCluster().getTypeFactory());
     }
 
     /** {@inheritDoc} */
@@ -154,9 +160,16 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     @Override
     public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (operation == Operation.DELETE) {
+            writer.addKeyExpression(expressions);
+        } else {
+            assert operation == Operation.INSERT : operation;
+
+            writer.addSourceExpressions(expressions);
+        }
+
         return writer
                 .addTable(table)
-                .addSourceExpressions(expressions)
                 .addModifyOperationType(operation.op);
     }
 }

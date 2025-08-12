@@ -252,7 +252,8 @@ public abstract class BinaryTupleComparatorBaseTest {
     @Test
     public void testCompareWithPrefix() {
         var comparator = newComparator(
-                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                // Second collation is not used in test.
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.ASC_NULLS_FIRST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
@@ -291,7 +292,8 @@ public abstract class BinaryTupleComparatorBaseTest {
     @Test
     public void testCompareWithPrefixWithNulls() {
         var comparator = newComparator(
-                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                // Second collation is not used in test.
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.ASC_NULLS_FIRST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 

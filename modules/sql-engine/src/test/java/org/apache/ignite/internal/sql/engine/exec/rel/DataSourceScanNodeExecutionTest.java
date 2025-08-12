@@ -258,7 +258,6 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         assertEquals(sourceSize, count);
     }
 
-
     @SuppressWarnings("DataFlowIssue")
     private static List<RowWrapper> initScanAndGetResults(
             ExecutionContext<RowWrapper> context,

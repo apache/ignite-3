@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.Commons.SYSTEM_USER_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -247,6 +249,14 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
                 Arguments.of(new ParseNum("DOUBLE", Double::parseDouble), matchDouble, matchDouble),
                 Arguments.of(new ParseNum("DECIMAL(5, 3)", BigDecimal::new), matchDecimal1, matchDecimal2)
         );
+    }
+
+    @Test
+    public void testCurrentUser() {
+        assertQuery("SELECT CURRENT_USER")
+                .returns(SYSTEM_USER_NAME)
+                .columnMetadata(new MetadataMatcher().type(ColumnType.STRING))
+                .check();
     }
 
     /** Numeric type parser. */

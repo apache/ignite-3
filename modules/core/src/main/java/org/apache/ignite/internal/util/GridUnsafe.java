@@ -118,7 +118,6 @@ public abstract class GridUnsafe {
         return PointerWrapping.wrapPointer(ptr, len);
     }
 
-
     /**
      * Returns allocated direct buffer.
      *

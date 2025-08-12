@@ -65,7 +65,6 @@ public abstract class IgniteAbstractSqlAlterZone extends SqlDdl {
      */
     protected abstract void unparseAlterZoneOperation(SqlWriter writer, int leftPrec, int rightPrec);
 
-
     /** Returns whether IF EXISTS was specified or not. **/
     public boolean ifExists() {
         IgniteDdlOperator operator = (IgniteDdlOperator) getOperator();

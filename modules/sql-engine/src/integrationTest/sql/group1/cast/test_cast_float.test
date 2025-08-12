@@ -80,7 +80,7 @@ SELECT CAST(x'00'::VARBINARY AS FLOAT);
 for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 ${interval_type} AS FLOAT);
+SELECT CAST(INTERVAL '11' ${interval_type} AS FLOAT);
 
 endfor
 
