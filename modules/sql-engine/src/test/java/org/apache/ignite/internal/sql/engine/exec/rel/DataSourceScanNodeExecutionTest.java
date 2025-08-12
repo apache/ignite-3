@@ -30,6 +30,7 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -299,34 +300,37 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         public Publisher<InternalTuple> scan() {
             Iterator<InternalTuple> it = iterable.iterator();
 
-            return subscriber -> {
-                Subscription subscription = new Subscription() {
-                    @Override
-                    public void request(long n) {
-                        if (n <= 0) {
-                            subscriber.onError(new IllegalArgumentException());
+            return new Publisher<>() {
+                @Override
+                public void subscribe(Subscriber<? super InternalTuple> subscriber) {
+                    Subscription subscription = new Subscription() {
+                        @Override
+                        public void request(long n) {
+                            if (n <= 0) {
+                                subscriber.onError(new IllegalArgumentException());
 
-                            return;
+                                return;
+                            }
+
+                            while (n > 0 && it.hasNext()) {
+                                subscriber.onNext(it.next());
+
+                                n--;
+                            }
+
+                            if (n > 0) {
+                                subscriber.onComplete();
+                            }
                         }
 
-                        while (n > 0 && it.hasNext()) {
-                            subscriber.onNext(it.next());
-
-                            n--;
+                        @Override
+                        public void cancel() {
+                            // NO-OP
                         }
+                    };
 
-                        if (n > 0) {
-                            subscriber.onComplete();
-                        }
-                    }
-
-                    @Override
-                    public void cancel() {
-                        // NO-OP
-                    }
-                };
-
-                subscriber.onSubscribe(subscription);
+                    subscriber.onSubscribe(subscription);
+                }
             };
         }
     }
