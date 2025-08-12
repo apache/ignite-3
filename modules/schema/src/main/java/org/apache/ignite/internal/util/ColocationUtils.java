@@ -138,10 +138,12 @@ public class ColocationUtils {
             case DATE:
                 return HashCalculator.hashValue(v, 0, 0);
             case DECIMAL:
+                assert type instanceof DecimalNativeType;
                 return HashCalculator.hashValue(v, ((DecimalNativeType) type).scale(), 0);
             case TIME:
             case DATETIME:
             case TIMESTAMP:
+                assert type instanceof TemporalNativeType;
                 return HashCalculator.hashValue(v, 0, ((TemporalNativeType) type).precision());
 
             default:

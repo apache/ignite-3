@@ -142,8 +142,8 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
 
                 // KV DELETE
                 Arguments.of("DELETE FROM t WHERE c1=?", metaTrackingRequired(0)),
-                Arguments.of("DELETE FROM t WHERE c1=1", null),
-                Arguments.of("DELETE FROM t WHERE c1=1+1", null)
+                Arguments.of("DELETE FROM t WHERE c1=1", metaTrackingRequired(new int[]{-1}, new int[]{1})),
+                Arguments.of("DELETE FROM t WHERE c1=1+1", metaTrackingRequired(new int[]{-1}, new int[]{2}))
         );
     }
 
@@ -210,7 +210,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c3=? and c2=1", meta(0)),
 
                 Arguments.of("SELECT * FROM t WHERE c3=3", null),
-                Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", null)
+                Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", meta(new int[]{-1}, new int[]{3}))
         );
     }
 
@@ -259,10 +259,10 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("DELETE FROM t WHERE c3=? and c1=? and c2=?", metaTrackingRequired(0, 1, 2)),
                 Arguments.of("DELETE FROM t WHERE c3=? and c2=? and c1=?", metaTrackingRequired(0, 2, 1)),
 
-                Arguments.of("DELETE FROM t WHERE c1=1 and c2=? and c3=?", null),
-                Arguments.of("DELETE FROM t WHERE c1=? and c2=2 and c3=?", null),
-                Arguments.of("DELETE FROM t WHERE c1=? and c2=? and c3=3", null),
-                Arguments.of("DELETE FROM t WHERE c1=1 and c2=2 and c3=3", null)
+                Arguments.of("DELETE FROM t WHERE c1=1 and c2=? and c3=?", metaTrackingRequired(new int[]{1, -1, 0}, new int[]{1})),
+                Arguments.of("DELETE FROM t WHERE c1=? and c2=2 and c3=?", metaTrackingRequired(new int[]{1, 0, -1}, new int[]{2})),
+                Arguments.of("DELETE FROM t WHERE c1=? and c2=? and c3=3", metaTrackingRequired(new int[]{-1, 0, 1}, new int[]{3})),
+                Arguments.of("DELETE FROM t WHERE c1=1 and c2=2 and c3=3", metaTrackingRequired(new int[]{-1, -2, -3}, new int[]{3, 1, 2}))
         );
     }
 
