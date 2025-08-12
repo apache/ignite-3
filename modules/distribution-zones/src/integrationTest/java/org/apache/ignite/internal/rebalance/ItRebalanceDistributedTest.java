@@ -1421,7 +1421,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
-
             clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
             ClockService clockService = new ClockServiceImpl(
