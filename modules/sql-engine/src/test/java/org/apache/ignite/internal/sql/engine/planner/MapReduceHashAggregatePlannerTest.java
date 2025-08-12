@@ -833,7 +833,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-
     private void checkCountDistinctHash(TestCase testCase) throws Exception {
         Predicate<IgniteReduceHashAggregate> inputAgg = isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(hasGroupSets(IgniteReduceHashAggregate::getGroupSets, 0))

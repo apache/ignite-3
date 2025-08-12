@@ -1415,7 +1415,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         zonePartitionReplicaListener.removeTableReplicaProcessor(TABLE_ID);
     }
 
-
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
@@ -1785,7 +1784,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> writeAfterCleanupFuture = zonePartitionReplicaListener.invoke(updatingRequestSupplier.get(), localNode.id());
         assertThat(writeAfterCleanupFuture, willThrowFast(TransactionException.class));
     }
-
 
     private void checkRowInMvStorage(BinaryRow binaryRow, boolean shouldBePresent) {
         Cursor<RowId> cursor = pkStorage().get(binaryRow);

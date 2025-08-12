@@ -330,7 +330,6 @@ public class ClusterInitializer {
                 .collect(Collectors.toList());
     }
 
-
     private String patchClusterConfigurationWithDynamicDefaults(@Nullable String hocon) {
         return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);
     }

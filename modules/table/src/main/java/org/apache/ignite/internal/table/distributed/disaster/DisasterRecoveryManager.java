@@ -1070,7 +1070,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptors;
     }
 
-
     /**
      * Short version of {@link DisasterRecoveryManager#processNewRequest(DisasterRecoveryRequest, long)} without revision.
      *

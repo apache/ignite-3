@@ -895,17 +895,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
-        TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
-        IgniteException cause = getExceptionInTaskExecutionAsync(client().compute().submitMapReduce(taskDescriptor, null));
+        // Task execution doesn't use preferred node name and will use round-robin leading to random node selection
+        try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
+            TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
+            IgniteException cause = getExceptionInTaskExecutionAsync(client.compute().submitMapReduce(taskDescriptor, null));
 
-        assertThat(cause.getMessage(), containsString("Custom job error"));
-        assertEquals(TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
-        assertInstanceOf(CustomException.class, cause);
-        assertNotNull(cause.getCause());
-        String hint = cause.getCause().getMessage();
+            assertThat(cause.getMessage(), containsString("Custom job error"));
+            assertEquals(TRACE_ID, cause.traceId());
+            assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
+            assertInstanceOf(CustomException.class, cause);
+            assertNotNull(cause.getCause());
+            String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        }
     }
 
     @Test

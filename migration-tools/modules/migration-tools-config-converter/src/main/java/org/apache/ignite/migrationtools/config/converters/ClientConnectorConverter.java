@@ -37,7 +37,6 @@ public class ClientConnectorConverter implements ConfigurationConverter {
             return;
         }
 
-
         var target = registry.getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
 
         target.port().update(clientConnCfg.getPort()).get();

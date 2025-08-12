@@ -43,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,7 +62,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     @Nullable
     private final PartitionPruningMetadata partitionPruningMetadata;
 
-    private volatile InsertExecution<?> operation;
+    private volatile Performable<?> operation;
 
     KeyValueModifyPlan(
             PlanId id,
@@ -138,8 +140,8 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    private <RowT> InsertExecution<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
-        InsertExecution<RowT> operation = cast(this.operation);
+    private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
+        Performable<RowT> operation = cast(this.operation);
 
         if (operation != null) {
             return operation;
@@ -155,7 +157,16 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
         UpdatableTable table = execTable.updatableTable();
 
-        operation = new InsertExecution<>(table, rowSupplier);
+        switch (modifyNode.operation()) {
+            case INSERT:
+                operation = new InsertExecution<>(table, rowSupplier);
+                break;
+            case DELETE:
+                operation = new DeleteExecution<>(table, rowSupplier);
+                break;
+            default:
+                throw new IgniteException(Common.INTERNAL_ERR, "Unsupported operation " + modifyNode.operation());
+        }
 
         this.operation = operation;
 
@@ -168,7 +179,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             InternalTransaction tx,
             ExecutableTableRegistry tableRegistry
     ) {
-        InsertExecution<RowT> operation = operation(ctx, tableRegistry);
+        Performable<RowT> operation = operation(ctx, tableRegistry);
 
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
@@ -180,7 +191,11 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return modifyNode;
     }
 
-    private static class InsertExecution<RowT> {
+    private abstract static class Performable<RowT> {
+        abstract CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, @Nullable InternalTransaction tx);
+    }
+
+    private static class InsertExecution<RowT> extends Performable<RowT> {
         private final UpdatableTable table;
         private final SqlRowProvider<RowT> rowSupplier;
 
@@ -192,9 +207,29 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             this.rowSupplier = rowSupplier;
         }
 
+        @Override
         CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, InternalTransaction tx) {
             return table.insert(tx, ctx, rowSupplier.get(ctx))
                     .thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
+        }
+    }
+
+    private static class DeleteExecution<RowT> extends Performable<RowT> {
+        private final UpdatableTable table;
+        private final SqlRowProvider<RowT> rowSupplier;
+
+        private DeleteExecution(
+                UpdatableTable table,
+                SqlRowProvider<RowT> rowSupplier
+        ) {
+            this.table = table;
+            this.rowSupplier = rowSupplier;
+        }
+
+        @Override
+        CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, InternalTransaction tx) {
+            return table.delete(tx, ctx, rowSupplier.get(ctx))
+                    .thenApply(deleted -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(deleted ? 1L : 0L)).iterator());
         }
     }
 

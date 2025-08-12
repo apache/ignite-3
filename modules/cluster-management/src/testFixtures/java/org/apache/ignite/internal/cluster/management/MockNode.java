@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;

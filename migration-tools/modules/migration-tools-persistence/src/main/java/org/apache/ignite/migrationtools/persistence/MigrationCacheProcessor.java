@@ -162,7 +162,6 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
         return registerNewCache(discoData, ctx.localNodeId(), cacheJoinInfo);
     }
 
-
     @Override
     public DynamicCacheDescriptor cacheDescriptor(String name) {
         // TODO: Check if this should be made thread-safe

@@ -51,7 +51,6 @@ public class ConfigAnnotationValue {
         return new ConfigAnnotationValue(className, value);
     }
 
-
     /**
      * Creates a value for an array property.
      *

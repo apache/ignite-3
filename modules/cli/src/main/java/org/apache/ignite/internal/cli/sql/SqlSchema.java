@@ -32,7 +32,6 @@ public class SqlSchema {
         this.schema = schema;
     }
 
-
     public Set<String> schemas() {
         return Collections.unmodifiableSet(schema.keySet());
     }

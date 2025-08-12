@@ -68,7 +68,6 @@ public class DynamicCompleterActivationPoint {
     @Inject
     private MetricSourceDynamicCompleterFactory metricSourceDynamicCompleterFactory;
 
-
     /**
      * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
      */

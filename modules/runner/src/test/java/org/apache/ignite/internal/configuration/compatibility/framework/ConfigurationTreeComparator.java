@@ -217,7 +217,6 @@ public class ConfigurationTreeComparator {
         }
     }
 
-
     private static void compareRoots(List<ConfigNode> candidateRoots, List<ConfigNode> currentRoots, ComparisonContext context) {
         List<ConfigNode> removed = new ArrayList<>();
         List<ConfigNode> added = new ArrayList<>();

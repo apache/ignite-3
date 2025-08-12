@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.netty;
+package org.apache.ignite.internal.replicator.exception;
 
-import io.netty.channel.EventLoop;
-import java.util.List;
+import java.util.UUID;
 
 /**
- * Allows to obtain a list of all event loops with which {@link io.netty.channel.Channel}s might be registered.
+ * This exception is thrown when replica service is not able to wait for replica on the local node to handle a request.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ChannelEventLoopsSource {
+public class AwaitReplicaTimeoutException extends ReplicationTimeoutException {
+    private static final long serialVersionUID = -2089762711985049755L;
+
     /**
-     * Returns list of all event loops with which {@link io.netty.channel.Channel}s might be registered.
-     * This must always return the same event loops in the same order.
+     * The constructor is used for creating an exception instance that is thrown from a server processing the replica request.
+     *
+     * @param traceId Trace id.
+     * @param code    Error code.
+     * @param message Error message.
+     * @param cause   Cause exception.
      */
-    List<EventLoop> channelEventLoops();
+    public AwaitReplicaTimeoutException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
+    }
 }

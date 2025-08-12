@@ -46,7 +46,6 @@ public class SingleCallExecutionPipeline<I extends CallInput, T> extends Abstrac
         this.call = call;
     }
 
-
     @Override
     public int runPipelineInternal() {
         I callInput = inputProvider.get();

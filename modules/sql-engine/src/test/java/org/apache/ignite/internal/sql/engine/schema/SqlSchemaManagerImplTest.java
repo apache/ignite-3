@@ -859,7 +859,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-
     private static IgniteSystemView getSystemView(IgniteSchema schema, String name) {
         Table systemViewTable = schema.getTable(name);
         assertNotNull(systemViewTable);
