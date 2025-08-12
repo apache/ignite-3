@@ -23,8 +23,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -95,5 +98,29 @@ public class ItNodeBootstrapConfigurationTest {
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
                 "Validation did not pass for keys: [ignite.rest.ssl.enabled, Duplicated key]");
+    }
+
+    @Test
+    public void configurationFileNotModifiedAfterStart(TestInfo testInfo) throws IOException {
+        String config = "ignite {\n"
+                + "  rest: {\n"
+                + "    port: 10300\n"
+                + "    ssl: {\n"
+                + "      enabled: false\n"
+                + "    }\n"
+                + "  }\n"
+                + "  network: {\n"
+                + "    port: 3344\n"
+                + "    nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
+                + "  }\n"
+                + "}";
+
+        TestIgnitionManager.startWithProductionDefaults(testNodeName(testInfo, 0), config, workDir);
+
+        Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
+
+        String storedConfig = Files.readString(configFile);
+
+        assertEquals(config, storedConfig);
     }
 }

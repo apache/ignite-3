@@ -145,26 +145,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
     }
 
-    /**
-     * Patch the local configs with defaults from provided {@link ConfigurationModule}.
-     *
-     * @param hocon Config string in Hocon format.
-     * @param module Configuration module, which provides configuration patches.
-     * @return Patched config string in Hocon format.
-     */
-    private String patch(String hocon, ConfigurationModule module) {
-        if (module == null) {
-            return hocon;
-        }
-
-        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
-                module,
-                generator
-        );
-
-        return localCfgDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon);
-    }
-
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
         lock.writeLock().lock();
@@ -204,7 +184,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
-            return ConfigFactory.parseString(patch(confString, module), parseOptions);
+            return ConfigFactory.parseString(confString, parseOptions);
         } catch (Parse | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
