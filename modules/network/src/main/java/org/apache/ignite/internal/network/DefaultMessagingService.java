@@ -359,8 +359,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck)
-                .thenCompose(unused -> responseFuture);
+        sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck).exceptionally(throwable -> {
+            requestsMap.remove(correlationId);
+
+            responseFuture.completeExceptionally(throwable);
+
+            return null;
+        });
+
+        return responseFuture;
     }
 
     /**
