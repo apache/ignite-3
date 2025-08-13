@@ -226,8 +226,7 @@ public class CheckpointPagesWriter implements Runnable {
             ByteBuffer tmpWriteBuf,
             PageStoreWriter pageStoreWriter,
             FullPageId pageId
-    )
-            throws IgniteInternalCheckedException {
+    ) throws IgniteInternalCheckedException {
         updateHeartbeat.run();
 
         if (pageId.pageIdx() == 0) {
@@ -235,11 +234,7 @@ public class CheckpointPagesWriter implements Runnable {
             return;
         }
 
-                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
-            }
-        } finally {
-            checkpointProgress.unblockPartitionDestruction(partitionId);
-        }
+        writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
     }
 
     private void writeDirtyPage(

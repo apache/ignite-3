@@ -121,7 +121,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertThat(read(rowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow));
     }
-remo
+
     private void restartStorage() throws Exception {
         assertThat(
                 engine.checkpointManager().forceCheckpoint("before_stop_engine").futureFor(FINISHED),
