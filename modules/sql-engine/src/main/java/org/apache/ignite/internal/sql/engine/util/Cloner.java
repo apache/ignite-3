@@ -54,7 +54,6 @@ public class Cloner {
         return rel.clone(cluster, Commons.transform(rel.getInputs(), rel0 -> visit((IgniteRel) rel0)));
     }
 
-
     /**
      * Clones and assigns source ids to all source relations.
      *
