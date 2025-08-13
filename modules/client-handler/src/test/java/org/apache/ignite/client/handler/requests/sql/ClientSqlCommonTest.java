@@ -41,7 +41,7 @@ public class ClientSqlCommonTest {
     @ParameterizedTest
     @EnumSource(QueryModifier.class)
     void testConvertQueryModifierToQueryType(QueryModifier type) {
-        Set<SqlQueryType> sqlQueryTypes = ClientSqlCommon.convertQueryModifierToQueryType(type);
+        Set<SqlQueryType> sqlQueryTypes = ClientSqlCommon.convertQueryModifierToQueryType(Set.of(type));
 
         assertFalse(sqlQueryTypes.isEmpty());
 
@@ -74,7 +74,7 @@ public class ClientSqlCommonTest {
         Set<SqlQueryType> sqlQueryTypesFromModifiers = EnumSet.noneOf(SqlQueryType.class);
 
         for (QueryModifier modifier : QueryModifier.values()) {
-            Set<SqlQueryType> queryTypes = ClientSqlCommon.convertQueryModifierToQueryType(modifier);
+            Set<SqlQueryType> queryTypes = ClientSqlCommon.convertQueryModifierToQueryType(Set.of(modifier));
 
             for (SqlQueryType queryType : queryTypes) {
                 boolean added = sqlQueryTypesFromModifiers.add(queryType);

@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.ZoneId;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,7 +44,6 @@ import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -296,7 +293,7 @@ public class ClientSql implements IgniteSql {
                 transaction,
                 mapper,
                 cancellationToken,
-                null,
+                QueryModifier.SINGLE_STMT_MODIFIERS,
                 statement,
                 arguments
         );
@@ -320,7 +317,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
             @Nullable CancellationToken cancellationToken,
-            @Nullable Set<QueryModifier> queryModifiers,
+            Set<QueryModifier> queryModifiers,
             Statement statement,
             @Nullable Object... arguments
     ) {
@@ -357,7 +354,7 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, queryModifiers, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -418,8 +415,8 @@ public class ClientSql implements IgniteSql {
             WriteContext ctx,
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
+            Set<QueryModifier> queryModifiers,
             Statement statement,
-            @Nullable Collection<QueryModifier> queryModifiers,
             @Nullable Object[] arguments,
             boolean requestAck
     ) {
@@ -439,6 +436,10 @@ public class ClientSql implements IgniteSql {
 
             packProperties(w, null);
 
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
+                w.out().packByte(QueryModifier.pack(queryModifiers));
+            }
+
             w.out().packString(statement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
@@ -448,10 +449,6 @@ public class ClientSql implements IgniteSql {
             if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
                 // Let's always request PA metadata from server, if enabled. Later we might introduce some throttling.
                 w.out().packBoolean(partitionAwarenessEnabled);
-            }
-
-            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
-                packQueryModifiers(queryModifiers, w.out());
             }
 
             if (cancellationToken != null) {
@@ -612,20 +609,6 @@ public class ClientSql implements IgniteSql {
         }
 
         throw ExceptionUtils.sneakyThrow(ex);
-    }
-
-    private static void packQueryModifiers(@Nullable Collection<QueryModifier> queryModifiers, ClientMessagePacker packer) {
-        if (queryModifiers == null || queryModifiers.isEmpty()) {
-            packer.packNil();
-        } else {
-            BitSet bitSet = new BitSet(queryModifiers.size());
-
-            for (QueryModifier type : queryModifiers) {
-                bitSet.set(type.id());
-            }
-
-            packer.packBitSet(bitSet);
-        }
     }
 
     private static class PaCacheKey {

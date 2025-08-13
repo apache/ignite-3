@@ -36,7 +36,11 @@ public enum QueryModifier {
     /** Queries with transaction control statements. */
     ALLOW_TX_CONTROL(3);
 
+    /** A set containing all modifiers. **/
     public static final Set<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
+
+    /** A set of modifiers that can apply to single statements. **/
+    public static final Set<QueryModifier> SINGLE_STMT_MODIFIERS = EnumSet.complementOf(EnumSet.of(ALLOW_TX_CONTROL));
 
     private static final QueryModifier[] VALS = new QueryModifier[values().length];
 
@@ -44,7 +48,7 @@ public enum QueryModifier {
         for (QueryModifier type : values()) {
             assert VALS[type.id] == null : "Found duplicate id " + type.id;
 
-            VALS[type.id()] = type;
+            VALS[type.id] = type;
         }
     }
 
@@ -54,16 +58,33 @@ public enum QueryModifier {
         this.id = id;
     }
 
-    public int id() {
-        return id;
-    }
+    /** Packs a set of modifiers. */
+    public static byte pack(Set<QueryModifier> modifiers) {
+        assert VALS.length < 8 : "Packing more than 7 values is not supported";
 
-    /** Returns query modifier by ID. */
-    public static QueryModifier fromId(int id) {
-        if (id >= 0 && id < VALS.length) {
-            return VALS[id];
+        int result = 0;
+
+        for (QueryModifier modifier : modifiers) {
+            result = result | 1 << modifier.id;
         }
 
-        throw new IllegalArgumentException("Unexpected query modifier ID: " + id);
+        return (byte) result;
+    }
+
+    /** Unpacks a set of modifiers. */
+    public static Set<QueryModifier> unpack(byte data) {
+        assert VALS.length < 8 : "Unpacking more than 7 values is not supported";
+
+        Set<QueryModifier> modifiers = EnumSet.noneOf(QueryModifier.class);
+
+        for (QueryModifier modifier : VALS) {
+            int target = 1 << modifier.id;
+
+            if ((target & data) == target) {
+                modifiers.add(modifier);
+            }
+        }
+
+        return modifiers;
     }
 }

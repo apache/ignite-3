@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import java.util.BitSet;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -203,35 +202,32 @@ class ClientSqlCommon {
         }
     }
 
-    static Set<SqlQueryType> unpackQueryModifiersToQueryTypes(ClientMessageUnpacker unpacker) {
-        BitSet bitSet = unpacker.unpackBitSet();
-        Set<SqlQueryType> result = EnumSet.noneOf(SqlQueryType.class);
+    static Set<SqlQueryType> convertQueryModifierToQueryType(Collection<QueryModifier> queryModifiers) {
+        EnumSet<SqlQueryType> queryTypes = EnumSet.noneOf(SqlQueryType.class);
 
-        for (int idx = bitSet.nextSetBit(0); idx >= 0; idx = bitSet.nextSetBit(idx + 1)) {
-            QueryModifier type = QueryModifier.fromId(idx);
+        for (QueryModifier queryModifier : queryModifiers) {
+            switch (queryModifier) {
+                case ALLOW_ROW_SET_RESULT:
+                    queryTypes.addAll(SqlQueryType.HAS_ROW_SET_TYPES);
+                    break;
 
-            result.addAll(convertQueryModifierToQueryType(type));
+                case ALLOW_AFFECTED_ROWS_RESULT:
+                    queryTypes.addAll(SqlQueryType.RETURNS_AFFECTED_ROWS_TYPES);
+                    break;
+
+                case ALLOW_APPLIED_RESULT:
+                    queryTypes.addAll(SqlQueryType.SUPPORT_WAS_APPLIED_TYPES);
+                    break;
+
+                case ALLOW_TX_CONTROL:
+                    queryTypes.add(SqlQueryType.TX_CONTROL);
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected modifier " + queryModifier);
+            }
         }
 
-        return result;
-    }
-
-    static Set<SqlQueryType> convertQueryModifierToQueryType(QueryModifier queryModifier) {
-        switch (queryModifier) {
-            case ALLOW_ROW_SET_RESULT:
-                return SqlQueryType.HAS_ROW_SET_TYPES;
-
-            case ALLOW_AFFECTED_ROWS_RESULT:
-                return SqlQueryType.RETURNS_AFFECTED_ROWS_TYPES;
-
-            case ALLOW_APPLIED_RESULT:
-                return SqlQueryType.SUPPORT_WAS_APPLIED_TYPES;
-
-            case ALLOW_TX_CONTROL:
-                return EnumSet.of(SqlQueryType.TX_CONTROL);
-
-            default:
-                throw new IllegalArgumentException("Unexpected modifier " + queryModifier);
-        }
+        return queryTypes;
     }
 }
