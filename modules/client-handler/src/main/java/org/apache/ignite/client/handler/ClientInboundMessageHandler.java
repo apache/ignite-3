@@ -1093,8 +1093,12 @@ public class ClientInboundMessageHandler
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        boolean logWarn = true;
+
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
+
+            logWarn = false;
         }
 
         if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
@@ -1103,10 +1107,17 @@ public class ClientInboundMessageHandler
             if (err.code() == HANDSHAKE_HEADER_ERR) {
                 metrics.sessionsRejectedIncrement();
             }
+
+            logWarn = false;
         }
 
-        LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
-                + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+        if (logWarn) {
+            LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+        } else if (LOG.isDebugEnabled()) {
+            LOG.debug("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+        }
 
         ctx.close();
     }
