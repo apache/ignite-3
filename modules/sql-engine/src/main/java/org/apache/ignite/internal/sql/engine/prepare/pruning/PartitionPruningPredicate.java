@@ -24,7 +24,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -53,8 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Partition predicate encapsulates partition pruning logic.
  */
 public final class PartitionPruningPredicate {
-
-    private static final ZoneId ZONE_ID_UTC = ZoneId.of("UTC");
 
     private PartitionPruningPredicate() {
     }
