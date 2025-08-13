@@ -970,6 +970,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term));
             } else {
                 topologyReconfigurationFuture =
+                        // At the moment topology reconfiguration will stop if the previous one fails (see how thenCompose works).
+                        // This is going to change in the future when cmg/mg majority loss is handled properly.
                         topologyReconfigurationFuture.thenCompose(v ->
                                 serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term))
                         );
@@ -984,6 +986,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             }
 
             return service.updateLearners(term);
+        }).whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                LOG.error("Failed to reset learners", throwable);
+            }
         });
     }
 
@@ -1204,6 +1210,23 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         try {
             return raftServiceAfterJoin()
                     .thenCompose(CmgRaftService::majority);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that, when complete, resolves into a list of learner node names in the CMG.
+     */
+    @TestOnly
+    public CompletableFuture<Set<String>> learnerNodes() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(CmgRaftService::learners);
         } finally {
             busyLock.leaveBusy();
         }
