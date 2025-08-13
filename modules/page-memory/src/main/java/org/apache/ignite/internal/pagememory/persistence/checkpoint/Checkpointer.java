@@ -854,7 +854,10 @@ public class Checkpointer extends IgniteWorker {
         try {
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
-            assert deltaFilePageStoreFuture != null;
+            // This can happen when the store is destroyed in parallel.
+            if (deltaFilePageStoreFuture == null) {
+                return;
+            }
 
             deltaFilePageStoreFuture.join().sync();
         } finally {
@@ -873,7 +876,10 @@ public class Checkpointer extends IgniteWorker {
         try {
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
-            assert deltaFilePageStoreFuture != null;
+            // This can happen when the store is destroyed in parallel.
+            if (deltaFilePageStoreFuture == null) {
+                return;
+            }
 
             DeltaFilePageStoreIo deltaFilePageStoreIo = deltaFilePageStoreFuture.join();
 
