@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * Implementation of the {@link EventLog} interface.
  */
-public class EventLogImpl implements EventLog {
+public class EventLogImpl implements EventLog, IgniteComponent {
     private final ChannelRegistry channelRegistry;
 
     /**
@@ -77,5 +82,17 @@ public class EventLogImpl implements EventLog {
         }
 
         channels.forEach(c -> c.log(event));
+    }
+
+    @Override
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        channelRegistry.start();
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        channelRegistry.stop();
+        return nullCompletedFuture();
     }
 }

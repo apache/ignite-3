@@ -273,7 +273,6 @@ public final class IgniteSqlParser {
             }
         };
 
-
         // We store the number of dynamic parameters in a thread local since
         // it is not possible to access an instance of IgniteSqlParser created by a parser factory.
         static final ThreadLocal<Integer> dynamicParamCount = new ThreadLocal<>();

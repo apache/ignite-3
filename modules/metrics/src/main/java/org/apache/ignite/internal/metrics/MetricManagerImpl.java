@@ -57,7 +57,6 @@ import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.VisibleForTesting;
 
-
 /**
  * Metric manager.
  */

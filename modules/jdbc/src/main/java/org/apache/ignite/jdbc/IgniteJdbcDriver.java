@@ -239,7 +239,7 @@ public class IgniteJdbcDriver implements Driver {
         try {
             Driver registeredDriver = new IgniteJdbcDriver();
             DriverManager.registerDriver(registeredDriver);
-            IgniteJdbcDriver.instance = registeredDriver;
+            instance = registeredDriver;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to register Ignite JDBC driver.", e);
         }

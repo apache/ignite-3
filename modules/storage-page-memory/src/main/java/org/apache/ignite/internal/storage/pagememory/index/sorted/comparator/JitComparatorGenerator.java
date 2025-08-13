@@ -19,15 +19,23 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted.comparator;
 
 import static com.facebook.presto.bytecode.control.SwitchStatement.switchBuilder;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseAnd;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseOr;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
+import static com.facebook.presto.bytecode.instruction.VariableInstruction.loadVariable;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.VARSIZE_MASK;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleParser.shortValue;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -44,7 +52,6 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.bytecode.instruction.VariableInstruction.LoadVariableInstruction;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -165,22 +172,21 @@ public class JitComparatorGenerator {
     /**
      * Creates an instance of {@link JitComparator} using bytecode generation. All 3 lists in parameters must have the same size.
      *
-     * @param columnCollations List of column collations.
-     * @param columnTypes List of column types.
-     * @param nullableFlags List of nullability flags for each column.
+     * @param options Options for comparator generation.
      */
-    public static JitComparator createComparator(
-            List<CatalogColumnCollation> columnCollations,
-            List<NativeType> columnTypes,
-            List<Boolean> nullableFlags
-    ) {
-        int maxEntrySizeLog = maxEntrySizeLog(columnTypes);
+    public static JitComparator createComparator(JitComparatorOptions options) {
+        int maxEntrySizeLog = maxEntrySizeLog(options.columnTypes());
 
         // Name "org/apache/ignite/internal/storage/pagememory/index/sorted/comparator/JitComparatorImpl$$<idx>" is used for generated
-        // classes.
+        // classes by default.
+        String optionalClassName = options.className();
+        String className = optionalClassName != null
+                ? optionalClassName
+                : JitComparator.class.getName() + "Impl$$" + CLASS_NAME_COUNTER.getAndIncrement();
+
         ClassDefinition classDefinition = new ClassDefinition(
                 EnumSet.of(Access.PUBLIC, Access.FINAL),
-                JitComparator.class.getName().replace('.', '/') + "$$" + CLASS_NAME_COUNTER.getAndIncrement(),
+                className.replace('.', '/'),
                 ParameterizedType.type(Object.class),
                 ParameterizedType.type(JitComparator.class)
         );
@@ -211,18 +217,31 @@ public class JitComparatorGenerator {
         Variable outerEntrySize = scope.declareVariable(int.class, "outerEntrySize");
         Variable innerEntrySize = scope.declareVariable(int.class, "innerEntrySize");
 
+        // Variables for outer header and its "isPrefix" state.
+        // The latter will only be used if "options.supportPrefixes()" is "true".
+        Variable outerHeader = scope.declareVariable(byte.class, "outerHeader");
+        Variable outerIsPrefix = scope.declareVariable(boolean.class, "outerIsPrefix");
+
+        if (options.supportPrefixes() || maxEntrySizeLog != 0) {
+            // We only read outer accessor header if we need its bits.
+            // Otherwise we optimize the code by avoiding this read.
+            body.append(outerHeader.set(outerAccessor.invoke("get", byte.class, constantInt(0))));
+        }
+
+        if (options.supportPrefixes()) {
+            body.append(outerIsPrefix.set(notEqual(bitwiseAnd(outerHeader.cast(int.class), constantInt(PREFIX_FLAG)), constantInt(0))));
+        }
+
         if (maxEntrySizeLog != 0) {
             // If entry size can be larger than 1 byte (and its logarithm larger than 0), then we read it from headers of tuples like this:
             //  int outerEntrySize = outerAccessor.get(0) & BinaryTupleCommon.VARSIZE_MASK;
             // Here "Size" still means logarithmic scale.
-            Variable outerFlag = scope.declareVariable(byte.class, "outerFlag");
-            Variable innerFlag = scope.declareVariable(byte.class, "innerFlag");
+            Variable innerHeader = scope.declareVariable(byte.class, "innerHeader");
 
-            body.append(outerFlag.set(outerAccessor.invoke("get", byte.class, constantInt(0))));
-            body.append(innerFlag.set(innerAccessor.invoke("get", byte.class, constantInt(0))));
+            body.append(innerHeader.set(innerAccessor.invoke("get", byte.class, constantInt(0))));
 
-            body.append(outerEntrySize.set(bitwiseAnd(outerFlag.cast(int.class), constantInt(BinaryTupleCommon.VARSIZE_MASK))));
-            body.append(innerEntrySize.set(bitwiseAnd(innerFlag.cast(int.class), constantInt(BinaryTupleCommon.VARSIZE_MASK))));
+            body.append(outerEntrySize.set(bitwiseAnd(outerHeader.cast(int.class), constantInt(VARSIZE_MASK))));
+            body.append(innerEntrySize.set(bitwiseAnd(innerHeader.cast(int.class), constantInt(VARSIZE_MASK))));
         }
 
         // Here we generate all possible combinations of comparators for all possible entry sizes. These methods will look like this
@@ -231,26 +250,35 @@ public class JitComparatorGenerator {
         MethodDefinition[][] innerCompareMethods = new MethodDefinition[3][3];
         for (int i = 0; i <= maxEntrySizeLog; i++) {
             for (int j = 0; j <= maxEntrySizeLog; j++) {
-                innerCompareMethods[i][j] = innerCompare(classDefinition, columnCollations, columnTypes, nullableFlags, 1 << i, 1 << j);
+                innerCompareMethods[i][j] = innerCompare(classDefinition, options, 1 << i, 1 << j);
             }
         }
 
         // "compare" method implementation will either look like this:
-        //  return innerCompare11(outerAccessor, outerSize, innerAccessor, innerSize);
+        //  return innerCompare11(outerIsPrefix, outerAccessor, outerSize, innerAccessor, innerSize);
         // if "maxEntrySize" is zero, or like the comment in "else" branch.
         if (maxEntrySizeLog == 0) {
-            body.append(invokeStatic(innerCompareMethods[0][0], outerAccessor, outerSize, innerAccessor, innerSize).ret());
+            BytecodeExpression invokeInnerCompare = invokeStatic(
+                    innerCompareMethods[0][0],
+                    options.supportPrefixes() ? outerIsPrefix : constantBoolean(false),
+                    outerAccessor,
+                    outerSize,
+                    innerAccessor,
+                    innerSize
+            );
+
+            body.append(invokeInnerCompare.ret());
         } else {
             // Alternative representation will look like this (entrySize is either 0, 1 or 2):
             //  switch (outerEntrySize) {
             //      case 0:
             //          switch (innerEntrySize) {
             //              case 0:
-            //                  return innerCompare11(outerAccessor, outerSize, innerAccessor, innerSize);
+            //                  return innerCompare11(outerIsPrefix, outerAccessor, outerSize, innerAccessor, innerSize);
             //              case 1:
-            //                  return innerCompare12(outerAccessor, outerSize, innerAccessor, innerSize);
+            //                  return innerCompare12(outerIsPrefix, outerAccessor, outerSize, innerAccessor, innerSize);
             //              case 2:
-            //                  return innerCompare14(outerAccessor, outerSize, innerAccessor, innerSize);
+            //                  return innerCompare14(outerIsPrefix, outerAccessor, outerSize, innerAccessor, innerSize);
             //              default:
             //                  throw new BinaryTupleFormatException(...);
             //          }
@@ -275,9 +303,16 @@ public class JitComparatorGenerator {
                         )).throwObject());
 
                 for (int j = 0; j <= maxEntrySizeLog; j++) {
-                    MethodDefinition innerCompare = innerCompareMethods[i][j];
+                    BytecodeExpression invokeInnerCompare = invokeStatic(
+                            innerCompareMethods[i][j],
+                            options.supportPrefixes() ? outerIsPrefix : constantBoolean(false),
+                            outerAccessor,
+                            outerSize,
+                            innerAccessor,
+                            innerSize
+                    );
 
-                    innerSwitchBuilder.addCase(j, invokeStatic(innerCompare, outerAccessor, outerSize, innerAccessor, innerSize).ret());
+                    innerSwitchBuilder.addCase(j, invokeInnerCompare.ret());
                 }
 
                 outerSwitchBuilder.addCase(i, innerSwitchBuilder.build());
@@ -289,7 +324,7 @@ public class JitComparatorGenerator {
         // Add default constructor that calls "super();".
         MethodDefinition constructor = classDefinition.declareConstructor(EnumSet.of(Access.PUBLIC));
         constructor.getBody()
-                .append(new LoadVariableInstruction(constructor.getThis()))
+                .append(loadVariable(constructor.getThis()))
                 .invokeConstructor(Object.class)
                 .ret();
 
@@ -332,9 +367,7 @@ public class JitComparatorGenerator {
      */
     private static MethodDefinition innerCompare(
             ClassDefinition classDefinition,
-            List<CatalogColumnCollation> columnCollations,
-            List<NativeType> columnTypes,
-            List<Boolean> nullableFlags,
+            JitComparatorOptions options,
             int outerEntrySize,
             int innerEntrySize
     ) {
@@ -342,6 +375,7 @@ public class JitComparatorGenerator {
                 EnumSet.of(Access.PRIVATE, Access.STATIC),
                 "innerCompare" + outerEntrySize + innerEntrySize,
                 ParameterizedType.type(int.class),
+                Parameter.arg("outerIsPrefix", boolean.class),
                 Parameter.arg("outerAccessor", UnsafeByteBufferAccessor.class),
                 Parameter.arg("outerSize", int.class),
                 Parameter.arg("innerAccessor", UnsafeByteBufferAccessor.class),
@@ -351,6 +385,7 @@ public class JitComparatorGenerator {
         BytecodeBlock body = innerCompare.getBody();
         Scope scope = innerCompare.getScope();
 
+        Variable outerIsPrefix = scope.getVariable("outerIsPrefix");
         Variable outerAccessor = scope.getVariable("outerAccessor");
         Variable innerAccessor = scope.getVariable("innerAccessor");
         Variable outerSize = scope.getVariable("outerSize");
@@ -359,9 +394,25 @@ public class JitComparatorGenerator {
         Variable outerEntryBaseStart = scope.declareVariable(int.class, "outerEntryBaseStart");
         Variable innerEntryBaseStart = scope.declareVariable(int.class, "innerEntryBaseStart");
 
+        Variable prefixColumns = scope.declareVariable(int.class, "prefixColumns");
+        if (options.supportPrefixes()) {
+            // Here we calculate the number of columns that the prefix has (if we got a prefix).
+            body.append(new IfStatement()
+                    .condition(outerIsPrefix)
+                    .ifTrue(new BytecodeBlock()
+                            // Last four bytes of prefix tuple contain the number of its columns in Little Endian format.
+                            // "outerSize" is thus reduced by 4 to reflect the real "end" of the last column.
+                            .append(outerSize.set(subtract(outerSize, constantInt(Integer.BYTES))))
+                            .append(prefixColumns.set(outerAccessor.invoke("getInt", int.class, outerSize)))
+                    )
+                    // Variable must be initialized.
+                    .ifFalse(prefixColumns.set(constantInt(0)))
+            );
+        }
+
         // Here we do exactly the same thing that "BinaryTupleComparator.compare" does, but types and offsets are inlined, and the loop is
         // unrolled. Please use that method as a reference for understanding this code.
-        int columnsSize = columnTypes.size();
+        int columnsSize = options.columnTypes().size();
         body.append(outerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySize * columnsSize)));
         body.append(innerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySize * columnsSize)));
 
@@ -390,18 +441,18 @@ public class JitComparatorGenerator {
                 )));
             }
 
-            CatalogColumnCollation collation = columnCollations.get(i);
-            NativeType columnType = columnTypes.get(i);
+            CatalogColumnCollation collation = options.columnCollations().get(i);
+            NativeType columnType = options.columnTypes().get(i);
 
             // Nullability check.
-            if (nullableFlags.get(i)) {
+            if (options.nullableFlags().get(i)) {
                 body.append(outerInNull.set(equal(outerEntryBaseStart, outerEntryBaseEnd)));
                 body.append(innerInNull.set(equal(innerEntryBaseStart, innerEntryBaseEnd)));
 
                 // Usage of "bitwiseAnd" and "bitwiseOr" make generated code easier to read when decompiled.
                 body.append(new IfStatement()
                         .condition(bitwiseAnd(outerInNull, innerInNull))
-                        .ifTrue(lastIteration ? constantInt(0).ret() : jump(endOfBlockLabel))
+                        .ifTrue(lastIteration && !options.supportPrefixes() ? constantInt(0).ret() : jump(endOfBlockLabel))
                         .ifFalse(new IfStatement()
                                 .condition(bitwiseOr(outerInNull, innerInNull))
                                 .ifTrue(new IfStatement()
@@ -421,7 +472,7 @@ public class JitComparatorGenerator {
                     )
             );
 
-            if (lastIteration) {
+            if (lastIteration && !options.supportPrefixes()) {
                 body.append(compareExpression.ret());
             } else {
                 body.append(cmp.set(compareExpression));
@@ -433,10 +484,31 @@ public class JitComparatorGenerator {
 
                 body.append(endOfBlockLabel);
 
-                body.append(outerEntryBaseStart.set(outerEntryBaseEnd));
-                body.append(innerEntryBaseStart.set(innerEntryBaseEnd));
+                if (!lastIteration) {
+                    body.append(outerEntryBaseStart.set(outerEntryBaseEnd));
+                    body.append(innerEntryBaseStart.set(innerEntryBaseEnd));
+                }
+            }
+
+            if (options.supportPrefixes()) {
+                // If prefixes are supported, we must always check what column we compare,
+                // and return a corresponding value if it was the last column in the prefix.
+                BytecodeExpression outerHeaderExpression = outerAccessor.invoke("get", byte.class, constantInt(0)).cast(int.class);
+
+                body.append(new IfStatement()
+                        .condition(and(outerIsPrefix, equal(constantInt(i + 1), prefixColumns)))
+                        .ifTrue(inlineIf(
+                                equal(bitwiseAnd(outerHeaderExpression, constantInt(EQUALITY_FLAG)), constantInt(0)),
+                                // Collation is ignored for prefixes.
+                                constantInt(-1),
+                                constantInt(1)
+                        ).ret())
+                );
             }
         }
+
+        // Last fallback return value.
+        body.append(constantInt(0).ret());
 
         return innerCompare;
     }
@@ -568,7 +640,6 @@ public class JitComparatorGenerator {
         if (collation.asc()) {
             return outerValue.invoke(comparator, innerValue);
         } else {
-
             return innerValue.invoke(comparator, outerValue);
         }
     }

@@ -62,6 +62,12 @@ public class CheckpointPagesWriter implements Runnable {
     private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriter.class);
 
     /**
+     * Maximum number of attempts to write retry dirty pages after which the blocking write lock will be used to write pages. Value is taken
+     * speculatively.
+     */
+    private static final int MAX_ATTEMPT_WRITE_RETRY_DIRTY_PAGES = 32;
+
+    /**
      * Size of a batch of pages that we drain from a single checkpoint buffer at the same time. The value of {@code 10} is chosen
      * arbitrarily. We may reconsider it in <a href="https://issues.apache.org/jira/browse/IGNITE-23106">IGNITE-23106</a> if necessary.
      *
@@ -172,10 +178,12 @@ public class CheckpointPagesWriter implements Runnable {
                 writeDirtyPages(pageMemory, queueResult.getValue(), tmpWriteBuf, pageStoreWriter);
             }
 
+            int attemptWriteRetryDirtyPages = 0;
+
             while (!shutdownNow.getAsBoolean() && !pageIdsToRetry.isEmpty()) {
                 updateHeartbeat.run();
 
-                pageIdsToRetry = writeRetryDirtyPages(pageIdsToRetry, tmpWriteBuf);
+                pageIdsToRetry = writeRetryDirtyPages(pageIdsToRetry, tmpWriteBuf, attemptWriteRetryDirtyPages++);
             }
 
             doneFut.complete(null);
@@ -227,33 +235,44 @@ public class CheckpointPagesWriter implements Runnable {
             return;
         }
 
-        writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
+                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
+            }
+        } finally {
+            checkpointProgress.unblockPartitionDestruction(partitionId);
+        }
     }
 
     private void writeDirtyPage(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer tmpWriteBuf,
-            PageStoreWriter pageStoreWriter
+            PageStoreWriter pageStoreWriter,
+            boolean useTryWriteLockLockOnPage
     ) throws IgniteInternalCheckedException {
         // Should also be done for partitions that will be destroyed to remove their pages from the data region.
-        pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
+        pageMemory.checkpointWritePage(pageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, useTryWriteLockLockOnPage);
 
         drainCheckpointBuffers(tmpWriteBuf);
     }
 
     private Map<PersistentPageMemory, List<FullPageId>> writeRetryDirtyPages(
             Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry,
-            ByteBuffer tmpWriteBuf
+            ByteBuffer tmpWriteBuf,
+            int attempt
     ) throws IgniteInternalCheckedException {
+        boolean useTryWriteLockOnPage = attempt < MAX_ATTEMPT_WRITE_RETRY_DIRTY_PAGES;
+
         if (LOG.isInfoEnabled()) {
             int pageCount = pageIdsToRetry.values().stream().mapToInt(List::size).sum();
 
-            LOG.info("Checkpoint pages were not written yet due to "
-                    + "unsuccessful page write lock acquisition and will be retried [pageCount={}]", pageCount);
+            LOG.info(
+                    "Checkpoint pages were not written yet due to unsuccessful page write lock acquisition and will be retried: "
+                            + "[pageCount={}, attempt={}, useTryWriteLockOnPage={}]",
+                    pageCount, attempt, useTryWriteLockOnPage
+            );
         }
 
-        var newPageIdsToRetry = new HashMap<PersistentPageMemory, List<FullPageId>>();
+        Map<PersistentPageMemory, List<FullPageId>> newPageIdsToRetry = useTryWriteLockOnPage ? new HashMap<>() : Map.of();
 
         for (Entry<PersistentPageMemory, List<FullPageId>> entry : pageIdsToRetry.entrySet()) {
             PersistentPageMemory pageMemory = entry.getKey();
@@ -280,7 +299,7 @@ public class CheckpointPagesWriter implements Runnable {
                         checkpointProgress.blockPartitionDestruction(partitionId);
                     }
 
-                    writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
+                    writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, useTryWriteLockOnPage);
                 }
             } finally {
                 if (partitionId != null) {
@@ -335,7 +354,7 @@ public class CheckpointPagesWriter implements Runnable {
                             writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
                         }
 
-                        pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
+                        pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, true);
                     } finally {
                         checkpointProgress.unblockPartitionDestruction(partitionId);
                     }
@@ -431,7 +450,7 @@ public class CheckpointPagesWriter implements Runnable {
                 partitionId.getPartitionId()
         );
 
-        assert partitionView != null : String.format("Unable to find view for dirty pages: [patitionId=%s, pageMemory=%s]", partitionId,
+        assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]", partitionId,
                 pageMemory);
 
         return partitionView;

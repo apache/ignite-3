@@ -172,7 +172,6 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         assertEquals(ROW_2, internalTbl.get(createKeyRow(2), readOnlyTx).join());
     }
 
-
     @Test
     public void testReadOnlyGetAllNonExistingKeysWithReadTimestamp() {
         mockReadOnlyMultiRowRequest();

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;

@@ -1043,12 +1043,11 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                     .check();
         }
 
-        // although it's basically kv delete, such optimization is not supported
-        // at the moment, thus expected plan should contain IgniteTableModify
+        // kv delete
         for (int i = 0; i < tableSize; i++) {
             assertQuery("DELETE FROM test1 WHERE id1=? AND id2=?")
                     .withParams(i, i)
-                    .matches(containsSubPlan("TableModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .returns(1L)
                     .check();
         }

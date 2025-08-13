@@ -230,8 +230,6 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-    // TODO: enable after https://issues.apache.org/jira/browse/IGNITE-26051 is fixed.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26051")
     void partitionIsDestroyedOnTableDestructionOnNodeRecoveryWithColocation() throws Exception {
         testPartitionIsDestroyedOnTableDestructionOnNodeRecovery(true);
     }

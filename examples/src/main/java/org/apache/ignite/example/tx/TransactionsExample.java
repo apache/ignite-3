@@ -17,157 +17,108 @@
 
 package org.apache.ignite.example.tx;
 
+import static java.sql.DriverManager.getConnection;
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.tx.IgniteTransactions;
 
-/**
- * This example demonstrates the usage of the {@link IgniteTransactions} API.
- *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
- */
+/* This example demonstrates the usage of the Ignite Transactions API */
 public class TransactionsExample {
-    /**
-     * Main method of the example.
-     *
-     * @param args The command line arguments.
-     * @throws Exception If failed.
-     */
-    public static void main(String[] args) throws Exception {
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating 'accounts' table.
-        //
-        //--------------------------------------------------------------------------------------
 
+    public static void main(String[] args) throws Exception {
+
+        /* Create 'accounts' table via JDBC */
         try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
                 Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
+                    "CREATE TABLE IF NOT EXISTS accounts ("
                             + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
+                            + "firstName VARCHAR,"
+                            + "lastName VARCHAR,"
+                            + "balance DOUBLE)"
             );
         }
 
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
-        //
-        //--------------------------------------------------------------------------------------
-
+        /* Creating a client to connect to the cluster */
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
-                .build()
-        ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating an account.
-            //
-            //--------------------------------------------------------------------------------------
+                .build()) {
 
+            /* Prepare key-value view */
             KeyValueView<AccountKey, Account> accounts = client.tables()
                     .table("accounts")
                     .keyValueView(AccountKey.class, Account.class);
 
-            final AccountKey key = new AccountKey(123);
+            AccountKey key = new AccountKey(123);
 
+            /* Insert initial account */
             accounts.put(null, key, new Account("John", "Doe", 1000.0d));
+            System.out.println("Initial balance: " + accounts.get(null, key).balance);
 
-            System.out.println("\nInitial balance: " + accounts.get(null, key).balance);
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Using synchronous transactional API to update the balance.
-            //
-            //--------------------------------------------------------------------------------------
-
+            /* Using synchronous transactional API to update the balance */
             client.transactions().runInTransaction(tx -> {
-                Account account = accounts.get(tx, key);
-
-                account.balance += 200.0d;
-
-                accounts.put(tx, key, account);
+                Account acct = accounts.get(tx, key);
+                acct.balance += 200.0d;
+                accounts.put(tx, key, acct);
             });
 
-            System.out.println("\nBalance after the sync transaction: " + accounts.get(null, key).balance);
+            System.out.println("Balance after the sync transaction: " + accounts.get(null, key).balance);
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Using asynchronous transactional API to update the balance.
-            //
-            //--------------------------------------------------------------------------------------
-
-            CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
-                    accounts
-                        .getAsync(tx, key)
-                        .thenCompose(account -> {
-                            account.balance += 300.0d;
-
-                            return accounts.putAsync(tx, key, account);
-                        })
-                        .thenCompose(ignored -> tx.commitAsync())
+            /* Using asynchronous transactional API to update the balance */
+            CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
+                    accounts.getAsync(tx, key)
+                            .thenCompose(acct -> {
+                                acct.balance += 300.0d;
+                                return accounts.putAsync(tx, key, acct);
+                            })
             );
+            future.join();
+            System.out.println("Balance after the async transaction: " + accounts.get(null, key).balance);
 
-            // Wait for completion.
-            fut.join();
-
-            System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
         } finally {
-            System.out.println("\nDropping the table...");
 
+            /* Drop table */
+            System.out.println("\nDropping the table...");
             try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
                     Statement stmt = conn.createStatement()
             ) {
-                stmt.executeUpdate("DROP TABLE accounts");
+                stmt.executeUpdate("DROP TABLE IF EXISTS accounts");
             }
         }
     }
 
-    /**
-     * POJO class that represents key.
-     */
+    /* POJO class for key */
     static class AccountKey {
         int accountNumber;
 
-        /**
-         * Default constructor (required for deserialization).
-         */
-        @SuppressWarnings("unused")
-        public AccountKey() {
+        /* Default constructor required for deserialization */
+        AccountKey() {
         }
 
-        public AccountKey(int accountNumber) {
+        AccountKey(int accountNumber) {
             this.accountNumber = accountNumber;
         }
     }
 
-    /**
-     * POJO class that represents value.
-     */
+    /* POJO class for value */
     static class Account {
         String firstName;
         String lastName;
         double balance;
 
-        /**
-         * Default constructor (required for deserialization).
-         */
-        @SuppressWarnings("unused")
-        public Account() {
+        /* Default constructor required for deserialization */
+        Account() {
         }
 
-        public Account(String firstName, String lastName, double balance) {
+        Account(String firstName, String lastName, double balance) {
             this.firstName = firstName;
             this.lastName = lastName;
             this.balance = balance;

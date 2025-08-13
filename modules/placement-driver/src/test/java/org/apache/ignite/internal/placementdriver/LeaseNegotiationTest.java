@@ -88,7 +88,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
@@ -514,7 +513,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         Predicate<LogEvent> pred = logEvent -> logEvent.getMessage().getFormattedMessage()
                 .contains("Lease was not negotiated due to exception");
 
-        LogInspector logInspector = new LogInspector(LeaseNegotiator.class.getName(), new Handler(pred, () -> {}));
+        LogInspector logInspector = new LogInspector(LeaseNegotiator.class.getName(), pred);
 
         logInspector.start();
 

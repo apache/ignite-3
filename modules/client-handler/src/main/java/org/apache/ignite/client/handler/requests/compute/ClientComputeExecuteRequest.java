@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.util.HashSet;
@@ -26,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
@@ -38,6 +40,9 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -58,7 +63,7 @@ public class ClientComputeExecuteRequest {
      * @param compute Compute.
      * @param cluster Cluster.
      * @param notificationSender Notification sender.
-     * @param enablePlatformJobs Enable platform jobs.
+     * @param clientContext Client context.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -66,13 +71,17 @@ public class ClientComputeExecuteRequest {
             IgniteComputeInternal compute,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs
+            ClientContext clientContext
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
-        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+
+        Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                .initiatorClient(clientContext.remoteAddress().toString())
+                .eventUser(clientContext.userDetails());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), job.arg(), null
+                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
         );
         sendResultAndState(executionFut, notificationSender);
 

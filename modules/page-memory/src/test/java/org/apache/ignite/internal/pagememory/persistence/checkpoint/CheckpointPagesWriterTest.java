@@ -211,7 +211,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
@@ -263,7 +264,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
@@ -334,7 +336,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(FullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
-                        any(CheckpointMetricsTracker.class)
+                        any(CheckpointMetricsTracker.class),
+                        anyBoolean()
                 );
 
         return pageMemory;

@@ -106,7 +106,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
-import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
+import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValueInsertRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -130,8 +130,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String[] DISABLE_KEY_VALUE_MODIFY_RULES = {
-            TableModifyToKeyValuePutRule.VALUES.toString(),
-            TableModifyToKeyValuePutRule.PROJECT.toString(),
+            TableModifyToKeyValueInsertRule.VALUES.toString(),
+            TableModifyToKeyValueInsertRule.PROJECT.toString(),
     };
 
     protected static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
@@ -599,7 +599,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /**
      * Predicate builder for "Any child satisfy predicate" condition.
+     *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26177
      */
+    @SuppressWarnings("PMD.UseDiamondOperator")
     protected <T extends RelNode> Predicate<RelNode> hasChildThat(Predicate<T> predicate) {
         return new Predicate<RelNode>() {
             public boolean checkRecursively(RelNode node) {
@@ -1140,7 +1143,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     static Function<TableBuilder, TableBuilder> setSize(int size) {
         return t -> t.size(size);
     }
-
 
     /** Unspecified dynamic parameter. */
     public enum Unspecified {

@@ -843,7 +843,6 @@ public class IgniteUtils {
         }
     }
 
-
     /**
      * Stops workers from given collection and waits for their completion.
      *

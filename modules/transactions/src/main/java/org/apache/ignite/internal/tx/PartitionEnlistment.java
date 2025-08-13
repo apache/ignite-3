@@ -21,7 +21,6 @@ import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
-
 /**
  * Partition enlistment information used when finishing a transaction (after its commit timestamp is chosen) and when doing its cleanup.
  */

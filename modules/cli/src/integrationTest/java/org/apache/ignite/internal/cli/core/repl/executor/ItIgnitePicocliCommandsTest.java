@@ -417,7 +417,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         );
     }
 
-
     private Stream<Arguments> nodeNamesSource() {
         return Stream.of(
                 words("cluster", "config", "show", "--node", ""),

@@ -31,7 +31,7 @@ public interface PageStoreWriter {
      * PersistentPageMemory#beginCheckpoint} method call.
      * @param buf Temporary buffer to write changes into.
      * @param newPage If page is newly allocated and not present in the page store.
-     * @param tag {@code Partition generation} if data was read. {@link PersistentPageMemory#TRY_AGAIN_TAG} if failed to get a write lock
+     * @param tag Partition generation if data was read. {@link PersistentPageMemory#TRY_AGAIN_TAG} if failed to get a write lock
      *      for a page and need to try writing again later.
      * @throws IgniteInternalCheckedException If write page failed.
      */

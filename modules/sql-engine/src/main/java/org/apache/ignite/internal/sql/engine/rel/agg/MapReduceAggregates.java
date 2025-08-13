@@ -589,7 +589,6 @@ public class MapReduceAggregates {
                 reduceSumType,
                 "AVG_SUM" + reduceArgumentOffset);
 
-
         // SUM0(c)
         RelDataType reduceSumCountType = typeSystem.deriveSumType(tf, mapCount0.type);
         IntList reduceSumCountArgs = IntList.of(reduceArgumentOffset + 1);
