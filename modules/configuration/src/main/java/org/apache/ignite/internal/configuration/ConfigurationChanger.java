@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -93,6 +95,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
     private final Map<String, RootKey<?, ?, ?>> rootKeys;
+
+    private final Lazy<Map<String, Serializable>> defaultsMap = new Lazy<>(this::createDefaultsMap);
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -795,6 +799,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     private void removeDefaultValues(Map<String, Serializable> allChanges) {
+        defaultsMap.get().forEach((key, defaultValue) -> {
+            Serializable change = allChanges.get(key);
+            if (Objects.deepEquals(change, defaultValue)) {
+                allChanges.put(key, null);
+            }
+        });
+    }
+
+    private Map<String, Serializable> createDefaultsMap() {
         SuperRoot superRoot = new SuperRoot(rootCreator());
         for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
             superRoot.addRoot(rootKey, createRootNode(rootKey));
@@ -803,18 +816,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         SuperRoot defaults = superRoot.copy();
         addDefaults(defaults);
 
-        Map<String, Serializable> defaultsMap = createFlattenedUpdatesMap(
+        return createFlattenedUpdatesMap(
                 superRoot,
                 defaults,
-                new TreeMap<>()
+                emptyNavigableMap()
         );
-
-        defaultsMap.forEach((key, defaultValue) -> {
-            Serializable change = allChanges.get(key);
-            if (Objects.deepEquals(change, defaultValue)) {
-                allChanges.remove(key);
-            }
-        });
     }
 
     /** {@inheritDoc} */

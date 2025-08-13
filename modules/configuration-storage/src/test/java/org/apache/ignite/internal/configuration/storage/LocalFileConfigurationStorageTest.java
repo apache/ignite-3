@@ -158,21 +158,13 @@ public class LocalFileConfigurationStorageTest {
         // top.namedList.<ids>.name1             -> "<generatedUUID>"
         // top.namedList.<generatedUUID>.<order> -> 0
 
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue("strVal1")));
 
         // And
         // Enriched with the defaults
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -180,7 +172,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}"
         ));
 
@@ -193,22 +184,14 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(15), hasValue(-2)));
-        assertThat(storageValues, allOf(aMapWithSize(15), hasValue("strVal2")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-2)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal2")));
         // And
-        assertThat(storageValues, allOf(aMapWithSize(15), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(15), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -221,7 +204,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal2\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }
@@ -242,18 +224,10 @@ public class LocalFileConfigurationStorageTest {
         var storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(5), hasValue((short) 3)));
+        assertThat(storageValues, allOf(aMapWithSize(1), hasValue((short) 3)));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -265,19 +239,11 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(1)));
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("foo")));
+        assertThat(storageValues, allOf(aMapWithSize(6), hasValue(1)));
+        assertThat(storageValues, allOf(aMapWithSize(6), hasValue("foo")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=1\n"
@@ -298,19 +264,11 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(6), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(6), hasValue("strVal1")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -346,14 +304,6 @@ public class LocalFileConfigurationStorageTest {
         // And values are saved to file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -376,18 +326,10 @@ public class LocalFileConfigurationStorageTest {
         var storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(10), Matchers.not(hasValue("strVal1"))));
+        assertThat(storageValues, allOf(aMapWithSize(6), Matchers.not(hasValue("strVal1"))));
         // And entity removed from file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-2\n"
@@ -405,18 +347,10 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(5), hasValue((short) 3)));
+        assertThat(storageValues, allOf(aMapWithSize(1), hasValue((short) 3)));
         // And entity removed from file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -488,14 +422,6 @@ public class LocalFileConfigurationStorageTest {
         // Then file is created
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
-                        + "    inner {\n"
-                        + "        boolVal=false\n"
-                        + "        someConfigurationValue {\n"
-                        + "            intVal=1\n"
-                        + "            strVal=foo\n"
-                        + "        }\n"
-                        + "        strVal=foo\n"
-                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -503,7 +429,6 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
-                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }
