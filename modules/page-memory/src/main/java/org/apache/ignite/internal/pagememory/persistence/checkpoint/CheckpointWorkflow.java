@@ -419,30 +419,22 @@ class CheckpointWorkflow {
     ) throws IgniteInternalCheckedException {
         var checkpointDirtyPages = new ArrayList<DirtyPagesAndPartitions>();
 
-        int realPagesArrSize = 0;
-
         // Collects dirty pages into an array (then we will sort them), also collects dirty partitions and newly allocated pages.
         for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
             var partitionIds = new HashSet<GroupPartitionId>();
 
-            FullPageId[] modifiedPageIds = processPages(
-                    dataRegionDirtyPages.modifiedPages,
-                    partitionIds,
-                    realPagesArrSize,
-                    dataRegionsDirtyPages.modifiedPageCount
-            );
+            FullPageId[] modifiedPageIds = processPages(dataRegionDirtyPages.modifiedPages, partitionIds);
 
             boolean noPages = modifiedPageIds.length == 0;
 
             var newPageIdsByPartitionId = new HashMap<GroupPartitionId, FullPageId[]>(dataRegionDirtyPages.newPagesByPartitionId.size());
-            for (Entry<GroupPartitionId, Collection<FullPageId>> newPageIds : dataRegionDirtyPages.newPagesByPartitionId.entrySet()) {
-                int newPagesSize = dataRegionsDirtyPages.newPageCount;
 
-                noPages = noPages && newPagesSize == 0;
+            for (Entry<GroupPartitionId, Collection<FullPageId>> newPageIds : dataRegionDirtyPages.newPagesByPartitionId.entrySet()) {
+                noPages = noPages && dataRegionsDirtyPages.newPageCount == 0;
 
                 newPageIdsByPartitionId.put(
                         newPageIds.getKey(),
-                        processPages(newPageIds.getValue(), partitionIds, realPagesArrSize, newPagesSize)
+                        processPages(newPageIds.getValue(), partitionIds)
                 );
             }
 
@@ -487,20 +479,12 @@ class CheckpointWorkflow {
         return new CheckpointDirtyPages(checkpointDirtyPages);
     }
 
-    private FullPageId[] processPages(
-            Collection<FullPageId> pages,
-            HashSet<GroupPartitionId> partitionIds,
-            int realPagesArrSize,
-            int pagesToProcess
-    ) {
+    private FullPageId[] processPages(Collection<FullPageId> pages, HashSet<GroupPartitionId> partitionIds) {
         var pageIds = new FullPageId[pages.size()];
 
         int pagePos = 0;
 
         for (FullPageId dirtyPage : pages) {
-            assert realPagesArrSize++ != pagesToProcess :
-                    "Incorrect estimated pages number: " + pagesToProcess;
-
             pageIds[pagePos++] = dirtyPage;
             partitionIds.add(GroupPartitionId.convert(dirtyPage));
         }

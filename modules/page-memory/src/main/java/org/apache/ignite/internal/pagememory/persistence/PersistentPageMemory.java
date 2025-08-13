@@ -1819,7 +1819,7 @@ public class PersistentPageMemory implements PageMemory {
             return dirtyPages.size() > dirtyRatioThreshold * pages();
         }
 
-        public boolean isLoaded(FullPageId pageId) {
+        private boolean isLoaded(FullPageId pageId) {
             return loadedPages.get(
                     pageId.groupId(),
                     pageId.effectivePageId(),
