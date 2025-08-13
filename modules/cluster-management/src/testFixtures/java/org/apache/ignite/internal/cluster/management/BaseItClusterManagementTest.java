@@ -44,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     private static final int PORT_BASE = 10000;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.retryTimeoutMillis = 60000")
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration

@@ -16,13 +16,22 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Thrown when a Raft node is asked to perform an action that is only allowed for a leader, when the node is not a leader.
  */
 public class NotLeaderException extends IllegalStateException {
     private static final long serialVersionUID = 0L;
 
-    public NotLeaderException() {
+    private final String leaderId;
+
+    NotLeaderException(@Nullable String leaderId) {
         super("Not leader");
+        this.leaderId = leaderId;
+    }
+
+    public @Nullable String leaderId() {
+        return leaderId;
     }
 }
