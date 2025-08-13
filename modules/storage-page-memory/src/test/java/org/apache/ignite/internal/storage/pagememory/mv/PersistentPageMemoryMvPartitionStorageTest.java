@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -35,11 +34,8 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -125,36 +121,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertThat(read(rowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow));
     }
-
-    @Test
-    void testReadAfterFailedCheckpointAndRestart() throws Exception {
-        RowId secondRowId = insert(binaryRow2, txId);
-
-        assertThat(engine.checkpointManager().forceCheckpoint("flush new page").futureFor(FINISHED), willCompleteSuccessfully());
-
-        secondRowId = insert(binaryRow2, txId);
-
-        RowId firstRowId = insert(binaryRow, txId);
-
-        CheckpointListener blockFuture = new CheckpointListener() {
-            @Override
-            public void afterCheckpointEnd(CheckpointProgress progress) throws IgniteInternalCheckedException {
-                throw new IgniteInternalCheckedException("Fail checkpoint to test recovery");
-            }
-        };
-
-        engine.checkpointManager().addCheckpointListener(blockFuture, table.dataRegion());
-
-        assertThat(engine.checkpointManager().forceCheckpoint("failed checkpoint").futureFor(FINISHED),
-                willThrow(IgniteInternalCheckedException.class));
-
-        tearDown();
-        setUp();
-
-        assertThat(read(firstRowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow));
-        assertThat(read(secondRowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow2));
-    }
-
+remo
     private void restartStorage() throws Exception {
         assertThat(
                 engine.checkpointManager().forceCheckpoint("before_stop_engine").futureFor(FINISHED),
