@@ -268,21 +268,19 @@ public class PendingComparableValuesTrackerTest {
         assertThat(tracker.waitFor(2), willThrowFast(TrackerClosedException.class));
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"}) // Because of test parametrization raw PendingComparableValuesTracker is used.
     private static Stream<PendingComparableValuesTracker> hybridTimestampTrackerGenerator() {
         HybridTimestamp ts = new HybridTimestamp(1, 0);
 
         return Stream.of(
-                new PendingComparableValuesTracker(ts),
-                new PendingIndependentComparableValuesTracker(ts)
+                new PendingComparableValuesTracker<>(ts),
+                new PendingIndependentComparableValuesTracker<>(ts)
         );
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"}) // Because of test parametrization raw PendingComparableValuesTracker is used.
     private static Stream<PendingComparableValuesTracker> intTrackerGenerator() {
         return Stream.of(
-                new PendingComparableValuesTracker(1),
-                new PendingIndependentComparableValuesTracker(1)
+                new PendingComparableValuesTracker<>(1),
+                new PendingIndependentComparableValuesTracker<>(1)
         );
     }
 }
