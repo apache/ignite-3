@@ -102,10 +102,10 @@ Log exporter writes metrics data to the application log, so they can be consumed
 
 |periodMillis|Export interval for the metrics, in milliseconds.|30000
 |oneLinePerMetricSource|Define whether to print all metrics from one metric source on a single log line.|true
-|enabledMetrics|List of enabled metric sources. If this list is non-empty, only the listed metric sources will be printed, all others will be skipped. A wildcard can be used to match a prefix (for example, `jvm.*`).|true
+|enabledMetrics|List of enabled metric sources. If this list is non-empty, only the listed metric sources will be printed, all others will be skipped. A wildcard can be used to match a prefix (for example, `jvm.*`). By default, the metrics of some background activities are printed. |"metastorage", "placement-driver", "resource.vacuum"
 |===
 
-To add log exporter to cluster exporters list, run the following command:
+To add log exporter to cluster exporters list, run the following command and define all the metrics to print in `enabledMetrics` list:
 [source, bash]
 ----
 cluster config update ignite.metrics.exporters.logPush '{"exporterName":"logPush","periodMillis":30000,"oneLinePerMetricSource":true,"enabledMetrics":[]}'
