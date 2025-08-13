@@ -422,7 +422,13 @@ public class DistributionZoneManager extends
                 .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
                 .whenComplete((unused, err) -> {
                     if (err == null) {
-                        registerMetricSource(zone);
+                        try {
+                            registerMetricSource(zone);
+                        } catch (Exception e) {
+                            // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
+                            // So, just log the error.
+                            LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
+                        }
                     }
                 });
     }
@@ -802,14 +808,18 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
+        try {
+            ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
+            if (source != null) {
+                metricManager.unregisterSource(source);
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to unregister zone metric source [dropZoneEvent={}]", e, parameters);
+        }
+
         long causalityToken = parameters.causalityToken();
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
-
-        ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
-        if (source != null) {
-            metricManager.unregisterSource(source);
-        }
 
         return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
     }
@@ -832,6 +842,29 @@ public class DistributionZoneManager extends
         @Override
         protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
             return inBusyLock(busyLock, () -> onUpdateFilterBusy(parameters));
+        }
+
+        @Override
+        protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
+            return inBusyLock(busyLock, () -> {
+                try {
+                    CatalogZoneDescriptor zoneDescriptor = parameters.zoneDescriptor();
+
+                    // Update metric source name.
+                    ZoneMetricSource source = zoneMetricSources.remove(zoneDescriptor.id());
+                    if (source != null) {
+                        metricManager.unregisterSource(source);
+                    }
+
+                    registerMetricSource(parameters.zoneDescriptor());
+                } catch (Exception e) {
+                    // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
+                    // So, just log the error.
+                    LOG.error("Failed to update zone metric set [alterZoneEvent={}]", e, parameters);
+                }
+
+                return nullCompletedFuture();
+            });
         }
     }
 
