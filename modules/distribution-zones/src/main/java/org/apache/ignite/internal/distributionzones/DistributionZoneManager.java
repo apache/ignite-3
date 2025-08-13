@@ -170,6 +170,9 @@ public class DistributionZoneManager extends
 
     private final MetricManager metricManager;
 
+    /** Mapping from a zone identifier to the corresponding metric source. */
+    private final Map<Integer, ZoneMetricSource> zoneMetricSources = new ConcurrentHashMap<>();
+
     private final String localNodeName;
 
     /**
@@ -293,6 +296,8 @@ public class DistributionZoneManager extends
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
+            registerMetricSourcesOnStart();
+
             return allOf(
                     restoreLogicalTopologyChangeEvent(recoveryRevision),
                     dataNodesManager.startAsync(currentZones(), recoveryRevision)
@@ -413,15 +418,12 @@ public class DistributionZoneManager extends
     private CompletableFuture<?> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        //return dataNodesManager.onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
-        LOG.warn(">>>>> onCreateZone [zoneName=" + zone.name() + ", id=" + zone.id() + ']');
         return dataNodesManager
                 .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
                 .whenComplete((unused, err) -> {
-                    ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
-
-                    metricManager.registerSource(source);
-                    metricManager.enable(source);
+                    if (err == null) {
+                        registerMetricSource(zone);
+                    }
                 });
     }
 
@@ -753,6 +755,27 @@ public class DistributionZoneManager extends
     }
 
     /**
+     * Registers metric source for the specified zone.
+     *
+     * @param zone Zone descriptor.
+     */
+    private void registerMetricSource(CatalogZoneDescriptor zone) {
+        ZoneMetricSource source = new ZoneMetricSource(metaStorageManager, localNodeName, zone);
+
+        zoneMetricSources.put(zone.id(), source);
+
+        metricManager.registerSource(source);
+        metricManager.enable(source);
+    }
+
+    /**
+     * Registers zone metric sources on node starting.
+     */
+    private void registerMetricSourcesOnStart() {
+        currentZones().forEach(this::registerMetricSource);
+    }
+
+    /**
      * Restore the event of the updating the logical topology from Meta Storage, that has not been completed before restart.
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
@@ -783,8 +806,10 @@ public class DistributionZoneManager extends
 
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        // TODO mapping zoneId to ZoneMetricSource(name)
-        LOG.warn(">>>>> onDropZoneBusy [zoneName=" + parameters.zoneId() + ']');
+        ZoneMetricSource source = zoneMetricSources.remove(parameters.zoneId());
+        if (source != null) {
+            metricManager.unregisterSource(source);
+        }
 
         return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
     }

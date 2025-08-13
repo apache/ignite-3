@@ -22,42 +22,47 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
-import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
- * TODO.
+ * Distribution metric source for a specific zone.
  */
 public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Holder> {
-    private static final String SOURCE_NAME = "zones";
+    /** Source name. */
+    public static final String SOURCE_NAME = "zones";
 
-    private final String consistentId;
-
-    private final CatalogZoneDescriptor zoneDescriptor;
+    /** Metric names. */
+    public static final String LOCAL_UNREBALANCED_PARTITIONS_COUNT = "LocalUnrebalancedPartitionsCount";
+    public static final String TOTAL_UNREBALANCED_PARTITIONS_COUNT = "TotalUnrebalancedPartitionsCount";
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
 
-    protected ZoneMetricSource(String zoneName) {
-        super(SOURCE_NAME + '.' + zoneName, "Distribution zone metrics.", "zones");
+    /** Node name, aka consistent identifier. */
+    private final String nodeName;
 
-        this.consistentId = null;
-        this.zoneDescriptor = null;
-        metaStorageManager = null;
-    }
+    /** Zone descriptor. */
+    public final CatalogZoneDescriptor zoneDescriptor;
 
-    protected ZoneMetricSource(MetaStorageManager metaStorageManager, String consistentId, CatalogZoneDescriptor zoneDescriptor) {
+    /**
+     * Creates a new zone metric source for a specific zone.
+     *
+     * @param metaStorageManager Meta Storage manager.
+     * @param consistentId Name of the node.
+     * @param zoneDescriptor Zone descriptor.
+     */
+    public ZoneMetricSource(MetaStorageManager metaStorageManager, String consistentId, CatalogZoneDescriptor zoneDescriptor) {
         super(SOURCE_NAME + '.' + zoneDescriptor.name(), "Distribution zone metrics.", "zones");
 
-        this.consistentId = consistentId;
+        this.nodeName = consistentId;
         this.zoneDescriptor = zoneDescriptor;
         this.metaStorageManager = metaStorageManager;
     }
@@ -67,64 +72,99 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
         return new Holder(this);
     }
 
-    /**
-     * TODO.
-     */
-    public void onUpdateUnrebalancedPartitionsCount() {
-        Holder h = holder();
-
-        if (h != null) {
-            //h.localUnrebalancedPartitionsCount.increment();
-        }
-    }
-
-    /**
-     * TODO.
-     */
+    /** Holder. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final ZoneMetricSource source;
-
+        /** List of actual metrics. */
         private final List<Metric> metrics;
 
         Holder(ZoneMetricSource source) {
-            this.source = source;
-
-            var localUnrebalancedPartitionsCount =
-                    new AtomicIntMetric("LocalUnrebalancedPartitionsCount", "Number");
-
-            var localUnrebalancedPartitionsCount2 =
-                    new IntGauge("LocalUnrebalancedPartitionsCount2", "Number", () -> {
-                        int val = 0;
+            var localUnrebalancedPartitionsCount = new IntGauge(
+                    LOCAL_UNREBALANCED_PARTITIONS_COUNT,
+                    "The number of partitions that should be moved to this node.",
+                    () -> {
+                        int unrebalancedParts = 0;
 
                         for (int i = 0; i < source.zoneDescriptor.partitions(); ++i) {
-                            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(new ZonePartitionId(source.zoneDescriptor.id(), i));
-                            Entry pendingEntry = source.metaStorageManager.getLocally(pendingPartAssignmentsKey);
-                            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
-                            if (pendingAssignmentsQueue != null) {
-                                ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(new ZonePartitionId(source.zoneDescriptor.id(), i));
-                                Entry stableEntry = source.metaStorageManager.getLocally(stablePartAssignmentsKey);
+                            ZonePartitionId zonePartitionId = new ZonePartitionId(source.zoneDescriptor.id(), i);
 
-                                Assignments stableAssignments = stableEntry.value() == null ? Assignments.EMPTY : Assignments.fromBytes(stableEntry.value());
+                            Entry pendingEntry = source.metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+                            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+
+                            if (pendingAssignmentsQueue != null) {
+                                Entry stableEntry = source.metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
+
+                                Assignments stableAssignments = stableEntry.value() == null
+                                        ? Assignments.EMPTY
+                                        : Assignments.fromBytes(stableEntry.value());
                                 Assignments targetAssignments = pendingAssignmentsQueue.peekLast();
 
-                                boolean stable = stableAssignments.nodes().stream().anyMatch(assignment -> assignment.consistentId().equals(source.consistentId));
-                                boolean pending = targetAssignments.nodes().stream().anyMatch(assignment -> assignment.consistentId().equals(source.consistentId));
+                                boolean stable = presentInAssignments(stableAssignments, source.nodeName);
+                                boolean pending = presentInAssignments(targetAssignments, source.nodeName);
+
                                 if (!stable && pending) {
-                                    val += 1;
+                                    unrebalancedParts += 1;
                                 }
                             }
                         }
 
-                        return val;
-                    });
+                        return unrebalancedParts;
+                    }
+            );
 
-            metrics = List.of(localUnrebalancedPartitionsCount, localUnrebalancedPartitionsCount2);
+
+            var totalUnrebalancedPartitionsCount = new IntGauge(
+                    TOTAL_UNREBALANCED_PARTITIONS_COUNT,
+                    "The total number of partitions that should be moved to a new owner.",
+                    () -> {
+                        int unrebalancedParts = 0;
+
+                        for (int i = 0; i < source.zoneDescriptor.partitions(); ++i) {
+                            ZonePartitionId zonePartitionId = new ZonePartitionId(source.zoneDescriptor.id(), i);
+
+                            Entry pendingEntry = source.metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+                            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+
+                            if (pendingAssignmentsQueue != null) {
+                                Entry stableEntry = source.metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId));
+
+                                Assignments stableAssignments = stableEntry.value() == null
+                                        ? Assignments.EMPTY
+                                        : Assignments.fromBytes(stableEntry.value());
+                                Assignments targetAssignments = pendingAssignmentsQueue.peekLast();
+
+                                for (Assignment pendingAssignment : targetAssignments.nodes()) {
+                                    if (!presentInAssignments(stableAssignments, pendingAssignment.consistentId())) {
+                                        unrebalancedParts += 1;
+                                    }
+                                }
+                            }
+                        }
+
+                        return unrebalancedParts;
+                    }
+            );
+
+            metrics = List.of(localUnrebalancedPartitionsCount, totalUnrebalancedPartitionsCount);
         }
 
         /** Returns the holder metrics. */
         @Override
         public Iterable<Metric> metrics() {
             return metrics;
+        }
+
+        /**
+         * Checks if the node is present in the assignments.
+         *
+         * @param assignments Assignments to check.
+         * @param nodeName Node name to check.
+         * @return {@code true} if the node is present in the assignments, {@code false} otherwise.
+         */
+        private static boolean presentInAssignments(Assignments assignments, String nodeName) {
+            return assignments
+                    .nodes()
+                    .stream()
+                    .anyMatch(assignment -> assignment.consistentId().equals(nodeName));
         }
     }
 }
