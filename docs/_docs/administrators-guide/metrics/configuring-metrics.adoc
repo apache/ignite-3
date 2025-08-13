@@ -111,6 +111,8 @@ OpenTelemetry exporter created by this command will look like this:
         headers=[]
         name=test
         periodMillis=30000
+        enabledMetrics = { }
+        oneLinePerMetricSource = true
         protocol="http/protobuf"
         ssl {
             ciphers=""
@@ -144,6 +146,8 @@ Below are the descriptions of configuration parameters:
 |headers|Request headers, if any.|
 |name|User-defined exporter name, used to refer to it in Ignite.|
 |periodMillis|Export interval for the metrics, in milliseconds.|30000
+|oneLinePerMetricSource|Define whether to print all metrics from one metric source on a single log line.|true
+|enabledMetrics|List of enabled metric sources. If this list is non-empty, only the listed metric sources will be printed, all others will be skipped. A wildcard can be used to match a prefix (for example, `jvm.*`).|true
 |protocol|The protocol that is used to send OpenTelemetry data. Possible values: `grpc`, `http/protobuf`.|`grpc`
 |ssl.ciphers|List of ciphers to enable, comma-separated. Empty for automatic cipher selection.|
 |ssl.clientAuth|Whether the SSL client authentication is enabled and whether it is mandatory.|
