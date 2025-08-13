@@ -52,6 +52,7 @@ import org.apache.ignite.raft.server.counter.CounterListener;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -108,7 +109,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         startClient(TEST_GROUP);
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testStopLeader() throws Exception {
         commonTestStopNode(true);
     }
