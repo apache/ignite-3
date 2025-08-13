@@ -692,7 +692,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     @SuppressWarnings("ThrowableNotThrown")
-    public void testSqlQueryWithType() {
+    public void testSqlQueryModifiers() {
         ClientSql sql = (ClientSql) client().sql();
 
         Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
@@ -713,7 +713,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             ));
         };
 
-        // Incorrect type for DDL.
+        // Incorrect modifier for DDL.
         {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
@@ -728,7 +728,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             );
         }
 
-        // Incorrect type for DML.
+        // Incorrect modifier for DML.
         {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
@@ -743,7 +743,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             );
         }
 
-        // Incorrect type for SELECT.
+        // Incorrect modifier for SELECT.
         {
             IgniteTestUtils.assertThrows(
                     SqlException.class,
@@ -758,7 +758,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             );
         }
 
-        // No exception expected with correct query type.
+        // No exception expected with correct modifiers.
         check.accept(ddlStatement, QueryModifier.ALL);
         check.accept(dmlStatement, QueryModifier.ALL);
         check.accept(selectStatement, QueryModifier.ALL);

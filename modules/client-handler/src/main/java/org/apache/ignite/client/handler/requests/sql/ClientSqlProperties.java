@@ -72,7 +72,9 @@ class ClientSqlProperties {
     }
 
     SqlProperties toSqlProps() {
-        SqlProperties sqlProperties = new SqlProperties().queryTimeout(queryTimeout);
+        SqlProperties sqlProperties = new SqlProperties()
+                .queryTimeout(queryTimeout)
+                .allowedQueryTypes(ClientSqlCommon.convertQueryModifierToQueryType(queryModifiers));
 
         if (schema != null) {
             sqlProperties.defaultSchema(schema);
@@ -81,8 +83,6 @@ class ClientSqlProperties {
         if (timeZoneId != null) {
             sqlProperties.timeZoneId(ZoneId.of(timeZoneId));
         }
-
-        sqlProperties.allowedQueryTypes(ClientSqlCommon.convertQueryModifierToQueryType(queryModifiers));
 
         return sqlProperties;
     }
