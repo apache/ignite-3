@@ -26,7 +26,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * Default implementation of {@link ClockService}.
  */
 public class ClockServiceImpl implements ClockService {
-    private final IgniteLogger LOG = Loggers.forClass(ClockServiceImpl.class);
+    private final IgniteLogger log = Loggers.forClass(ClockServiceImpl.class);
 
     private final HybridClock clock;
     private final ClockWaiter clockWaiter;
@@ -71,7 +71,7 @@ public class ClockServiceImpl implements ClockService {
         // design purity was prioritized over call redundancy.
         HybridTimestamp currentLocalTimestamp = clock.current();
         if (requestTime.getPhysical() - maxClockSkewMillis() > currentLocalTimestamp.getPhysical()) {
-            LOG.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
+            log.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
                     currentLocalTimestamp, maxClockSkewMillis());
         }
 
