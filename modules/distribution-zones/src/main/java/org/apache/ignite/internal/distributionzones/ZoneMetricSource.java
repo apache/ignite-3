@@ -111,7 +111,6 @@ public class ZoneMetricSource extends AbstractMetricSource<ZoneMetricSource.Hold
                     }
             );
 
-
             var totalUnrebalancedPartitionsCount = new IntGauge(
                     TOTAL_UNREBALANCED_PARTITIONS_COUNT,
                     "The total number of partitions that should be moved to a new owner.",

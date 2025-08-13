@@ -140,7 +140,7 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
 
             MetricSet zoneMetric1 = zoneMetricSet(unwrapIgniteImpl(cluster.node(1)));
             zoneMetric1.iterator().forEachRemaining(metric ->
-                log.warn(">>>>> metrics 1 [name=" + metric.name() + ", value=" + metric.getValueAsString()));
+                    log.warn(">>>>> metrics 1 [name=" + metric.name() + ", value=" + metric.getValueAsString()));
         }
 
         assertThat(res, is(true));
@@ -173,7 +173,7 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
      * @param localUnrebalanced Expected number of local unrebalanced partitions.
      * @param totalUnrebalanced Expected total number of unrebalanced partitions.
      */
-    private void checkRebalanceMetrics(IgniteImpl ignite, int localUnrebalanced, int totalUnrebalanced) {
+    private static void checkRebalanceMetrics(IgniteImpl ignite, int localUnrebalanced, int totalUnrebalanced) {
         MetricSet metrics = zoneMetricSet(ignite);
 
         assertThat(metrics, is(notNullValue()));
