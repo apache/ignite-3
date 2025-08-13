@@ -200,17 +200,17 @@ public class SerializationMicroBenchmark {
 
     @Benchmark
     public Object deserialization_01_small_jdk() {
-        return deserializeWithJava(SerializationMicroBenchmark.smallSerializedWithJava);
+        return deserializeWithJava(smallSerializedWithJava);
     }
 
     @Benchmark
     public Object deserialization_11_medium_jdk() {
-        return deserializeWithJava(SerializationMicroBenchmark.mediumSerializedWithJava);
+        return deserializeWithJava(mediumSerializedWithJava);
     }
 
     @Benchmark
     public Object deserialization_21_large_jdk() {
-        return deserializeWithJava(SerializationMicroBenchmark.largeSerializedWithJava);
+        return deserializeWithJava(largeSerializedWithJava);
     }
 
     private Object deserializeWithJava(byte[] serialized) {
@@ -287,6 +287,7 @@ public class SerializationMicroBenchmark {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateField")
     static class TestClass implements Serializable {
 
         private int foo;
