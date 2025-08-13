@@ -53,10 +53,6 @@ public class PartitionPrunerImpl implements PartitionPruner {
         // If PP metadata exists then update fragment's colocation group
         // to retain partition that are necessary to perform an operator (e.g. for a scan operator such
         // partitions only include that ones that can contain data).
-        //
-        // Iterate over fragments again to update fragments that receive data from fragments updated at step 2.
-        // This is accomplished by updating `sourcesByExchangeId`.
-        //
 
         for (MappedFragment mappedFragment : mappedFragments) {
             Fragment fragment = mappedFragment.fragment();
