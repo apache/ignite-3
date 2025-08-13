@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.getValueFromLiteral;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
@@ -108,15 +108,6 @@ public class PartitionAwarenessMetadataExtractor {
         IntArrayList hashFields = new IntArrayList(colocationKeys.size() / 2);
 
         int hashPos = -1;
-
-        // case for insert with only literals in colocation columns.
-        if (fullRow) {
-            boolean dynParams = colocationKeys.stream().map(expressions::get).anyMatch(RexDynamicParam.class::isInstance);
-
-            if (!dynParams) {
-                return null;
-            }
-        }
 
         for (int i = 0; i < colocationKeys.size(); i++) {
             int colIdx = colocationKeys.get(i);

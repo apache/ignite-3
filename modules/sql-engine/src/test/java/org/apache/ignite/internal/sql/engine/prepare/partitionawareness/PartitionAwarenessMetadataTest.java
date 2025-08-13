@@ -134,11 +134,11 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
 
                 // KV PUT
                 Arguments.of("INSERT INTO t VALUES(?, ?)", metaTrackingRequired(0)),
-                Arguments.of("INSERT INTO t VALUES(1, ?)", null),
+                Arguments.of("INSERT INTO t VALUES(1, ?)", metaTrackingRequired(new int[]{-1}, new int[]{1})),
                 Arguments.of("INSERT INTO t VALUES(1+1, ?)", null),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", metaTrackingRequired(1)),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", metaTrackingRequired(0)),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", null),
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", metaTrackingRequired(new int[]{-1}, new int[]{1})),
 
                 // KV DELETE
                 Arguments.of("DELETE FROM t WHERE c1=?", metaTrackingRequired(0)),
@@ -200,9 +200,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, ?)", metaTrackingRequired(2)),
                 Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (?, ?, ?)", metaTrackingRequired(0)),
 
-                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, 3)", null),
-                Arguments.of("INSERT INTO t (c1, c3, c2) VALUES (?, 3, ?)", null),
-                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", null),
+                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, 3)", metaTrackingRequired(new int[]{-1}, new int[]{3})),
+                Arguments.of("INSERT INTO t (c1, c3, c2) VALUES (?, 3, ?)", metaTrackingRequired(new int[]{-1}, new int[]{3})),
+                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", metaTrackingRequired(new int[]{-1}, new int[]{3})),
 
                 // KV DELETE
                 Arguments.of("DELETE FROM t WHERE c3=? and c2=?", metaTrackingRequired(0)),

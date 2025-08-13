@@ -35,6 +35,7 @@ import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
 import static org.apache.calcite.sql.SqlKind.NOT;
 import static org.apache.calcite.sql.SqlKind.OR;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
@@ -58,7 +59,9 @@ import java.util.Set;
 import java.util.TimeZone;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
@@ -84,6 +87,7 @@ import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -109,6 +113,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1189,6 +1194,45 @@ public class RexUtils {
         }
 
         return val;
+    }
+
+    private static class FaultyContext implements DataContext {
+        private static final FaultyContext INSTANCE = new FaultyContext();
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus getRootSchema() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public JavaTypeFactory getTypeFactory() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public QueryProvider getQueryProvider() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable Object get(String name) {
+            throw new AssertionError("Should not call: [" + name + "] from current context.");
+        }
+    }
+
+    /** Return literal holding java object according to it`s type. */
+    public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
+        Object val = literalValue(FaultyContext.INSTANCE, lit, physicalType.spec().javaClass());
+
+        if (val == null) {
+            return null;
+        }
+
+        return fromInternal(val, physicalType.spec());
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
