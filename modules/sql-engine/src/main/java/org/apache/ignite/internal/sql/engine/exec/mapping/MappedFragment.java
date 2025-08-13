@@ -142,7 +142,7 @@ public class MappedFragment {
         // We should get these colocation groups in the end:
         //
         // - ColocationGroup [ sourceId = [0] ... ] this one has the number of partitions reduced.
-        // - ColocationGroup [ sourceId = [1] ... ] which has all partitions.
+        // - ColocationGroup [ sourceId = [1] ... ] this one has all partitions.
         //
         for (Entry<ColocationGroup> e : groupsBySourceId.long2ObjectEntrySet()) {
             ColocationGroup newGroup = replacedGroups.get(e.getLongKey());
