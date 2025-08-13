@@ -129,7 +129,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
-        return new Downstream<RowT>() {
+        return new Downstream<>() {
             @Override
             public void push(RowT row) throws Exception {
                 AbstractSetOpNode.this.push(row, idx);
