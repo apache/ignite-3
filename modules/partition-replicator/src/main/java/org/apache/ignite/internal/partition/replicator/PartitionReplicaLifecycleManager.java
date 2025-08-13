@@ -707,7 +707,7 @@ public class PartitionReplicaLifecycleManager extends
                             // internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
                             return replicaMgr.startReplica(
                                     zonePartitionId,
-                                    (raftClient, throttledLogger) -> {
+                                    raftClient -> {
                                         var replicaListener = new ZonePartitionReplicaListener(
                                                 zoneResources.txStatePartitionStorage(),
                                                 clockService,
@@ -721,8 +721,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 failureProcessor,
                                                 nodeProperties,
                                                 topologyService.localMember(),
-                                                zonePartitionId,
-                                                throttledLogger
+                                                zonePartitionId
                                         );
 
                                         zoneResources.replicaListenerFuture().complete(replicaListener);

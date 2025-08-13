@@ -45,6 +45,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
@@ -60,7 +61,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -109,6 +109,7 @@ import org.apache.ignite.internal.replicator.exception.ExpectedReplicationExcept
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
@@ -147,6 +148,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private static final int MAXIMUM_ATTEMPTS_WITHOUT_LOGGING = 10;
+
+    private final Map<ReplicationGroupId, Integer> timeoutAttemptsCounters = new ConcurrentHashMap<>();
 
     /** Executor for the throttled log. */
     // TODO: IGNITE-20063 Maybe get rid of it
@@ -676,7 +681,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            BiFunction<RaftGroupService, IgniteThrottledLogger, ReplicaListener> listenerFactory,
+            Function<RaftGroupService, ReplicaListener> listenerFactory,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -711,7 +716,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                         return new ZonePartitionReplicaImpl(
                                 replicaGrpId,
-                                listenerFactory.apply(raftClient, throttledLog),
+                                listenerFactory.apply(raftClient),
                                 raftClient,
                                 placementDriverMessageProcessor
                         );
@@ -745,6 +750,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 groupOptions,
                 raftGroupServiceFactory
         );
+
+        timeoutAttemptsCounters.put(replicaGrpId, 0);
 
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
@@ -899,6 +906,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (!replicaWasRemoved) {
                         return false;
                     }
+
+                    timeoutAttemptsCounters.remove(replicaGrpId);
 
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
@@ -1104,12 +1113,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica replica = replicaFuture.join();
 
+        ReplicationGroupId replicaGroupId = replica.groupId();
+
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                .groupId(toReplicationGroupIdMessage(replica.groupId()))
+                .groupId(toReplicationGroupIdMessage(replicaGroupId))
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null) {
+                if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
+                    tryToLogTimeoutFailure(replicaGroupId, ex);
+                } else {
+                    // Reset counter if timeouts aren't the reason.
+                    timeoutAttemptsCounters.put(replicaGroupId, 0);
+                }
+
                 if (!hasCause(
                         ex,
                         NodeStoppingException.class,
@@ -1123,6 +1141,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
             }
         });
+    }
+
+    private void tryToLogTimeoutFailure(ReplicationGroupId replicaGroupId, Throwable timeoutException) {
+        Integer currentAttempt = timeoutAttemptsCounters.computeIfPresent(replicaGroupId, (id, attempts) -> attempts + 1);
+
+        assert currentAttempt != null;
+
+        if (currentAttempt < MAXIMUM_ATTEMPTS_WITHOUT_LOGGING) {
+            return;
+        }
+
+        throttledLog.warn(
+                "SafeTime-Sync-Timeouts", // Common key to throttle among all replicas and don't spoil the log.
+                "Failed to sync safe time for partition, the same kind of issue may affect all other replicas on this node "
+                        + "[groupId={}, attempt={}].",
+                timeoutException,
+                replicaGroupId,
+                currentAttempt
+        );
     }
 
     private boolean shouldAdvanceIdleSafeTime() {

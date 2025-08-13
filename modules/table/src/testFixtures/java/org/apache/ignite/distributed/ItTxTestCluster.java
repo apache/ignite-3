@@ -89,7 +89,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
@@ -982,8 +981,7 @@ public class ItTxTestCluster {
                             new NoOpFailureManager(),
                             new SystemPropertiesNodeProperties(),
                             localNode,
-                            partitionId,
-                            mock(IgniteThrottledLogger.class)
+                            partitionId
                     )
             );
 
