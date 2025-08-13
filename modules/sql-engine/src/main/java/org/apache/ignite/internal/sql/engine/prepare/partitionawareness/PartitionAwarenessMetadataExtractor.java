@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
-import static org.apache.ignite.internal.sql.engine.util.RexUtils.getValueFromLiteral;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
@@ -107,8 +107,16 @@ public class PartitionAwarenessMetadataExtractor {
         int[] indexes = new int[colocationKeys.size()];
         IntArrayList hashFields = new IntArrayList(colocationKeys.size() / 2);
 
-        boolean onlyLiterals = true;
         int hashPos = -1;
+
+        // case for insert with only literals in colocation columns.
+        if (fullRow) {
+            boolean dynParams = colocationKeys.stream().map(expressions::get).anyMatch(RexDynamicParam.class::isInstance);
+
+            if (!dynParams) {
+                return null;
+            }
+        }
 
         for (int i = 0; i < colocationKeys.size(); i++) {
             int colIdx = colocationKeys.get(i);
@@ -124,7 +132,6 @@ public class PartitionAwarenessMetadataExtractor {
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
                 indexes[i] = dynamicParam.getIndex();
-                onlyLiterals = false;
             } else if (expr instanceof RexLiteral) {
                 RexLiteral expr0 = (RexLiteral) expr;
 
@@ -140,11 +147,6 @@ public class PartitionAwarenessMetadataExtractor {
             } else {
                 return null;
             }
-        }
-
-        // case for IgniteKeyValueModify with only literals in colocation columns.
-        if (fullRow && onlyLiterals) {
-            return null;
         }
 
         int[] hash = hashFields.toArray(new int[0]);

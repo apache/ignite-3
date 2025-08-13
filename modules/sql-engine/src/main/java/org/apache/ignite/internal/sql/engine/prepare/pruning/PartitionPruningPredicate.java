@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
-import static org.apache.ignite.internal.sql.engine.util.RexUtils.getValueFromLiteral;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.getValueFromLiteral;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;

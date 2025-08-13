@@ -51,6 +51,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -417,6 +418,27 @@ public class TypeUtils {
                 return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, spec);
             }
         }
+    }
+
+    /** Return literal holding java object according to it`s type. */
+    public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
+        Object val;
+        ColumnType typeSpec = physicalType.spec();
+        if (typeSpec == ColumnType.DATE || typeSpec == ColumnType.TIME) {
+            val = lit.getValueAs(Integer.class);
+            assert val != null;
+        } else if (typeSpec == ColumnType.TIMESTAMP || typeSpec == ColumnType.DATETIME) {
+            val = lit.getValueAs(Long.class);
+            assert val != null;
+        } else if (typeSpec == ColumnType.BYTE_ARRAY) {
+            // pack it back into ByteString seems more harmful
+            return lit.getValueAs(typeSpec.javaClass());
+        } else {
+            val = lit.getValueAs(typeSpec.javaClass());
+            assert val != null;
+        }
+
+        return fromInternal(val, typeSpec);
     }
 
     /**

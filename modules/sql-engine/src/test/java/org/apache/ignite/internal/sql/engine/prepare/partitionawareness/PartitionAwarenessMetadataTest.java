@@ -205,12 +205,12 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", null),
 
                 // KV DELETE
-                Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", meta(0)),
-                Arguments.of("SELECT * FROM t WHERE c2=? and c3=?", meta(1)),
-                Arguments.of("SELECT * FROM t WHERE c3=? and c2=1", meta(0)),
+                Arguments.of("DELETE FROM t WHERE c3=? and c2=?", metaTrackingRequired(0)),
+                Arguments.of("DELETE FROM t WHERE c2=? and c3=?", metaTrackingRequired(1)),
+                Arguments.of("DELETE FROM t WHERE c3=? and c2=1", metaTrackingRequired(0)),
 
-                Arguments.of("SELECT * FROM t WHERE c3=3", null),
-                Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", meta(new int[]{-1}, new int[]{3}))
+                Arguments.of("DELETE FROM t WHERE c3=3", null),
+                Arguments.of("DELETE FROM t WHERE c2=? and c3=3", metaTrackingRequired(new int[]{-1}, new int[]{3}))
         );
     }
 
