@@ -136,7 +136,7 @@ public class MappedFragment {
         //
         // Consider the following scenario:
         // ColocationGroup [ sourceIds = [0, 1], ... ] where sourceIds point to the same table but the one with sourceId=0
-        // has a predicate and the one with source=2 does not. In this case we need to create two colocation groups:
+        // has a predicate and the one with source=1 does not. In this case we need to create two colocation groups:
         // one for sourceId=0 and another for sourceId=1.
         //
         // We should get these colocation groups in the end:
