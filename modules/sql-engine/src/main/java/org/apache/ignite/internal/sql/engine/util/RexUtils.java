@@ -114,6 +114,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1226,10 +1227,19 @@ public class RexUtils {
 
     /** Return literal holding java object according to it`s type. */
     public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        Object val = literalValue(FaultyContext.INSTANCE, lit, physicalType.spec().javaClass());
-
-        if (val == null) {
-            return null;
+        Object val;
+        if (physicalType.spec() == ColumnType.DATE || physicalType.spec() == ColumnType.TIME) {
+            val = lit.getValueAs(Integer.class);
+            assert val != null;
+        } else if (physicalType.spec() == ColumnType.TIMESTAMP || physicalType.spec() == ColumnType.DATETIME) {
+            val = lit.getValueAs(Long.class);
+            assert val != null;
+        } else if (physicalType.spec() == ColumnType.BYTE_ARRAY) {
+            // pack it back into ByteString seems more harmful
+            return lit.getValueAs(physicalType.spec().javaClass());
+        } else {
+            val = literalValue(FaultyContext.INSTANCE, lit, physicalType.spec().javaClass());
+            assert val != null;
         }
 
         return fromInternal(val, physicalType.spec());
