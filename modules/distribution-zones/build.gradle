@@ -68,6 +68,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')

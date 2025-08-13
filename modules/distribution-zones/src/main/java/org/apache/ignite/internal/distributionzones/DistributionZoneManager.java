@@ -186,8 +186,8 @@ public class DistributionZoneManager extends
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockService clockService//,
-           // MetricManager metricManager
+            ClockService clockService,
+            MetricManager metricManager
     ) {
         this(
                 nodeName,
@@ -199,7 +199,7 @@ public class DistributionZoneManager extends
                 systemDistributedConfiguration,
                 clockService,
                 new SystemPropertiesNodeProperties(),
-                null
+                metricManager
         );
     }
 
