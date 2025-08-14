@@ -24,5 +24,5 @@ public class IgniteTransactionDefaults {
     /**
      * Default transaction timeout.
      */
-    public static long DEFAULT_TX_TIMEOUT_SECONDS = 30;
+    public static final long DEFAULT_TX_TIMEOUT_SECONDS = 30;
 }

@@ -538,10 +538,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         CompletableFuture<Double> fut = view.getAsync(tx, makeKey(1))
                                 .thenCompose(val2 -> {
                                     double prev = val2.doubleValue("balance");
-                                    return view.upsertAsync(tx, makeValue(1, delta + 20)).thenApply(ignored -> prev);
-                                });
-
-                        fut.join();
+                                    return view.upsertAsync(tx, makeValue(1, delta + 20))
+                                            .thenApply(ignored -> prev);
+                                })
+                                .whenComplete((res, ex) -> log.info("Test: tx operations in tx closures completed, ex=" + ex));
 
                         if (true) {
                             throw new IllegalArgumentException();
