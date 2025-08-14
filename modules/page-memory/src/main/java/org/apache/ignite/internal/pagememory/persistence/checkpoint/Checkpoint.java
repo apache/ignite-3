@@ -21,22 +21,19 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
  * Data class of checkpoint information.
  */
 class Checkpoint {
-    /** Dirty pages from data regions that should be checkpointed. */
+    /** Sorted dirty pages from data regions that should be checkpointed. */
     final CheckpointDirtyPages dirtyPages;
 
     /** Checkpoint progress status. */
     final CheckpointProgressImpl progress;
 
-    /** Number of modified pages. */
-    final int modifiedPagesSize;
-
-    /** Number of newly allocated pages. */
-    final int newPagesSize;
+    /** Number of dirty pages. */
+    final int dirtyPagesSize;
 
     /**
      * Constructor.
      *
-     * @param dirtyPages Dirty pages from data regions that should be checkpointed.
+     * @param dirtyPages Sorted dirty pages from data regions that should be checkpointed.
      * @param progress Checkpoint progress status.
      */
     Checkpoint(
@@ -46,14 +43,13 @@ class Checkpoint {
         this.dirtyPages = dirtyPages;
         this.progress = progress;
 
-        modifiedPagesSize = dirtyPages.modifiedPagesCount();
-        newPagesSize = dirtyPages.newPagesCount();
+        dirtyPagesSize = dirtyPages.dirtyPagesCount();
     }
 
     /**
      * Returns {@code true} if this checkpoint contains at least one dirty page.
      */
     public boolean hasDelta() {
-        return modifiedPagesSize != 0 || newPagesSize != 0;
+        return dirtyPagesSize != 0;
     }
 }

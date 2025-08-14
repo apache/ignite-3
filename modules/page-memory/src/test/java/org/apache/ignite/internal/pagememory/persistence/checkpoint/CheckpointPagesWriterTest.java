@@ -71,8 +71,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -95,10 +93,9 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         ioRegistry = null;
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testWriteDirtyPages(boolean newPage) throws Exception {
-        PersistentPageMemory pageMemory = createPageMemory(3, newPage);
+    @Test
+    void testWritePages() throws Exception {
+        PersistentPageMemory pageMemory = createPageMemory(3);
 
         FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
         FullPageId fullPageId2 = new FullPageId(pageId(0, FLAG_DATA, 2), 0);
@@ -108,15 +105,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         FullPageId fullPageId6 = new FullPageId(pageId(1, FLAG_DATA, 6), 0);
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(
-                        pageMemory,
-                        newPage,
-                        fullPageId1,
-                        fullPageId2,
-                        fullPageId3,
-                        fullPageId4,
-                        fullPageId5,
-                        fullPageId6)
+                createDirtyPagesAndPartitions(pageMemory, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5, fullPageId6)
         ));
 
         GroupPartitionId groupPartId0 = groupPartId(0, 0);
@@ -200,7 +189,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testFailWriteDirtyPages() throws Exception {
+    void testFailWritePages() throws Exception {
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
@@ -218,7 +207,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory, Map.of(), new FullPageId(pageId(0, FLAG_DATA, 1), 0))
+                createDirtyPagesAndPartitions(pageMemory, new FullPageId(pageId(0, FLAG_DATA, 1), 0))
         ));
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
@@ -269,7 +258,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory, Map.of(), fullPageId(0, 0, 1), fullPageId(0, 1, 2))
+                createDirtyPagesAndPartitions(pageMemory, fullPageId(0, 0, 1), fullPageId(0, 1, 2))
         ));
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
@@ -311,7 +300,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
      * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PersistentPageMemory#TRY_AGAIN_TAG}.
      * @throws Exception If failed.
      */
-    private static PersistentPageMemory createPageMemory(int tryAgainTagFirstPageCount, boolean newPage) throws Exception {
+    private static PersistentPageMemory createPageMemory(int tryAgainTagFirstPageCount) throws Exception {
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         AtomicInteger pageCount = new AtomicInteger();
@@ -327,7 +316,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
             new TestPageIo().initNewPage(bufferAddress(buffer), fullPageId.pageId(), PAGE_SIZE);
 
-            pageStoreWriter.writePage(fullPageId, buffer, newPage, tag);
+            pageStoreWriter.writePage(fullPageId, buffer, tag);
 
             return null;
         })
@@ -364,12 +353,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         WriteDirtyPage writer = mock(WriteDirtyPage.class);
 
         if (fullPageIdArgumentCaptor != null) {
-            doNothing().when(writer).write(
-                    any(PersistentPageMemory.class),
-                    fullPageIdArgumentCaptor.capture(),
-                    any(ByteBuffer.class),
-                    anyBoolean()
-            );
+            doNothing().when(writer).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
         }
 
         return writer;

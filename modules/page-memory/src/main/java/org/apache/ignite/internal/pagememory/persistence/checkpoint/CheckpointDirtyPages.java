@@ -31,10 +31,7 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Pages and partition IDs that should be checkpointed, with modified pages sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and new pages
- * grouped by partition id.
- */
+/** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and partition IDs that should be checkpointed. */
 public class CheckpointDirtyPages {
     /** Dirty page ID comparator by groupId -> partitionId -> pageIdx. */
     static final Comparator<FullPageId> DIRTY_PAGE_COMPARATOR = Comparator
@@ -44,19 +41,16 @@ public class CheckpointDirtyPages {
     /** Empty checkpoint dirty pages. */
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
 
-    /** Dirty pages and partitions of data regions, with modified pages sorted by {@link #DIRTY_PAGE_COMPARATOR}. */
+    /** Dirty pages and partitions of data regions, with sorted dirty page IDs by {@link #DIRTY_PAGE_COMPARATOR}. */
     private final List<DirtyPagesAndPartitions> dirtyPagesAndPartitions;
 
-    /** Total number of modified page IDs. */
-    private final int modifiedPagesCount;
-
-    /** Total number of new page IDs. */
-    private final int newPagesCount;
+    /** Total number of dirty page IDs. */
+    private final int dirtyPagesCount;
 
     /**
      * Constructor.
      *
-     * @param dirtyPagesAndPartitions Dirty pages and partitions of data regions, with modified pages sorted by
+     * @param dirtyPagesAndPartitions Dirty pages and partitions of data regions, with sorted dirty page IDs by
      *     {@link #DIRTY_PAGE_COMPARATOR}. Expected list with {@link RandomAccess}.
      */
     CheckpointDirtyPages(List<DirtyPagesAndPartitions> dirtyPagesAndPartitions) {
@@ -64,20 +58,14 @@ public class CheckpointDirtyPages {
 
         this.dirtyPagesAndPartitions = dirtyPagesAndPartitions;
 
-        modifiedPagesCount = dirtyPagesAndPartitions.stream().mapToInt(pages -> pages.modifiedPages.length).sum();
-        newPagesCount = dirtyPagesAndPartitions.stream()
-                .mapToInt(DirtyPagesAndPartitions::newPagesCount)
-                .sum();
+        dirtyPagesCount = dirtyPagesAndPartitions.stream().mapToInt(pages -> pages.dirtyPages.length).sum();
     }
 
-    /** Returns total number of modified pages. */
-    public int modifiedPagesCount() {
-        return modifiedPagesCount;
-    }
-
-    /** Return total number of newly allocated pages. */
-    public int newPagesCount() {
-        return newPagesCount;
+    /**
+     * Returns total number of dirty page IDs.
+     */
+    public int dirtyPagesCount() {
+        return dirtyPagesCount;
     }
 
     /** Creates a concurrent queue of dirty partitions to be written to at checkpoint. */
@@ -113,25 +101,21 @@ public class CheckpointDirtyPages {
         FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
-        FullPageId[] modifiedPageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).modifiedPages;
+        FullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
 
-        if (modifiedPageIds.length == 0) {
-            return new CheckpointDirtyPagesView(dirtyPagesIdx, 0, 0, new GroupPartitionId(grpId, partId));
-        }
+        int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
-        int fromIndex = binarySearch(modifiedPageIds, startPageId, DIRTY_PAGE_COMPARATOR);
+        fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, -fromIndex - 1);
 
-        fromIndex = fromIndex >= 0 ? fromIndex : Math.min(modifiedPageIds.length - 1, -fromIndex - 1);
-
-        if (!equalsByGroupAndPartition(startPageId, modifiedPageIds[fromIndex])) {
+        if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
             return null;
         }
 
-        int toIndex = binarySearch(modifiedPageIds, fromIndex, modifiedPageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
+        int toIndex = binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
 
         toIndex = toIndex >= 0 ? toIndex : -toIndex - 1;
 
-        return new CheckpointDirtyPagesView(dirtyPagesIdx, fromIndex, toIndex, new GroupPartitionId(grpId, partId));
+        return new CheckpointDirtyPagesView(dirtyPagesIdx, fromIndex, toIndex);
     }
 
     /**
@@ -142,16 +126,8 @@ public class CheckpointDirtyPages {
         return this.dirtyPagesAndPartitions.stream().map(p -> p.pageMemory).collect(toList());
     }
 
-    public boolean hasDelta() {
-        return modifiedPagesCount > 0 || newPagesCount > 0;
-    }
-
-    public int dirtyPagesCount() {
-        return modifiedPagesCount + newPagesCount;
-    }
-
     /**
-     * View of {@link CheckpointDirtyPages} in which all page IDs will refer to the same {@link PersistentPageMemory} and contain the
+     * View of {@link CheckpointDirtyPages} in which all dirty page IDs will refer to the same {@link PersistentPageMemory} and contain the
      * same groupId and partitionId and increasing pageIdx.
      *
      * <p>Thread safe.
@@ -166,8 +142,6 @@ public class CheckpointDirtyPages {
         /** End position (exclusive) of the dirty page within the element at {@link #regionIndex}. */
         private final int toPosition;
 
-        private final GroupPartitionId partitionId;
-
         /**
          * Private constructor.
          *
@@ -175,27 +149,19 @@ public class CheckpointDirtyPages {
          * @param fromPosition Starting position (inclusive) of the dirty page within the element at {@link #regionIndex}.
          * @param toPosition End position (exclusive) of the dirty page within the element at {@link #regionIndex}.
          */
-        private CheckpointDirtyPagesView(int regionIndex, int fromPosition, int toPosition, GroupPartitionId partitionId) {
+        private CheckpointDirtyPagesView(int regionIndex, int fromPosition, int toPosition) {
             this.regionIndex = regionIndex;
             this.fromPosition = fromPosition;
             this.toPosition = toPosition;
-            this.partitionId = partitionId;
         }
 
         /**
-         * Returns the modified page by index.
+         * Returns the dirty page by index.
          *
-         * @param index Modified page index.
+         * @param index Dirty page index.
          */
-        public FullPageId getModifiedPage(int index) {
-            return dirtyPagesAndPartitions.get(this.regionIndex).modifiedPages[fromPosition + index];
-        }
-
-        /** Returns the newly allocated pages. */
-        public FullPageId[] getNewPages() {
-            FullPageId[] newPages = dirtyPagesAndPartitions.get(this.regionIndex).newPagesByGroupPartitionId.get(partitionId);
-
-            return newPages == null ? new FullPageId[0] : newPages;
+        public FullPageId get(int index) {
+            return dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages[fromPosition + index];
         }
 
         /**
@@ -208,7 +174,7 @@ public class CheckpointDirtyPages {
         /**
          * Returns the size of the view.
          */
-        public int modifiedPagesSize() {
+        public int size() {
             return toPosition - fromPosition;
         }
     }

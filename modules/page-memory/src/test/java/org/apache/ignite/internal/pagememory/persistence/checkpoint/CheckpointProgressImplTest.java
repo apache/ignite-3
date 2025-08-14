@@ -354,7 +354,7 @@ public class CheckpointProgressImplTest {
     }
 
     @Test
-    void testDirtyPages() {
+    void testPagesToWrite() {
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
 
         assertNull(progressImpl.pagesToWrite());

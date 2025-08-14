@@ -30,10 +30,9 @@ public interface PageStoreWriter {
      * @param fullPageId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
      * PersistentPageMemory#beginCheckpoint} method call.
      * @param buf Temporary buffer to write changes into.
-     * @param newPage If page is newly allocated and not present in the page store.
      * @param tag Partition generation if data was read. {@link PersistentPageMemory#TRY_AGAIN_TAG} if failed to get a write lock
      *      for a page and need to try writing again later.
      * @throws IgniteInternalCheckedException If write page failed.
      */
-    void writePage(FullPageId fullPageId, ByteBuffer buf, boolean newPage, int tag) throws IgniteInternalCheckedException;
+    void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
 }

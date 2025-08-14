@@ -27,23 +27,20 @@ import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 
 /**
  * For {@link Checkpoint} testing.
  */
 public class CheckpointTest extends BaseIgniteAbstractTest {
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testHasDelta(boolean newPage) {
+    @Test
+    void testHasDelta() {
         CheckpointProgressImpl progress = mock(CheckpointProgressImpl.class);
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
         DirtyPagesAndPartitions dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
                 mock(PersistentPageMemory.class),
-                newPage,
                 new FullPageId(0, 1)
         );
 

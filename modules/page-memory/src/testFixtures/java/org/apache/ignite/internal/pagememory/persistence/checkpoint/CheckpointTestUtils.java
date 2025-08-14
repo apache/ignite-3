@@ -80,7 +80,7 @@ public class CheckpointTestUtils {
      * @param dirtyPagesView Checkpoint dirty pages view.
      */
     public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
-        return IntStream.range(0, dirtyPagesView.modifiedPagesSize()).mapToObj(dirtyPagesView::getModifiedPage).collect(Collectors.toList());
+        return IntStream.range(0, dirtyPagesView.size()).mapToObj(dirtyPagesView::get).collect(Collectors.toList());
     }
 
     /**

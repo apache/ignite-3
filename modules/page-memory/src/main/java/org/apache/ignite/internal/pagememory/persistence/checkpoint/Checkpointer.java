@@ -106,8 +106,7 @@ public class Checkpointer extends IgniteWorker {
             + "writeLockHoldTime={}us, "
             + "splitAndSortPagesDuration={}ms, "
             + "{}"
-            + "modifiedPages={}, "
-            + "newPages={}, "
+            + "pages={}, "
             + "reason='{}']";
 
     private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
@@ -118,8 +117,7 @@ public class Checkpointer extends IgniteWorker {
 
     private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
             + "checkpointId={}, "
-            + "modifiedPages={}, "
-            + "newPages={}, "
+            + "pages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
@@ -373,8 +371,7 @@ public class Checkpointer extends IgniteWorker {
                                 tracker.writeLockHoldDuration(MICROSECONDS),
                                 tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
                                 possibleJvmPauseDuration > 0 ? "possibleJvmPauseDuration=" + possibleJvmPauseDuration + "ms, " : "",
-                                chp.modifiedPagesSize,
-                                chp.newPagesSize,
+                                chp.dirtyPagesSize,
                                 chp.progress.reason()
                         );
                     }
@@ -410,14 +407,13 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    long totalWriteBytes = (long) pageSize * chp.dirtyPages.dirtyPagesCount();
+                    long totalWriteBytes = (long) pageSize * chp.dirtyPagesSize;
                     long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
-                            chp.modifiedPagesSize,
-                            chp.newPagesSize,
+                            chp.dirtyPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
@@ -553,7 +549,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -578,7 +574,7 @@ public class Checkpointer extends IgniteWorker {
                                 break;
                             }
 
-                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                            fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -600,7 +596,7 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    private void fsyncDeltaFile(
+    private void fsyncPartitionFiles(
             CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
             LongAdder pagesWritten
@@ -614,9 +610,18 @@ public class Checkpointer extends IgniteWorker {
         currentCheckpointProgress.blockPartitionDestruction(partitionId);
 
         try {
-            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore);
+
+            blockingSectionBegin();
+            try {
+                filePageStore.sync();
+            } finally {
+                blockingSectionEnd();
+            }
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+
+            currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
             currentCheckpointProgress.unblockPartitionDestruction(partitionId);
         }
@@ -849,10 +854,7 @@ public class Checkpointer extends IgniteWorker {
         return safeAbs(interval + startDelay);
     }
 
-    private void fsyncDeltaFilePageStoreOnCheckpointThread(
-            FilePageStore filePageStore,
-            LongAdder pagesWritten
-    ) throws IgniteInternalCheckedException {
+    private void fsyncDeltaFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
@@ -864,8 +866,6 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             blockingSectionEnd();
         }
-
-        currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
     }
 
     private void renameDeltaFileOnCheckpointThread(

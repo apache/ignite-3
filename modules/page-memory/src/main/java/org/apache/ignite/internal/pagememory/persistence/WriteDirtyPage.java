@@ -31,13 +31,7 @@ public interface WriteDirtyPage {
      * @param pageMemory Page memory.
      * @param fullPageId Full page id.
      * @param buffer Byte buffer to write from.
-     * @param newPage If the page is newly allocated and not present in the page store.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void write(
-            PersistentPageMemory pageMemory,
-            FullPageId fullPageId,
-            ByteBuffer buffer,
-            boolean newPage
-    ) throws IgniteInternalCheckedException;
+    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buffer) throws IgniteInternalCheckedException;
 }

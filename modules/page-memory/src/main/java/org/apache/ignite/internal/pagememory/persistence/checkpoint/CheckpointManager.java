@@ -289,21 +289,19 @@ public class CheckpointManager {
     }
 
     /**
-     * Writes a page to file page store (main for newly allocated pages and delta for modified pages).
+     * Writes a page to delta file page store.
      *
      * <p>Must be used at breakpoint and page replacement.
      *
      * @param pageMemory Page memory.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param newPage If page is newly allocated and not present in file page store.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
     public void writePageToFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
-            ByteBuffer pageBuf,
-            boolean newPage
+            ByteBuffer pageBuf
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
 
@@ -312,7 +310,7 @@ public class CheckpointManager {
             return;
         }
 
-        if (newPage) {
+        if (pageId.pageIdx() >= filePageStore.pages()) {
             filePageStore.write(pageId.pageId(), pageBuf);
             return;
         }
@@ -338,7 +336,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView);
+                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.pages());
                 }
         );
 
@@ -350,14 +348,14 @@ public class CheckpointManager {
      *
      * @param partitionDirtyPages Dirty pages of the partition.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int pageStorePages) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
-        int offset = partitionDirtyPages.modifiedPagesSize() != 0 && partitionDirtyPages.getModifiedPage(0).pageIdx() == 0 ? 0 : 1;
+        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.modifiedPagesSize() + offset];
+        int[] pageIndexes = new int[pageStorePages - 1 + offset];
 
-        for (int i = 0; i < partitionDirtyPages.modifiedPagesSize(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.getModifiedPage(i).pageIdx();
+        for (int i = 0; i < pageStorePages - 1; i++) {
+            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 
         return pageIndexes;

@@ -66,8 +66,6 @@ public class DelayedDirtyPageWrite {
      */
     private @Nullable CheckpointPages checkpointPages;
 
-    private boolean newPage;
-
     /**
      * Constructor.
      *
@@ -102,8 +100,7 @@ public class DelayedDirtyPageWrite {
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer originPageBuf,
-            CheckpointPages checkpointPages,
-            boolean newPage
+            CheckpointPages checkpointPages
     ) {
         tracker.lock(pageId);
 
@@ -117,7 +114,6 @@ public class DelayedDirtyPageWrite {
         copyMemory(srcBufAddr, dstBufAddr, pageSize);
 
         this.fullPageId = pageId;
-        this.newPage = newPage;
         this.pageMemory = pageMemory;
         this.checkpointPages = checkpointPages;
     }
@@ -126,7 +122,7 @@ public class DelayedDirtyPageWrite {
      * Flushes a previously copied page to disk if it was copied.
      *
      * @throws IgniteInternalCheckedException If write failed.
-     * @see #copyPageToTemporaryBuffer
+     * @see #copyPageToTemporaryBuffer(PersistentPageMemory, FullPageId, ByteBuffer, CheckpointPages)
      */
     public void flushCopiedPageIfExists() throws IgniteInternalCheckedException {
         if (fullPageId == null) {
@@ -141,7 +137,7 @@ public class DelayedDirtyPageWrite {
         checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(fullPageId));
 
         try {
-            flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get(), newPage);
+            flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
         } catch (Throwable t) {
             errorOnWrite = t;
 

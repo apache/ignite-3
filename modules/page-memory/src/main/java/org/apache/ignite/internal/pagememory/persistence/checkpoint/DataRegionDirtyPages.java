@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import java.util.Map;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /**
@@ -29,20 +27,16 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 class DataRegionDirtyPages<T> {
     final PersistentPageMemory pageMemory;
 
-    final T modifiedPages;
-
-    final Map<GroupPartitionId, T> newPagesByPartitionId;
+    final T dirtyPages;
 
     /**
      * Constructor.
      *
      * @param pageMemory Page memory.
-     * @param modifiedPages Container of modified pages.
-     * @param newPagesByPartitionId Newly allocated pages by partition ID.
+     * @param dirtyPages Container of dirty pages.
      */
-    DataRegionDirtyPages(PersistentPageMemory pageMemory, T modifiedPages, Map<GroupPartitionId, T> newPagesByPartitionId) {
+    DataRegionDirtyPages(PersistentPageMemory pageMemory, T dirtyPages) {
         this.pageMemory = pageMemory;
-        this.modifiedPages = modifiedPages;
-        this.newPagesByPartitionId = newPagesByPartitionId;
+        this.dirtyPages = dirtyPages;
     }
 }

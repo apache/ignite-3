@@ -41,7 +41,6 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
@@ -66,8 +65,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.invocation.InvocationOnMock;
 
 /**
@@ -154,17 +151,12 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(
-                        pageMemory0,
-                        // New pages are not included in the delta file page store.
-                        Map.of(new GroupPartitionId(0, 0), dirtyPageArray(0, 0, 5, 6, 7)),
-                        dirtyPageArray(0, 0, 1)
-                ),
-                createDirtyPagesAndPartitions(pageMemory1, Map.of(), dirtyPageArray(0, 1, 2, 3, 4))
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
         ));
 
-        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
-        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+        assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 1));
+        assertArrayEquals(new int[]{0, 2, 3}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 3));
     }
 
     @Test
@@ -173,27 +165,23 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(
-                        pageMemory0,
-                        // New pages are not included in the delta file page store.
-                        Map.of(new GroupPartitionId(0, 0), dirtyPageArray(0, 0, 5, 6, 7)),
-                        dirtyPageArray(0, 0, 0, 1)
-                ),
-                createDirtyPagesAndPartitions(pageMemory1, Map.of(), dirtyPageArray(0, 1, 0, 2, 3, 4))
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
         ));
 
-        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
-        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+        assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 2));
+        assertArrayEquals(new int[]{0, 2, 3}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 4));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testWritePageToFilePageStore(boolean newPage) throws Exception {
+    @Test
+    void testWritePageToDeltaFilePageStore() throws Exception {
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
 
         FilePageStore filePageStore = mock(FilePageStore.class);
+
+        when(filePageStore.pages()).thenReturn(2);
 
         AtomicReference<FilePageStore> filePageStoreRef = new AtomicReference<>(filePageStore);
 
@@ -204,7 +192,10 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         when(filePageStore.isMarkedToDestroy()).then(InvocationOnMock::callRealMethod);
 
+        // Will be written to delta file, as file page store already has 2 pages.
         FullPageId dirtyPageId = new FullPageId(pageId(0, (byte) 0, 1), 0);
+        // Will be written to main file, as it is newly allocated.
+        FullPageId dirtyPageId2 = new FullPageId(pageId(0, (byte) 0, 2), 0);
 
         when(filePageStoreManager.getStore(eq(new GroupPartitionId(dirtyPageId.groupId(), dirtyPageId.partitionId()))))
                 .then(answer -> filePageStoreRef.get());
@@ -227,7 +218,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         CheckpointProgress checkpointProgress = mock(CheckpointProgress.class);
 
-        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, newPage, dirtyPageId)));
+        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, dirtyPageId, dirtyPageId2)));
 
         when(checkpointProgress.inProgress()).thenReturn(true);
 
@@ -238,13 +229,11 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         // Spying because mocking ByteBuffer does not work on Java 21.
         ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
-        checkpointManager.writePageToFilePageStore(pageMemory, dirtyPageId, pageBuf, newPage);
+        checkpointManager.writePageToFilePageStore(pageMemory, dirtyPageId, pageBuf);
+        checkpointManager.writePageToFilePageStore(pageMemory, dirtyPageId2, pageBuf);
 
-        if (newPage) {
-            verify(filePageStore, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
-        } else {
-            verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
-        }
+        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
+        verify(filePageStore, (times(1))).write(eq(dirtyPageId2.pageId()), eq(pageBuf));
     }
 
     private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {
