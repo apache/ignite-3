@@ -70,10 +70,12 @@ class PojoConverterTest {
         );
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateField")
     public static class IntPojo {
         private int value;
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateField")
     public static class LongPojo {
         private Long value;
     }

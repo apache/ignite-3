@@ -850,7 +850,7 @@ public class RexUtils {
     }
 
     private static Boolean containsFieldAccess(RexNode node) {
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitFieldAccess(RexFieldAccess fieldAccess) {
                 throw Util.FoundOne.NULL;
@@ -1046,7 +1046,7 @@ public class RexUtils {
      */
     public static boolean hasCorrelation(List<RexNode> nodes) {
         try {
-            RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+            RexVisitor<Void> v = new RexVisitorImpl<>(true) {
                 @Override
                 public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                     throw new ControlFlowException();
@@ -1080,7 +1080,7 @@ public class RexUtils {
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                 cors.add(correlVariable.id);

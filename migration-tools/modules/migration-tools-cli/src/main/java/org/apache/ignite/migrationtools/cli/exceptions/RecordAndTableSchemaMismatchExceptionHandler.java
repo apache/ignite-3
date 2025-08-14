@@ -34,17 +34,15 @@ public class RecordAndTableSchemaMismatchExceptionHandler implements ExceptionHa
 
         if (!e.missingColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nRecord did not have the following fields required by the table: ")
-                            .append(String.join(", ", e.missingColumnsInRecord()));
-
-            msgBuilder.append("\nConsider the following solutions:")
+                    .append(String.join(", ", e.missingColumnsInRecord()))
+                    .append("\nConsider the following solutions:")
                     .append("\n * Manually edit the Ignite 3 table schema to make the missing columns nullable.");
         }
 
         if (!e.additionalColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nThe following fields were present on the record but not found in the table: ")
-                    .append(String.join(", ", e.additionalColumnsInRecord()));
-
-            msgBuilder.append("\nConsider the following solutions:")
+                    .append(String.join(", ", e.additionalColumnsInRecord()))
+                    .append("\nConsider the following solutions:")
                     .append("\n * Manual Editing: Edit the Ignite 3 table schema manually to add new columns for the additional fields."
                             + " Ensure that the new column types are compatible with the record type.")
                     .append("\n * Ignore Additional Fields: Use the IGNORE_COLUMN migration mode by applying the '--mode IGNORE_COLUMN'"
