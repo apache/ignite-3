@@ -36,6 +36,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -179,6 +180,7 @@ public class PersistentTxStateVacuumizer {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
+                ComponentStoppingException.class,
                 GroupOverloadedException.class,
                 // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
                 // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
