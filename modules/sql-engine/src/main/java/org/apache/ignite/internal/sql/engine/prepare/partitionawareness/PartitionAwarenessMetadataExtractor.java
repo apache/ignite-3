@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
-import static org.apache.ignite.internal.sql.engine.util.RexUtils.getValueFromLiteral;
-
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptTable;
@@ -32,6 +30,11 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.sql.engine.util.RexUtils.FaultyContext;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.jetbrains.annotations.Nullable;
@@ -132,8 +135,14 @@ public class PartitionAwarenessMetadataExtractor {
                 }
 
                 indexes[i] = hashPos--;
+
+                Class<?> internalType = Primitives.wrap((Class<?>) Commons.typeFactory().getJavaClass(expr0.getType()));
+                Object val = RexUtils.literalValue(FaultyContext.INSTANCE, expr0, internalType);
+
                 NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(expr0.getType());
-                Object val = getValueFromLiteral(nativeType, expr0);
+
+                val = TypeUtils.fromInternal(val, nativeType.spec());
+
                 hashFields.add(ColocationUtils.hash(val, nativeType));
             } else {
                 return null;

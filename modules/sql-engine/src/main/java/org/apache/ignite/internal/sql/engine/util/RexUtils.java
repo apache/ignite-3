@@ -35,7 +35,6 @@ import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
 import static org.apache.calcite.sql.SqlKind.NOT;
 import static org.apache.calcite.sql.SqlKind.OR;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
@@ -113,8 +112,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1197,8 +1194,9 @@ public class RexUtils {
         return val;
     }
 
-    private static class FaultyContext implements DataContext {
-        private static final FaultyContext INSTANCE = new FaultyContext();
+    /** Context which triggers assertion if unexpected method is called. */
+    public static class FaultyContext implements DataContext {
+        public static final FaultyContext INSTANCE = new FaultyContext();
 
         /** {@inheritDoc} */
         @Override
@@ -1223,26 +1221,6 @@ public class RexUtils {
         public @Nullable Object get(String name) {
             throw new AssertionError("Should not call: [" + name + "] from current context.");
         }
-    }
-
-    /** Return literal holding java object according to it`s type. */
-    public static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        Object val;
-        if (physicalType.spec() == ColumnType.DATE || physicalType.spec() == ColumnType.TIME) {
-            val = lit.getValueAs(Integer.class);
-            assert val != null;
-        } else if (physicalType.spec() == ColumnType.TIMESTAMP || physicalType.spec() == ColumnType.DATETIME) {
-            val = lit.getValueAs(Long.class);
-            assert val != null;
-        } else if (physicalType.spec() == ColumnType.BYTE_ARRAY) {
-            // pack it back into ByteString seems more harmful
-            return lit.getValueAs(physicalType.spec().javaClass());
-        } else {
-            val = literalValue(FaultyContext.INSTANCE, lit, physicalType.spec().javaClass());
-            assert val != null;
-        }
-
-        return fromInternal(val, physicalType.spec());
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
