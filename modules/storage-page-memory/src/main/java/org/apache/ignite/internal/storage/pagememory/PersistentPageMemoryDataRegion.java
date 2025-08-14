@@ -66,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryDataRegion.class);
 
@@ -122,7 +122,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
-    PersistentPageMemoryDataRegion(
+    public PersistentPageMemoryDataRegion(
             MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
             @Nullable SystemLocalConfiguration systemLocalConfig,
@@ -416,7 +416,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         }
     }
 
-    void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+    public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
         boolean add = tableStorages.add(tableStorage);
 
         assert add : tableStorage.getTableId();
