@@ -1146,7 +1146,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private void tryToLogTimeoutFailure(ReplicationGroupId replicaGroupId, Throwable timeoutException) {
         Integer currentAttempt = timeoutAttemptsCounters.computeIfPresent(replicaGroupId, (id, attempts) -> attempts + 1);
 
-        assert currentAttempt != null;
+        // In case if for the group id there no entry, thus replica was stopped and this call in race, then skip logging.
+        if (currentAttempt == null) {
+            return;
+        }
 
         if (currentAttempt < MAXIMUM_ATTEMPTS_WITHOUT_LOGGING) {
             return;
