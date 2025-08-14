@@ -43,8 +43,9 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
-//@Timeout(20)
+@Timeout(60)
 class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_MANE = "test_zone";
     private static final String NOT_EXISTED_PROFILE_NAME = "not-existed-profile";
