@@ -18,7 +18,9 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.time.ZoneId;
+import java.util.Set;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -35,7 +37,9 @@ class ClientSqlProperties {
 
     private final @Nullable String timeZoneId;
 
-    ClientSqlProperties(ClientMessageUnpacker in) {
+    private final Set<QueryModifier> queryModifiers;
+
+    ClientSqlProperties(ClientMessageUnpacker in, boolean unpackQueryModifiers) {
         schema = in.tryUnpackNil() ? null : IgniteNameUtils.parseIdentifier(in.unpackString());
         pageSize = in.tryUnpackNil() ? SqlCommon.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
@@ -45,6 +49,10 @@ class ClientSqlProperties {
         // Skip properties - not used by SQL engine.
         in.unpackInt(); // Number of properties.
         in.readBinaryUnsafe(); // Binary tuple with properties
+
+        queryModifiers = unpackQueryModifiers
+                ? QueryModifier.unpack(in.unpackByte())
+                : QueryModifier.SINGLE_STMT_MODIFIERS;
     }
 
     public @Nullable String schema() {
@@ -64,7 +72,10 @@ class ClientSqlProperties {
     }
 
     SqlProperties toSqlProps() {
-        SqlProperties sqlProperties = new SqlProperties().queryTimeout(queryTimeout);
+        SqlProperties sqlProperties = new SqlProperties()
+                .queryTimeout(queryTimeout)
+                .allowedQueryTypes(ClientSqlCommon.convertQueryModifierToQueryType(queryModifiers))
+                .allowMultiStatement(false);
 
         if (schema != null) {
             sqlProperties.defaultSchema(schema);

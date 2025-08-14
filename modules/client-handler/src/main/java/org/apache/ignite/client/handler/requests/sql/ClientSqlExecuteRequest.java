@@ -42,7 +42,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -97,7 +96,8 @@ public class ClientSqlExecuteRequest {
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender,
-            @Nullable String username
+            @Nullable String username,
+            boolean sqlMultistatementsSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -108,7 +108,7 @@ public class ClientSqlExecuteRequest {
 
         long[] resIdHolder = {0};
         InternalTransaction tx = readTx(in, timestampTracker, resources, txManager, notificationSender, resIdHolder);
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        ClientSqlProperties props = new ClientSqlProperties(in, sqlMultistatementsSupported);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
 
@@ -247,12 +247,8 @@ public class ClientSqlExecuteRequest {
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
-                    .allowMultiStatement(false);
-
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
-                        properties,
+                        props,
                         timestampTracker,
                         (InternalTransaction) transaction,
                         token,
