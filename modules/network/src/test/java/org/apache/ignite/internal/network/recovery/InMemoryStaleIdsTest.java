@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,6 +39,15 @@ class InMemoryStaleIdsTest {
         UUID nodeId = UUID.randomUUID();
 
         staleIds.markAsStale(nodeId);
+
+        assertTrue(staleIds.isIdStale(nodeId));
+    }
+
+    @Test
+    void idMarkedFromOtherThreadIsStale() {
+        UUID nodeId = UUID.randomUUID();
+
+        assertThat(runAsync(() -> staleIds.markAsStale(nodeId)), willCompleteSuccessfully());
 
         assertTrue(staleIds.isIdStale(nodeId));
     }
