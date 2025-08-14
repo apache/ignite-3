@@ -233,7 +233,9 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
-        if (staleIdDetector.isIdStale(message.clientNode().id())) {
+        boolean isStale = staleIdDetector.isIdStale(message.clientNode().id());
+        LOG.info("Is stale? {}: {}", message.clientNode().id(), isStale);
+        if (isStale) {
             handleStaleInitiatorId(message);
 
             return true;

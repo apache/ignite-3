@@ -310,7 +310,9 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             return true;
         }
 
-        if (staleIdDetector.isIdStale(message.serverNode().id())) {
+        boolean isStale = staleIdDetector.isIdStale(message.serverNode().id());
+        LOG.info("Is stale? {}: {}", message.serverNode().id(), isStale);
+        if (isStale) {
             handleStaleAcceptorId(message);
 
             return true;

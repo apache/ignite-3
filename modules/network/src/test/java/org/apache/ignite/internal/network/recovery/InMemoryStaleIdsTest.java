@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import java.util.Set;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import org.junit.jupiter.api.Test;
 
-/**
- * Implementation of {@link StaleIds} that holds its state in memory.
- */
-public class InMemoryStaleIds implements StaleIds {
-    private final Set<UUID> ids = ConcurrentHashMap.newKeySet();
+class InMemoryStaleIdsTest {
+    private final InMemoryStaleIds staleIds = new InMemoryStaleIds();
 
-    @Override
-    public boolean isIdStale(UUID nodeId) {
-        return ids.contains(nodeId);
+    @Test
+    void nonMarkedIdIsNotStale() {
+        assertFalse(staleIds.isIdStale(UUID.randomUUID()));
     }
 
-    @Override
-    public void markAsStale(UUID nodeId) {
-        ids.add(nodeId);
+    @Test
+    void markedIdIsStale() {
+        UUID nodeId = UUID.randomUUID();
+
+        staleIds.markAsStale(nodeId);
+
+        assertTrue(staleIds.isIdStale(nodeId));
     }
 }
