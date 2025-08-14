@@ -189,7 +189,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.pageMemory = pageMemory;
     }
 
-    private static PersistentDataRegionConfiguration regionConfiguration(PersistentPageMemoryProfileView cfg, long sizeBytes, int pageSize) {
+    private static PersistentDataRegionConfiguration regionConfiguration(
+            PersistentPageMemoryProfileView cfg,
+            long sizeBytes,
+            int pageSize
+    ) {
         return PersistentDataRegionConfiguration.builder()
                 .name(cfg.name())
                 .pageSize(pageSize)
