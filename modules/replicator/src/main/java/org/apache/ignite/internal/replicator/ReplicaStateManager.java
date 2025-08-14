@@ -280,6 +280,7 @@ class ReplicaStateManager {
                 if (context.reservedForPrimary) {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
+
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
