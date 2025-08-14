@@ -17,11 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -195,5 +200,34 @@ class ClientSqlCommon {
                 out.packInt(tableIdx);
             }
         }
+    }
+
+    static Set<SqlQueryType> convertQueryModifierToQueryType(Collection<QueryModifier> queryModifiers) {
+        EnumSet<SqlQueryType> queryTypes = EnumSet.noneOf(SqlQueryType.class);
+
+        for (QueryModifier queryModifier : queryModifiers) {
+            switch (queryModifier) {
+                case ALLOW_ROW_SET_RESULT:
+                    queryTypes.addAll(SqlQueryType.HAS_ROW_SET_TYPES);
+                    break;
+
+                case ALLOW_AFFECTED_ROWS_RESULT:
+                    queryTypes.addAll(SqlQueryType.RETURNS_AFFECTED_ROWS_TYPES);
+                    break;
+
+                case ALLOW_APPLIED_RESULT:
+                    queryTypes.addAll(SqlQueryType.SUPPORT_WAS_APPLIED_TYPES);
+                    break;
+
+                case ALLOW_TX_CONTROL:
+                    queryTypes.add(SqlQueryType.TX_CONTROL);
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected modifier " + queryModifier);
+            }
+        }
+
+        return queryTypes;
     }
 }

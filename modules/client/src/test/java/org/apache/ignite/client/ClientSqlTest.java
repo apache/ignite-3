@@ -17,8 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,8 +36,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,6 +48,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.sql.ClientDirectTxMode;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -55,6 +60,8 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -260,6 +267,54 @@ public class ClientSqlTest extends AbstractClientTableTest {
                     () -> ((ClientSql) sql).partitionAwarenessCachedMetas().size() <= size, 5_000
             ));
         }
+    }
+
+    @ParameterizedTest(name = "{0} => {1}")
+    @MethodSource("testQueryModifiersArgs")
+    void testQueryModifiers(QueryModifier modifier, String expectedQueryTypes) {
+        IgniteSql sql = client.sql();
+
+        AsyncResultSet<SqlRow> results = await(((ClientSql) sql).executeAsyncInternal(
+                null, null, null, Set.of(modifier), sql.createStatement("SELECT ALLOWED QUERY TYPES")));
+
+        assertTrue(results.hasRowSet());
+
+        SqlRow row = results.currentPage().iterator().next();
+
+        assertThat(row.stringValue(0), equalTo(expectedQueryTypes));
+    }
+
+    private static List<Arguments> testQueryModifiersArgs() {
+        List<Arguments> res = new ArrayList<>();
+
+        for (QueryModifier modifier : QueryModifier.values()) {
+            String expected;
+
+            switch (modifier) {
+                case ALLOW_ROW_SET_RESULT:
+                    expected = "EXPLAIN, QUERY";
+                    break;
+
+                case ALLOW_AFFECTED_ROWS_RESULT:
+                    expected = "DML";
+                    break;
+
+                case ALLOW_APPLIED_RESULT:
+                    expected = "DDL, KILL";
+                    break;
+
+                case ALLOW_TX_CONTROL:
+                    expected = "TX_CONTROL";
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + modifier);
+            }
+
+            res.add(Arguments.of(modifier, expected));
+        }
+
+        return res;
     }
 
     private static IgniteClient createClientWithPaCacheOfSize(int cacheSize) {
