@@ -124,7 +124,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
                 10_000
         ));
 
-        // And we expects that node 1 won't see node 2 in it's local logical topology.
+        // And we expect that node 1 won't see node 2 in it's local logical topology.
         assertEquals(2, node1.logicalTopologyService().localLogicalTopology().nodes().size());
 
         // But still we're able to create zone with extra profile on node 2 because node 1 will try to ask CMG leader node 0 directly over
