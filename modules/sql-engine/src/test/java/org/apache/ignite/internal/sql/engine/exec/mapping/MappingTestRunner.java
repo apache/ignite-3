@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.prepare.RelWithSources;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
@@ -179,14 +179,22 @@ final class MappingTestRunner {
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
 
-            IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
-            rel = pair.second();
+            RelWithSources relWithSources = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+            rel = relWithSources.root();
 
             PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor().go(rel);
 
-            MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata, schema.catalogVersion(),
-                    pair.firstInt(), null, null, partitionPruningMetadata
+            MultiStepPlan multiStepPlan = new MultiStepPlan(
+                    new PlanId(UUID.randomUUID(), 1),
+                    sqlQueryType, 
+                    rel,
+                    resultSetMetadata,
+                    parameterMetadata, 
+                    schema.catalogVersion(),
+                    relWithSources.sources().size(),
+                    null, 
+                    null, 
+                    partitionPruningMetadata
             );
 
             String actualText =
