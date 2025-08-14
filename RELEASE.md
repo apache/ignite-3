@@ -118,7 +118,7 @@ Perform the following actions ONLY after the vote is successful and closed.
 
 1. Add compatibility snapshot for released version:
 
-   * Generate a new snapshot with compatibility information `./gradlew :ignite-runner:generateCompatibilitySnapshot`
+   * On release git branch need to generate a new snapshot with compatibility information `./gradlew :ignite-runner:generateCompatibilitySnapshot`
    * Switch git to main branch
    * Run compatibility test `./gradlew :ignite-runner:test --tests "org.apache.ignite.internal.configuration.compatibility.ConfigurationCompatibilityTest"`
    * Add generated compatibility snapshot to git. Commit the file under separate JIRA ticket with commit message `{jira_ticket} Add configuration snapshot for Ignite {version}`. Push the change to main branch.
