@@ -38,7 +38,7 @@ public interface InvokeResponse extends NetworkMessage {
     @Override
     default boolean needAck() {
         if (message() == null) {
-            NetworkMessage.super.needAck();
+            return NetworkMessage.super.needAck();
         }
 
         return message().needAck();
