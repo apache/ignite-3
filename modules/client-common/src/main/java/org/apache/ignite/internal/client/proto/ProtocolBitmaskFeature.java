@@ -82,7 +82,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Compute task ID for broadcast jobs.
      */
-    COMPUTE_TASK_ID(11);
+    COMPUTE_TASK_ID(11),
+
+    /**
+     * Thin SQL client supports iteration over the results of script execution.
+     */
+    SQL_MULTISTATEMENT_SUPPORT(12);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

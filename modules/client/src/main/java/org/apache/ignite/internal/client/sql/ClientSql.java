@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -293,6 +295,38 @@ public class ClientSql implements IgniteSql {
             @Nullable CancellationToken cancellationToken,
             Statement statement,
             @Nullable Object... arguments) {
+        return executeAsyncInternal(
+                transaction,
+                mapper,
+                cancellationToken,
+                QueryModifier.SINGLE_STMT_MODIFIERS,
+                statement,
+                arguments
+        );
+    }
+
+    /**
+     * Executes SQL statement in an asynchronous way.
+     *
+     * <p>Note: This method isn't part of the public API, it is used to execute only specific types of queries.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
+     * @param statement SQL statement to execute.
+     * @param queryModifiers Query modifiers.
+     * @param arguments Arguments for the statement.
+     * @param <T> A type of object contained in result set.
+     * @return Operation future.
+     */
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsyncInternal(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            @Nullable CancellationToken cancellationToken,
+            Set<QueryModifier> queryModifiers,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
         Objects.requireNonNull(statement);
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
@@ -326,7 +360,7 @@ public class ClientSql implements IgniteSql {
 
         return txStartFut.thenCompose(tx -> ch.serviceAsync(
                 ClientOp.SQL_EXEC,
-                payloadWriter(ctx, transaction, cancellationToken, statement, arguments, shouldTrackOperation),
+                payloadWriter(ctx, transaction, cancellationToken, queryModifiers, statement, arguments, shouldTrackOperation),
                 payloadReader(ctx, mapper, tx, statement),
                 () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
                 null,
@@ -397,6 +431,7 @@ public class ClientSql implements IgniteSql {
             WriteContext ctx,
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
+            Set<QueryModifier> queryModifiers,
             Statement statement,
             @Nullable Object[] arguments,
             boolean requestAck
@@ -416,6 +451,10 @@ public class ClientSql implements IgniteSql {
             w.out().packString(statement.timeZoneId().getId());
 
             packProperties(w, null);
+
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_MULTISTATEMENT_SUPPORT)) {
+                w.out().packByte(QueryModifier.pack(queryModifiers));
+            }
 
             w.out().packString(statement.query());
 

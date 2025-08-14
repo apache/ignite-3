@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,18 +33,24 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -745,6 +752,80 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
         }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testSqlQueryModifiers() {
+        ClientSql sql = (ClientSql) client().sql();
+
+        Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+        Set<QueryModifier> dmlType = EnumSet.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<QueryModifier> ddlType = EnumSet.of(QueryModifier.ALLOW_APPLIED_RESULT);
+
+        Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
+        Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
+        Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
+
+        BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
+            await(sql.executeAsyncInternal(
+                    null,
+                    () -> SqlRow.class,
+                    null,
+                    types,
+                    stmt
+            ));
+        };
+
+        // Incorrect modifier for DDL.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // Incorrect modifier for DML.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, selectType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // Incorrect modifier for SELECT.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, dmlType),
+                    "Invalid SQL statement type"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, ddlType),
+                    "Invalid SQL statement type"
+            );
+        }
+
+        // No exception expected with correct modifiers.
+        check.accept(ddlStatement, QueryModifier.ALL);
+        check.accept(dmlStatement, QueryModifier.ALL);
+        check.accept(selectStatement, QueryModifier.ALL);
     }
 
     @Test
