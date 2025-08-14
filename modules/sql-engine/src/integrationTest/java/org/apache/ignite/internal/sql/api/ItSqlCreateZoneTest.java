@@ -31,36 +31,18 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
-import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommandImpl;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.message.InvokeRequest;
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
-import org.apache.ignite.raft.jraft.rpc.AppendEntriesRequestImpl;
-import org.apache.ignite.raft.jraft.rpc.WriteActionRequestImpl;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 //@Timeout(20)
 class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
@@ -105,88 +87,32 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testCreateZoneSucceedWithCorrectStorageProfileOnDifferentNodeWithDistributedLogicalTopologyUpdate() throws InterruptedException {
-        // Node 0 is CMG leader and Node 1 is a laggy query executor
+        // Node 0 is CMG leader and Node 1 is a laggy query executor.
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
         IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
-
-        Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(node0.clusterService().serializationRegistry());
 
         assertTrue(waitForCondition(
                 () -> node1.logicalTopologyService().localLogicalTopology().nodes().size() == 2,
                 10_000
         ));
 
-        cluster.transferLeadershipTo(0, CmgGroupId.INSTANCE);
-        cluster.transferLeadershipTo(0, MetastorageGroupId.INSTANCE);
-
+        // Assert that we can't to create zone without a node with extra profilel.
         assertThrowsWithCause(
                 () -> createZoneQuery(1, EXTRA_PROFILE_NAME),
                 SqlException.class,
                 "Some storage profiles don't exist [missedProfileNames=[" + EXTRA_PROFILE_NAME + "]]."
         );
 
-        // Node 1 won't see Node 2 joined with extra profile
-        node0.dropMessages((recipient, msg) -> {
-            if (node1.name().equals(recipient)) {
-            }
+        // Node 1 won't see node 2 joined with extra profile because node 0 is CMG leader and all RAFT-replicated messages to node 1 will be
+        // dropped after the code below.
+        node0.dropMessages((recipient, msg) -> msg instanceof AppendEntriesRequest
+                && ((AppendEntriesRequest) msg).groupId().equals(CmgGroupId.INSTANCE.toString())
+                && node1.name().equals(recipient));
 
-            if (msg instanceof WriteActionRequestImpl) {
-                var waReq = (WriteActionRequestImpl) msg;
-
-                var writeCommand = waReq.deserializedCommand();
-
-                allMessages.add(writeCommand.getClass());
-
-
-                if (writeCommand instanceof JoinReadyCommandImpl) {
-                    var joinCommand = (JoinReadyCommandImpl) writeCommand;
-
-                    return true;
-                }
-            }
-
-            return node1.name().equals(recipient) && !(msg instanceof ScaleCubeMessage);
-        });
-
-        node1.dropIncomingMessages((sender, msg) -> {
-            if (node1.name().equals(sender)) {
-                allMessages.add(msg.getClass());
-            }
-
-            if (msg instanceof WriteActionRequestImpl) {
-                var waReq = (WriteActionRequestImpl) msg;
-
-                var writeCommand = waReq.deserializedCommand();
-
-                allMessages.add(writeCommand.getClass());
-
-
-                if (writeCommand instanceof JoinReadyCommandImpl) {
-                    var joinCommand = (JoinReadyCommandImpl) writeCommand;
-
-                    return true;
-                }
-            }
-
-            if (msg instanceof InvokeRequest) {
-                var innerMsg = ((InvokeRequest) msg).message();
-                allMessages.add(innerMsg.getClass());
-                if (innerMsg instanceof AppendEntriesRequestImpl) {
-                    var list = ((AppendEntriesRequestImpl) innerMsg).entriesList();
-                }
-            }
-
-            if (msg instanceof AppendEntriesRequestImpl) {
-                var list = ((AppendEntriesRequestImpl) msg).entriesList();
-            }
-
-            return !(msg instanceof ScaleCubeMessage);
-        });
-
-
-
+        // Then start node 2 with the desired extra profile.
         cluster.startNode(2, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE);
 
+        // Check that Node 1 and 2 will see all three nodes in local logical topologies.
         assertTrue(waitForCondition(
                 () -> unwrapIgniteImpl(node(0)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
                 10_000
@@ -197,21 +123,14 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
                 10_000
         ));
 
+        // And we expects that node 1 won't see node 2 in it's local logical topology.
         assertEquals(2, node1.logicalTopologyService().localLogicalTopology().nodes().size());
 
-
-        assertThrowsWithCause(
-                () -> createZoneQuery(1, EXTRA_PROFILE_NAME),
-                SqlException.class,
-                "Storage profile " + EXTRA_PROFILE_NAME + " doesn't exist in local topology snapshot with profiles"
-        );
-
-        assertTrue(waitForCondition(
-             () -> node1.logicalTopologyService().localLogicalTopology().nodes().size() == 3,
-             10_000
-        ));
-
-         assertDoesNotThrow(() -> createZoneQuery(1, EXTRA_PROFILE_NAME));
+        // But still we're able to create zone with extra profile on node 2 because node 1 will try to ask CMG leader node 0 directly over
+        // common network for it's up-to-date leader's local logical topology and check this snapshot's storage profiles that should
+        // contains extra profile because 2nd node was accepted to cluster by node 0 because it's the single CMG group participant and thus
+        // the leader.
+        assertDoesNotThrow(() -> createZoneQuery(1, EXTRA_PROFILE_NAME));
     }
 
     @AfterEach
