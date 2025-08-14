@@ -59,6 +59,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
@@ -134,7 +135,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,
                 systemDistributedConfiguration,
-                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService))
+                new TestClockService(clock, new ClockWaiter(nodeName, clock, scheduledExecutorService)),
+                new NoOpMetricManager()
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

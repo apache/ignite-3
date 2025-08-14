@@ -60,7 +60,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      * @param name Metric source name.
      * @param description Description.
      */
-    protected AbstractMetricSource(String name, String description) {
+    protected AbstractMetricSource(String name, @Nullable String description) {
         this(name, description, null);
     }
 

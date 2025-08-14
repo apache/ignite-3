@@ -714,7 +714,8 @@ public class Node {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

@@ -114,6 +114,10 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
             addFuture(futures, onAutoAdjustScaleDownUpdate(parameters, oldZone.dataNodesAutoAdjustScaleDown()));
         }
 
+        if (!oldZone.name().equals(newZone.name())) {
+            addFuture(futures, onNameUpdate(parameters, oldZone.name()));
+        }
+
         return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
     }
 
@@ -197,6 +201,17 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
+        return nullCompletedFuture();
+    }
+
+    /**
+     * Called when the zone name changes via {@link CatalogManager#execute(CatalogCommand)}.
+     *
+     * @param parameters Zone update parameters.
+     * @param oldName Old zone name.
+     * @return Future that signifies the end of the callback execution.
+     */
+    protected CompletableFuture<Void> onNameUpdate(AlterZoneEventParameters parameters, String oldName) {
         return nullCompletedFuture();
     }
 

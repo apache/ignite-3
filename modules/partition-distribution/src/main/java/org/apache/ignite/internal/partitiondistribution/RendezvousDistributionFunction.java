@@ -249,10 +249,11 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
-        assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
-        assert partitions > 0 : "parts > 0";
-        assert replicas > 0 : "replicas > 0";
-        assert consensusGroupSize <= replicas : "consensusGroupSize should be less or equal to replicaFactor";
+        assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT + " [partitions=" + partitions + ']';
+        assert partitions > 0 : "partitions > 0 [partitions=" + partitions + ']';
+        assert replicas > 0 : "replicas > 0 [replicas=" + replicas + ']';
+        assert consensusGroupSize <= replicas : "consensusGroupSize must be less or equal to replicaFactor "
+                + "[consensusGroupSize=" + consensusGroupSize + ", replicas=" + replicas + ']';
 
         List<T> assignments = new ArrayList<>(partitions);
 

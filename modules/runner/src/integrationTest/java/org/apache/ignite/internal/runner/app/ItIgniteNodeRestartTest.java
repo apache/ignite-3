@@ -717,7 +717,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
