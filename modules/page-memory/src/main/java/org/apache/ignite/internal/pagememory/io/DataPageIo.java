@@ -513,7 +513,7 @@ public class DataPageIo extends PageIo {
 
         boolean valid = directCnt >= indirectCnt;
 
-        b.appendHex(PageIo.getPageId(pageAddr)).app(" [");
+        b.appendHex(getPageId(pageAddr)).app(" [");
 
         int entriesSize = 0;
 
