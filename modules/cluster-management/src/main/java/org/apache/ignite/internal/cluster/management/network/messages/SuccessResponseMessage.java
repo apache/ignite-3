@@ -25,4 +25,8 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(CmgMessageGroup.SUCCESS_RESPONSE)
 public interface SuccessResponseMessage extends NetworkMessage {
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

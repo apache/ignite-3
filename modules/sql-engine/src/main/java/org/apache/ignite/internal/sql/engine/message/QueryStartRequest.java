@@ -70,4 +70,9 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
     /** Name of user who starts the query. */
     @Nullable
     String username();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

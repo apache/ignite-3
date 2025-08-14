@@ -47,20 +47,9 @@ public class OutNetworkObject {
      * @param descriptors Class descriptors.
      */
     public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors) {
-        this(networkMessage, descriptors, true);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param networkMessage Network message.
-     * @param descriptors Class descriptors.
-     * @param shouldBeSavedForRecovery See {@link #shouldBeSavedForRecovery}.
-     */
-    public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors, boolean shouldBeSavedForRecovery) {
         this.networkMessage = networkMessage;
         this.descriptors = descriptors;
-        this.shouldBeSavedForRecovery = shouldBeSavedForRecovery;
+        this.shouldBeSavedForRecovery = networkMessage.needAck();
     }
 
     /**

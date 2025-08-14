@@ -186,7 +186,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private void sendProbeToAcceptor() {
         ProbeMessage probe = MESSAGE_FACTORY.probeMessage().build();
 
-        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of(), false))).whenComplete((res, ex) -> {
+        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of()))).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof IOException) {
                     // We don't care: the channel will be reopened.
@@ -479,7 +479,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 .connectionId(connectionId)
                 .build();
 
-        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList(), false));
+        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList()));
 
         toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
