@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -207,6 +208,27 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         PartitionPruningColumns cols = actual.get(1);
         assertNotNull(cols, "No metadata for source=1");
         assertEquals("[[0=2, 1=1], [0=4, 1=3]]", PartitionPruningColumns.canonicalForm(cols).toString());
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26203")
+    public void testInsertFromSelect() throws Exception {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32, true)
+                .distribution(TestBuilders.affinity(List.of(1, 0), 1, 2))
+                .build();
+
+        PartitionPruningMetadata actual = extractMetadata(
+                "INSERT INTO t SELECT * FROM t WHERE c2=1 and c1=2",
+                table
+        );
+
+        PartitionPruningColumns cols = actual.get(1);
+        assertNotNull(cols, "No metadata for source=1");
+        assertEquals("[[0=2, 1=1]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
     @Test
