@@ -2016,6 +2016,12 @@ public class IgniteImpl implements Ignite {
 
     // TODO: IGNITE-18493 - remove/move this
     @TestOnly
+    public void dropIncomingMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
+        ((DefaultMessagingService) clusterSvc.messagingService()).dropMessages(predicate);
+    }
+
+    // TODO: IGNITE-18493 - remove/move this
+    @TestOnly
     @Nullable
     public BiPredicate<String, NetworkMessage> dropMessagesPredicate() {
         return ((DefaultMessagingService) clusterSvc.messagingService()).dropMessagesPredicate();
@@ -2031,6 +2037,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public void stopDroppingMessages() {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
+    }
+
+    @TestOnly
+    public void stopDroppingIncomingMessages() {
+        ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingIncomingMessages();
     }
 
     /** Returns the node's hybrid clock. */

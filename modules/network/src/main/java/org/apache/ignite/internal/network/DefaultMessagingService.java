@@ -121,6 +121,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @Nullable
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
+    @Nullable
+    private volatile BiPredicate<String, NetworkMessage> dropIncomingMessagesPredicate;
+
     private final LocalIpAddresses localIpAddresses = new LocalIpAddresses();
 
     /**
@@ -288,7 +291,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage(recipient, msg, false)) {
             return nullCompletedFuture();
         }
 
@@ -309,8 +312,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
     }
 
-    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
-        BiPredicate<String, NetworkMessage> predicate = dropMessagesPredicate;
+    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg, boolean incomingMessages) {
+        BiPredicate<String, NetworkMessage> predicate = incomingMessages ? dropIncomingMessagesPredicate : dropMessagesPredicate;
 
         return predicate != null && predicate.test(recipient.name(), msg);
     }
@@ -337,7 +340,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         // TODO: IGNITE-18493 - remove/move this
-        if (shouldDropMessage(recipient, msg)) {
+        if (shouldDropMessage(recipient, msg, false)) {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 
@@ -458,6 +461,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         NetworkMessage message = inNetworkObject.message();
+
+        if (shouldDropMessage(inNetworkObject.sender(), message, true)) {
+            return;
+        }
 
         if (message instanceof InvokeResponse) {
             Executor executor = chooseExecutorInInboundPool(inNetworkObject);
@@ -722,6 +729,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
         dropMessagesPredicate = predicate;
     }
 
+    // TODO: IGNITE-18493 - remove/move this
+    /**
+     * Installs a predicate, it will be consulted with for each message being handled; when it returns {@code true}, the
+     * message will be dropped (it will not be sent; the corresponding handlers will do nothing then.
+     *
+     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the sender
+     *     node's consistent ID.
+     */
+    @TestOnly
+    public void dropIncomingMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
+        dropIncomingMessagesPredicate = predicate;
+    }
+
     /**
      * Returns a predicate used to decide whether a message should be dropped, or {@code null} if message dropping is disabled.
      */
@@ -740,6 +760,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @TestOnly
     public void stopDroppingMessages() {
         dropMessagesPredicate = null;
+    }
+
+    @TestOnly
+    public void stopDroppingIncomingMessages() {
+        dropIncomingMessagesPredicate = null;
     }
 
     @TestOnly

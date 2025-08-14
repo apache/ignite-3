@@ -123,7 +123,10 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-storage-api')
@@ -135,6 +138,7 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation project(':ignite-placement-driver-api') // TODO: IGNITE-25283 - remove.
