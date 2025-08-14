@@ -284,7 +284,7 @@ public class SqlDdlGenerator {
     static {
         try {
             COL_TYPE_REF = (Map<Class<?>, ColumnType<?>>) FieldUtils.readDeclaredStaticField(ColumnType.class, "TYPES", true);
-            // TODO: IGNITE-23268 Remove
+            // TODO: IGNITE-25351 Remove
             COL_TYPE_REF.remove(java.util.Date.class);
 
             var constructor = ColumnType.class.getDeclaredConstructor(Class.class, String.class);
@@ -297,7 +297,7 @@ public class SqlDdlGenerator {
             constructor.newInstance(Instant.class, "TIMESTAMP");
             constructor.newInstance(java.util.Date.class, "TIMESTAMP");
             constructor.newInstance(Enum.class, "VARCHAR");
-            // TODO: IGNITE-23268 Remove
+            // TODO: IGNITE-25351 Remove
             constructor.newInstance(java.sql.Date.class, "DATE");
             constructor.newInstance(java.sql.Time.class, "TIME");
             constructor.newInstance(java.sql.Timestamp.class, "TIMESTAMP");
@@ -687,6 +687,8 @@ public class SqlDdlGenerator {
         return generate(cacheCfg).tableDefinition;
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private QueryEntity getOrCreateQueryEntity(CacheConfiguration cacheCfg) throws FieldNameConflictException {
         // TODO: Map the whole object and key instead of the query entities
         QueryEntity qe;

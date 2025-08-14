@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -415,8 +417,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         NO_META_5e("c1 = 42 AND c1 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
         NO_META_5f("c1 = 42 AND c2 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
 
-        // No constant folding
-        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1),
+        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1, "[c1=14]"),
         CONST_FOLDING_1b("c1 = ? + 4", TABLE_C1),
 
         // 0s removed by Calcite.
@@ -615,7 +616,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     private void extractMetadataAndCheck(IgniteRel rel, List<String> columnNames, List<String> expectedMetadata) {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata actual = extractor.go(rel);
+        IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+        PartitionPruningMetadata actual = extractor.go(pair.second());
 
         List<String> actualMetadata;
 

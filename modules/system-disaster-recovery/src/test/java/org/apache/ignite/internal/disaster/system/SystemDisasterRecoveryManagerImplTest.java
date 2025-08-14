@@ -160,7 +160,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ClusterState usualClusterState = cmgMessagesFactory.clusterState()
             .cmgNodes(Set.of(thisNodeName))
-            .metaStorageNodes(Set.of(thisNodeName))
+            .metaStorageNodes(Set.of(node2.name()))
             .version(IgniteProductVersion.CURRENT_VERSION.toString())
             .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
             .initialClusterConfiguration(INITIAL_CONFIGURATION)
@@ -246,12 +246,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void resetClusterRepairingCmgUsesCurrentCmgNodesIfNotSpecified() {
+    void resetClusterRepairingMgUsesCurrentCmgNodesIfNotSpecified() {
         int replicationFactor = 1;
 
         ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
 
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node3, node4));
         prepareNodeStateForClusterReset();
 
         when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
@@ -282,7 +282,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         putClusterState();
 
         ClusterResetException ex = assertWillThrow(action.resetCluster(manager, List.of(thisNodeName)), ClusterResetException.class);
-        assertThat(ex.getMessage(), is("Initial configuration is not applied and cannot serve as a cluster reset conductor."));
+        assertThat(ex.getMessage(), is("Initial configuration is not applied, so the node cannot serve as a cluster reset conductor."));
     }
 
     private void putClusterState() {
@@ -301,24 +301,24 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     void resetClusterSendsMessages(ResetCluster action) {
         ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
 
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node3, node4));
         prepareNodeStateForClusterReset();
 
         when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
 
-        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name()));
+        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node3.name()));
         assertThat(future, willCompleteSuccessfully());
 
         verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
         ResetClusterMessage messageToSelf = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToSelf, action.mgRepair());
 
-        verify(messagingService).invoke(eq(node2), messageCaptor.capture(), anyLong());
+        verify(messagingService).invoke(eq(node3), messageCaptor.capture(), anyLong());
         ResetClusterMessage messageToOtherNewCmgNode = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToOtherNewCmgNode, action.mgRepair());
 
-        verify(messagingService).invoke(eq(node3), messageCaptor.capture(), anyLong());
+        verify(messagingService).invoke(eq(node4), messageCaptor.capture(), anyLong());
         ResetClusterMessage messageToOtherNonCmgNode = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToOtherNonCmgNode, action.mgRepair());
 
@@ -337,7 +337,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private void assertThatResetClusterMessageContentIsAsExpected(@Nullable ResetClusterMessage message, boolean mgRepair) {
         assertThat(message, is(notNullValue()));
-        assertThat(message.newCmgNodes(), containsInAnyOrder(thisNodeName, node2.name()));
+        assertThat(message.newCmgNodes(), containsInAnyOrder(thisNodeName, node3.name()));
         assertThat(message.currentMetaStorageNodes(), is(usualClusterState.metaStorageNodes()));
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
@@ -346,20 +346,20 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         if (mgRepair) {
             assertThat(message.metastorageReplicationFactor(), is(1));
             assertThat(message.conductor(), is(thisNodeName));
-            assertThat(message.participatingNodes(), containsInAnyOrder(thisNodeName, node2.name(), node3.name()));
+            assertThat(message.participatingNodes(), containsInAnyOrder(thisNodeName, node3.name(), node4.name()));
         }
     }
 
     @ParameterizedTest
     @EnumSource(ResetCluster.class)
     void resetClusterInitiatesRestartOnSuccess(ResetCluster action) {
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node3));
         prepareNodeStateForClusterReset();
 
         when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
                 .thenReturn(completedFuture(successResponseMessage));
 
-        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node2.name(), node3.name()));
+        CompletableFuture<Void> future = action.resetCluster(manager, List.of(thisNodeName, node3.name()));
         assertThat(future, willCompleteSuccessfully());
 
         verify(restarter).initiateRestart();
@@ -381,12 +381,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void repairMgInitiatesRestartWhenAllParticipatingNodesRespondWithOk() {
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node3, node4, node5));
         prepareNodeStateForClusterReset();
 
-        respondSuccessfullyFrom(thisNode, node2, node3, node4, node5);
+        respondSuccessfullyFrom(thisNode, node3, node4, node5);
 
-        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node2.name(), node3.name()), 1);
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node3.name()), 1);
         assertThat(future, willCompleteSuccessfully());
 
         verify(restarter).initiateRestart();
@@ -433,17 +433,17 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     @DisplayName("resetClusterRepairingMetastorage() fails and does not restart node when any participating node does not respond")
     void resetClusterFailsWhenNewCmgMajorityDoesNotRespond() {
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3, node4, node5));
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node3, node4, node5));
         prepareNodeStateForClusterReset();
 
-        respondSuccessfullyFrom(thisNode, node3, node4, node5);
-        respondWithExceptionFrom(node2);
+        respondSuccessfullyFrom(thisNode, node4, node5);
+        respondWithExceptionFrom(node3);
 
-        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node2.name(), node3.name()), 1);
+        CompletableFuture<Void> future = manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node3.name()), 1);
         ClusterResetException ex = assertWillThrow(future, ClusterResetException.class);
         assertThat(
                 ex.getMessage(),
-                is("Did not get successful response from at least one node, failing cluster reset [failedNode=node2].")
+                is("Did not get successful response from at least one node, failing cluster reset [failedNode=node3].")
         );
 
         verify(restarter, never()).initiateRestart();
@@ -454,7 +454,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
             throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
-        ClusterNode conductor = fromSelf ? thisNode : node2;
+        ClusterNode conductor = fromSelf ? thisNode : node3;
         handler.onReceived(resetClusterMessageOn2Nodes(mgRepair), conductor, 0L);
 
         waitTillResetClusterMessageGetsSavedToVault();
@@ -497,7 +497,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private ResetClusterMessage resetClusterMessageOn2Nodes(boolean mgRepair) {
         ResetClusterMessageBuilder builder = messagesFactory.resetClusterMessage()
-                .newCmgNodes(Set.of(thisNodeName, node2.name()))
+                .newCmgNodes(Set.of(thisNodeName, node3.name()))
                 .currentMetaStorageNodes(usualClusterState.metaStorageNodes())
                 .clusterName(CLUSTER_NAME)
                 .clusterId(randomUUID())
@@ -507,7 +507,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         if (mgRepair) {
             builder.metastorageReplicationFactor(1);
             builder.conductor(thisNodeName);
-            builder.participatingNodes(Set.of(thisNodeName, node2.name(), node3.name()));
+            builder.participatingNodes(Set.of(thisNodeName, node3.name(), node4.name()));
         }
 
         return builder.build();
@@ -755,6 +755,34 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         ArgumentCaptor<SuccessResponseMessage> captor = ArgumentCaptor.forClass(SuccessResponseMessage.class);
         verify(messagingService).respond(eq(thisNode), captor.capture(), eq(123L));
+    }
+
+    @Test
+    void allowsClusterResetWhenCmgMajorityIsOnline() {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        prepareNodeStateForClusterReset();
+
+        when(messagingService.invoke(any(ClusterNode.class), any(ResetClusterMessage.class), anyLong()))
+                .thenReturn(completedFuture(successResponseMessage));
+
+        CompletableFuture<Void> future = manager.resetCluster(List.of(thisNodeName, node2.name(), node3.name()));
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    @Test
+    void prohibitsMetastorageRepairWhenMgMajorityIsOnline() {
+        when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
+        prepareNodeStateForClusterReset();
+
+        ClusterResetException ex = assertWillThrow(
+                manager.resetClusterRepairingMetastorage(List.of(thisNodeName, node2.name(), node3.name()), 3),
+                ClusterResetException.class
+        );
+        assertThat(
+                ex.getMessage(),
+                is("Majority repair is rejected because majority of Metastorage nodes are online [metastorageNodes=[node2], "
+                        + "onlineNodes=[node2, node3, node1]].")
+        );
     }
 
     private enum ResetCluster {

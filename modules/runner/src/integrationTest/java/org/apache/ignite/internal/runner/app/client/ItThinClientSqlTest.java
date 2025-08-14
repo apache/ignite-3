@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +38,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -47,10 +49,12 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -392,6 +396,63 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
     }
 
+    /** The purpose of this test is to check clients with different timeZone settings.
+     * In case when literal is a part of primary key and has a type: TIMESTAMP WITH LOCAL TIME ZONE - no
+     * partition awareness meta need to be calculated.
+     */
+    @Test
+    void testPartitionAwarenessNotExtractedForTsLiteral() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id int, ts TIMESTAMP WITH LOCAL TIME ZONE, val INT, "
+                + "PRIMARY KEY(id, ts))");
+
+        int count = 100;
+
+        for (int i = 0; i < count; i++) {
+            sql.execute(null, "INSERT INTO my_table VALUES (?, TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00', ?)", i, i);
+        }
+
+        StatementBuilder builder = sql.statementBuilder();
+
+        String query = "SELECT * FROM my_table WHERE id = ? AND ts = TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'";
+
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("Asia/Nicosia"));
+        Statement stmt1 = builder.build();
+
+        builder = sql.statementBuilder();
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("UTC"));
+        Statement stmt2 = builder.build();
+
+        Transaction tx = null;
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt1, i);
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt2, i);
+        }
+    }
+
     @Test
     void testExplicitTransactionKvCase() {
         IgniteClient client = client();
@@ -441,14 +502,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             }
 
             // The same for explicit RO transaction
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-25921 uncomment section below
-            // client.transactions().runInTransaction(roTx -> {
-            //     for (int i = 0; i < count; i++) {
-            //         try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
-            //             assertFalse(rs.hasNext());
-            //         }
-            //     }
-            // }, new TransactionOptions().readOnly(true));
+            client.transactions().runInTransaction(roTx -> {
+                for (int i = 0; i < count; i++) {
+                    try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                        assertFalse(rs.hasNext());
+                    }
+                }
+            }, new TransactionOptions().readOnly(true));
         });
 
         // And now changes are published.
@@ -540,7 +600,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, row.num);
         assertEquals("hello world", row.str);
     }
-
 
     @Test
     void testResultSetMappingColumnNameMismatch() {
@@ -658,6 +717,28 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
+    @Test
+    public void testCurrentUser() {
+        String expectedUsername = UserDetails.UNKNOWN.username();
+        IgniteSql sql = client().sql();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        sql.execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
     }
 
     private static class Pojo {

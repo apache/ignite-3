@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +34,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
@@ -155,7 +157,7 @@ public class KillTransactionTest extends ClusterPerClassIntegrationTest {
             IgniteImpl igniteImpl = Wrappers.unwrap(node(i), IgniteImpl.class);
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> {
-                assertThat(igniteImpl.txManager().vacuum(), willCompleteSuccessfully());
+                assertThat(igniteImpl.txManager().vacuum(mock(ResourceVacuumMetrics.class)), willCompleteSuccessfully());
 
                 for (Transaction tx : txs) {
                     InternalTransaction internalTx = Wrappers.unwrap(tx, InternalTransaction.class);

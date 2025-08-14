@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;

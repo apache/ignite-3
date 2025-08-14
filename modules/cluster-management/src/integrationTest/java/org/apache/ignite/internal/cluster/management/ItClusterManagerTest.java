@@ -539,7 +539,6 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         }, 10000));
     }
 
-
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
         initCluster(metaStorageNodes, cmgNodes, null);
     }

@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -399,6 +400,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public void destroyLogStorage(String uri) {
             // No-op.
+        }
+
+        @Override
+        public Set<String> raftNodeStorageIdsOnDisk() {
+            // There is nothing on disk.
+            return Set.of();
         }
 
         @Override

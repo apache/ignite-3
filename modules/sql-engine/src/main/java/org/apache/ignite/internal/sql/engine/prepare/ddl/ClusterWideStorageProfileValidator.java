@@ -79,7 +79,6 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
         }
     }
 
-
     private static Set<String> findStorageProfileNotPresentedInLogicalTopologySnapshot(
             Collection<String> storageProfiles,
             LogicalTopologySnapshot snapshot

@@ -18,16 +18,23 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -36,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -47,7 +56,13 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -57,7 +72,9 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +89,14 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     private static final String ZONE_NAME = "ZONE_" + TABLE_NAME;
 
     private static final int INITIAL_NODES = 1;
+
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("id", NativeTypes.INT32, false)},
+            new Column[]{
+                    new Column("valInt", NativeTypes.INT32, false),
+            }
+    );
 
     @Override
     protected int initialNodes() {
@@ -98,7 +123,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
 
         executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
                 TABLE_NAME,
                 ZONE_NAME
         ));
@@ -131,6 +156,94 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(selectAll(), hasSize(4));
     }
 
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    void testRestartTablePartitionsWithCleanUpFails() {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        int partitionId = 0;
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node.name()),
+                ZONE_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                TABLE_NAME,
+                Set.of(partitionId)
+        );
+
+        ExecutionException exception = assertThrows(
+                ExecutionException.class,
+                () -> restartPartitionsWithCleanupFuture.get(10_000, MILLISECONDS)
+        );
+
+        assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
+
+        assertThat(exception.getCause().getMessage(), is("Not enough alive node to perform reset with clean up."));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    void testRestartTablePartitionsWithCleanUp() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+        IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
+        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
+
+        String testZone = "TEST_ZONE";
+
+        createZone(node.catalogManager(), testZone, 1, 3);
+
+        String tableName2 = "TABLE_NAME_2";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName2
+        ));
+
+        insert(0, 0, tableName2);
+
+        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 0, 0);
+
+        int partitionId = 0;
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node.name()),
+                testZone,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName2,
+                Set.of(partitionId)
+        );
+
+        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
+        assertThat(awaitPrimaryReplicaForNow(node, new TablePartitionId(tableId(node), partitionId)), willCompleteSuccessfully());
+
+        insert(1, 1, tableName2);
+
+        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 0, 0);
+        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 1, 1);
+    }
+
+    private static void assertValueOnSpecificNodes(String tableName, Set<IgniteImpl> nodes, int id, int val) throws Exception {
+        for (IgniteImpl node : nodes) {
+            assertValueOnSpecificNode(tableName, node, id, val);
+        }
+    }
+
+    private static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val) throws Exception {
+        InternalTable internalTable = unwrapTableViewInternal(node.tables().table(tableName)).internalTable();
+
+        Row keyValueRow0 = createKeyValueRow(id, val);
+        Row keyRow0 = createKeyRow(id);
+
+        CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
+
+        assertThat(getFut, willCompleteSuccessfully());
+
+        assertTrue(compareRows(getFut.get(), keyValueRow0));
+    }
+
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void testRestartZonePartitions() {
@@ -154,6 +267,86 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(3, 3);
 
         assertThat(selectAll(), hasSize(4));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsTable() throws Exception {
+        validateEstimatedRows();
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsTableZone() throws Exception {
+        validateEstimatedRows();
+    }
+
+    private void validateEstimatedRows() throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        // Wait for replication to finish.
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
+                            node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
+
+                    assertThat(localStateTableFuture, willCompleteSuccessfully());
+                    Map<TablePartitionId, LocalTablePartitionStateByNode> localState;
+                    try {
+                        localState = localStateTableFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    Set<Long> size = localState.values().stream()
+                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
+                            .map(state -> state.estimatedRows)
+                            .collect(Collectors.toSet());
+                    // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
+                    // LocalTablePartitionStateByNode should have a entry for either the first or the second node with 1 row.
+                    return size.size() == 1 && size.contains(1L) && localState.size() == 2;
+                },
+                20_000
+        ));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsZone() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        // Wait for replication to finish.
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                            node.disasterRecoveryManager().localPartitionStates(Set.of(ZONE_NAME), emptySet(), emptySet());
+
+                    assertThat(localStateTableFuture, willCompleteSuccessfully());
+
+                    Map<ZonePartitionId, LocalPartitionStateByNode> localState;
+                    try {
+                        localState = localStateTableFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    Set<Long> size = localState.values().stream()
+                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
+                            .map(state -> state.estimatedRows)
+                            .collect(Collectors.toSet());
+                    // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
+                    // LocalTablePartitionStateByNode should have a entry for either the first or the second node with 1 row.
+                    return size.size() == 1 && size.contains(1L) && localState.size() == 2;
+                },
+                20_000
+        ));
     }
 
     @Test
@@ -303,16 +496,24 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     private void insert(int id, int val) {
+        insert(id, val, TABLE_NAME);
+    }
+
+    private void insert(int id, int val, String tableName) {
         executeSql(String.format(
-                "INSERT INTO %s (id, val) VALUES (%s, %s)",
-                TABLE_NAME, id, val
+                "INSERT INTO %s (id, valInt) VALUES (%s, %s)",
+                tableName, id, val
         ));
     }
 
     private List<List<Object>> selectAll() {
+        return selectAll(TABLE_NAME);
+    }
+
+    private List<List<Object>> selectAll(String tableName) {
         return executeSql(String.format(
                 "SELECT * FROM %s",
-                TABLE_NAME
+                tableName
         ));
     }
 
@@ -343,5 +544,26 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
 
         node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
+    }
+
+    private static Row createKeyRow(int id) {
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA.version(), SCHEMA.keyColumns(), -1);
+
+        rowBuilder.appendInt(id);
+
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
+    }
+
+    private static Row createKeyValueRow(int id, int value) {
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
+
+        rowBuilder.appendInt(id);
+        rowBuilder.appendInt(value);
+
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
+    }
+
+    private static boolean compareRows(BinaryRow row1, BinaryRow row2) {
+        return row1.schemaVersion() == row2.schemaVersion() && row1.tupleSlice().equals(row2.tupleSlice());
     }
 }

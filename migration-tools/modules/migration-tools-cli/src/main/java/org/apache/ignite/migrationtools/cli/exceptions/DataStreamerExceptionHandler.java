@@ -17,18 +17,36 @@
 
 package org.apache.ignite.migrationtools.cli.exceptions;
 
+import org.apache.ignite.migrationtools.persistence.exceptions.MigrateCacheException;
 import org.apache.ignite.migrationtools.persistence.mappers.RecordAndTableSchemaMismatchException;
 import org.apache.ignite3.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite3.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite3.internal.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite3.table.DataStreamerException;
 
 /** DataStreamerExceptionHandler. */
 public class DataStreamerExceptionHandler implements ExceptionHandler<DataStreamerException> {
     @Override
     public int handle(ExceptionWriter writer, DataStreamerException e) {
-        if (e.getCause() instanceof RecordAndTableSchemaMismatchException) {
-            return RecordAndTableSchemaMismatchExceptionHandler.INSTANCE.handle(
-                    writer, (RecordAndTableSchemaMismatchException) e.getCause());
+        if (e.getCause() instanceof MigrateCacheException) {
+            MigrateCacheException mce = (MigrateCacheException) e.getCause();
+
+            String details;
+            if (e.getCause().getCause() instanceof RecordAndTableSchemaMismatchException) {
+                RecordAndTableSchemaMismatchException rme = (RecordAndTableSchemaMismatchException) mce.getCause();
+                details = RecordAndTableSchemaMismatchExceptionHandler.details(rme);
+            } else {
+                details = "Unknown error. Check the logs folder for more information.";
+            }
+
+            writer.write(
+                    ErrorUiComponent.builder()
+                            .header("Error while migrating cache " + mce.cacheName() + " to table " + mce.tableName() + ".")
+                            .details(details)
+                            .build()
+                            .render());
+
+            return 1;
         }
 
         return DefaultMigrateCacheExceptionHandler.INSTANCE.handle(writer, e);

@@ -245,7 +245,6 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .when(messagingService)
                 .invoke(eq(SOURCE_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
 
-
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
                 workDir.resolve("download"));
 

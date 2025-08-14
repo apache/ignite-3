@@ -81,13 +81,6 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
     }
 
     @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
-    }
-
-    @Test
     void dataRegionSizeUsedWhenSet(
             @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = 12345}")
             StorageConfiguration storageConfig

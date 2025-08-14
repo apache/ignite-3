@@ -90,7 +90,9 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     AsyncSqlCursor<InternalSqlRow> runScript(@Nullable InternalTransaction tx, @Nullable CancellationToken cancellationToken, String query,
             Object... params) {
-        SqlProperties properties = new SqlProperties();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
                 queryProcessor().queryAsync(properties, observableTimeTracker(), tx, cancellationToken, query, params)

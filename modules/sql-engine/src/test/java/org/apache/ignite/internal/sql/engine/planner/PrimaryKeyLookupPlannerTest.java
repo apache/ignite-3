@@ -36,7 +36,10 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -200,18 +203,16 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 128");
 
-            assertThat(plan, instanceOf(KeyValueGetPlan.class));
-            assertKeyExpressions((KeyValueGetPlan) plan, "127:TINYINT");
-            assertCondition((KeyValueGetPlan) plan, "=(CAST($t0):INTEGER NOT NULL, 128)");
+            assertThat(plan, instanceOf(MultiStepPlan.class));
+            assertEmptyValuesNode((MultiStepPlan) plan);
         }
 
         // Out of range: TINYINT_MIN - 1.
         {
             QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -129");
 
-            assertThat(plan, instanceOf(KeyValueGetPlan.class));
-            assertKeyExpressions((KeyValueGetPlan) plan, "-128:TINYINT");
-            assertCondition((KeyValueGetPlan) plan, "=(CAST($t0):INTEGER NOT NULL, -129)");
+            assertThat(plan, instanceOf(MultiStepPlan.class));
+            assertEmptyValuesNode((MultiStepPlan) plan);
         }
 
         // TINYINT_MAX - no predicate expected.
@@ -231,6 +232,11 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
             assertKeyExpressions((KeyValueGetPlan) plan, "-128:TINYINT");
             assertEmptyCondition((KeyValueGetPlan) plan);
         }
+    }
+
+    private static void assertEmptyValuesNode(MultiStepPlan plan) {
+        assertThat(plan.getRel(), instanceOf(IgniteValues.class));
+        assertThat(((IgniteValues) plan.getRel()).tuples, Matchers.empty());
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {

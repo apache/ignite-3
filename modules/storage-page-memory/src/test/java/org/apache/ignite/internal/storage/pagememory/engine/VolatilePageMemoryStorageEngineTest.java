@@ -60,14 +60,6 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
     }
 
     @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
-    }
-
-    @Test
     void dataRegionSizeUsedWhenSet(
             @InjectConfiguration("mock.profiles.default {engine = aimem, maxSizeBytes = 12345000, initSizeBytes = 123000}")
             StorageConfiguration storageConfig
@@ -78,21 +70,6 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
 
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(123000L));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
-        }
-    }
-
-    @Test
-    void initSizeSetToMaxSizeByDefault(
-            @InjectConfiguration("mock.profiles.default {engine = aimem, maxSizeBytes = 12345000}")
-            StorageConfiguration storageConfig
-    ) {
-        StorageEngine anotherEngine = createEngine(storageConfig);
-
-        anotherEngine.start();
-
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(12345000L));
             assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
         }
     }

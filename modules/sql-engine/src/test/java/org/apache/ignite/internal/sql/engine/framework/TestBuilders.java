@@ -636,7 +636,8 @@ public class TestBuilders {
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,
                     -1,
-                    clock
+                    clock,
+                    null
             );
         }
     }
@@ -1677,7 +1678,6 @@ public class TestBuilders {
         return newRow;
     }
 
-
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
         return new ExecutionDistributionProviderBuilder();
@@ -1955,6 +1955,11 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+            return CompletableFuture.completedFuture(false);
         }
 
         @Override

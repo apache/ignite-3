@@ -129,8 +129,6 @@ Connected to http://127.0.0.1:10300
 
 Ignite database functions as a cluster. Even if we are currently only running a single node, theoretically you could start another node and have it join the already running cluster. When the nodes are started, they find each other and wait for the user to start the cluster. The process of starting a cluster is called _initialization_.
 
-To initialize the cluster, you select the _metastorage group_ nodes - the group of nodes that will be responsible for managing the cluster, and provide a Ignite license.
-
 To initialize the cluster with the node you have started (see <<Start Ignite Node>>), run the following command:
 
 [tabs]
@@ -146,8 +144,9 @@ Cluster was initialized successfully
 ----
 --
 
-* The `--metastorage-group` parameter specifies the nodes that will be used to store cluster meta information. In most scenarios, you want to have 3, 5 or 7 metastorage group nodes.  For more information on what they are and cluster lifecycle, see link:administrators-guide/lifecycle[Cluster Lifecycle].
-+
+Optionally, you can pass the `--metastorage-group` parameter to specify the nodes that will be used to store cluster meta information. In most scenarios, you want to have 3, 5 or 7 metastorage group nodes.  For more information on what they are and cluster lifecycle, see link:administrators-guide/lifecycle[Cluster Lifecycle].
+
+
 WARNING: Cluster and node configurations in Ignite are separated and cannot be used interchangeably. When initializing a cluster, make sure to provide the *cluster* configuration file.
 
 == Run SQL Statements Against the Cluster

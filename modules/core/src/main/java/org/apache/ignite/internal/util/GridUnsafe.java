@@ -118,7 +118,6 @@ public abstract class GridUnsafe {
         return PointerWrapping.wrapPointer(ptr, len);
     }
 
-
     /**
      * Returns allocated direct buffer.
      *
@@ -1129,11 +1128,11 @@ public abstract class GridUnsafe {
         long off = 0;
 
         for (; off + PAGE_SIZE <= len; off += PAGE_SIZE) {
-            GridUnsafe.copyMemory(EMPTY_PAGE, GridUnsafe.BYTE_ARR_OFF, null, addr + off, PAGE_SIZE);
+            copyMemory(EMPTY_PAGE, BYTE_ARR_OFF, null, addr + off, PAGE_SIZE);
         }
 
         if (len != off) {
-            GridUnsafe.copyMemory(EMPTY_PAGE, GridUnsafe.BYTE_ARR_OFF, null, addr + off, len - off);
+            copyMemory(EMPTY_PAGE, BYTE_ARR_OFF, null, addr + off, len - off);
         }
     }
 
@@ -1439,7 +1438,7 @@ public abstract class GridUnsafe {
         } catch (SecurityException ignored) {
             try {
                 return AccessController.doPrivileged(
-                        new PrivilegedExceptionAction<Unsafe>() {
+                        new PrivilegedExceptionAction<>() {
                             @Override
                             public Unsafe run() throws Exception {
                                 Field f = Unsafe.class.getDeclaredField("theUnsafe");
@@ -1463,7 +1462,7 @@ public abstract class GridUnsafe {
     private static long bufferAddressOffset() {
         final ByteBuffer maybeDirectBuf = ByteBuffer.allocateDirect(1);
 
-        Field addrField = AccessController.doPrivileged(new PrivilegedAction<Field>() {
+        Field addrField = AccessController.doPrivileged(new PrivilegedAction<>() {
             @Override
             public Field run() {
                 try {
@@ -1627,15 +1626,15 @@ public abstract class GridUnsafe {
      */
     private static int getIntByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
-            return (((int) UNSAFE.getByte(obj, addr)) << 24)
-                    | (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 16)
-                    | (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 8)
-                    | (((int) UNSAFE.getByte(obj, addr + 3) & 0xff));
+            return (UNSAFE.getByte(obj, addr) << 24)
+                    | ((UNSAFE.getByte(obj, addr + 1) & 0xff) << 16)
+                    | ((UNSAFE.getByte(obj, addr + 2) & 0xff) << 8)
+                    | ((UNSAFE.getByte(obj, addr + 3) & 0xff));
         } else {
-            return (((int) UNSAFE.getByte(obj, addr + 3)) << 24)
-                    | (((int) UNSAFE.getByte(obj, addr + 2) & 0xff) << 16)
-                    | (((int) UNSAFE.getByte(obj, addr + 1) & 0xff) << 8)
-                    | (((int) UNSAFE.getByte(obj, addr) & 0xff));
+            return (UNSAFE.getByte(obj, addr + 3) << 24)
+                    | ((UNSAFE.getByte(obj, addr + 2) & 0xff) << 16)
+                    | ((UNSAFE.getByte(obj, addr + 1) & 0xff) << 8)
+                    | ((UNSAFE.getByte(obj, addr) & 0xff));
         }
     }
 
@@ -1648,15 +1647,15 @@ public abstract class GridUnsafe {
      */
     private static int getIntByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
-            return (((int) UNSAFE.getByte(addr)) << 24)
-                    | (((int) UNSAFE.getByte(addr + 1) & 0xff) << 16)
-                    | (((int) UNSAFE.getByte(addr + 2) & 0xff) << 8)
-                    | (((int) UNSAFE.getByte(addr + 3) & 0xff));
+            return (UNSAFE.getByte(addr) << 24)
+                    | ((UNSAFE.getByte(addr + 1) & 0xff) << 16)
+                    | ((UNSAFE.getByte(addr + 2) & 0xff) << 8)
+                    | ((UNSAFE.getByte(addr + 3) & 0xff));
         } else {
-            return (((int) UNSAFE.getByte(addr + 3)) << 24)
-                    | (((int) UNSAFE.getByte(addr + 2) & 0xff) << 16)
-                    | (((int) UNSAFE.getByte(addr + 1) & 0xff) << 8)
-                    | (((int) UNSAFE.getByte(addr) & 0xff));
+            return (UNSAFE.getByte(addr + 3) << 24)
+                    | ((UNSAFE.getByte(addr + 2) & 0xff) << 16)
+                    | ((UNSAFE.getByte(addr + 1) & 0xff) << 8)
+                    | ((UNSAFE.getByte(addr) & 0xff));
         }
     }
 
@@ -1706,11 +1705,14 @@ public abstract class GridUnsafe {
     /**
      * Returns {@code long} value.
      *
+     * <p>TODO: https://issues.apache.org/jira/browse/IGNITE-26177.
+     *
      * @param obj       Object.
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
      * @return {@code long} value.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long getLongByByte(Object obj, long addr, boolean bigEndian) {
         if (bigEndian) {
             return (((long) UNSAFE.getByte(obj, addr)) << 56)
@@ -1736,10 +1738,13 @@ public abstract class GridUnsafe {
     /**
      * Returns {@code long} value.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param addr      Address.
      * @param bigEndian Order of value bytes in memory. If {@code true} - big-endian, otherwise little-endian.
      * @return {@code long} value.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long getLongByByte(long addr, boolean bigEndian) {
         if (bigEndian) {
             return (((long) UNSAFE.getByte(addr)) << 56)
@@ -1819,6 +1824,26 @@ public abstract class GridUnsafe {
             UNSAFE.putByte(addr + 1, (byte) (val >> 8));
             UNSAFE.putByte(addr, (byte) (val));
         }
+    }
+
+    /**
+     * Reads a byte array from the memory.
+     *
+     * @param addr Start address.
+     * @param off  Offset.
+     * @param len  Bytes length.
+     * @return Bytes from given address.
+     */
+    public static byte[] getBytes(long addr, int off, int len) {
+        assert addr > 0 : addr;
+        assert off >= 0;
+        assert len >= 0;
+
+        byte[] bytes = new byte[len];
+
+        copyMemory(null, addr + off, bytes, BYTE_ARR_OFF, len);
+
+        return bytes;
     }
 
     /**

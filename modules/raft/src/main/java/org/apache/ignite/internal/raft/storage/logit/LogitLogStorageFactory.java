@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.logit;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -110,6 +111,12 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         if (!IgniteUtils.deleteIfExists(storagePath)) {
             throw new LogStorageException("Cannot delete directory " + storagePath);
         }
+    }
+
+    @Override
+    public Set<String> raftNodeStorageIdsOnDisk() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25988 - implement.
+        return Set.of();
     }
 
     @Override

@@ -41,7 +41,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -64,7 +63,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests to check the {@link IgniteEvents#QUERY_STARTED} and {@link IgniteEvents#QUERY_FINISHED} events.
+ * Integration tests to check the {@link IgniteEventType#QUERY_STARTED} and {@link IgniteEventType#QUERY_FINISHED} events.
  */
 public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";

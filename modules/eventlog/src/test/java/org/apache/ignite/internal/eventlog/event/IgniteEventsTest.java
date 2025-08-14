@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.eventlog.event;
 
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.stream.Stream;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -37,21 +36,21 @@ class IgniteEventsTest {
     private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
-                        IgniteEvents.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER)),
+                        IgniteEventType.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("CLIENT_CONNECTION_CLOSED")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .user(EventUser.of(USER, PROVIDER))
                 ),
                 Arguments.of(
-                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of(USER, PROVIDER)),
+                        IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("CLIENT_CONNECTION_ESTABLISHED")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .user(EventUser.of(USER, PROVIDER))
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER)),
+                        IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("USER_AUTHENTICATION_SUCCESS")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
@@ -59,7 +58,7 @@ class IgniteEventsTest {
 
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of(USER, PROVIDER)),
+                        IgniteEventType.USER_AUTHENTICATION_FAILURE.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("USER_AUTHENTICATION_FAILURE")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())

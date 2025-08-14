@@ -57,7 +57,7 @@ Limit
                             est: (rows=21600)
                           TableScan
                               table: PUBLIC.TIME_DIM
-                              predicate: AND(>=(T_TIME, 9453), <=(T_TIME, +(9453, 28800)))
+                              predicate: SEARCH(T_TIME, Sarg[[9453..38253]])
                               fieldNames: [T_TIME_SK, T_TIME]
                               est: (rows=21600)
                       Exchange
@@ -124,7 +124,7 @@ Limit
                             est: (rows=21600)
                           TableScan
                               table: PUBLIC.TIME_DIM
-                              predicate: AND(>=(T_TIME, 9453), <=(T_TIME, +(9453, 28800)))
+                              predicate: SEARCH(T_TIME, Sarg[[9453..38253]])
                               fieldNames: [T_TIME_SK, T_TIME]
                               est: (rows=21600)
                       Exchange

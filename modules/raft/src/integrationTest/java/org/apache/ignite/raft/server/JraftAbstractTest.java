@@ -233,7 +233,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
                 replicationGroupId -> groupName,
-                Map.of(groupName, workingDir.basePath()),
+                Map.of(groupName, workingDir.metaPath()),
                 Map.of(groupName, partitionsLogStorageFactory)
         );
 

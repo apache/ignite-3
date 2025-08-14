@@ -39,7 +39,7 @@ Sort
                   est: (rows=18262)
                 TableScan
                     table: PUBLIC.DATE_DIM
-                    predicate: AND(>=(D_DATE, 2002-04-01), <=(D_DATE, +(2002-04-01, *(60, 86400000:INTERVAL DAY))))
+                    predicate: SEARCH(D_DATE, Sarg[[2002-04-01..2002-05-31]])
                     fieldNames: [D_DATE_SK, D_DATE]
                     est: (rows=18262)
             HashJoin
@@ -50,7 +50,7 @@ Sort
               HashJoin
                   predicate: =(WS_ORDER_NUMBER, WR_ORDER_NUMBER)
                   type: inner
-                  est: (rows=9016888221786429000)
+                  est: (rows=9016888221786429400)
                 Exchange
                     distribution: single
                     est: (rows=719384)

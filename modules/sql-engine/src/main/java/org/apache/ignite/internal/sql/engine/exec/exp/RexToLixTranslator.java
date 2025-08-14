@@ -1044,8 +1044,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimestampMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
-            || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
         return Expressions.call(
                 IgniteMethod.ADJUST_TIMESTAMP_MILLIS.method(),
@@ -1059,8 +1057,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimeMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
-            || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
           return Expressions.call(
                   IgniteMethod.ADJUST_TIME_MILLIS.method(),

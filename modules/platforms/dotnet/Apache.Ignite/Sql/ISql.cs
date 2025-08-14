@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System.Collections.Generic;
     using System.Data.Common;
     using System.Threading;
     using System.Threading.Tasks;
@@ -111,5 +112,30 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task ExecuteScriptAsync(SqlStatement script, CancellationToken cancellationToken, params object?[]? args);
+
+        /// <summary>
+        /// Executes an SQL statement for every set of arguments and returns the number of affected rows for each statement execution.
+        /// <para />
+        /// Only DML statements (INSERT, UPDATE, DELETE) are supported.
+        /// <para />
+        /// <example>
+        /// <code>
+        /// long[] res = await sql.ExecuteBatchAsync(
+        ///     transaction: null,
+        ///     "INSERT INTO Person (Id, Name) VALUES (?, ?)",
+        ///     [[1, "Alice"], [2, "Bob"], [3, "Charlie"]]);
+        /// </code>
+        /// </example>
+        /// </summary>
+        /// <param name="transaction">Transaction.</param>
+        /// <param name="statement">Statement to execute once for every entry in <paramref name="args"/>.</param>
+        /// <param name="args">Batched arguments. The specified statement will be executed once for each entry in this collection. Cannot be empty or contain empty rows.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The number of affected rows for each set of arguments. The size of the returned array will match the size of <paramref name="args"/>.</returns>
+        Task<long[]> ExecuteBatchAsync(
+            ITransaction? transaction,
+            SqlStatement statement,
+            IEnumerable<IEnumerable<object?>> args,
+            CancellationToken cancellationToken = default);
     }
 }

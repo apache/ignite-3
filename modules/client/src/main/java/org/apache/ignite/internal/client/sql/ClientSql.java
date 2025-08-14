@@ -291,7 +291,7 @@ public class ClientSql implements IgniteSql {
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
 
-        PartitionMapping mapping = mappingProvider != null 
+        PartitionMapping mapping = mappingProvider != null
                 ? mappingProvider.get(arguments)
                 : null;
 
@@ -469,7 +469,6 @@ public class ClientSql implements IgniteSql {
 
             return unpacker.unpackLongArray(); // Update counters.
         };
-
 
         if (transaction != null) {
             try {

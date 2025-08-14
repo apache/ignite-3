@@ -5,12 +5,12 @@ Sort
   Project
       fieldNames: [ITEM_ID, SR_ITEM_QTY, SR_DEV, CR_ITEM_QTY, CR_DEV, WR_ITEM_QTY, WR_DEV, AVERAGE]
       projection: [ITEM_ID$0, SR_ITEM_QTY, *(/(/(SR_ITEM_QTY, +(+(SR_ITEM_QTY, CR_ITEM_QTY), WR_ITEM_QTY)), 3.0:DECIMAL(2, 1)), 100), CR_ITEM_QTY, *(/(/(CR_ITEM_QTY, +(+(SR_ITEM_QTY, CR_ITEM_QTY), WR_ITEM_QTY)), 3.0:DECIMAL(2, 1)), 100), WR_ITEM_QTY, *(/(/(WR_ITEM_QTY, +(+(SR_ITEM_QTY, CR_ITEM_QTY), WR_ITEM_QTY)), 3.0:DECIMAL(2, 1)), 100), /(+(+(SR_ITEM_QTY, CR_ITEM_QTY), WR_ITEM_QTY), 3.0:DECIMAL(2, 1))]
-      est: (rows=1131225932799338900)
+      est: (rows=1131225932799338880)
     MergeJoin
         predicate: =(ITEM_ID$0, ITEM_ID)
         fieldNames: [ITEM_ID, CR_ITEM_QTY, ITEM_ID$0, SR_ITEM_QTY, ITEM_ID$0$0, WR_ITEM_QTY]
         type: inner
-        est: (rows=1131225932799338900)
+        est: (rows=1131225932799338880)
       Sort
           collation: [ITEM_ID ASC]
           est: (rows=21919)
