@@ -129,7 +129,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
 
         // But still we're able to create zone with extra profile on node 2 because node 1 will try to ask CMG leader node 0 directly over
         // common network for it's up-to-date leader's local logical topology and check this snapshot's storage profiles that should
-        // contains extra profile because 2nd node was accepted to cluster by node 0 because it's the single CMG group participant and thus
+        // contains extra profile because 2nd node was accepted to cluster by node 0 because it's the single CMG group follower and thus
         // the leader.
         assertDoesNotThrow(() -> createZoneQuery(1, EXTRA_PROFILE_NAME));
     }
