@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import it.unimi.dsi.fastutil.ints.IntObjectImmutablePair;
+import it.unimi.dsi.fastutil.ints.IntObjectPair;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 
 /**
  * Utility class to clone relational tree and optionally replace assigned {@link RelOptCluster cluster}
@@ -46,5 +52,58 @@ public class Cloner {
 
     private IgniteRel visit(IgniteRel rel) {
         return rel.clone(cluster, Commons.transform(rel.getInputs(), rel0 -> visit((IgniteRel) rel0)));
+    }
+
+    /**
+     * Clones and assigns source ids to all source relations.
+     *
+     * @param root Plan.
+     * @param cluster Cluster.
+     * @return The number of source relations in the given plan and the plan itself.
+     */
+    public static IntObjectPair<IgniteRel> cloneAndAssignSourceId(IgniteRel root, RelOptCluster cluster) {
+        CloneAndAssignIds assigner = new CloneAndAssignIds(cluster);
+        IgniteRel result = assigner.visit(root);
+        int numSources = assigner.sourceIndex;
+
+        return new IntObjectImmutablePair<>(numSources, result);
+    }
+
+    private static class CloneAndAssignIds extends IgniteRelShuttle {
+
+        private final RelOptCluster cluster;
+
+        private int sourceIndex;
+
+        private CloneAndAssignIds(RelOptCluster cluster) {
+            this.cluster = cluster;
+        }
+
+        @Override
+        public IgniteRel visit(IgniteRel rel) {
+            if (rel instanceof SourceAwareIgniteRel) {
+                // Take into account only actual source relations.
+                SourceAwareIgniteRel src = (SourceAwareIgniteRel) rel;
+
+                int sourceId = sourceIndex++;
+                IgniteRel relWithSourceId = src.clone(sourceId);
+
+                for (int i = 0; i < rel.getInputs().size(); i++) {
+                    IgniteRel childNode = visit((IgniteRel) rel.getInput(i));
+                    relWithSourceId.replaceInput(i, childNode);
+                }
+
+                return relWithSourceId;
+            } else {
+                List<IgniteRel> newChildren = new ArrayList<>(rel.getInputs().size());
+
+                for (int i = 0; i < rel.getInputs().size(); i++) {
+                    IgniteRel childNode = visit((IgniteRel) rel.getInput(i));
+                    newChildren.add(childNode);
+                }
+
+                return rel.clone(cluster, newChildren);
+            }
+        }
     }
 }

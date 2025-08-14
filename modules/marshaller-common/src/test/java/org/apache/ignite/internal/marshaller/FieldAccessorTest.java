@@ -255,7 +255,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
                 new MarshallerColumn("val", BYTE_ARR),
                 0,
-                new SerializingConverter<TestSimpleObject>()
+                new SerializingConverter<>()
         );
 
         Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();

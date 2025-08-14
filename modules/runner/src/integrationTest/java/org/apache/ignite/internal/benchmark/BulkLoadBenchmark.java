@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
@@ -85,6 +86,27 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     public void kvThinInsert(KvThinState state) {
         state.upload(count, batchSize);
+    }
+
+    @Override
+    protected void createTablesOnStartup() {
+        createTable(TABLE_NAME,
+                List.of(
+                        "ycsb_key int",
+                        "field1   int",
+                        "field2   varchar(100)",
+                        "field3   varchar(100)",
+                        "field4   varchar(100)",
+                        "field5   varchar(100)",
+                        "field6   varchar(100)",
+                        "field7   varchar(100)",
+                        "field8   varchar(100)",
+                        "field9   varchar(100)",
+                        "field10  varchar(100)"
+                ),
+                List.of("ycsb_key", "field1"),
+                List.of()
+        );
     }
 
     /**
@@ -166,7 +188,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            for (int i = 1; i < 11; i++) {
+            for (int i = 2; i < 11; i++) {
                 tuple.set("field" + i, FIELD_VAL);
             }
 
@@ -193,7 +215,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
                     tx = client.transactions().begin();
                 }
 
-                kvView.put(tx, Tuple.create().set("ycsb_key", i), tuple);
+                kvView.put(tx, Tuple.create().set("ycsb_key", i).set("field1", 1), tuple);
             }
         }
     }
@@ -202,7 +224,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
         String insertQueryTemplate = "insert into {}({}, {}) values(?, {})";
 
         String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
+        String valQ = "1, " + IntStream.range(2, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
     }

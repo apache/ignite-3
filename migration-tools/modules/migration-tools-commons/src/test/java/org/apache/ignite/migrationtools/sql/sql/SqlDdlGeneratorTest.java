@@ -106,27 +106,27 @@ class SqlDdlGeneratorTest {
             nonKey("SALARY", "DOUBLE", true)
     );
 
-    static CacheConfiguration configWithIndexType(Class<?> keyType, Class<?> valType) {
-        CacheConfiguration cacheCfg = new CacheConfiguration();
+    static CacheConfiguration<?, ?> configWithIndexType(Class<?> keyType, Class<?> valType) {
+        CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>();
         cacheCfg.setIndexedTypes(keyType, valType);
         return cacheCfg;
     }
 
-    static CacheConfiguration configWithQeKeyValue(Class<?> keyType, Class<?> valType) {
-        CacheConfiguration cacheCfg = new CacheConfiguration();
+    static CacheConfiguration<?, ?> configWithQeKeyValue(Class<?> keyType, Class<?> valType) {
+        CacheConfiguration<?, ?> cacheCfg = new CacheConfiguration<>();
         QueryEntity qe = new QueryEntity(keyType, valType);
         cacheCfg.setQueryEntities(Collections.singleton(qe));
         return cacheCfg;
     }
 
-    static TableDefinition generateTableDef(CacheConfiguration cacheCfg, boolean allowExtraFields) {
+    static TableDefinition generateTableDef(CacheConfiguration<?, ?> cacheCfg, boolean allowExtraFields) {
         SqlDdlGenerator gen = new SqlDdlGenerator(new TableTypeRegistryMapImpl(), allowExtraFields);
         return gen.generateTableDefinition(cacheCfg);
     }
 
     static List<Arguments> provideSupportedClasses() {
         // TODO: Check lengths
-        List<Map.Entry<Class, String>> primitives = List.of(
+        List<Map.Entry<Class<?>, String>> primitives = List.of(
                 entry(boolean.class, "BOOLEAN"),
                 entry(byte.class, "TINYINT"),
                 entry(char.class, "CHAR"),
@@ -150,7 +150,7 @@ class SqlDdlGeneratorTest {
         );
 
         // These types are only supported on the value side.
-        List<Map.Entry<Class, String>> supportedOnlyHasValues = List.of(
+        List<Map.Entry<Class<?>, String>> supportedOnlyHasValues = List.of(
                 entry(boolean[].class, "VARBINARY"),
                 entry(char[].class, "VARBINARY"),
                 entry(short[].class, "VARBINARY"),
@@ -181,9 +181,10 @@ class SqlDdlGeneratorTest {
 
     static List<Arguments> provideCacheConfigSupplier() {
         var cfgGenerators = List.of(
-                named("From indexType", (BiFunction<Class<?>, Class<?>, CacheConfiguration>) SqlDdlGeneratorTest::configWithIndexType),
+                named("From indexType",
+                        (BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>>) SqlDdlGeneratorTest::configWithIndexType),
                 named("From QE key and value fields",
-                        (BiFunction<Class<?>, Class<?>, CacheConfiguration>) SqlDdlGeneratorTest::configWithQeKeyValue)
+                        (BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>>) SqlDdlGeneratorTest::configWithQeKeyValue)
         );
 
         List<Arguments> ret = new ArrayList<>(EXTRA_FIELDS_ENABLED_ARG.size() * cfgGenerators.size());
@@ -248,7 +249,7 @@ class SqlDdlGeneratorTest {
     @ParameterizedTest
     @MethodSource("provideSupportedClasses")
     void testTableDefUsingIndexedTypes(
-            BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier,
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields,
             Class keyType,
             String keyDef,
@@ -263,11 +264,11 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithComplexKeyAndSimplePojo(BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier,
+    void testTableDefWithComplexKeyAndSimplePojo(BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields) {
         var cacheCfg = cacheConfigSupplier.apply(ComplexKeyIntStr.class, SimplePojo.class);
         {
-            QueryEntity qe = (QueryEntity) cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
+            QueryEntity qe = cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
             Map<String, String> aliases = qe.getAliases();
             // We currently cannot make an alias to switch the field case due to an hack to support case-insensitive mappings.
             // aliases.put("id", "ID");
@@ -284,7 +285,7 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithOrganizationPojo(BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier,
+    void testTableDefWithOrganizationPojo(BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields) {
         var cacheCfg = cacheConfigSupplier.apply(int.class, Organization.class);
         testCacheConfig(cacheCfg, allowExtraFields, List.of(
@@ -297,7 +298,10 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithPersonPojo(BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier, boolean allowExtraFields) {
+    void testTableDefWithPersonPojo(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
         // TODO: Make dynamic pojos with BB to cover all the possible scenarios...
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
         testCacheConfig(cacheCfg, allowExtraFields, PERSON_EXPECTED_FIELDS);
@@ -305,10 +309,12 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testTableDefWithPersonPojoNotInClasspath(BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier,
-            boolean allowExtraFields) {
+    void testTableDefWithPersonPojoNotInClasspath(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
-        QueryEntity qe = (QueryEntity) cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
+        QueryEntity qe = cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
         qe.setValueType(Person.class.getName().replace("Person", "FakePerson"));
 
         Set<String> notNullFields = new HashSet<>();
@@ -320,10 +326,12 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideCacheConfigSupplier")
-    void testCasingMismatchBetweenQueryEntityAndClass(BiFunction<Class<?>, Class<?>, CacheConfiguration> cacheConfigSupplier,
-            boolean allowExtraFields) {
+    void testCasingMismatchBetweenQueryEntityAndClass(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
         var cacheCfg = cacheConfigSupplier.apply(int.class, Person.class);
-        QueryEntity qe = (QueryEntity) cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
+        QueryEntity qe = cacheCfg.getQueryEntities().stream().findFirst().orElseThrow();
         // Skips the key, randomize the casing for the field name.
         qe.setFields(
                 qe.getFields().entrySet().stream()

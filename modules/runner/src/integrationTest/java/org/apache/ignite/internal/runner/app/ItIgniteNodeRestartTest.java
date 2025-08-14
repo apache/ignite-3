@@ -163,7 +163,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -405,7 +405,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 workerRegistry,
                 failureProcessor,

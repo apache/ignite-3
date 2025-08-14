@@ -985,7 +985,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 && rowId.leastSignificantBits() == normalize(dataIdKey.getLong());
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
             assert rowIsLocked(rowId);

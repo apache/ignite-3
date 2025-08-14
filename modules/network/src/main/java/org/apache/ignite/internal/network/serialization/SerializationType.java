@@ -49,7 +49,7 @@ public enum SerializationType {
      * @return Serialization type.
      */
     public static SerializationType getByValue(int value) {
-        for (SerializationType serializationType : SerializationType.values()) {
+        for (SerializationType serializationType : values()) {
             if (serializationType.value == value) {
                 return serializationType;
             }

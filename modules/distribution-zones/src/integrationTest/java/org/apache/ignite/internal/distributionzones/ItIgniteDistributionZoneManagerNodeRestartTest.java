@@ -123,7 +123,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -235,7 +235,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 failureProcessor,

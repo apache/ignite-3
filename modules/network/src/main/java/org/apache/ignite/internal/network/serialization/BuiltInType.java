@@ -98,7 +98,7 @@ public enum BuiltInType {
 
     static {
         Int2ObjectMap<BuiltInType> map = new Int2ObjectOpenHashMap<>();
-        for (BuiltInType type : BuiltInType.values()) {
+        for (BuiltInType type : values()) {
             map.put(type.descriptorId, type);
         }
         descriptorIdToValues = Int2ObjectMaps.unmodifiable(map);
@@ -108,7 +108,7 @@ public enum BuiltInType {
 
     static {
         Map<Class<?>, BuiltInType> map = new HashMap<>();
-        for (BuiltInType type : BuiltInType.values()) {
+        for (BuiltInType type : values()) {
             map.put(type.clazz, type);
         }
         classToValues = Map.copyOf(map);
