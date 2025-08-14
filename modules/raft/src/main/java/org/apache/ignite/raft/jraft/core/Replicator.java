@@ -933,7 +933,7 @@ public class Replicator implements ThreadId.OnError {
 
     @Override
     public String toString() {
-        return "Replicator [state=" + getState() + ", statInfo=" + this.statInfo + ", groupId="
+        return "Replicator [state=" + getState() + ", statInfo=" + this.statInfo + ", node="
             + this.options.getNode().getNodeId() + ", type=" + this.options.getReplicatorType() + "]";
     }
 
