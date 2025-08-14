@@ -254,7 +254,7 @@ public class NodeImpl implements Node, RaftServerService {
             final Collection<Thread> queuedThreads, final long blockedNanos) {
             final long blockedMs = TimeUnit.NANOSECONDS.toMillis(blockedNanos);
             LOG.warn(
-                "Raft-Node-Lock report [node={} currentThread={}, acquireMode={}, heldThread={}, queuedThreads={}, blockedMs={}].",
+                "Raft-Node-Lock report [node={}, currentThread={}, acquireMode={}, heldThread={}, queuedThreads={}, blockedMs={}].",
                     node.getNodeId(), Thread.currentThread(), acquireMode, heldThread, queuedThreads, blockedMs);
 
             final NodeMetrics metrics = this.node.getNodeMetrics();
