@@ -39,4 +39,9 @@ public interface ExecutionContextAwareMessage extends NetworkMessage, Serializab
      * Get fragment ID.
      */
     long fragmentId();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

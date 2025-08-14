@@ -32,4 +32,9 @@ public interface CancelOperationRequest extends NetworkMessage {
 
     /** Returns type ID of the operation. */
     int typeId();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

@@ -51,4 +51,9 @@ public interface QueryStartResponse extends NetworkMessage, Serializable {
     @Nullable
     @Marshallable
     Throwable error();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }
