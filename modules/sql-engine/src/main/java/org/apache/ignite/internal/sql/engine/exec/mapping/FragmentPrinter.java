@@ -267,9 +267,7 @@ public final class FragmentPrinter {
         void writeKeyValue(String name, String value) {
             appendPadding();
 
-            builder.append(name);
-            builder.append(": ");
-            builder.append(value);
+            builder.append(name).append(": ").append(value);
 
             writeNewline();
         }

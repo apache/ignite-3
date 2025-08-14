@@ -67,7 +67,6 @@ public abstract class IgniteAbstractSqlAlterZone extends SqlDdl {
 
     /** Returns whether IF EXISTS was specified or not. **/
     public boolean ifExists() {
-        IgniteDdlOperator operator = (IgniteDdlOperator) getOperator();
-        return operator.existFlag();
+        return getOperator().existFlag();
     }
 }
