@@ -321,6 +321,9 @@ public class ClientSql implements IgniteSql {
             Statement statement,
             @Nullable Object... arguments
     ) {
+        assert mapper == null || mapper.targetType() == SqlRow.class
+                || !queryModifiers.contains(QueryModifier.ALLOW_MULTISTATEMENT) : "Mapper is not supported for multi-statements.";
+
         Objects.requireNonNull(statement);
 
         PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
@@ -373,10 +376,11 @@ public class ClientSql implements IgniteSql {
                     && r.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS);
 
             boolean sqlDirectMappingSupported = r.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING);
+            boolean sqlMultistatementsSupported = r.clientChannel().protocolContext().allFeaturesSupported(SQL_MULTISTATEMENT_SUPPORT);
 
             DirectTxUtils.readTx(r, ctx, tx, ch.observableTimestamp());
             ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
-                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported
+                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported, sqlMultistatementsSupported
             );
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
