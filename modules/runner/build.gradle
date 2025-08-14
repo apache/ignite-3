@@ -232,6 +232,20 @@ dependencies {
     testFixturesImplementation libs.typesafe.config
 }
 
+tasks.register('generateCompatibilitySnapshot', JavaExec) {
+    if (version.toString().endsWith('-SNAPSHOT')) {
+        throw new GradleException("The task  can be executed only on release version: ${version}")
+    }
+    def testResourcePath = sourceSets.test.resources.srcDirs.iterator().next().absolutePath
+    def snapshotFilePath = java.nio.file.Path.of(testResourcePath, "compatibility/configuration", "ignite-${projectVersion}.bin").toString()
+
+    description = 'Generates compatibility snapshot for the project.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot'
+    args = [snapshotFilePath]
+    jvmArgs += defaultJvmArgs
+}
+
 tasks.register('runnerPlatformTest', JavaExec) {
     dependsOn tasks.integrationTestClasses
     mainClass = 'org.apache.ignite.internal.runner.app.PlatformTestNodeRunner'
