@@ -115,21 +115,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static SystemDistributedConfiguration systemConfiguration;
+    private SystemDistributedConfiguration systemConfiguration;
 
     @InjectExecutorService
-    private static ScheduledExecutorService scheduledExecutorService;
+    private ScheduledExecutorService scheduledExecutorService;
 
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
-    private static class Node {
+    private class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
         private final ClusterService clusterService;
