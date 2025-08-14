@@ -167,7 +167,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((SourceAwareIgniteRel) processNode(rel)).clone(idGenerator.nextId());
+        return ((SourceAwareIgniteRel) processNode(rel)).clone(rel.sourceId());
     }
 
     /** {@inheritDoc} */
@@ -176,11 +176,11 @@ public class QuerySplitter extends IgniteRelShuttle {
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
         assert table != null;
-        long sourceId = idGenerator.nextId();
+        long sourceId = rel.sourceId();
 
         curr.tables.put(sourceId, table);
 
-        return rel.clone(sourceId);
+        return rel;
     }
 
     /** {@inheritDoc} */
@@ -189,17 +189,17 @@ public class QuerySplitter extends IgniteRelShuttle {
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
         assert table != null;
-        long sourceId = idGenerator.nextId();
+        long sourceId = rel.sourceId();
 
         curr.tables.put(sourceId, table);
 
-        return rel.clone(sourceId);
+        return rel;
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableFunctionScan rel) {
-        return rel.clone(idGenerator.nextId());
+        return rel;
     }
 
     /** {@inheritDoc} */
@@ -209,7 +209,7 @@ public class QuerySplitter extends IgniteRelShuttle {
 
         assert table != null;
 
-        long sourceId = idGenerator.nextId();
+        long sourceId = rel.sourceId();
 
         curr.tables.put(sourceId, table);
 
@@ -232,7 +232,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.systemViews.add(view);
         }
 
-        return rel.clone(idGenerator.nextId());
+        return rel;
     }
 
     private static class FragmentProto {

@@ -17,15 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.sql.engine.util.RexUtils.FaultyContext;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.ColocationUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,13 +65,30 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionAwarenessMetadataExtractor {
 
     /**
+     * Extracts partition awareness metadata from the given plan.
+     *
+     * @param rel Plan.
+     * @return Metadata.
+     */
+    @Nullable
+    public static PartitionAwarenessMetadata getMetadata(IgniteRel rel) {
+        if (rel instanceof IgniteKeyValueGet) {
+            return getMetadata((IgniteKeyValueGet) rel);
+        } else if (rel instanceof IgniteKeyValueModify) {
+            return getMetadata((IgniteKeyValueModify) rel);
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * Extracts partition awareness metadata from the given IgniteKeyValueGet plan.
      *
      * @param kv IgniteKeyValueGet Plan.
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueGet kv) {
+    private static PartitionAwarenessMetadata getMetadata(IgniteKeyValueGet kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
@@ -75,7 +104,7 @@ public class PartitionAwarenessMetadataExtractor {
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueModify kv) {
+    private static PartitionAwarenessMetadata getMetadata(IgniteKeyValueModify kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
@@ -97,7 +126,9 @@ public class PartitionAwarenessMetadataExtractor {
 
         // colocation key index to dynamic param index
         int[] indexes = new int[colocationKeys.size()];
-        int[] hash = new int[0];
+        IntArrayList hashFields = new IntArrayList(colocationKeys.size() / 2);
+
+        int hashPos = -1;
 
         for (int i = 0; i < colocationKeys.size(); i++) {
             int colIdx = colocationKeys.get(i);
@@ -113,10 +144,30 @@ public class PartitionAwarenessMetadataExtractor {
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
                 indexes[i] = dynamicParam.getIndex();
+            } else if (expr instanceof RexLiteral) {
+                RexLiteral expr0 = (RexLiteral) expr;
+
+                // depends on supplied zoneId, it can`t be cached
+                if (expr0.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    return null;
+                }
+
+                indexes[i] = hashPos--;
+
+                Class<?> internalType = Primitives.wrap((Class<?>) Commons.typeFactory().getJavaClass(expr0.getType()));
+                Object val = RexUtils.literalValue(FaultyContext.INSTANCE, expr0, internalType);
+
+                NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(expr0.getType());
+
+                val = TypeUtils.fromInternal(val, nativeType.spec());
+
+                hashFields.add(ColocationUtils.hash(val, nativeType));
             } else {
                 return null;
             }
         }
+
+        int[] hash = hashFields.toArray(new int[0]);
 
         return new PartitionAwarenessMetadata(igniteTable.id(), indexes, hash, directTxMode);
     }
