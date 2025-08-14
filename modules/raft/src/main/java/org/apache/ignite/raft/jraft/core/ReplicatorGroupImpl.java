@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -55,6 +56,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     private int electionTimeoutMs = -1;
     private RaftOptions raftOptions;
     private final Map<PeerId, ReplicatorType> failureReplicators = new ConcurrentHashMap<>();
+    /** This set is used only for logging. */
+    private final Set<PeerId> failureReplicatorsSetToPreventLogFlooding = ConcurrentHashMap.newKeySet();
 
     @Override
     public boolean init(final NodeId nodeId, final ReplicatorGroupOptions opts) {
@@ -119,14 +122,16 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         assert client != null;
 
         if (!client.connect(peer)) {
-            if (!failureReplicators.containsKey(peer)) {
+            boolean added = failureReplicatorsSetToPreventLogFlooding.add(peer);
+
+            if (added) {
                 LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
             }
 
             this.failureReplicators.put(peer, replicatorType);
             return false;
         } else {
-            failureReplicators.remove(peer);
+            failureReplicatorsSetToPreventLogFlooding.remove(peer);
         }
 
 //        if (!sync) {
