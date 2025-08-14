@@ -50,7 +50,7 @@ public class GenerateConfigurationSnapshot {
         configNodes.forEach(c -> c.accept(shuttle));
 
         Path outputPath = DEFAULT_SNAPSHOT_FILE;
-        if(args.length > 0) {
+        if (args.length > 0) {
             outputPath = Path.of(args[0]);
         }
 
