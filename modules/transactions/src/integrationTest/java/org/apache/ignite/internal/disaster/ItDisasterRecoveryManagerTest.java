@@ -66,8 +66,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -316,7 +314,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         nodeToCleanup.sql().execute(tx, "INSERT INTO TABLE_NAME VALUES (2, 2)");
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = nodeToCleanup.disasterRecoveryManager().restartTablePartitionsWithCleanup(
                 Set.of(nodeToCleanup.name()),
                 testZone,
                 SqlCommon.DEFAULT_SCHEMA_NAME,
@@ -325,13 +323,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         );
 
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
-
-        ReplicationConfiguration config = nodeToCleanup
-                .clusterConfiguration()
-                .getConfiguration(ReplicationExtensionConfiguration.KEY)
-                .replication();
-
-        Thread.sleep(config.leaseExpirationIntervalMillis().value() + 1000L);
 
         if (primaryReplica) {
             assertThrows(TransactionException.class, tx::commit, "Primary replica has expired, transaction will be rolled back");
