@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeCheckpointTempBufferRelativePointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeDirtyFlag;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeFullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePartitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
@@ -715,15 +716,18 @@ public class PersistentPageMemory implements PageMemory {
         boolean readPageFromStore = false;
 
         try {
+            int partGeneration = seg.partGeneration(grpId, partId);
+
             // Double-check.
             long relPtr = seg.loadedPages.get(
                     grpId,
                     fullId.effectivePageId(),
-                    seg.partGeneration(grpId, partId),
+                    partGeneration,
                     INVALID_REL_PTR,
                     OUTDATED_REL_PTR
             );
 
+            // Absolute memory pointer to page with header.
             long absPtr;
 
             if (relPtr == INVALID_REL_PTR) {
@@ -741,9 +745,12 @@ public class PersistentPageMemory implements PageMemory {
 
                 writeFullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
+                writePartitionGeneration(absPtr, partGeneration);
 
-                assert !isAcquired(absPtr) :
-                        "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr) + ']';
+                assert !isAcquired(absPtr) : String.format(
+                        "Pin counter must be 0 for a new page [relPtr=%s, absPtr=%s, fullId=%s]",
+                        hexLong(relPtr), hexLong(absPtr), fullId
+                );
 
                 // We can clear dirty flag after the page has been allocated.
                 setDirty(fullId, absPtr, false, false);
@@ -754,7 +761,7 @@ public class PersistentPageMemory implements PageMemory {
                         grpId,
                         fullId.effectivePageId(),
                         relPtr,
-                        seg.partGeneration(grpId, partId)
+                        partGeneration
                 );
 
                 long pageAddr = absPtr + PAGE_OVERHEAD;
@@ -764,7 +771,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     readPageFromStore = true;
                 } else {
-                    zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
+                    zeroMemory(pageAddr, pageSize());
 
                     // Must init page ID in order to ensure RWLock tag consistency.
                     setPageId(pageAddr, pageId);
@@ -1605,12 +1612,13 @@ public class PersistentPageMemory implements PageMemory {
          * @return Relative pointer to refreshed page.
          */
         public long refreshOutdatedPage(int grpId, long pageId, boolean rmv) {
-            assert writeLock().isHeldByCurrentThread();
+            assert writeLock().isHeldByCurrentThread() : "grpId=" + grpId + ", pageId=" + pageId + ", rmv=" + rmv;
 
-            int tag = partGeneration(grpId, partitionId(pageId));
+            int partGeneration = partGeneration(grpId, partitionId(pageId));
 
-            long relPtr = loadedPages.refresh(grpId, effectivePageId(pageId), tag);
+            long relPtr = loadedPages.refresh(grpId, effectivePageId(pageId), partGeneration);
 
+            // TODO: IGNITE-26216 Продолжить тут
             long absPtr = absolute(relPtr);
 
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
@@ -1719,13 +1727,18 @@ public class PersistentPageMemory implements PageMemory {
          * @param partId Partition ID.
          */
         public int partGeneration(int grpId, int partId) {
-            assert getReadHoldCount() > 0 || getWriteHoldCount() > 0;
+            assert getReadHoldCount() > 0 || getWriteHoldCount() > 0 : "grpId=" + grpId + ", partId=" + partId;
 
-            Integer tag = partGenerationMap.get(new GroupPartitionId(grpId, partId));
+            GroupPartitionId groupPartitionId = new GroupPartitionId(grpId, partId);
 
-            assert tag == null || tag >= 0 : "Negative tag=" + tag;
+            Integer partitionGeneration = partGenerationMap.get(groupPartitionId);
 
-            return tag == null ? INIT_PART_GENERATION : tag;
+            assert partitionGeneration == null || partitionGeneration >= 0 : String.format(
+                    "partitionGeneration=%s, groupPartitionId=%s",
+                    partitionGeneration, groupPartitionId
+            );
+
+            return partitionGeneration == null ? INIT_PART_GENERATION : partitionGeneration;
         }
 
         /**
