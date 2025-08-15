@@ -942,8 +942,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         CASE_27B("UPDATE test set val0 = (SELECT val1 FROM test)", schema(single())),
 
         /**
-         * Query: MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id
-         *        WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test)
+         * Query: MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test).
          *
          * <p>Distribution single()
          */

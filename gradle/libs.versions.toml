@@ -97,7 +97,7 @@ cytodynamics = "0.2.0"
 
 #Tools
 pmdTool = "7.13.0"
-checkstyleTool = "10.3.3"
+checkstyleTool = "11.0.0"
 spotbugsTool = "4.8.3"
 
 [plugins]

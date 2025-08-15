@@ -1289,6 +1289,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     /**
+     * Testing scenario.
      * <pre>
      *   if (key1.value == val1 || exist(key2))
      *       if (key3.revision == 3):
@@ -1358,6 +1359,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     /**
+     * Testing scenario.
      * <pre>
      *   if (key1.value == val1 || exist(key2))
      *       if (key3.revision == 3):
@@ -1431,6 +1433,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     /**
+     * Testing scenario.
      * <pre>
      *   if (key1.value == val1 || exist(key2))
      *       if (key3.revision == 3):

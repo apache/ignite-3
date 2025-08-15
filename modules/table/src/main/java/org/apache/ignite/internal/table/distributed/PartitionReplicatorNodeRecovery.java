@@ -134,7 +134,7 @@ class PartitionReplicatorNodeRecovery {
                 if (mvPartition != null) {
 
                     dataPresence = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null
-                        ? DataPresence.HAS_DATA : DataPresence.EMPTY;
+                            ? DataPresence.HAS_DATA : DataPresence.EMPTY;
                 }
             } catch (StorageClosedException | StorageRebalanceException ignored) {
                 // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.

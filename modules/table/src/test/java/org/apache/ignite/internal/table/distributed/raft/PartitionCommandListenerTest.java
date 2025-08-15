@@ -710,8 +710,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         commandListener.onConfigurationCommitted(
                 new RaftGroupConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
-                1, 2
+                    1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                ),
+                1,
+                2
         );
 
         // Exact one call is expected because it's done in @BeforeEach in order to prepare initial configuration.

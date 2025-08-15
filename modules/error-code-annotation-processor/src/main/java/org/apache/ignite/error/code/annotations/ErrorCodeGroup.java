@@ -21,13 +21,10 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
 /**
- * <p>
  * Annotation that should be placed on the ErrorGroup in the java/org/apache/ignite/lang/ErrorGroups.java
- * </p>
- * <p>
- *     Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
+ *
+ * <p>Group will be processed by the @{@link org.apache.ignite.internal.error.code.processor.ErrorCodeGroupProcessor}
  * and C++ and C# files with errors will be generated.
- * </p>
  */
 @Target(ElementType.TYPE)
 public @interface ErrorCodeGroup {

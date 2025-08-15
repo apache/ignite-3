@@ -83,7 +83,7 @@ public class IgniteThread extends Thread implements ThreadAttributes {
         Thread thread = currentThread();
 
         return thread.getClass() == IgniteThread.class || thread instanceof IgniteThread
-            ? ((IgniteThread) thread) : null;
+                ? ((IgniteThread) thread) : null;
     }
 
     /**

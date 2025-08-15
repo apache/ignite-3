@@ -89,10 +89,10 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         testedStorage = new SnapshotAwarePartitionDataStorage(
-            TABLE_ID,
-            partitionStorage,
-            partitionsSnapshots,
-            partitionKey
+                TABLE_ID,
+                partitionStorage,
+                partitionsSnapshots,
+                partitionKey
         );
 
         lenient().when(partitionsSnapshots.partitionSnapshots(any())).thenReturn(partitionSnapshots);

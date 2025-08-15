@@ -38,6 +38,7 @@ import org.apache.logging.log4j.core.config.Property;
 
 /**
  * This class is used to check log events/messages.
+ *
  * <p>
  * When it is needed to check log events/messages, the following steps should be performed:
  * </p>
@@ -56,6 +57,7 @@ import org.apache.logging.log4j.core.config.Property;
  *
  *     assertThat(logInspector.isMatched(), is(true));
  * </code></pre>
+ *
  * <p>
  * When it is needed to check log events/messages and perform some action, just add a predicate and an action:
  * </p>
@@ -78,6 +80,7 @@ import org.apache.logging.log4j.core.config.Property;
  *
  *     assertThat(messageCounter.get(), is(42));
  * </code></pre>
+ *
  * <p>
  * It is possible to add a new pair of predicate and action using {@link #addHandler(Predicate, Runnable)},
  * {@link #addHandler(Handler)} methods at any time.

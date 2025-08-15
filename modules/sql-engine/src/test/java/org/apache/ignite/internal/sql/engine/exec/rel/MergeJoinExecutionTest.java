@@ -59,7 +59,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * MergeJoinExecutionTest;
+ * MergeJoinExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
