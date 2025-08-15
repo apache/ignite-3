@@ -351,21 +351,26 @@ public class CheckpointManager {
      * Returns the indexes of the dirty pages to be written to the delta file page store.
      *
      * @param partitionDirtyPages Dirty pages of the partition.
+     * @param persistedPages Number of pages persisted to the disk.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int pageStorePages) {
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int persistedPages) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[pageStorePages];
+        // Newly allocated pages will go straight to the main partition file.
+        int maxDirtyPagesCount = Math.min(persistedPages, partitionDirtyPages.size());
 
-        for (int i = 0; i < Math.min(pageStorePages, partitionDirtyPages.size()); i++) {
-            if (partitionDirtyPages.get(i).pageIdx() < pageStorePages) {
+        int[] pageIndexes = new int[maxDirtyPagesCount];
+
+        for (int i = 0; i < maxDirtyPagesCount; i++) {
+            // Pages with index >= to the persisted page count are newly allocated and will go to the main partition file.
+            if (partitionDirtyPages.get(i).pageIdx() < persistedPages) {
                 pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
                 offset++;
             }
         }
 
-        return Arrays.copyOf(pageIndexes, offset);
+        return pageIndexes.length == offset ? pageIndexes : Arrays.copyOf(pageIndexes, offset);
     }
 
     /**

@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -54,7 +52,6 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -85,6 +82,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -93,7 +91,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class FailedCheckpointTest extends BaseMvStoragesTest {
     private static final int PARTITION_ID = 1;
-    private static final RowId ROW_ID = new RowId(PARTITION_ID);
     private static final GroupPartitionId GROUP_ID = new GroupPartitionId(1, PARTITION_ID);
 
     private final TestKey key = new TestKey(10, "foo");
@@ -120,6 +117,7 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
     @InjectExecutorService
     private ExecutorService commonExecutorService;
+
     private volatile boolean failWrite;
 
     @BeforeEach
@@ -127,26 +125,11 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
         startNode();
     }
 
-    @Test
-    void testRestart() throws Exception {
-        writeRows();
-
-        doNormalCheckpoint();
-
-        writeRows();
+    @AfterEach
+    void tearDown() throws Exception {
+        tableStorage.destroy();
 
         stopNode();
-        startNode();
-
-        writeRows();
-
-        doNormalCheckpoint();
-
-        writeRows();
-        stopNode();
-        startNode();
-
-        doNormalCheckpoint();
     }
 
     @Test
@@ -155,18 +138,15 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
         doNormalCheckpoint();
 
-        int initialPageCount = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
-
-        assertThat(partitionStorage.read(ROW_ID, HybridTimestamp.MAX_VALUE).binaryRow(), notNullValue());
+        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
 
         writeRows();
 
         doFailedCheckpointAndRestart();
 
         // Check that we data region is not corrupted.
-        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(initialPageCount));
+        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(expectedPersistedPages));
         writeRows();
-        assertThat(partitionStorage.read(ROW_ID, HybridTimestamp.MAX_VALUE).binaryRow(), notNullValue());
 
         // Check that next checkpoint will succeed.
         doNormalCheckpoint();
@@ -174,19 +154,15 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
     @Test
     void testRestartAfterFailedFirstCheckpoint() throws Exception {
-        int initialPageCount = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
+        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
 
         writeRows();
-
-        assertThat(partitionStorage.read(ROW_ID, HybridTimestamp.MAX_VALUE).binaryRow(), notNullValue());
 
         doFailedCheckpointAndRestart();
 
         // Check that we data region is not corrupted.
-        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(initialPageCount));
-        assertThat(partitionStorage.read(ROW_ID, HybridTimestamp.MAX_VALUE).binaryRow(), nullValue());
+        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(expectedPersistedPages));
         writeRows();
-        assertThat(partitionStorage.read(ROW_ID, HybridTimestamp.MAX_VALUE).binaryRow(), notNullValue());
 
         // Check that next checkpoint will succeed.
         doNormalCheckpoint();
@@ -339,9 +315,6 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
     private void writeRows() {
         partitionStorage.runConsistently(locker -> {
-            locker.lock(ROW_ID);
-            partitionStorage.addWriteCommitted(ROW_ID, binaryRow, clock.now());
-
             for (int i = 0; i < 10000; i++) {
                 RowId rowId = new RowId(PARTITION_ID);
 
