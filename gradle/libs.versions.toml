@@ -98,7 +98,7 @@ cytodynamics = "0.2.0"
 #Tools
 pmdTool = "7.13.0"
 checkstyleTool = "10.3.3"
-spotbugsTool = "4.8.3"
+spotbugsTool = "4.9.4"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
