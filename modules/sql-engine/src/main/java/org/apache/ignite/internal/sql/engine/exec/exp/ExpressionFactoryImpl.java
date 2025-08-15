@@ -200,8 +200,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 continue;
             }
 
-            b.append(':');
-            b.append(node.getType().getFullTypeString());
+            b.append(':').append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override

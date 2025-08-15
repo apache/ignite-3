@@ -1,47 +1,52 @@
 N1
 SELECT /*+ DISABLE_RULE('MapReduceMinusConverterRule')*/ * FROM (SELECT c2 FROM t1_n1 EXCEPT SELECT c2 FROM t2_n2)
 ---
-Fragment#0 root
+Fragment#2 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {1=[N1], 2=[N2]}
+  exchangeSourceNodes: {3=[N1], 4=[N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[4]: {nodes=[N1], sourceIds=[-1, 3, 4], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     ColocatedMinus
         all: false
         est: (rows=1)
       Receiver
           fieldNames: [C2]
-          sourceFragmentId: 1
+          sourceFragmentId: 3
           est: (rows=1)
       Receiver
           fieldNames: [C2]
-          sourceFragmentId: 2
+          sourceFragmentId: 4
           est: (rows=1)
 
-Fragment#1
+Fragment#3
   distribution: random
   executionNodes: [N1]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
   partitions: [T1_N1=[N1={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=100001)
       TableScan
           table: PUBLIC.T1_N1
           fieldNames: [C2]
           est: (rows=100001)
 
-Fragment#2
+Fragment#4
   distribution: random
   executionNodes: [N2]
   targetNodes: [N1]
+  colocationGroup[1]: {nodes=[N2], sourceIds=[1], assignments={part_0=N2:1}, partitionsWithConsistencyTokens={N2=[part_0:1]}}
   partitions: [T2_N2=[N2={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=100002)
       TableScan
           table: PUBLIC.T2_N2
@@ -52,28 +57,32 @@ Fragment#2
 N1
 SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule')*/ * FROM (SELECT c2 FROM t1_n1 EXCEPT SELECT c2 FROM t2_n2)
 ---
-Fragment#0 root
+Fragment#2 root
   distribution: single
   executionNodes: [N1]
-  exchangeSourceNodes: {1=[N1, N2]}
+  exchangeSourceNodes: {3=[N1, N2]}
+  colocationGroup[-1]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
+  colocationGroup[3]: {nodes=[N1], sourceIds=[-1, 3], assignments={}, partitionsWithConsistencyTokens={N1=[]}}
   tree: 
     ReduceMinus
         all: false
         est: (rows=1)
       Receiver
           fieldNames: [f0, _COUNT_0, _COUNT_1]
-          sourceFragmentId: 1
+          sourceFragmentId: 3
           est: (rows=1)
 
-Fragment#1
+Fragment#3
   distribution: random
   executionNodes: [N1, N2]
   targetNodes: [N1]
+  colocationGroup[0]: {nodes=[N1], sourceIds=[0], assignments={part_0=N1:1}, partitionsWithConsistencyTokens={N1=[part_0:1]}}
+  colocationGroup[1]: {nodes=[N2], sourceIds=[1], assignments={part_0=N2:1}, partitionsWithConsistencyTokens={N2=[part_0:1]}}
   partitions: [T1_N1=[N1={0}], T2_N2=[N2={0}]]
   tree: 
     Sender
         distribution: single
-        targetFragmentId: 0
+        targetFragmentId: 2
         est: (rows=50001)
       MapMinus
           all: false

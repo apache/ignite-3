@@ -278,7 +278,9 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         });
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance();
