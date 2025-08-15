@@ -215,7 +215,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             }
 
             return confString;
-        } catch (IOException e) {
+        } catch (Parse | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }
