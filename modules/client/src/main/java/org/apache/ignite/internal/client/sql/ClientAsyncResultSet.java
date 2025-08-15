@@ -194,8 +194,13 @@ public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                         r -> new ClientAsyncResultSet<>(
                                 r.clientChannel(), null, r.in(), null, false, false, true
                         ))
-                .thenApply(nextResultFuture::complete)
-                .exceptionally(nextResultFuture::completeExceptionally);
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        nextResultFuture.completeExceptionally(e);
+                    } else {
+                        nextResultFuture.complete(r);
+                    }
+                });
 
         return nextResultFuture;
     }

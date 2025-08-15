@@ -258,7 +258,7 @@ class ClientSqlCommon {
     ) {
         try {
             Long nextResultResourceId = sqlMultiStatementSupported && asyncResultSet.cursor().hasNextResult()
-                    ? saveNextResult(asyncResultSet.cursor().nextResult(), pageSize, resources)
+                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources)
                     : null;
 
             if ((asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages())) {
@@ -273,15 +273,17 @@ class ClientSqlCommon {
                 var resourceId = resources.put(resource);
 
                 return CompletableFuture.completedFuture(out ->
-                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta, sqlDirectTxMappingSupported,
-                                sqlMultiStatementSupported, nextResultResourceId));
+                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta,
+                                sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
             }
+
             return asyncResultSet.closeAsync()
                     .thenApply(v -> (ResponseWriter) out ->
-                            writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta, sqlDirectTxMappingSupported,
-                                    sqlMultiStatementSupported, nextResultResourceId));
+                            writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta,
+                                    sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
 
         } catch (IgniteInternalCheckedException e) {
+            // Resource registry was closed.
             return asyncResultSet
                     .closeAsync()
                     .thenRun(() -> {
@@ -290,7 +292,7 @@ class ClientSqlCommon {
         }
     }
 
-    private static Long saveNextResult(
+    private static Long saveNextResultResource(
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResultFuture,
             int pageSize,
             ClientResourceRegistry resources

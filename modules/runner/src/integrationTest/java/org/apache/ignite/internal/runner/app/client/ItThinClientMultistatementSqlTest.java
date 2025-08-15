@@ -24,13 +24,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
@@ -75,36 +74,30 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
     private int resourcesBefore;
 
     @BeforeEach
-    void cleanupResources() {
+    void setup() {
         resultsToClose.forEach(resultSet -> await(resultSet.closeAsync()));
 
         resourcesBefore = countResources();
-    }
-
-    private int countResources() {
-        int count = 0;
-
-        for (int i = 0; i < nodes(); i++) {
-            ClientResourceRegistry resources = unwrapIgniteImpl(server(i)).clientInboundMessageHandler().resources();
-
-            count += resources.size();
-        }
-
-        return count;
     }
 
     @AfterEach
     protected void checkNoPendingTransactionsAndOpenedCursors() {
         Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
             for (int i = 0; i < nodes(); i++) {
-                assertEquals(0, queryProcessor(i).openedCursors());
+                assertThat("node=" + i, queryProcessor(i).openedCursors(), is(0));
             }
 
             for (int i = 0; i < nodes(); i++) {
-                assertEquals(0, txManager(i).pending());
+                assertThat("node=" + i, txManager(i).pending(), is(0));
             }
 
             assertThat(countResources() - resourcesBefore, is(0));
+
+            for (int i = 0; i < nodes(); i++) {
+                int cancelHandlesCount = unwrapIgniteImpl(server(i)).clientInboundMessageHandler().cancelHandlesCount();
+
+                assertThat("node=" + i, cancelHandlesCount, is(0));
+            }
         });
 
         String dropTablesScript = client().tables().tables().stream()
@@ -180,7 +173,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         ResultValidator.dml(curItr.next(), 1);
         ResultValidator.ddl(curItr.next(), false);
 
-        assertFalse(curItr.hasNext());
+        assertThat(curItr.hasNext(), is(false));
 
         resultSets.forEach(AsyncResultSet::closeAsync);
 
@@ -190,8 +183,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                 + "SELECT * FROM test;"
                 + "INSERT INTO test VALUES (3, 3);");
 
-        ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test");
-        assertEquals(3, rs.next().longValue(0));
+        expectRowsCount(null, "test", 3);
     }
 
     @Test
@@ -256,9 +248,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                 + "INSERT INTO test VALUES(?, ?);";
 
         executeSql(sql, 0, "1", 2, 4, "5");
-
-        ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test");
-        assertEquals(3, rs.next().longValue(0));
+        expectRowsCount(null, "test", 3);
     }
 
     @Test
@@ -302,8 +292,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                     )
             );
 
-            ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test");
-            assertEquals(0, rs.next().longValue(0));
+            expectRowsCount(null, "test", 0);
         }
 
         // Validation error.
@@ -317,9 +306,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                     )
             );
 
-            try (ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test")) {
-                assertEquals(0, rs.next().longValue(0));
-            }
+            expectRowsCount(null, "test", 0);
         }
 
         // Internal error.
@@ -335,9 +322,41 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                     )
             );
 
-            try (ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test")) {
-                assertEquals(2, rs.next().longValue(0));
-            }
+            expectRowsCount(null, "test", 2);
+        }
+
+        // Same as above, but inside script managed transaction.
+        {
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    "Subquery returned more than 1 value",
+                    () -> executeSql(
+                            "START TRANSACTION;"
+                                    + "INSERT INTO test VALUES(2);"
+                                    + "INSERT INTO test VALUES(3);"
+                                    + "DELETE FROM test WHERE id = (SELECT id FROM test);" // Internal error.
+                                    + "INSERT INTO test VALUES(4);"
+                                    + "COMMIT;"
+                    )
+            );
+
+            expectRowsCount(null, "test", 2);
+        }
+
+        // Attempt to start script-managed transaction inside external transaction.
+        {
+            Transaction tx = client().transactions().begin();
+
+            assertThrowsSqlException(
+                    TX_CONTROL_INSIDE_EXTERNAL_TX_ERR,
+                    "Transaction control statement cannot be executed within an external transaction.",
+                    () -> executeSql(
+                            tx,
+                            "START TRANSACTION; COMMIT;"
+                    )
+            );
+
+            tx.rollback();
         }
 
         // Internal error due to transaction exception.
@@ -355,9 +374,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
                     )
             );
 
-            try (ResultSet<SqlRow> rs = client().sql().execute(null, "SELECT COUNT(*) FROM test")) {
-                assertEquals(3, rs.next().longValue(0));
-            }
+            expectRowsCount(null, "test", 3);
         }
     }
 
@@ -392,9 +409,10 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         });
     }
 
-    private void expectRowsCount(@Nullable Transaction tx, String table, int expectedCount) {
-        ResultSet<SqlRow> rs = client().sql().execute(tx, "SELECT COUNT(*) FROM " + table);
-        assertEquals(expectedCount, rs.next().longValue(0));
+    private void expectRowsCount(@Nullable Transaction tx, String table, long expectedCount) {
+        try (ResultSet<SqlRow> rs = client().sql().execute(tx, "SELECT COUNT(*) FROM " + table)) {
+            assertThat(rs.next().longValue(0), is(expectedCount));
+        }
     }
 
     private SqlQueryProcessor queryProcessor(int idx) {
@@ -403,6 +421,18 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
 
     private TxManager txManager(int idx) {
         return unwrapIgniteImpl(server(idx)).txManager();
+    }
+
+    private int countResources() {
+        int count = 0;
+
+        for (int i = 0; i < nodes(); i++) {
+            ClientResourceRegistry resources = unwrapIgniteImpl(server(i)).clientInboundMessageHandler().resources();
+
+            count += resources.size();
+        }
+
+        return count;
     }
 
     private ClientAsyncResultSet<SqlRow> runSql(String query, Object ... args) {
