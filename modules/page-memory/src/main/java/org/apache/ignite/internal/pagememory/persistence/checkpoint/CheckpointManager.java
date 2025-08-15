@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -132,7 +133,7 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                this::writePageToDeltaFilePageStore,
+                this::writePageToFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
                 pageSize
@@ -298,7 +299,7 @@ public class CheckpointManager {
      * @param pageBuf Page buffer to write from.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    public void writePageToDeltaFilePageStore(
+    public void writePageToFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer pageBuf
@@ -307,6 +308,12 @@ public class CheckpointManager {
 
         // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
+
+        if (pageId.pageIdx() >= filePageStore.checkpointedPageCount()) {
+            filePageStore.write(pageId.pageId(), pageBuf);
+
             return;
         }
 
@@ -331,7 +338,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView);
+                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.checkpointedPageCount());
                 }
         );
 
@@ -342,18 +349,26 @@ public class CheckpointManager {
      * Returns the indexes of the dirty pages to be written to the delta file page store.
      *
      * @param partitionDirtyPages Dirty pages of the partition.
+     * @param persistedPages Number of pages persisted to the disk.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int persistedPages) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
+        // Newly allocated pages will go straight to the main partition file.
+        int maxDirtyPagesCount = Math.min(persistedPages, partitionDirtyPages.size());
 
-        for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+        int[] pageIndexes = new int[maxDirtyPagesCount];
+
+        for (int i = 0; i < maxDirtyPagesCount; i++) {
+            // Pages with index >= to the persisted page count are newly allocated and will go to the main partition file.
+            if (partitionDirtyPages.get(i).pageIdx() < persistedPages) {
+                pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
+                offset++;
+            }
         }
 
-        return pageIndexes;
+        return pageIndexes.length == offset ? pageIndexes : Arrays.copyOf(pageIndexes, offset);
     }
 
     /**

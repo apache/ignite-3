@@ -89,6 +89,12 @@ public class FilePageStore implements PageStore {
     /** Page count. */
     private volatile int pageCount;
 
+    /** Number of pages persisted to the disk during the last checkpoint. */
+    private volatile int checkpointedPageCount;
+
+    /** Number of pages persisted during last checkpoint. Can be larger than {@link #checkpointedPageCount} before checkpoint completes. */
+    private volatile int persistedPageCount;
+
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
 
@@ -148,6 +154,19 @@ public class FilePageStore implements PageStore {
         return pageCount;
     }
 
+    /** Returns number of pages persisted during last successful checkpoint. */
+    public int checkpointedPageCount() {
+        return checkpointedPageCount;
+    }
+
+    /**
+     * Returns number of pages persisted during last checkpoint. Can be larger than {@link #checkpointedPageCount} before checkpoint
+     * completes.
+     */
+    public int persistedPageCount() {
+        return persistedPageCount;
+    }
+
     /**
      * Sets the page count.
      *
@@ -157,6 +176,18 @@ public class FilePageStore implements PageStore {
         assert pageCount >= 0 : pageCount;
 
         this.pageCount = pageCount;
+    }
+
+    /**
+     * Sets number of pages that were successfully checkpointed.
+     *
+     * @param checkpointedPageCount New checkpointed page count.
+     */
+    public void checkpointedPageCount(int checkpointedPageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.checkpointedPageCount = checkpointedPageCount;
+        this.persistedPageCount = checkpointedPageCount;
     }
 
     /**
@@ -191,9 +222,16 @@ public class FilePageStore implements PageStore {
 
     @Override
     public void write(long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException {
-        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
+        int pageIndex = pageIndex(pageId);
+
+        assert pageIndex <= pageCount : "pageIdx=" + pageIndex + ", pageCount=" + pageCount;
 
         filePageStoreIo.write(pageId, pageBuf);
+
+        // Indexes start from 0.
+        if (pageIndex >= persistedPageCount) {
+            persistedPageCount = pageIndex + 1;
+        }
     }
 
     @Override

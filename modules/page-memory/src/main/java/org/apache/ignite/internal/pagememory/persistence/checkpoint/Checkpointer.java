@@ -549,7 +549,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -574,7 +574,7 @@ public class Checkpointer extends IgniteWorker {
                                 break;
                             }
 
-                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                            fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -596,7 +596,7 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    private void fsyncDeltaFile(
+    private void fsyncPartitionFiles(
             CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
             LongAdder pagesWritten
@@ -610,9 +610,20 @@ public class Checkpointer extends IgniteWorker {
         currentCheckpointProgress.blockPartitionDestruction(partitionId);
 
         try {
-            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore);
+
+            blockingSectionBegin();
+            try {
+                filePageStore.sync();
+            } finally {
+                blockingSectionEnd();
+            }
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+
+            filePageStore.checkpointedPageCount(filePageStore.persistedPageCount());
+
+            currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
             currentCheckpointProgress.unblockPartitionDestruction(partitionId);
         }
@@ -845,10 +856,7 @@ public class Checkpointer extends IgniteWorker {
         return safeAbs(interval + startDelay);
     }
 
-    private void fsyncDeltaFilePageStoreOnCheckpointThread(
-            FilePageStore filePageStore,
-            LongAdder pagesWritten
-    ) throws IgniteInternalCheckedException {
+    private void fsyncDeltaFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
@@ -860,8 +868,6 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             blockingSectionEnd();
         }
-
-        currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
     }
 
     private void renameDeltaFileOnCheckpointThread(
