@@ -29,11 +29,11 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readAcquiresCount;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readCheckpointTempBufferRelativePointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readDirtyFlag;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeCheckpointTempBufferRelativePointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeDirtyFlag;

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.initNew;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePageMarker;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.RELATIVE_PTR_MASK;
@@ -190,7 +190,8 @@ public class PagePool {
 
                 assert relative != INVALID_REL_PTR;
 
-                initNew(absPtr, relative);
+                // TODO: IGNITE-26216 может еще поменяем парень!
+                initNew(absPtr);
 
                 rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag);
 
