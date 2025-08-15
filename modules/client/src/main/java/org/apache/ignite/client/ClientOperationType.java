@@ -176,6 +176,11 @@ public enum ClientOperationType {
     SQL_CURSOR_NEXT_PAGE,
 
     /**
+     * SQL Cursor Next ResultSet.
+     */
+    SQL_CURSOR_NEXT_RESULT_SET,
+
+    /**
      * Send streamer batch ({@link DataStreamerTarget#streamData}).
      */
     STREAMER_BATCH_SEND,

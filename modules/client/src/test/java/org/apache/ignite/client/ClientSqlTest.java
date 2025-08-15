@@ -307,6 +307,10 @@ public class ClientSqlTest extends AbstractClientTableTest {
                     expected = "TX_CONTROL";
                     break;
 
+                case ALLOW_MULTISTATEMENT:
+                    expected = "MULTISTATEMENT";
+                    break;
+
                 default:
                     throw new IllegalArgumentException("Unexpected type: " + modifier);
             }

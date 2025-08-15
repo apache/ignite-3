@@ -58,7 +58,10 @@ public class QueryModifierTest {
                 Arguments.of(Set.of(QueryModifier.ALLOW_ROW_SET_RESULT, QueryModifier.ALLOW_AFFECTED_ROWS_RESULT)),
                 Arguments.of(Set.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT, QueryModifier.ALLOW_APPLIED_RESULT)),
                 Arguments.of(Set.of(QueryModifier.ALLOW_APPLIED_RESULT, QueryModifier.ALLOW_TX_CONTROL)),
-                Arguments.of(Set.of(QueryModifier.ALLOW_TX_CONTROL, QueryModifier.ALLOW_ROW_SET_RESULT)),
+                Arguments.of(Set.of(QueryModifier.ALLOW_TX_CONTROL, QueryModifier.ALLOW_MULTISTATEMENT)),
+                Arguments.of(Set.of(QueryModifier.ALLOW_MULTISTATEMENT, QueryModifier.ALLOW_ROW_SET_RESULT)),
+                Arguments.of(Set.of(QueryModifier.ALLOW_ROW_SET_RESULT, QueryModifier.ALLOW_MULTISTATEMENT,
+                        QueryModifier.ALLOW_APPLIED_RESULT)),
                 Arguments.of(QueryModifier.ALL));
     }
 }
