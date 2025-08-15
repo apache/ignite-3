@@ -22,6 +22,7 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -79,6 +80,18 @@ public class ExplainPlan implements QueryPlan {
     @Override
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return plan.numSources();
     }
 
     public ExplainablePlan plan() {

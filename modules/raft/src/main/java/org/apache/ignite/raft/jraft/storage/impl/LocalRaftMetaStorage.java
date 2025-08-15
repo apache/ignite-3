@@ -60,7 +60,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
     @Override
     public boolean init(final RaftMetaStorageOptions opts) {
         if (this.isInited) {
-            LOG.warn("Raft meta storage is already inited.");
+            LOG.warn("Raft meta storage is already inited [node={}].", this.node.getNodeId());
             return true;
         }
         this.node = opts.getNode();
@@ -68,7 +68,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         File dir = new File(this.path);
 
         if (!Utils.mkdir(dir)) {
-            LOG.error("Fail to mkdir {}", this.path);
+            LOG.error("Fail to mkdir [node={}, path={}].", this.node.getNodeId(), this.path);
             return false;
         }
 
@@ -95,7 +95,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final IOException e) {
-            LOG.error("Fail to load raft meta storage", e);
+            LOG.error("Fail to load raft meta storage [node={}].", this.node.getNodeId(), e);
             return false;
         }
     }
@@ -119,7 +119,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final Exception e) {
-            LOG.error("Fail to save raft meta", e);
+            LOG.error("Fail to save raft meta [node={}].", this.node.getNodeId(), e);
             reportIOError();
             return false;
         }
@@ -128,8 +128,8 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             if (this.nodeMetrics != null) {
                 this.nodeMetrics.recordLatency("save-raft-meta", cost);
             }
-            LOG.info("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
-                this.votedFor, cost);
+            LOG.info("Save raft meta, [node={}, path={}, term={}, votedFor={}, costTimeMs={}].", this.node.getNodeId(),
+                this.path, this.term, this.votedFor, cost);
         }
     }
 

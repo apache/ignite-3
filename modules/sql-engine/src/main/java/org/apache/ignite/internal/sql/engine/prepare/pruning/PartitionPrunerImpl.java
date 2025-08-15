@@ -38,24 +38,21 @@ public class PartitionPrunerImpl implements PartitionPruner {
     @Override
     public List<MappedFragment> apply(
             List<MappedFragment> mappedFragments,
-            Object[] dynamicParameters
+            Object[] dynamicParameters,
+            PartitionPruningMetadata metadata
     ) {
+        if (metadata.data().isEmpty()) {
+            return mappedFragments;
+        }
+
         List<MappedFragment> updatedFragments = new ArrayList<>(mappedFragments.size());
         Long2ObjectMap<List<String>> newNodesByExchangeId = new Long2ObjectArrayMap<>();
 
         // Partition pruning (PP). For each fragment:
         //
-        // 1. Extract PP metadata from each fragment's root in the form of [colo_col1=<val>, ..] (see PartitionPruningMetadataExtractor)
-        //
-        // 2. If PP metadata exists then update fragment's colocation group
+        // If PP metadata exists then update fragment's colocation group
         // to retain partition that are necessary to perform an operator (e.g. for a scan operator such
         // partitions only include that ones that can contain data).
-        //
-        // Iterate over fragments again to update fragments that receive data from fragments updated at step 2.
-        // This is accomplished by updating `sourcesByExchangeId`.
-        //
-
-        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
         for (MappedFragment mappedFragment : mappedFragments) {
             Fragment fragment = mappedFragment.fragment();
@@ -64,26 +61,26 @@ public class PartitionPrunerImpl implements PartitionPruner {
                 continue;
             }
 
-            PartitionPruningMetadata pruningMetadata = extractor.go(fragment.root());
+            PartitionPruningMetadata fragmentPruningMetadata = metadata.subset(fragment.tables());
 
-            if (pruningMetadata.data().isEmpty()) {
+            if (fragmentPruningMetadata.data().isEmpty()) {
                 updatedFragments.add(mappedFragment);
                 continue;
             }
 
             // Do not update colocation groups, in case when predicates include correlated variables,
             // because partitions for such case can be removed only at runtime.
-            boolean containCorrelatedVariables = pruningMetadata.data().values()
+            boolean containCorrelatedVariables = fragmentPruningMetadata.data().values()
                     .stream()
                     .anyMatch(PartitionPruningColumns::containCorrelatedVariables);
 
             if (containCorrelatedVariables) {
-                updatedFragments.add(mappedFragment.withPartitionPruningMetadata(pruningMetadata));
+                updatedFragments.add(mappedFragment.withPartitionPruningMetadata(fragmentPruningMetadata));
                 continue;
             }
 
             // Update fragment by applying PP metadata.
-            MappedFragment newFragment = updateColocationGroups(mappedFragment, pruningMetadata, dynamicParameters);
+            MappedFragment newFragment = updateColocationGroups(mappedFragment, fragmentPruningMetadata, dynamicParameters);
 
             if (newFragment == null) {
                 updatedFragments.add(mappedFragment);
@@ -173,6 +170,7 @@ public class PartitionPrunerImpl implements PartitionPruner {
             assert colocationGroup != null : "No colocation group#" + sourceId;
 
             ColocationGroup newColocationGroup = PartitionPruningPredicate.prunePartitions(
+                    sourceId,
                     table, pruningColumns, dynamicParameters,
                     colocationGroup
             );
