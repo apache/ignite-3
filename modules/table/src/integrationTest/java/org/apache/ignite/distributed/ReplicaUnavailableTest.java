@@ -57,6 +57,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -138,6 +139,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService testClockService = new TestClockService(clock);
+
     private final TestInfo testInfo;
 
     private ReplicaService replicaService;
@@ -197,7 +200,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         );
 
@@ -205,7 +208,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 cmgManager,
-                new TestClockService(clock),
+                testClockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
