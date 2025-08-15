@@ -192,7 +192,14 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         HoconConverter.hoconSource(parseConfig(hocon).root(), keyIgnorer).descend(copiedSuperRoot);
 
-        return createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap());
+        return createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap())
+                .entrySet()
+                .stream()
+                .filter(e -> e.getValue() != null)
+                .collect(toMap(
+                        Entry::getKey,
+                        Entry::getValue)
+                );
     }
 
     private String readHoconFromFile() {
