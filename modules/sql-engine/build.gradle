@@ -124,6 +124,7 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-storage-api')

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -114,6 +115,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(defaultLogicalTopologySnapshot);
+
+        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(defaultLogicalTopologySnapshot));
 
         converter = new DdlSqlToCommandConverter(new ClusterWideStorageProfileValidator(logicalTopologyService));
 

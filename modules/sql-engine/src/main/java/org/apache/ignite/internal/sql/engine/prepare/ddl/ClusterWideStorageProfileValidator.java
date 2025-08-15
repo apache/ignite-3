@@ -23,6 +23,10 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -46,6 +50,26 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
                 storageProfiles,
                 localLogicalTopologySnapshot
         );
+
+        if (missedStorageProfileNames.isEmpty()) {
+            return;
+        }
+
+        try {
+            missedStorageProfileNames = logicalTopologyService.logicalTopologyOnLeader()
+                    .thenApply(topologySnapshot -> findStorageProfileNotPresentedInLogicalTopologySnapshot(
+                            storageProfiles,
+                            topologySnapshot
+                    )).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            String msg = format(
+                    "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], and distributed refresh failed.",
+                    missedStorageProfileNames,
+                    localLogicalTopologySnapshot.nodes().stream().map(LogicalNode::storageProfiles).collect(Collectors.toSet())
+            );
+
+            throw new SqlException(STMT_VALIDATION_ERR, msg, e);
+        }
 
         if (!missedStorageProfileNames.isEmpty()) {
             throw new SqlException(STMT_VALIDATION_ERR, format(
