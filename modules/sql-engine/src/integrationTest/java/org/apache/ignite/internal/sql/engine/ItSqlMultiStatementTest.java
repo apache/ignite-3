@@ -323,6 +323,10 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 () -> runner.apply(properties, "START TRANSACTION; SELECT 1; COMMIT;")
         );
 
+        assertThat(txManager().pending(), is(0));
+
         fetchCursors(runner.apply(properties, "SELECT 1; SELECT 2;"), -1, true);
+
+        assertThat(txManager().pending(), is(0));
     }
 }
