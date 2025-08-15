@@ -356,16 +356,13 @@ public class CheckpointManager {
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
         // Newly allocated pages will go straight to the main partition file.
-        int maxDirtyPagesCount = Math.min(persistedPages, partitionDirtyPages.size());
+        int maxDirtyPagesCount = Math.min(persistedPages, partitionDirtyPages.size() + offset);
 
         int[] pageIndexes = new int[maxDirtyPagesCount];
 
-        for (int i = 0; i < maxDirtyPagesCount; i++) {
-            // Pages with index >= to the persisted page count are newly allocated and will go to the main partition file.
-            if (partitionDirtyPages.get(i).pageIdx() < persistedPages) {
-                pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
-                offset++;
-            }
+        for (int i = 0; i < partitionDirtyPages.size() && partitionDirtyPages.get(i).pageIdx() < persistedPages; i++) {
+            pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
+            offset++;
         }
 
         return pageIndexes.length == offset ? pageIndexes : Arrays.copyOf(pageIndexes, offset);
