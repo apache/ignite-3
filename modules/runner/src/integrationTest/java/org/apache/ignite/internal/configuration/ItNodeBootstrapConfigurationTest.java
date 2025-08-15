@@ -152,5 +152,7 @@ public class ItNodeBootstrapConfigurationTest {
         storedConfig = Files.readString(configFile);
 
         assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig.withFallback(ConfigFactory.parseString(configUpdate))));
+
+        igniteServer.shutdown();
     }
 }
