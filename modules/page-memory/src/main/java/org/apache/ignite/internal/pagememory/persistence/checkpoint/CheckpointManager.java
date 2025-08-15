@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -310,8 +311,11 @@ public class CheckpointManager {
             return;
         }
 
-        if (pageId.pageIdx() >= filePageStore.initialPageCount()) {
+        if (pageId.pageIdx() >= filePageStore.persistedPageCount()) {
             filePageStore.write(pageId.pageId(), pageBuf);
+
+            filePageStore.persistedPageCount(filePageStore.persistedPageCount() + 1);
+
             return;
         }
 
@@ -336,7 +340,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.initialPageCount());
+                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.persistedPageCount());
                 }
         );
 
@@ -354,11 +358,14 @@ public class CheckpointManager {
 
         int[] pageIndexes = new int[pageStorePages];
 
-        for (int i = 0; i < pageStorePages - offset; i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+        for (int i = 0; i < Math.min(pageStorePages, partitionDirtyPages.size()); i++) {
+            if (partitionDirtyPages.get(i).pageIdx() < pageStorePages) {
+                pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
+                offset++;
+            }
         }
 
-        return pageIndexes;
+        return Arrays.copyOf(pageIndexes, offset);
     }
 
     /**

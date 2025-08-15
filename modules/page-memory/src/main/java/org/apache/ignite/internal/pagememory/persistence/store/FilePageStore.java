@@ -89,7 +89,7 @@ public class FilePageStore implements PageStore {
     /** Page count. */
     private volatile int pageCount;
 
-    private volatile int initialPageCount;
+    private volatile int persistedPageCount;
 
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
@@ -151,8 +151,8 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public int initialPageCount() {
-        return initialPageCount;
+    public int persistedPageCount() {
+        return persistedPageCount;
     }
 
     /**
@@ -164,7 +164,17 @@ public class FilePageStore implements PageStore {
         assert pageCount >= 0 : pageCount;
 
         this.pageCount = pageCount;
-        this.initialPageCount = pageCount;
+    }
+
+    /**
+     * Sets the persisted page count.
+     *
+     * @param persistedPageCount New persisted page count.
+     */
+    public void persistedPageCount(int persistedPageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.persistedPageCount = persistedPageCount;
     }
 
     /**

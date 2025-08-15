@@ -151,12 +151,12 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1)),
-                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1, 3, 5)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 6, 7, 9))
         ));
 
         assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 1));
-        assertArrayEquals(new int[]{0, 2, 3}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 3));
+        assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 8));
     }
 
     @Test
@@ -165,12 +165,12 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
-                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1, 3, 5)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 6, 7, 9))
         ));
 
-        assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 2));
-        assertArrayEquals(new int[]{0, 2, 3}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 4));
+        assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 1));
+        assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 8));
     }
 
     @Test
@@ -181,7 +181,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        when(filePageStore.pages()).thenReturn(2);
+        when(filePageStore.persistedPageCount()).thenReturn(2);
 
         AtomicReference<FilePageStore> filePageStoreRef = new AtomicReference<>(filePageStore);
 

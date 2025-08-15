@@ -128,6 +128,28 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
     }
 
     @Test
+    void testRestart() throws Exception {
+        writeRows();
+
+        doNormalCheckpoint();
+
+        writeRows();
+
+        stopNode();
+        startNode();
+
+        writeRows();
+
+        doNormalCheckpoint();
+
+        writeRows();
+        stopNode();
+        startNode();
+
+        doNormalCheckpoint();
+    }
+
+    @Test
     void testRestartAfterFailedCheckpoint() throws Exception {
         writeRows();
 
@@ -318,14 +340,14 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
     private void writeRows() {
         partitionStorage.runConsistently(locker -> {
             locker.lock(ROW_ID);
-            partitionStorage.addWriteCommitted(ROW_ID, binaryRow, null);
+            partitionStorage.addWriteCommitted(ROW_ID, binaryRow, clock.now());
 
             for (int i = 0; i < 10000; i++) {
                 RowId rowId = new RowId(PARTITION_ID);
 
                 locker.lock(rowId);
 
-                partitionStorage.addWriteCommitted(rowId, binaryRow, null);
+                partitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
             }
 
             return null;
