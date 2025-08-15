@@ -91,6 +91,8 @@ public class FilePageStore implements PageStore {
 
     private volatile int persistedPageCount;
 
+    private volatile int lastPersistedPageIndex;
+
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
 
@@ -150,9 +152,14 @@ public class FilePageStore implements PageStore {
         return pageCount;
     }
 
-    @Override
+    /** Returns persisted pages count. */
     public int persistedPageCount() {
         return persistedPageCount;
+    }
+
+    /** Returns last persisted page index. */
+    public int lastPersistedPageIndex() {
+        return lastPersistedPageIndex;
     }
 
     /**
@@ -209,9 +216,15 @@ public class FilePageStore implements PageStore {
 
     @Override
     public void write(long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException {
-        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
+        int pageIndex = pageIndex(pageId);
+
+        assert pageIndex <= pageCount : "pageIdx=" + pageIndex + ", pageCount=" + pageCount;
 
         filePageStoreIo.write(pageId, pageBuf);
+
+        if (pageIndex > lastPersistedPageIndex) {
+            lastPersistedPageIndex = pageIndex;
+        }
     }
 
     @Override

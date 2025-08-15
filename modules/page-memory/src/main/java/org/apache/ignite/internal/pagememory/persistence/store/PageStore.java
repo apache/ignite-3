@@ -47,11 +47,6 @@ public interface PageStore extends Closeable {
     int pages();
 
     /**
-     * Returns number of pages that are persisted to the disk.
-     */
-    int persistedPageCount();
-
-    /**
      * Reads a page.
      *
      * @param pageId Page ID.

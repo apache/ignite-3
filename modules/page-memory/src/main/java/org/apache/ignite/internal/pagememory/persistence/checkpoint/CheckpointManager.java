@@ -314,8 +314,6 @@ public class CheckpointManager {
         if (pageId.pageIdx() >= filePageStore.persistedPageCount()) {
             filePageStore.write(pageId.pageId(), pageBuf);
 
-            filePageStore.persistedPageCount(filePageStore.persistedPageCount() + 1);
-
             return;
         }
 

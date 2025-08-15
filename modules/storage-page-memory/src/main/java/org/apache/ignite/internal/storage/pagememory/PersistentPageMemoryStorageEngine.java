@@ -247,6 +247,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         destructionExecutor = executor;
     }
 
+    /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
     public static CheckpointConfiguration checkpointConfiguration(PageMemoryCheckpointConfiguration checkpointCfg) {
         return CheckpointConfiguration.builder()
                 .checkpointThreads(checkpointCfg.value().checkpointThreads())

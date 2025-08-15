@@ -621,6 +621,8 @@ public class Checkpointer extends IgniteWorker {
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
 
+            filePageStore.persistedPageCount(filePageStore.lastPersistedPageIndex());
+
             currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
             currentCheckpointProgress.unblockPartitionDestruction(partitionId);
