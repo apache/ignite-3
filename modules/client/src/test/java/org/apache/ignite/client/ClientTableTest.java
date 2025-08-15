@@ -41,7 +41,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -430,7 +429,6 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17418")
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
         RecordView<Tuple> table = tableWithDefaultValues().recordView();
 
