@@ -311,7 +311,7 @@ public class CheckpointManager {
             return;
         }
 
-        if (pageId.pageIdx() >= filePageStore.persistedPageCount()) {
+        if (pageId.pageIdx() >= filePageStore.checkpointedPageCount()) {
             filePageStore.write(pageId.pageId(), pageBuf);
 
             return;
@@ -338,7 +338,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.persistedPageCount());
+                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.checkpointedPageCount());
                 }
         );
 

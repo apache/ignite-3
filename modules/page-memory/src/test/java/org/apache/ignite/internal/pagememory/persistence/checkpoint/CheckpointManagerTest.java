@@ -181,7 +181,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        when(filePageStore.persistedPageCount()).thenReturn(2);
+        when(filePageStore.checkpointedPageCount()).thenReturn(2);
 
         AtomicReference<FilePageStore> filePageStoreRef = new AtomicReference<>(filePageStore);
 

@@ -89,9 +89,11 @@ public class FilePageStore implements PageStore {
     /** Page count. */
     private volatile int pageCount;
 
-    private volatile int persistedPageCount;
+    /** Number of pages persisted to the disk during the last checkpoint. */
+    private volatile int checkpointedPageCount;
 
-    private volatile int lastPersistedPageIndex;
+    /** Number of pages persisted during last checkpoint. Can be larger than {@link #checkpointedPageCount} before checkpoint completes. */
+    private volatile int persistedPageCount;
 
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
@@ -152,14 +154,17 @@ public class FilePageStore implements PageStore {
         return pageCount;
     }
 
-    /** Returns persisted pages count. */
-    public int persistedPageCount() {
-        return persistedPageCount;
+    /** Returns number of pages persisted during last successful checkpoint. */
+    public int checkpointedPageCount() {
+        return checkpointedPageCount;
     }
 
-    /** Returns last persisted page index. */
-    public int lastPersistedPageIndex() {
-        return lastPersistedPageIndex;
+    /**
+     * Returns number of pages persisted during last checkpoint. Can be larger than {@link #checkpointedPageCount} before checkpoint
+     * completes.
+     */
+    public int persistedPageCount() {
+        return persistedPageCount;
     }
 
     /**
@@ -174,14 +179,15 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Sets the persisted page count.
+     * Sets number of pages that were successfully checkpointed.
      *
-     * @param persistedPageCount New persisted page count.
+     * @param checkpointedPageCount New checkpointed page count.
      */
-    public void persistedPageCount(int persistedPageCount) {
+    public void checkpointedPageCount(int checkpointedPageCount) {
         assert pageCount >= 0 : pageCount;
 
-        this.persistedPageCount = persistedPageCount;
+        this.checkpointedPageCount = checkpointedPageCount;
+        this.persistedPageCount = checkpointedPageCount;
     }
 
     /**
@@ -222,8 +228,9 @@ public class FilePageStore implements PageStore {
 
         filePageStoreIo.write(pageId, pageBuf);
 
-        if (pageIndex > lastPersistedPageIndex) {
-            lastPersistedPageIndex = pageIndex;
+        // Indexes start from 0.
+        if (pageIndex >= persistedPageCount) {
+            persistedPageCount = pageIndex + 1;
         }
     }
 
