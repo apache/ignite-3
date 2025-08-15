@@ -27,19 +27,47 @@ import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 
 /**
- * Page header.
+ * Helper class for working with the page header that is stored in memory for {@link PersistentPageMemory}.
+ *
+ * <p>Page header has the following structure:</p>
+ * <pre>
+ * +-----------------+-----------------------------+--------+---------+----------+----------+----------------------+
+ * |     8 bytes     |             8 bytes         |8 bytes |4 bytes  |4 bytes   |8 bytes   |       8 bytes        |
+ * +-----------------+-----------------------------+--------+---------+----------+----------+----------------------+
+ * |Marker/Timestamp |Partition generation + flags |Page ID |Group ID |Pin count |Lock data |Checkpoint tmp buffer |
+ * +-----------------+-----------------------------+--------+---------+----------+----------+----------------------+
+ * </pre>
  */
 public class PageHeader {
     /** Page marker. */
-    public static final long PAGE_MARKER = 0x0000000000000001L;
+    private static final long PAGE_MARKER = 0x0000000000000001L;
 
     /** Dirty flag. */
     private static final long DIRTY_FLAG = 0x0100000000000000L;
 
+    /**
+     * Page overhead in bytes.
+     * <ol>
+     *     <li>8 bytes - Marker/Timestamp.</li>
+     *     <li>8 bytes - Partition generation(4 bytes) + flags(1 byte) + reserved(3 bytes).</li>
+     *     <li>8 bytes - Page ID.</li>
+     *     <li>4 bytes - Page group ID.</li>
+     *     <li>4 bytes - Page pin counter.</li>
+     *     <li>8 bytes - Page lack data.</li>
+     *     <li>8 bytes - Checkpoint temporal copy buffer relative pointer.</li>
+     * </ol>
+     */
+    public static final int PAGE_OVERHEAD = 48;
+
+    /** Marker or timestamp offset. */
+    private static final int MARKER_OR_TIMESTAMP_OFFSET = 0;
+
+    // TODO: IGNITE-26216 испрвить документацию
     /** Page relative pointer. Does not change once a page is allocated. */
     private static final int RELATIVE_PTR_OFFSET = 8;
 
@@ -47,84 +75,91 @@ public class PageHeader {
     private static final int PAGE_ID_OFFSET = 16;
 
     /** Page group ID offset. */
-    private static final int PAGE_GROUP_ID_OFFSET = 24;
+    private static final int GROUP_ID_OFFSET = 24;
 
     /** Page pin counter offset. */
-    private static final int PAGE_PIN_CNT_OFFSET = 28;
+    private static final int PIN_COUNT_OFFSET = 28;
 
-    /** Page temp copy buffer relative pointer offset. */
-    private static final int PAGE_TMP_BUF_OFFSET = 40;
+    /** Page lock data offset. */
+    public static final int PAGE_LOCK_OFFSET = 32;
+
+    /** Page temporal copy buffer relative pointer offset. */
+    private static final int CHECKPOINT_TMP_BUFFER_OFFSET = 40;
 
     /**
-     * Initializes the header of the page.
+     * Initializes the header of page.
      *
-     * @param absPtr Absolute pointer to initialize.
+     * @param absPtr Absolute memory pointer to page header.
      * @param relative Relative pointer to write.
      */
+    // TODO: IGNITE-26216 вот тут еще исправить придется!
     public static void initNew(long absPtr, long relative) {
+        writePageMarker(absPtr);
+
         relative(absPtr, relative);
 
-        tempBufferPointer(absPtr, INVALID_REL_PTR);
+        writeCheckpointTempBufferRelativePointer(absPtr, INVALID_REL_PTR);
 
-        putLong(absPtr, PAGE_MARKER);
-        putInt(absPtr + PAGE_PIN_CNT_OFFSET, 0);
+        putInt(absPtr + PIN_COUNT_OFFSET, 0);
     }
 
     /**
-     * Returns value of dirty flag.
+     * Reads value of dirty flag from page header.
      *
-     * @param absPtr Absolute pointer.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static boolean dirty(long absPtr) {
+    public static boolean readDirtyFlag(long absPtr) {
         return flag(absPtr, DIRTY_FLAG);
     }
 
     /**
-     * Updates value of dirty flag.
+     * Write value of dirty flag to page header.
      *
-     * @param absPtr Page absolute pointer.
-     * @param dirty Dirty flag.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param dirty Value dirty flag.
      * @return Previous value of dirty flag.
      */
-    public static boolean dirty(long absPtr, boolean dirty) {
+    public static boolean writeDirtyFlag(long absPtr, boolean dirty) {
         return flag(absPtr, DIRTY_FLAG, dirty);
     }
 
     /**
-     * Returns flag value.
+     * Reads flag value from page header.
      *
-     * @param absPtr Absolute pointer.
-     * @param flag Flag mask.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param flagMask Flag mask.
      */
-    private static boolean flag(long absPtr, long flag) {
-        assert (flag & 0xFFFFFFFFFFFFFFL) == 0;
-        assert Long.bitCount(flag) == 1;
+    // TODO: IGNITE-26216 Испрвить
+    private static boolean flag(long absPtr, long flagMask) {
+        assert (flagMask & 0xFFFFFFFFFFFFFFL) == 0 : hexLong(flagMask);
+        assert Long.bitCount(flagMask) == 1 : hexLong(flagMask);
 
         long relPtrWithFlags = getLong(absPtr + RELATIVE_PTR_OFFSET);
 
-        return (relPtrWithFlags & flag) != 0;
+        return (relPtrWithFlags & flagMask) != 0;
     }
 
     /**
-     * Sets flag value.
+     * Writes flag value to page header.
      *
-     * @param absPtr Absolute pointer.
-     * @param flag Flag mask.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param flagMask Flag mask.
      * @param set New flag value.
      * @return Previous flag value.
      */
-    private static boolean flag(long absPtr, long flag, boolean set) {
-        assert (flag & 0xFFFFFFFFFFFFFFL) == 0;
-        assert Long.bitCount(flag) == 1;
+    // TODO: IGNITE-26216 Испрвить
+    private static boolean flag(long absPtr, long flagMask, boolean set) {
+        assert (flagMask & 0xFFFFFFFFFFFFFFL) == 0 : hexLong(flagMask);
+        assert Long.bitCount(flagMask) == 1 : hexLong(flagMask);
 
         long relPtrWithFlags = getLong(absPtr + RELATIVE_PTR_OFFSET);
 
-        boolean was = (relPtrWithFlags & flag) != 0;
+        boolean was = (relPtrWithFlags & flagMask) != 0;
 
         if (set) {
-            relPtrWithFlags |= flag;
+            relPtrWithFlags |= flagMask;
         } else {
-            relPtrWithFlags &= ~flag;
+            relPtrWithFlags &= ~flagMask;
         }
 
         putLong(absPtr + RELATIVE_PTR_OFFSET, relPtrWithFlags);
@@ -133,56 +168,47 @@ public class PageHeader {
     }
 
     /**
-     * Checks if page is pinned.
+     * Checks if page is pinned from page header.
      *
-     * @param absPtr Page pointer.
+     * @param absPtr Absolute memory pointer to page header.
      */
     public static boolean isAcquired(long absPtr) {
-        return getInt(absPtr + PAGE_PIN_CNT_OFFSET) > 0;
+        return getInt(absPtr + PIN_COUNT_OFFSET) > 0;
     }
 
     /**
-     * Acquires a page.
+     * Atomically acquires a page in page header.
      *
-     * @param absPtr Absolute pointer.
-     * @return Number of acquires for the page.
+     * @param absPtr Absolute memory pointer to page header.
+     * @return Number of acquires for page.
      */
     public static int acquirePage(long absPtr) {
-        return incrementAndGetInt(absPtr + PAGE_PIN_CNT_OFFSET);
+        return incrementAndGetInt(absPtr + PIN_COUNT_OFFSET);
     }
 
     /**
-     * Releases the page.
+     * Atomically releases the page in page header.
      *
-     * @param absPtr Absolute pointer.
-     * @return Number of acquires for the page.
+     * @param absPtr Absolute memory pointer to page header.
+     * @return Number of acquires for page.
      */
     public static int releasePage(long absPtr) {
-        return decrementAndGetInt(absPtr + PAGE_PIN_CNT_OFFSET);
+        return decrementAndGetInt(absPtr + PIN_COUNT_OFFSET);
     }
 
     /**
-     * Returns number of acquires for the page.
+     * Volatile reads count of acquires for the page from page header.
      *
-     * @param absPtr Absolute pointer.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static int pinCount(long absPtr) {
+    static int readAcquiresCount(long absPtr) {
         return getIntVolatile(null, absPtr);
-    }
-
-    /**
-     * Reads relative pointer from the page at the given absolute position.
-     *
-     * @param absPtr Absolute memory pointer to the page header.
-     */
-    public static long readRelative(long absPtr) {
-        return getLong(absPtr + RELATIVE_PTR_OFFSET) & RELATIVE_PTR_MASK;
     }
 
     /**
      * Writes relative pointer to the page at the given absolute position.
      *
-     * @param absPtr Absolute memory pointer to the page header.
+     * @param absPtr Absolute memory pointer to page header.
      * @param relPtr Relative pointer to write.
      */
     public static void relative(long absPtr, long relPtr) {
@@ -190,24 +216,23 @@ public class PageHeader {
     }
 
     /**
-     * Volatile write for current timestamp to page in {@code absAddr} address.
+     * Volatile writes timestamp to page header.
      *
-     * @param absPtr Absolute page address.
-     * @param tstamp Timestamp.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param timestamp Timestamp.
      */
-    public static void writeTimestamp(final long absPtr, long tstamp) {
-        tstamp &= 0xFFFFFFFFFFFFFF00L;
+    static void writeTimestamp(long absPtr, long timestamp) {
+        timestamp &= 0xFFFFFFFFFFFFFF00L;
 
-        putLongVolatile(null, absPtr, tstamp | 0x01);
+        putLongVolatile(null, absPtr, timestamp | 0x01);
     }
 
     /**
-     * Read for timestamp from page in {@code absAddr} address.
+     * Reads timestamp from page header.
      *
-     * @param absPtr Absolute page address.
-     * @return Timestamp.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static long readTimestamp(final long absPtr) {
+    public static long readTimestamp(long absPtr) {
         long markerAndTs = getLong(absPtr);
 
         // Clear last byte as it is occupied by page marker.
@@ -215,85 +240,92 @@ public class PageHeader {
     }
 
     /**
-     * Sets pointer to checkpoint buffer.
+     * Writes relative pointer to checkpoint temporal copy buffer to page header.
      *
-     * @param absPtr Page absolute pointer.
-     * @param tmpRelPtr Temp buffer relative pointer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied to checkpoint
-     *      buffer.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param tmpRelPtr Temporal copy buffer relative pointer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied
+     *         to checkpoint buffer.
      */
-    public static void tempBufferPointer(long absPtr, long tmpRelPtr) {
-        putLong(absPtr + PAGE_TMP_BUF_OFFSET, tmpRelPtr);
+    static void writeCheckpointTempBufferRelativePointer(long absPtr, long tmpRelPtr) {
+        putLong(absPtr + CHECKPOINT_TMP_BUFFER_OFFSET, tmpRelPtr);
     }
 
     /**
-     * Gets pointer to checkpoint buffer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied to checkpoint buffer.
+     * Reads relative pointer to checkpoint temporal copy buffer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied to
+     * checkpoint buffer from page header.
      *
-     * @param absPtr Page absolute pointer.
-     * @return Temp buffer relative pointer.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static long tempBufferPointer(long absPtr) {
-        return getLong(absPtr + PAGE_TMP_BUF_OFFSET);
+    static long readCheckpointTempBufferRelativePointer(long absPtr) {
+        return getLong(absPtr + CHECKPOINT_TMP_BUFFER_OFFSET);
     }
 
     /**
-     * Reads page ID from the page at the given absolute position.
+     * Reads page ID from page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @return Page ID written to the page.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static long readPageId(long absPtr) {
+    static long readPageId(long absPtr) {
         return getLong(absPtr + PAGE_ID_OFFSET);
     }
 
     /**
-     * Writes page ID to the page at the given absolute position.
+     * Writes page ID to page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @param pageId Page ID to write.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param pageId Page ID.
      */
-    private static void pageId(long absPtr, long pageId) {
+    private static void writePageId(long absPtr, long pageId) {
         putLong(absPtr + PAGE_ID_OFFSET, pageId);
     }
 
     /**
-     * Reads group ID from the page at the given absolute pointer.
+     * Reads page group ID from page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @return Group ID written to the page.
+     * @param absPtr Absolute memory pointer to page header.
+     * @return Page group ID.
      */
-    private static int readPageGroupId(final long absPtr) {
-        return getInt(absPtr + PAGE_GROUP_ID_OFFSET);
+    private static int readPageGroupId(long absPtr) {
+        return getInt(absPtr + GROUP_ID_OFFSET);
     }
 
     /**
-     * Writes group ID from the page at the given absolute pointer.
+     * Writes page group ID to page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @param grpId Group ID to write.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param groupId Page group ID.
      */
-    private static void pageGroupId(final long absPtr, final int grpId) {
-        putInt(absPtr + PAGE_GROUP_ID_OFFSET, grpId);
+    private static void writePageGroupId(long absPtr, int groupId) {
+        putInt(absPtr + GROUP_ID_OFFSET, groupId);
     }
 
     /**
-     * Reads page ID and group ID from the page at the given absolute pointer.
+     * Reads full page ID from page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @return Full page ID written to the page.
+     * @param absPtr Absolute memory pointer to page header.
      */
-    public static FullPageId fullPageId(final long absPtr) {
+    public static FullPageId readFullPageId(long absPtr) {
         return new FullPageId(readPageId(absPtr), readPageGroupId(absPtr));
     }
 
     /**
-     * Writes page ID and group ID from the page at the given absolute pointer.
+     * Writes full page ID to page header.
      *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @param fullPageId Full page ID to write.
+     * @param absPtr Absolute memory pointer to page header.
+     * @param fullPageId Full page ID.
      */
-    public static void fullPageId(final long absPtr, final FullPageId fullPageId) {
-        pageId(absPtr, fullPageId.pageId());
+    static void writeFullPageId(long absPtr, FullPageId fullPageId) {
+        writePageId(absPtr, fullPageId.pageId());
 
-        pageGroupId(absPtr, fullPageId.groupId());
+        writePageGroupId(absPtr, fullPageId.groupId());
+    }
+
+    /**
+     * Volatile writes a page marker to page header.
+     *
+     * @param absPtr Absolute memory pointer to page header.
+     */
+    static void writePageMarker(long absPtr) {
+        putLongVolatile(null, absPtr + MARKER_OR_TIMESTAMP_OFFSET, PAGE_MARKER);
     }
 }

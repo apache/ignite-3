@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readDirtyFlag;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.HashSet;
@@ -30,7 +33,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
-import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
@@ -99,7 +101,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 long absPageAddr = seg.absolute(rndAddr);
 
-                FullPageId fullId = fullPageId(absPageAddr);
+                FullPageId fullId = readFullPageId(absPageAddr);
 
                 // Check page mapping consistency.
                 assert fullId.equals(nearest.fullId()) : "Invalid page mapping [tableId=" + nearest.fullId()
@@ -111,11 +113,11 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                     return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
                 }
 
-                boolean pinned = PageHeader.isAcquired(absPageAddr);
+                boolean pinned = isAcquired(absPageAddr);
 
                 boolean skip = ignored != null && ignored.contains(rndAddr);
 
-                boolean dirty = PageHeader.dirty(absPageAddr);
+                boolean dirty = readDirtyFlag(absPageAddr);
 
                 CheckpointPages checkpointPages = seg.checkpointPages();
 
@@ -125,7 +127,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                     continue;
                 }
 
-                long pageTs = PageHeader.readTimestamp(absPageAddr);
+                long pageTs = readTimestamp(absPageAddr);
 
                 boolean storMeta = isStoreMetadataPage(absPageAddr);
 
@@ -158,7 +160,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             long absRmvAddr = seg.absolute(relRmvAddr);
 
-            FullPageId fullPageId = fullPageId(absRmvAddr);
+            FullPageId fullPageId = readFullPageId(absRmvAddr);
 
             if (!seg.tryToRemovePage(fullPageId, absRmvAddr)) {
                 if (iterations > 10) {
@@ -220,13 +222,13 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             long absPageAddr = seg.absolute(addr);
 
-            FullPageId fullId = fullPageId(absPageAddr);
+            FullPageId fullId = readFullPageId(absPageAddr);
 
             if (partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()))) {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
             }
 
-            boolean pinned = PageHeader.isAcquired(absPageAddr);
+            boolean pinned = isAcquired(absPageAddr);
 
             if (addr == prevAddr || pinned) {
                 continue;
@@ -234,7 +236,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             long absEvictAddr = seg.absolute(addr);
 
-            FullPageId fullPageId = fullPageId(absEvictAddr);
+            FullPageId fullPageId = readFullPageId(absEvictAddr);
 
             if (seg.tryToRemovePage(fullPageId, absEvictAddr)) {
                 return addr;

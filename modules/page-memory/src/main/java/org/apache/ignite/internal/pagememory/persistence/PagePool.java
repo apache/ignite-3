@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.initNew;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePageMarker;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_LOCK_OFFSET;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.RELATIVE_PTR_MASK;
 import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.getLongVolatile;
@@ -153,7 +154,7 @@ public class PagePool {
                 long cnt = ((freePageRelPtrMasked & COUNTER_MASK) + COUNTER_INC) & COUNTER_MASK;
 
                 if (compareAndSwapLong(null, freePageListPtr, freePageRelPtrMasked, nextFreePageRelPtr | cnt)) {
-                    putLongVolatile(null, freePageAbsPtr, PageHeader.PAGE_MARKER);
+                    writePageMarker(freePageAbsPtr);
 
                     return freePageRelPtr;
                 }
@@ -206,7 +207,7 @@ public class PagePool {
     public int releaseFreePage(long relPtr) {
         long absPtr = absolute(relPtr);
 
-        assert !isAcquired(absPtr) : "Release pinned page: " + fullPageId(absPtr);
+        assert !isAcquired(absPtr) : "Release pinned page: " + readFullPageId(absPtr);
 
         int resCntr = 0;
 
