@@ -22,14 +22,13 @@ if "%OS%"=="Windows_NT" setlocal
 
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
-set LIB_DIR="@LIB_DIR@"
 
 @rem Resolve any "." and ".." in LIB_DIR to make it shorter.
-for %%i in ("%LIB_DIR%") do set LIB_DIR=%%~fi
+for %%i in ("@LIB_DIR@") do set LIB_DIR=%%~fi
 
-set APP_JAR="@APP_JAR@"
-set MAIN_CLASS="@MAIN_CLASS@"
-set ARGS="@ARGS@"
+set APP_JAR=@APP_JAR@
+set MAIN_CLASS=@MAIN_CLASS@
+set ARGS=@ARGS@
 
 call %LIB_DIR%\setup-java.bat
 if %ERRORLEVEL% neq 0 goto mainEnd
@@ -38,7 +37,7 @@ call %LIB_DIR%\jvmdefaults.bat
 if %ERRORLEVEL% neq 0 goto mainEnd
 
 set LOG_DIR="@LOG_DIR@"
-set CLASSPATH="%LIB_DIR%\%APP_JAR%:%LIB_DIR%\*"
+set CLASSPATH="%LIB_DIR%\%APP_JAR%;%LIB_DIR%\*"
 
 set DEFAULT_JVM_OPTS=-Dfile.encoding=UTF-8 ^
 -XX:+HeapDumpOnOutOfMemoryError ^
