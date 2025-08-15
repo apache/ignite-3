@@ -145,32 +145,57 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
     }
 
+    /**
+     * Patch the local configs with defaults from provided {@link ConfigurationModule}.
+     *
+     * @param hocon Config string in Hocon format.
+     * @param module Configuration module, which provides configuration patches.
+     * @return Patched config string in Hocon format.
+     */
+    private String patch(String hocon, ConfigurationModule module) {
+        if (module == null) {
+            return hocon;
+        }
+
+        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                module,
+                generator
+        );
+
+        return localCfgDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon);
+    }
+
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
-            SuperRoot superRoot = generator.createSuperRoot();
-            SuperRoot copiedSuperRoot = superRoot.copy();
+            String hocon = readHoconFromFile();
+            String hoconWithDynamicDefaults = patch(hocon, module);
 
-            KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
-
-            Config hocon = readHoconFromFile();
-            HoconConverter.hoconSource(hocon.root(), keyIgnorer).descend(copiedSuperRoot);
-
-            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap());
-            flattenedUpdatesMap.forEach((key, value) -> {
+            transformToMap(hocon).forEach((key, value) -> {
                 if (value != null) { // Filter defaults.
                     latest.put(key, value);
                 }
             });
 
-            return CompletableFuture.completedFuture(new Data(latest, lastRevision));
+            return CompletableFuture.completedFuture(new Data(transformToMap(hoconWithDynamicDefaults), lastRevision));
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private Config readHoconFromFile() {
+    private Map<String, Serializable> transformToMap(String hocon) {
+        SuperRoot superRoot = generator.createSuperRoot();
+        SuperRoot copiedSuperRoot = superRoot.copy();
+
+        KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+
+        HoconConverter.hoconSource(parseConfig(hocon).root(), keyIgnorer).descend(copiedSuperRoot);
+
+        return createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap());
+    }
+
+    private String readHoconFromFile() {
         checkAndRestoreConfigFile();
 
         try {
@@ -182,10 +207,18 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 throw new ConfigurationValidationException(duplicates);
             }
 
+            return confString;
+        } catch (IOException e) {
+            throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
+        }
+    }
+
+    private Config parseConfig(String confString) {
+        try {
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
             return ConfigFactory.parseString(confString, parseOptions);
-        } catch (Parse | IOException e) {
+        } catch (Parse e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }
