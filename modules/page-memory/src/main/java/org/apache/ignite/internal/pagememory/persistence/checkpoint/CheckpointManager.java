@@ -310,7 +310,7 @@ public class CheckpointManager {
             return;
         }
 
-        if (pageId.pageIdx() >= filePageStore.pages()) {
+        if (pageId.pageIdx() >= filePageStore.initialPageCount()) {
             filePageStore.write(pageId.pageId(), pageBuf);
             return;
         }
@@ -336,7 +336,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.pages());
+                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.initialPageCount());
                 }
         );
 
@@ -352,9 +352,9 @@ public class CheckpointManager {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[pageStorePages - 1 + offset];
+        int[] pageIndexes = new int[pageStorePages];
 
-        for (int i = 0; i < pageStorePages - 1; i++) {
+        for (int i = 0; i < pageStorePages - offset; i++) {
             pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 

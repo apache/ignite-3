@@ -110,7 +110,6 @@ public class PartitionMetaManager {
 
                 return partitionMetaFactory.createPartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } catch (IgniteInternalDataIntegrityViolationException e) {
-                // TODO find a way to avoid this exception.
                 LOG.info(() -> "Error reading partition meta page, will be recreated: " + groupPartitionId, e);
             }
         }

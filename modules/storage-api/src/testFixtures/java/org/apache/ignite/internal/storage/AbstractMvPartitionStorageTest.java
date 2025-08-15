@@ -67,7 +67,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
-    protected final BinaryRow binaryRow2 = binaryRow(key, value2);
+    private final BinaryRow binaryRow2 = binaryRow(key, value2);
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
