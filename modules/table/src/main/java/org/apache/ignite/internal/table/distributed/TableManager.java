@@ -1926,24 +1926,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // `stableAssignmentsFuture` is already completed by this time (it's in chain of `localPartsUpdateFuture`).
             return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                        if (onNodeRecovery) {
-                            SchemaRegistry schemaRegistry = table.schemaView();
-                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                            // LWM starts updating only after the node is restored.
-                            HybridTimestamp lwm = lowWatermark.getLowWatermark();
+                if (onNodeRecovery) {
+                    SchemaRegistry schemaRegistry = table.schemaView();
+                    PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                    // LWM starts updating only after the node is restored.
+                    HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
-                        }
-                        return startLocalPartitionsAndClients(
-                                stableAssignmentsFuture,
-                                pendingAssignments,
-                                assignmentsChains,
-                                table,
-                                onNodeRecovery,
-                                assignmentsTimestamp
-                        );
-                    }
-            ), ioExecutor);
+                    registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                }
+                return startLocalPartitionsAndClients(
+                        stableAssignmentsFuture,
+                        pendingAssignments,
+                        assignmentsChains,
+                        table,
+                        onNodeRecovery,
+                        assignmentsTimestamp
+                );
+            }), ioExecutor);
         });
 
         tables.put(tableId, table);
