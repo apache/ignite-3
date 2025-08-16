@@ -50,6 +50,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
  * </ul>
  */
 // TODO: IGNITE-26216 заиспользовать уже
+// TODO: IGNITE-26216 я поменял расположение флагов, надо поменять документацию
 public class PageHeader {
     /** Page marker. */
     private static final long PAGE_MARKER = 0x0000000000000001L;
@@ -79,10 +80,10 @@ public class PageHeader {
     private static final int MARKER_OR_TIMESTAMP_OFFSET = 0;
 
     /** Partition generation offset. */
-    private static final int PARTITION_GENERATION_OFFSET = 8;
+    private static final int PARTITION_GENERATION_OFFSET = 10;
 
     /** Flags offset. */
-    private static final int FLAGS_OFFSET = 12;
+    private static final int FLAGS_OFFSET = 8;
 
     /** Page ID offset. */
     private static final int PAGE_ID_OFFSET = 16;
