@@ -27,6 +27,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 /**
@@ -1324,7 +1325,7 @@ public abstract class GridUnsafe {
      * @param off Offset.
      * @return Integer value.
      */
-    public static int getIntVolatile(Object obj, long off) {
+    public static int getIntVolatile(@Nullable Object obj, long off) {
         return UNSAFE.getIntVolatile(obj, off);
     }
 
@@ -1357,7 +1358,7 @@ public abstract class GridUnsafe {
      * @param off Offset.
      * @param val Value.
      */
-    public static void putLongVolatile(Object obj, long off, long val) {
+    public static void putLongVolatile(@Nullable Object obj, long off, long val) {
         UNSAFE.putLongVolatile(obj, off, val);
     }
 

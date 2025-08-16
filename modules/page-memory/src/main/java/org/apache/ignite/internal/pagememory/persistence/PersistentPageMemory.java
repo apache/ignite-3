@@ -27,11 +27,18 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.setPageId;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readAcquiresCount;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readCheckpointTempBufferRelativePointer;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readDirtyFlag;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeCheckpointTempBufferRelativePointer;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeDirtyFlag;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeFullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePartitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
@@ -144,12 +151,6 @@ public class PersistentPageMemory implements PageMemory {
 
     /** Pointer which means that this page is outdated (for example, group was destroyed, partition eviction'd happened. */
     public static final long OUTDATED_REL_PTR = INVALID_REL_PTR + 1;
-
-    /** Page lock offset. */
-    public static final int PAGE_LOCK_OFFSET = 32;
-
-    /** 8b Marker/timestamp 8b Relative pointer 8b Page ID 4b Group ID 4b Pin count 8b Lock 8b Temporary buffer. */
-    public static final int PAGE_OVERHEAD = 48;
 
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
@@ -521,7 +522,7 @@ public class PersistentPageMemory implements PageMemory {
     public boolean isDirty(int grpId, long pageId, long page) {
         assert started;
 
-        return isDirty(page);
+        return readDirtyFlag(page);
     }
 
     /**
@@ -529,8 +530,8 @@ public class PersistentPageMemory implements PageMemory {
      *
      * @param absPtr Absolute pointer.
      */
-    boolean isDirty(long absPtr) {
-        return dirty(absPtr);
+    private boolean isDirty(long absPtr) {
+        return readDirtyFlag(absPtr);
     }
 
     @Override
@@ -583,7 +584,7 @@ public class PersistentPageMemory implements PageMemory {
 
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
-            fullPageId(absPtr, fullId);
+            writeFullPageId(absPtr, fullId);
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
@@ -592,7 +593,7 @@ public class PersistentPageMemory implements PageMemory {
 
             assert !isAcquired(absPtr) :
                     "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr)
-                            + ", absPtr=" + hexLong(absPtr) + ", pinCntr=" + PageHeader.pinCount(absPtr) + ']';
+                            + ", absPtr=" + hexLong(absPtr) + ", pinCntr=" + readAcquiresCount(absPtr) + ']';
 
             setDirty(fullId, absPtr, true, true);
 
@@ -715,15 +716,18 @@ public class PersistentPageMemory implements PageMemory {
         boolean readPageFromStore = false;
 
         try {
+            int partGeneration = seg.partGeneration(grpId, partId);
+
             // Double-check.
             long relPtr = seg.loadedPages.get(
                     grpId,
                     fullId.effectivePageId(),
-                    seg.partGeneration(grpId, partId),
+                    partGeneration,
                     INVALID_REL_PTR,
                     OUTDATED_REL_PTR
             );
 
+            // Absolute memory pointer to page with header.
             long absPtr;
 
             if (relPtr == INVALID_REL_PTR) {
@@ -739,11 +743,14 @@ public class PersistentPageMemory implements PageMemory {
 
                 absPtr = seg.absolute(relPtr);
 
-                fullPageId(absPtr, fullId);
+                writeFullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
+                writePartitionGeneration(absPtr, partGeneration);
 
-                assert !isAcquired(absPtr) :
-                        "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr) + ']';
+                assert !isAcquired(absPtr) : String.format(
+                        "Pin counter must be 0 for a new page [relPtr=%s, absPtr=%s, fullId=%s]",
+                        hexLong(relPtr), hexLong(absPtr), fullId
+                );
 
                 // We can clear dirty flag after the page has been allocated.
                 setDirty(fullId, absPtr, false, false);
@@ -754,7 +761,7 @@ public class PersistentPageMemory implements PageMemory {
                         grpId,
                         fullId.effectivePageId(),
                         relPtr,
-                        seg.partGeneration(grpId, partId)
+                        partGeneration
                 );
 
                 long pageAddr = absPtr + PAGE_OVERHEAD;
@@ -764,7 +771,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     readPageFromStore = true;
                 } else {
-                    zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
+                    zeroMemory(pageAddr, pageSize());
 
                     // Must init page ID in order to ensure RWLock tag consistency.
                     setPageId(pageAddr, pageId);
@@ -790,7 +797,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 zeroMemory(pageAddr, pageSize());
 
-                fullPageId(absPtr, fullId);
+                writeFullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
                 setPageId(pageAddr, pageId);
 
@@ -1076,14 +1083,8 @@ public class PersistentPageMemory implements PageMemory {
         rwLock.readUnlock(absPtr + PAGE_LOCK_OFFSET);
     }
 
-    /**
-     * Checks if a page has temp copy buffer.
-     *
-     * @param absPtr Absolute pointer.
-     * @return {@code True} if a page has temp buffer.
-     */
-    public boolean hasTempCopy(long absPtr) {
-        return tempBufferPointer(absPtr) != INVALID_REL_PTR;
+    private static boolean hasCheckpointTempBufferRelativePointer(long absPtr) {
+        return readCheckpointTempBufferRelativePointer(absPtr) != INVALID_REL_PTR;
     }
 
     /**
@@ -1112,59 +1113,60 @@ public class PersistentPageMemory implements PageMemory {
         return locked ? postWriteLockPage(absPtr, fullId) : 0;
     }
 
-    private long postWriteLockPage(long absPtr, FullPageId fullId) {
+    private long postWriteLockPage(long absPtr, FullPageId fullPageId) {
         writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
         // Create a buffer copy if the page is scheduled for a checkpoint.
-        if (isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
-            long tmpRelPtr;
-
-            PagePool checkpointPool = this.checkpointPool;
-
-            while (true) {
-                tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
-
-                if (tmpRelPtr != INVALID_REL_PTR) {
-                    break;
-                }
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-23106 Replace spin-wait with a proper wait.
-                try {
-                    Thread.sleep(1);
-                } catch (InterruptedException ignore) {
-                    // No-op.
-                }
-            }
+        if (isInCheckpoint(fullPageId) && !hasCheckpointTempBufferRelativePointer(absPtr)) {
+            long checkpointTmpRelPtr = borrowOrAllocateCheckpointCopyBuffer(fullPageId);
 
             // Pin the page until checkpoint is not finished.
             PageHeader.acquirePage(absPtr);
 
-            long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
+            long checkpointTmpAbsPtr = checkpointPool.absolute(checkpointTmpRelPtr);
 
             copyMemory(
                     null,
                     absPtr + PAGE_OVERHEAD,
                     null,
-                    tmpAbsPtr + PAGE_OVERHEAD,
+                    checkpointTmpAbsPtr + PAGE_OVERHEAD,
                     pageSize()
             );
 
-            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
-            assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
-                    "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
+            assert getType(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : hexLong(fullPageId.pageId());
+            assert getVersion(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : hexLong(fullPageId.pageId());
 
-            dirty(absPtr, false);
-            tempBufferPointer(absPtr, tmpRelPtr);
+            writeDirtyFlag(absPtr, false);
+            writeCheckpointTempBufferRelativePointer(absPtr, checkpointTmpRelPtr);
             // info for checkpoint buffer cleaner.
-            fullPageId(tmpAbsPtr, fullId);
+            writeFullPageId(checkpointTmpAbsPtr, fullPageId);
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
-            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO GG-11480
+            assert getCrc(checkpointTmpAbsPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO GG-11480
         }
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
+    }
+
+    private long borrowOrAllocateCheckpointCopyBuffer(FullPageId fullPageId) {
+        PagePool checkpointPool = this.checkpointPool;
+
+        while (true) {
+            long checkpointTmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullPageId.pageId()));
+
+            if (checkpointTmpRelPtr != INVALID_REL_PTR) {
+                return checkpointTmpRelPtr;
+            }
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23106 Replace spin-wait with a proper wait.
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ignore) {
+                // No-op.
+            }
+        }
     }
 
     private void writeUnlockPage(
@@ -1173,7 +1175,7 @@ public class PersistentPageMemory implements PageMemory {
             boolean markDirty,
             boolean restore
     ) {
-        boolean wasDirty = isDirty(page);
+        boolean wasDirty = readDirtyFlag(page);
 
         try {
             assert getCrc(page + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
@@ -1265,7 +1267,7 @@ public class PersistentPageMemory implements PageMemory {
      *      or not.
      */
     private void setDirty(FullPageId pageId, long absPtr, boolean dirty, boolean forceAdd) {
-        boolean wasDirty = dirty(absPtr, dirty);
+        boolean wasDirty = writeDirtyFlag(absPtr, dirty);
 
         if (dirty) {
             assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
@@ -1610,29 +1612,30 @@ public class PersistentPageMemory implements PageMemory {
          * @return Relative pointer to refreshed page.
          */
         public long refreshOutdatedPage(int grpId, long pageId, boolean rmv) {
-            assert writeLock().isHeldByCurrentThread();
+            assert writeLock().isHeldByCurrentThread() : "grpId=" + grpId + ", pageId=" + pageId + ", rmv=" + rmv;
 
-            int tag = partGeneration(grpId, partitionId(pageId));
+            int partGeneration = partGeneration(grpId, partitionId(pageId));
 
-            long relPtr = loadedPages.refresh(grpId, effectivePageId(pageId), tag);
+            long relPtr = loadedPages.refresh(grpId, effectivePageId(pageId), partGeneration);
 
+            // TODO: IGNITE-26216 Продолжить тут
             long absPtr = absolute(relPtr);
 
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
-            dirty(absPtr, false);
+            writeDirtyFlag(absPtr, false);
 
-            long tmpBufPtr = tempBufferPointer(absPtr);
+            long checkpointTmpBufPtr = readCheckpointTempBufferRelativePointer(absPtr);
 
-            if (tmpBufPtr != INVALID_REL_PTR) {
-                zeroMemory(checkpointPool.absolute(tmpBufPtr) + PAGE_OVERHEAD, pageSize());
+            if (checkpointTmpBufPtr != INVALID_REL_PTR) {
+                zeroMemory(checkpointPool.absolute(checkpointTmpBufPtr) + PAGE_OVERHEAD, pageSize());
 
-                tempBufferPointer(absPtr, INVALID_REL_PTR);
+                writeCheckpointTempBufferRelativePointer(absPtr, INVALID_REL_PTR);
 
                 // We pinned the page when allocated the temp buffer, release it now.
                 PageHeader.releasePage(absPtr);
 
-                releaseCheckpointBufferPage(tmpBufPtr);
+                releaseCheckpointBufferPage(checkpointTmpBufPtr);
             }
 
             if (rmv) {
@@ -1724,13 +1727,18 @@ public class PersistentPageMemory implements PageMemory {
          * @param partId Partition ID.
          */
         public int partGeneration(int grpId, int partId) {
-            assert getReadHoldCount() > 0 || getWriteHoldCount() > 0;
+            assert getReadHoldCount() > 0 || getWriteHoldCount() > 0 : "grpId=" + grpId + ", partId=" + partId;
 
-            Integer tag = partGenerationMap.get(new GroupPartitionId(grpId, partId));
+            GroupPartitionId groupPartitionId = new GroupPartitionId(grpId, partId);
 
-            assert tag == null || tag >= 0 : "Negative tag=" + tag;
+            Integer partitionGeneration = partGenerationMap.get(groupPartitionId);
 
-            return tag == null ? INIT_PART_GENERATION : tag;
+            assert partitionGeneration == null || partitionGeneration >= 0 : String.format(
+                    "partitionGeneration=%s, groupPartitionId=%s",
+                    partitionGeneration, groupPartitionId
+            );
+
+            return partitionGeneration == null ? INIT_PART_GENERATION : partitionGeneration;
         }
 
         /**
@@ -1968,22 +1976,22 @@ public class PersistentPageMemory implements PageMemory {
         boolean canWrite = false;
 
         try {
-            long tmpRelPtr = tempBufferPointer(absPtr);
+            long checkpointTmpRelPtr = readCheckpointTempBufferRelativePointer(absPtr);
 
-            if (tmpRelPtr != INVALID_REL_PTR) {
-                tempBufferPointer(absPtr, INVALID_REL_PTR);
+            if (checkpointTmpRelPtr != INVALID_REL_PTR) {
+                writeCheckpointTempBufferRelativePointer(absPtr, INVALID_REL_PTR);
 
-                long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
+                long tmpAbsPtr = checkpointPool.absolute(checkpointTmpRelPtr);
 
                 copyInBuffer(tmpAbsPtr, buf);
 
-                fullPageId(tmpAbsPtr, NULL_PAGE);
+                writeFullPageId(tmpAbsPtr, NULL_PAGE);
 
                 zeroMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize());
 
                 tracker.onCopyOnWritePageWritten();
 
-                releaseCheckpointBufferPage(tmpRelPtr);
+                releaseCheckpointBufferPage(checkpointTmpRelPtr);
 
                 // Need release again because we pin page when resolve abs pointer,
                 // and page did not have tmp buffer page.
@@ -1993,7 +2001,7 @@ public class PersistentPageMemory implements PageMemory {
             } else {
                 copyInBuffer(absPtr, buf);
 
-                dirty(absPtr, false);
+                writeDirtyFlag(absPtr, false);
             }
 
             assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
@@ -2067,7 +2075,7 @@ public class PersistentPageMemory implements PageMemory {
                 absPtr = seg.absolute(relPtr);
 
                 // Pin the page until page will not be copied. This helpful to prevent page replacement of this page.
-                if (tempBufferPointer(absPtr) == INVALID_REL_PTR) {
+                if (!hasCheckpointTempBufferRelativePointer(absPtr)) {
                     PageHeader.acquirePage(absPtr);
                 } else {
                     pageSingleAcquire = true;
@@ -2133,7 +2141,7 @@ public class PersistentPageMemory implements PageMemory {
 
             long freePageAbsPtr = checkpointPool.absolute(relative);
 
-            FullPageId fullPageId = fullPageId(freePageAbsPtr);
+            FullPageId fullPageId = readFullPageId(freePageAbsPtr);
 
             if (fullPageId.pageId() == NULL_PAGE.pageId() || fullPageId.groupId() == NULL_PAGE.groupId()) {
                 continue;

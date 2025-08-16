@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readFullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeDirtyFlag;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
-import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
@@ -119,9 +119,9 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
 
         long pageAbsPtr = pagePool.absolute(pageRelPtr);
 
-        PageHeader.dirty(pageAbsPtr, true);
+        writeDirtyFlag(pageAbsPtr, true);
 
-        FullPageId fullPageId = fullPageId(pageAbsPtr);
+        FullPageId fullPageId = readFullPageId(pageAbsPtr);
 
         when(checkpointPages.contains(fullPageId)).thenReturn(true);
 
@@ -145,12 +145,12 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
         when(segment.tryToRemovePage(any(), eq(pageAbsPtr)))
                 .thenReturn(true);
 
-        PageHeader.dirty(dirtyPageAbsPtr, true);
+        writeDirtyFlag(dirtyPageAbsPtr, true);
 
         when(loadedPagesMap.getNearestAt(0))
-                .thenReturn(new ReplaceCandidate(42, pageRelPtr, fullPageId(pageAbsPtr)));
+                .thenReturn(new ReplaceCandidate(42, pageRelPtr, readFullPageId(pageAbsPtr)));
         when(loadedPagesMap.getNearestAt(1))
-                .thenReturn(new ReplaceCandidate(42, dirtyPageRelPtr, fullPageId(dirtyPageAbsPtr)));
+                .thenReturn(new ReplaceCandidate(42, dirtyPageRelPtr, readFullPageId(dirtyPageAbsPtr)));
 
         // Only gets called during fallback to the sequential search.
         lenient().when(segment.getWriteHoldCount()).thenReturn(1);
