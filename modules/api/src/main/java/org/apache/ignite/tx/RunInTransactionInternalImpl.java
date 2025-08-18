@@ -21,7 +21,7 @@ import static java.util.Collections.synchronizedList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
-import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_TX_TIMEOUT_SECONDS;
+import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ class RunInTransactionInternalImpl {
         Objects.requireNonNull(clo);
 
         TransactionOptions txOptions = options == null
-                ? new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(DEFAULT_TX_TIMEOUT_SECONDS))
+                ? new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS))
                 : options;
 
         List<Throwable> suppressed = new ArrayList<>();
@@ -95,7 +95,7 @@ class RunInTransactionInternalImpl {
         Objects.requireNonNull(clo);
 
         TransactionOptions txOptions = options == null
-                ? new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(DEFAULT_TX_TIMEOUT_SECONDS))
+                ? new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS))
                 : options;
 
         List<Throwable> sup = suppressed == null ? synchronizedList(new ArrayList<>()) : suppressed;

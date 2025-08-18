@@ -17,7 +17,7 @@
 
 package org.apache.ignite.tx;
 
-import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_TX_TIMEOUT_SECONDS;
+import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
 import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionAsyncInternal;
 import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionInternal;
 
@@ -268,7 +268,7 @@ public interface IgniteTransactions {
      */
     default <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
         long startTimestamp = System.currentTimeMillis();
-        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
         return runInTransactionInternal(this, clo, options, startTimestamp, initialTimeout);
     }
 
@@ -326,7 +326,7 @@ public interface IgniteTransactions {
             @Nullable TransactionOptions options
     ) {
         long startTimestamp = System.currentTimeMillis();
-        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
         return runInTransactionAsyncInternal(this, clo, options, startTimestamp, initialTimeout, null);
     }
 }

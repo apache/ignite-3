@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.configuration;
 
-import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_TX_TIMEOUT_SECONDS;
+import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
@@ -41,7 +41,7 @@ public class TransactionConfigurationSchema {
     @Range(min = 1)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "readWriteTimeout")
-    public final long readWriteTimeoutMillis = TimeUnit.SECONDS.toMillis(DEFAULT_TX_TIMEOUT_SECONDS);
+    public final long readWriteTimeoutMillis = TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS);
 
     // Deprecated properties
     /** How often abandoned transactions are searched for (milliseconds). */
