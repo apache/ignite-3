@@ -415,20 +415,18 @@ public class DistributionZoneManager extends
         }
     }
 
-    private CompletableFuture<?> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
+    private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
         return dataNodesManager
                 .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
-                .whenComplete((unused, err) -> {
-                    if (err == null) {
-                        try {
-                            registerMetricSource(zone);
-                        } catch (Exception e) {
-                            // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
-                            // So, just log the error.
-                            LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
-                        }
+                .thenRun(() -> {
+                    try {
+                        registerMetricSource(zone);
+                    } catch (Exception e) {
+                        // This is not a critical error, so there is no need to stop node if we failed to register a metric source.
+                        // So, just log the error.
+                        LOG.error("Failed to register a new zone metric source [zoneDescriptor={}]", e, zone);
                     }
                 });
     }
