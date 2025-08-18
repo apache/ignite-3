@@ -675,7 +675,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
-
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     @MuteFailureManagerLogging
@@ -1882,7 +1881,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             assertThat(statesFuture, willCompleteSuccessfully());
 
             Map<ZonePartitionId, GlobalPartitionState> map = statesFuture.join();
-
 
             GlobalPartitionState state = map.get(new ZonePartitionId(zoneId, partId));
 

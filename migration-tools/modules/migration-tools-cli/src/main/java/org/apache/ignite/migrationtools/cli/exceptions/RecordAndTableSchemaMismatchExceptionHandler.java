@@ -28,23 +28,38 @@ public class RecordAndTableSchemaMismatchExceptionHandler implements ExceptionHa
 
     @Override
     public int handle(ExceptionWriter writer, RecordAndTableSchemaMismatchException e) {
+        writer.write(
+                ErrorUiComponent.builder()
+                        .header(DefaultMigrateCacheExceptionHandler.HEADER)
+                        .details(details(e))
+                .build()
+                .render());
+
+        return 1;
+    }
+
+    /**
+     * Builds the details output.
+     *
+     * @param e Exception.
+     * @return The output as String.
+     */
+    public static String details(RecordAndTableSchemaMismatchException e) {
         StringBuilder msgBuilder = new StringBuilder();
         msgBuilder.append("Mismatch between cache records and the target table definition."
                 + "\nAt least one record in the cache was not compatible with the target table definition.");
 
         if (!e.missingColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nRecord did not have the following fields required by the table: ")
-                            .append(String.join(", ", e.missingColumnsInRecord()));
-
-            msgBuilder.append("\nConsider the following solutions:")
+                    .append(String.join(", ", e.missingColumnsInRecord()))
+                    .append("\nConsider the following solutions:")
                     .append("\n * Manually edit the Ignite 3 table schema to make the missing columns nullable.");
         }
 
         if (!e.additionalColumnsInRecord().isEmpty()) {
             msgBuilder.append("\nThe following fields were present on the record but not found in the table: ")
-                    .append(String.join(", ", e.additionalColumnsInRecord()));
-
-            msgBuilder.append("\nConsider the following solutions:")
+                    .append(String.join(", ", e.additionalColumnsInRecord()))
+                    .append("\nConsider the following solutions:")
                     .append("\n * Manual Editing: Edit the Ignite 3 table schema manually to add new columns for the additional fields."
                             + " Ensure that the new column types are compatible with the record type.")
                     .append("\n * Ignore Additional Fields: Use the IGNORE_COLUMN migration mode by applying the '--mode IGNORE_COLUMN'"
@@ -53,15 +68,7 @@ public class RecordAndTableSchemaMismatchExceptionHandler implements ExceptionHa
                             + " While Ignite 3 does not natively support unmarshalling the original record from this column, it can be"
                             + " accessed by another application to retrieve the information contained in these additional fields.");
         }
-
-        writer.write(
-                ErrorUiComponent.builder()
-                        .header(DefaultMigrateCacheExceptionHandler.HEADER)
-                        .details(msgBuilder.toString())
-                .build()
-                .render());
-
-        return 1;
+        return msgBuilder.toString();
     }
 
     @Override

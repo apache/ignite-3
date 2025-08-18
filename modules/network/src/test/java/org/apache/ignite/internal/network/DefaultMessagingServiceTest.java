@@ -509,7 +509,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     void sendByClusterNodeFailsIfActualNodeIdIsDifferent(SendByClusterNodeOperation operation) throws Exception {
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+                Services unused = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
             ClusterNode receiverWithAnotherId = copyWithDifferentId();
 
@@ -664,7 +664,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         localNode,
                         connectionId,
                         recoveryDescriptorProvider,
-                        bootstrapFactory,
+                        bootstrapFactory.handshakeEventLoopSwitcher(),
                         staleIdDetector,
                         clusterIdSupplier,
                         channel -> {},

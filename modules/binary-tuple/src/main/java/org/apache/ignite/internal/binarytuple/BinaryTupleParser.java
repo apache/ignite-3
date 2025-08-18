@@ -192,7 +192,7 @@ public class BinaryTupleParser {
             return Readability.READABLE;
         }
 
-        if (offset >=  buffer.capacity()) {
+        if (offset >= buffer.capacity()) {
             return Readability.NOT_READABLE;
         }
 
@@ -628,7 +628,7 @@ public class BinaryTupleParser {
      */
     private static LocalDate getDate(ByteBufferAccessor byteBufferAccessor, int offset) {
         int date = Short.toUnsignedInt(byteBufferAccessor.getShort(offset));
-        date |= ((int) byteBufferAccessor.get(offset + 2)) << 16;
+        date |= byteBufferAccessor.get(offset + 2) << 16;
 
         int day = date & 31;
         int month = (date >> 5) & 15;

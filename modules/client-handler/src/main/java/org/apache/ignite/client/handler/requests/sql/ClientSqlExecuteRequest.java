@@ -248,7 +248,8 @@ public class ClientSqlExecuteRequest {
     ) {
         try {
             SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                    .allowMultiStatement(false);
 
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
                         properties,

@@ -64,6 +64,8 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -142,6 +144,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable T args,
             @Nullable CancellationToken cancellationToken
     ) {
+        return submitAsync(target, descriptor, ComputeEventMetadata.builder(Type.SINGLE), args, cancellationToken);
+    }
+
+    private <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            ComputeEventMetadata.Builder metadataBuilder,
+            @Nullable T args,
+            @Nullable CancellationToken cancellationToken
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -152,7 +164,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
             return unmarshalResult(
                     executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), metadataBuilder,
+                            argHolder, cancellationToken
                     ),
                     descriptor,
                     observableTimestampTracker
@@ -164,6 +177,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
             QualifiedName tableName = colocatedTarget.tableName();
             Object key = colocatedTarget.key();
+
+            metadataBuilder.tableName(tableName.toCanonicalForm());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobFut;
             if (mapper != null) {
@@ -183,6 +198,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
+                                        metadataBuilder,
                                         argHolder,
                                         cancellationToken
                                 )));
@@ -195,6 +211,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
+                                metadataBuilder,
                                 argHolder,
                                 cancellationToken
                         ));
@@ -321,6 +338,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         descriptor.units(),
                         descriptor.jobClassName(),
                         options,
+                        ComputeEventMetadata.builder(), // TODO IGNITE-26116
                         argHolder,
                         cancellationToken
                 ),
@@ -368,6 +386,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -393,6 +412,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 units,
                 jobClassName,
                 options,
+                metadataBuilder,
                 arg,
                 cancellationToken
         );
@@ -415,12 +435,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
-        return executeOnOneNodeWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken);
+        return executeOnOneNodeWithFailover(
+                targetNode, nextWorkerSelector, units, jobClassName, options, metadataBuilder,
+                arg, cancellationToken
+        );
     }
 
     private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
@@ -429,12 +453,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
         if (isLocal(targetNode)) {
-            return convertToComputeFuture(computeComponent.executeLocally(options, units, jobClassName, arg, cancellationToken))
-                    .thenApply(JobExecutionWrapper::new);
+            return convertToComputeFuture(computeComponent.executeLocally(
+                    options, units, jobClassName, metadataBuilder, arg, cancellationToken
+            )).thenApply(JobExecutionWrapper::new);
         } else {
             return convertToComputeFuture(computeComponent.executeRemotelyWithFailover(
                     targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken
@@ -470,6 +496,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -477,7 +504,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, nodeProperties, table, key),
-                        units, jobClassName, options, arg, cancellationToken
+                        units, jobClassName, options, metadataBuilder, arg, cancellationToken
                 ));
     }
 
@@ -488,6 +515,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
+            ComputeEventMetadata.Builder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -505,7 +533,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         new PartitionNextWorkerSelector(
                                 placementDriver, topologyService, clock, nodeProperties,
                                 table.zoneId(), table.tableId(), partition),
-                        units, jobClassName, options, arg, cancellationToken
+                        units, jobClassName, options, metadataBuilder, arg, cancellationToken
                 ));
     }
 
@@ -653,6 +681,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 getReceiverJobClassName(options.executorType()),
                 jobOptions,
+                ComputeEventMetadata.builder(Type.DATA_RECEIVER),
                 SharedComputeUtils.marshalArgOrResult(payload, null),
                 null
         ).thenCompose(JobExecution::resultAsync)

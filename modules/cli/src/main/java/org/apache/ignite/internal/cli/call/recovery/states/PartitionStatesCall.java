@@ -84,11 +84,11 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         boolean colocationEnabled = globalStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
 
         if (colocationEnabled) {
-            return DefaultCallOutput.success(new Table(ZONE_GLOBAL_HEADERS, globalStates.getStates().stream()
+            return DefaultCallOutput.success(new Table<>(ZONE_GLOBAL_HEADERS, globalStates.getStates().stream()
                     .flatMap(PartitionStatesCall::globalZoneState)
                     .collect(toList())));
         } else {
-            return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, globalStates.getStates().stream()
+            return DefaultCallOutput.success(new Table<>(GLOBAL_HEADERS, globalStates.getStates().stream()
                     .flatMap(PartitionStatesCall::globalTableSate)
                     .collect(toList())));
         }
@@ -127,11 +127,11 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         boolean colocationEnabled = localStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
 
         if (colocationEnabled) {
-            return DefaultCallOutput.success(new Table(ZONE_LOCAL_HEADERS, localStates.getStates().stream()
+            return DefaultCallOutput.success(new Table<>(ZONE_LOCAL_HEADERS, localStates.getStates().stream()
                     .flatMap(PartitionStatesCall::localZoneState)
                     .collect(toList())));
         } else {
-            return DefaultCallOutput.success(new Table(LOCAL_HEADERS, localStates.getStates().stream()
+            return DefaultCallOutput.success(new Table<>(LOCAL_HEADERS, localStates.getStates().stream()
                     .flatMap(PartitionStatesCall::localTableState)
                     .collect(toList())));
         }

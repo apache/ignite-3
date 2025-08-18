@@ -363,7 +363,6 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                     return CompletableFuture.completedFuture(response);
                 });
 
-
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
                 List.of(metastorageNode.name()),
                 List.of(cmgNode.name()),

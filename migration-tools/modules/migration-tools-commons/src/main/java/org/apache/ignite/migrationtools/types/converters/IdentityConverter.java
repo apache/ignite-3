@@ -21,7 +21,7 @@ import org.apache.ignite3.table.mapper.TypeConverter;
 
 /** Identity Converter. */
 public class IdentityConverter<T> implements TypeConverter<T, T> {
-    public static IdentityConverter INSTANCE = new IdentityConverter();
+    public static IdentityConverter<?> INSTANCE = new IdentityConverter<>();
 
     @Override
     public T toColumnType(T t) throws Exception {

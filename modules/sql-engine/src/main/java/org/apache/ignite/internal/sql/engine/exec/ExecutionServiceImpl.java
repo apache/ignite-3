@@ -353,14 +353,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
 
-        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan,
-                nodeExclusionFilter).thenApply(dataCursor -> new TxAwareAsyncCursor<>(
-                txWrapper,
-                dataCursor,
-                firstPageReady0,
-                queryManager::close,
-                operationContext::notifyError
-        ));
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan, nodeExclusionFilter)
+                .thenApply(dataCursor -> new TxAwareAsyncCursor<>(
+                        txWrapper,
+                        dataCursor,
+                        firstPageReady0,
+                        queryManager::close,
+                        operationContext::notifyError
+                ));
 
         return f.whenComplete((r, t) -> {
             if (t != null) {

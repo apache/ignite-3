@@ -470,7 +470,6 @@ public class ClientSql implements IgniteSql {
             return unpacker.unpackLongArray(); // Update counters.
         };
 
-
         if (transaction != null) {
             try {
                 //noinspection resource

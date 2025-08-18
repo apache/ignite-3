@@ -1062,7 +1062,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
             assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
                     .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
-                    .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
+                    .matches(indexScan ? QueryChecker.containsIndexScanIgnoreBounds("PUBLIC", "T11") :
                             QueryChecker.containsTableScan("PUBLIC", "T11"))
                     .returns(1, 1)
                     .returns(2, 2)
@@ -1074,7 +1074,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
 
             assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
                     .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
-                    .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
+                    .matches(indexScan ? QueryChecker.containsIndexScanIgnoreBounds("PUBLIC", "T11") :
                             QueryChecker.containsTableScan("PUBLIC", "T11"))
                     .returns(2, 2)
                     .returns(null, 3)

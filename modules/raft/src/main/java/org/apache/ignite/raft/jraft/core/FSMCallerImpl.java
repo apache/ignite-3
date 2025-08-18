@@ -185,7 +185,7 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        LOG.info("Starts FSMCaller successfully [nodeId={}].", nodeId);
+        LOG.info("Starts FSMCaller successfully [node={}].", node.getNodeId());
         return true;
     }
 
@@ -194,7 +194,7 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller...");
+        LOG.info("Shutting down FSMCaller [node={}].", node.getNodeId());
 
         this.shuttingDown = true;
 
@@ -225,7 +225,7 @@ public class FSMCallerImpl implements FSMCaller {
     private boolean enqueueTask(final EventTranslator<ApplyTask> tpl) {
         if (this.shutdownLatch != null) {
             // Shutting down
-            LOG.warn("FSMCaller is stopped, can not apply new task.");
+            LOG.warn("FSMCaller is stopped, can not apply new task [node={}].", nodeId);
             return false;
         }
 
@@ -353,7 +353,7 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onError(final RaftException error) {
         if (!this.error.getStatus().isOk()) {
-            LOG.warn("FSMCaller already in error status, ignore new error", error);
+            LOG.warn("FSMCaller already in error status, ignore new error [node={}].", nodeId, error);
             return false;
         }
         final OnErrorClosure c = new OnErrorClosure(error);
@@ -582,7 +582,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
         }
         if (iter.hasNext()) {
-            LOG.error("Iterator is still valid, did you return before iterator reached the end?");
+            LOG.error("Iterator is still valid, did you return before iterator reached the end? [node={}].",
+                this.node.getNodeId());
         }
         // Try move to next in case that we pass the same log twice.
         // But if we are shutting down, current entry is not applied, so we should not advance the iterator to allow a ShutdownException
@@ -597,7 +598,7 @@ public class FSMCallerImpl implements FSMCaller {
         final long lastAppliedIndex = this.lastAppliedIndex.get();
         final ConfigurationEntry confEntry = this.logManager.getConfiguration(lastAppliedIndex);
         if (confEntry == null || confEntry.isEmpty()) {
-            LOG.error("Empty conf entry for lastAppliedIndex={}", lastAppliedIndex);
+            LOG.error("Empty conf entry for [node={}, lastAppliedIndex={}].", this.node.getNodeId(), lastAppliedIndex);
             Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EINVAL,
                 "Empty conf entry for lastAppliedIndex=%s", lastAppliedIndex));
             return;
