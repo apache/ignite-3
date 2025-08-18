@@ -973,7 +973,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         // At the moment topology reconfiguration will stop if the previous one fails (see how thenCompose works).
                         // This is going to change in the future when cmg/mg majority loss is handled properly.
                         topologyReconfigurationFuture.thenCompose(v ->
-                                serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term))
+                                inBusyLock(() -> serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term)))
                         );
             }
         }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
@@ -286,16 +285,10 @@ public class CmgRaftService implements ManuallyCloseable {
      * Returns a set of consistent IDs of the learners nodes of the CMG.
      */
     public CompletableFuture<Set<String>> learners() {
-        Peer leader = raftService.leader();
-
-        if (leader == null) {
-            return raftService.refreshLeader().thenCompose(v -> learners());
-        }
-
         List<Peer> currentLearners = raftService.learners();
 
         if (currentLearners == null) {
-            return completedFuture(emptySet());
+            return raftService.refreshMembers(true).thenCompose(v -> learners());
         }
 
         return completedFuture(currentLearners.stream()
