@@ -79,6 +79,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("transactions").enabled(true),
             new MetricSource().name("placement-driver").enabled(true),
             new MetricSource().name("resource.vacuum").enabled(true),
+            new MetricSource().name("zones.Default").enabled(true),
             new MetricSource().name("clock.service").enabled(true)
     };
 

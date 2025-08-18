@@ -94,6 +94,7 @@ public interface PartitionMvStorageAccess {
 
     /**
      * Creates a committed version.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new committed version is added.</li>
