@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.d
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.instant;
 import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanWithAnySearchBounds;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -249,10 +249,14 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("geLeSearchArguments")
     public void testSearchGtLtWithPkIdxUsage(String table, String predicate, Object result) {
+        String pkIndexName = pkIndexName(table);
+
         for (String idx : SORTED_INDEXES.get(table)) {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
-                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .matches(pkIndexName.equals(idx)
+                            ? containsIndexScan("PUBLIC", table, idx)
+                            : containsIndexScanIgnoreBounds("PUBLIC", table, idx))
                     .returns(result)
                     .check();
         }
@@ -262,11 +266,15 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("geLeSearchDynParamArguments")
     public void testSearchGtLtWithPkIdxUsageDynamicParam(String table, String predicate, Object parameter, Object result) {
+        String pkIndexName = pkIndexName(table);
+
         for (String idx : SORTED_INDEXES.get(table)) {
             assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
                     idx, table, predicate))
                     .withParam(parameter)
-                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .matches(pkIndexName.equals(idx)
+                            ? containsIndexScan("PUBLIC", table, idx)
+                            : containsIndexScanIgnoreBounds("PUBLIC", table, idx))
                     .returns(result)
                     .check();
         }
@@ -276,10 +284,14 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("betweenSearchArguments")
     public void testBetweenPkIdxUsage(String table, String predicate, Object[] result) {
+        String pkIndexName = pkIndexName(table);
+
         for (String idx : SORTED_INDEXES.get(table)) {
             QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
-                    .matches(containsIndexScan("PUBLIC", table, idx));
+                    .matches(pkIndexName.equals(idx)
+                            ? containsIndexScan("PUBLIC", table, idx)
+                            : containsIndexScanIgnoreBounds("PUBLIC", table, idx));
 
             for (Object res : result) {
                 checker.returns(res);
@@ -293,11 +305,15 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "table = {0}")
     @MethodSource("betweenSearchDynParamArguments")
     public void testBetweenPkIdxUsageDynamicParam(String table, Object[] params, Object[] result) {
+        String pkIndexName = pkIndexName(table);
+
         for (String idx : SORTED_INDEXES.get(table)) {
             QueryChecker checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk BETWEEN ? AND ?", idx, table))
                     .withParams(params)
-                    .matches(containsIndexScan("PUBLIC", table, idx));
+                    .matches(pkIndexName.equals(idx)
+                            ? containsIndexScan("PUBLIC", table, idx)
+                            : containsIndexScanIgnoreBounds("PUBLIC", table, idx));
 
             for (Object res : result) {
                 checker.returns(res);
@@ -445,10 +461,10 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 Arguments.of("TIMESTAMP1", " < ?", INITIAL_TS.plusSeconds(1), INITIAL_TS),
                 Arguments.of("TIMESTAMP1", " <= ?", INITIAL_TS, INITIAL_TS),
 
-                Arguments.of("TIMESTAMPTZ1", " > ?", INITIAL_TS.plusSeconds(8), INITIAL_TS_LTZ.plusSeconds(9)),
-                Arguments.of("TIMESTAMPTZ1", " >= ?", INITIAL_TS.plusSeconds(9), INITIAL_TS_LTZ.plusSeconds(9)),
-                Arguments.of("TIMESTAMPTZ1", " < ?", INITIAL_TS.plusSeconds(1), INITIAL_TS_LTZ),
-                Arguments.of("TIMESTAMPTZ1", " <= ?", INITIAL_TS, INITIAL_TS_LTZ)
+                Arguments.of("TIMESTAMPTZ1", " > ?", INITIAL_TS_LTZ.plusSeconds(8), INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " >= ?", INITIAL_TS_LTZ.plusSeconds(9), INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " < ?", INITIAL_TS_LTZ.plusSeconds(1), INITIAL_TS_LTZ),
+                Arguments.of("TIMESTAMPTZ1", " <= ?", INITIAL_TS_LTZ, INITIAL_TS_LTZ)
         );
     }
 
@@ -1014,7 +1030,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 sortedIdxName, columnName, tableName, columnName, condition);
 
         QueryChecker checker = assertQuery(query)
-                .matches(containsIndexScanWithAnySearchBounds("PUBLIC", tableName, sortedIdxName))
+                .matches(containsIndexScan("PUBLIC", tableName, sortedIdxName))
                 .withTimeZoneId(ZoneOffset.UTC);
 
         if (param != null) {

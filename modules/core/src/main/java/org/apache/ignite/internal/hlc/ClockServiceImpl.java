@@ -19,15 +19,21 @@ package org.apache.ignite.internal.hlc;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link ClockService}.
  */
 public class ClockServiceImpl implements ClockService {
+    private final IgniteLogger log = Loggers.forClass(ClockServiceImpl.class);
+
     private final HybridClock clock;
     private final ClockWaiter clockWaiter;
 
     private final LongSupplier maxClockSkewMsSupplier;
+
+    private volatile long maxClockSkewMillis = -1;
 
     /**
      * Constructor.
@@ -60,6 +66,15 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public HybridTimestamp updateClock(HybridTimestamp requestTime) {
+        // Since clock.current() is also called inside clock.update formally it's a method call duplication.
+        // However, since benchmarks did not show any noticeable performance penalty due to the aforementioned call duplication,
+        // design purity was prioritized over call redundancy.
+        HybridTimestamp currentLocalTimestamp = clock.current();
+        if (requestTime.getPhysical() - maxClockSkewMillis() > currentLocalTimestamp.getPhysical()) {
+            log.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
+                    currentLocalTimestamp, maxClockSkewMillis());
+        }
+
         return clock.update(requestTime);
     }
 
@@ -70,6 +85,11 @@ public class ClockServiceImpl implements ClockService {
 
     @Override
     public long maxClockSkewMillis() {
-        return maxClockSkewMsSupplier.getAsLong();
+        // -1 is an invalid maxClockSkewMillis, thus it might be used as a special "non-initialized" value.
+        if (maxClockSkewMillis == -1) {
+            maxClockSkewMillis = maxClockSkewMsSupplier.getAsLong();
+        }
+
+        return maxClockSkewMillis;
     }
 }

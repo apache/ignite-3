@@ -51,13 +51,13 @@ import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * This is a lazy version of the {@link GridCacheProcessor}.
- * <p>
- *     This class does not start all the caches automatically during startup.
- *     Instead, it blocks the CacheRecoveryLifecycle of the underlying {@link GridCacheProcessor}.
- *     {@link DynamicCacheDescriptor}s can be explicitly loaded using {@link #cacheDescriptor(String)} or {@link #loadAllDescriptors()}.
- *     Caches must be started explicitly using {@link #startCache(DynamicCacheDescriptor)}.
- * </p>
- * Important: This is not a fully featured {@link GridCacheProcessor}, it should only be used with caution in the context of a migration.
+ *
+ * <p>This class does not start all the caches automatically during startup.
+ * Instead, it blocks the CacheRecoveryLifecycle of the underlying {@link GridCacheProcessor}.
+ * {@link DynamicCacheDescriptor}s can be explicitly loaded using {@link #cacheDescriptor(String)} or {@link #loadAllDescriptors()}.
+ * Caches must be started explicitly using {@link #startCache(DynamicCacheDescriptor)}.
+ *
+ * <p>Important: This is not a fully featured {@link GridCacheProcessor}, it should only be used with caution in the context of a migration.
  */
 public class MigrationCacheProcessor extends GridCacheProcessor {
 
@@ -161,7 +161,6 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
 
         return registerNewCache(discoData, ctx.localNodeId(), cacheJoinInfo);
     }
-
 
     @Override
     public DynamicCacheDescriptor cacheDescriptor(String name) {

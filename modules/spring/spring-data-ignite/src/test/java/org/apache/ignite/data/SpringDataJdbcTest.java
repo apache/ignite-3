@@ -442,7 +442,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         assertThat(result).extracting(Person::getId).containsExactly(p2.getId());
     }
 
-
     @Test
     void queryByEnumTypeIn() {
         Person p1 = Person.create("p1");

@@ -56,7 +56,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
-
 /**
  * Tests to verify system view related commands.
  */

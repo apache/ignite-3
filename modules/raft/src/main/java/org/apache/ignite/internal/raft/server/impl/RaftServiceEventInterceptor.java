@@ -129,7 +129,7 @@ public class RaftServiceEventInterceptor {
      * @param term Term.
      */
     public void onLeaderElected(ReplicationGroupId groupId, long term) {
-        HashSet<Consumer<Long>> actionsToInvoke = new HashSet();
+        HashSet<Consumer<Long>> actionsToInvoke = new HashSet<>();
 
         subscriptions.computeIfPresent(groupId, (id, actions) -> {
             actionsToInvoke.addAll(actions);

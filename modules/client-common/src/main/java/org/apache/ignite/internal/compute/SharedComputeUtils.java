@@ -119,7 +119,6 @@ public class SharedComputeUtils {
             return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr, observableTimestamp);
         }
 
-
         if (isNativeType(obj.getClass())) {
             // Builder with inline schema.
             // Value is represented by 3 tuple elements: type, scale, value.

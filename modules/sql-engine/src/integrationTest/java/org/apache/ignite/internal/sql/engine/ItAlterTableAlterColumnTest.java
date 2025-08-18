@@ -201,7 +201,6 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                 + "valbin VARBINARY"
                 + ")");
 
-
         sql("ALTER TABLE test ALTER COLUMN valint SET DEFAULT 1");
         sql("ALTER TABLE test ALTER COLUMN valdate SET DEFAULT DATE '2001-12-21'");
         sql("ALTER TABLE test ALTER COLUMN valtime SET DEFAULT TIME '11:22:33.444555'");

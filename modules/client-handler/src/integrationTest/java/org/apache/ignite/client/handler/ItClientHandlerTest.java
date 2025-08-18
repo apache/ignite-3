@@ -151,7 +151,6 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(); // Patch.
             unpacker.skipValue(); // Pre release.
 
-
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 

@@ -339,7 +339,6 @@ public class FakeCompute implements IgniteComputeInternal {
             return new ClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 1));
         }
 
-
         @Override
         public Marshaller<R, byte[]> resultMarshaller() {
             return null;

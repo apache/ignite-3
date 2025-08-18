@@ -290,8 +290,10 @@ public class JdbcMetadataCatalog {
     }
 
     /**
-     * <p>Converts sql pattern wildcards into java regex wildcards.</p>
+     * Converts sql pattern wildcards into java regex wildcards.
+     *
      * <p>Translates "_" to "." and "%" to ".*" if those are not escaped with "\" ("\_" or "\%").</p>
+     *
      * <p>All other characters are considered normal and will be escaped if necessary.</p>
      * <pre>
      * Example:
@@ -320,7 +322,6 @@ public class JdbcMetadataCatalog {
 
         return toRegex.substring(1);
     }
-
 
     /**
      * Resolves the precision of the specified column.
