@@ -177,6 +177,22 @@ public class CheckpointDirtyPages {
         public int size() {
             return toPosition - fromPosition;
         }
+
+        /** Returns number of modified (not newly allocated) pages. */
+        int modifiedPages(int persistedPages) {
+            FullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
+            int partitionId = dirtyPages[fromPosition].partitionId();
+            int groupId = dirtyPages[fromPosition].groupId();
+
+            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, persistedPages - 1), groupId);
+
+            int index = binarySearch(dirtyPages, fromPosition, toPosition, endPageId, DIRTY_PAGE_COMPARATOR);
+
+            // If exact index is not found, binary search returns a bitwise complement to a potential insertion point.
+            return index >= 0
+                    ? index - fromPosition + 1
+                    : -1 * index - fromPosition - 1;
+        }
     }
 
     private static boolean equalsByGroupAndPartition(FullPageId pageId0, FullPageId pageId1) {

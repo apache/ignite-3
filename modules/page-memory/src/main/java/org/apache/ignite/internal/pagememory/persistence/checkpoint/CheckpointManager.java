@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -355,17 +354,13 @@ public class CheckpointManager {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        // Newly allocated pages will go straight to the main partition file.
-        int maxDirtyPagesCount = Math.min(persistedPages, partitionDirtyPages.size() + offset);
+        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(persistedPages) + offset];
 
-        int[] pageIndexes = new int[maxDirtyPagesCount];
-
-        for (int i = 0; i < partitionDirtyPages.size() && partitionDirtyPages.get(i).pageIdx() < persistedPages; i++) {
-            pageIndexes[offset] = partitionDirtyPages.get(i).pageIdx();
-            offset++;
+        for (int i = 0; i < pageIndexes.length - offset; i++) {
+            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 
-        return pageIndexes.length == offset ? pageIndexes : Arrays.copyOf(pageIndexes, offset);
+        return pageIndexes;
     }
 
     /**

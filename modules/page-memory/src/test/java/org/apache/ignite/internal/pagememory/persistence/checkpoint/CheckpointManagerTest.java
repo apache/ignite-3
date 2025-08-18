@@ -157,6 +157,8 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 1));
         assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 8));
+        assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 9));
+        assertArrayEquals(new int[]{0, 6, 7, 9}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 10));
     }
 
     @Test
@@ -171,6 +173,8 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         assertArrayEquals(new int[]{0}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0), 1));
         assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 8));
+        assertArrayEquals(new int[]{0, 6, 7}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 9));
+        assertArrayEquals(new int[]{0, 6, 7, 9}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1), 10));
     }
 
     @Test
