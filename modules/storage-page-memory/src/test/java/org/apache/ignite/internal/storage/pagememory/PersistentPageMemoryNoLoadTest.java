@@ -21,7 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
@@ -596,7 +596,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(1, PageHeader.readPartitionGeneration(absPtr));
+            assertEquals(1, PageHeader.partitionGeneration(absPtr));
         });
     }
 
@@ -610,7 +610,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(2, PageHeader.readPartitionGeneration(absPtr));
+            assertEquals(2, PageHeader.partitionGeneration(absPtr));
         });
     }
 
@@ -634,7 +634,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(2, PageHeader.readPartitionGeneration(absPtr));
+            assertEquals(2, PageHeader.partitionGeneration(absPtr));
         });
     }
 
