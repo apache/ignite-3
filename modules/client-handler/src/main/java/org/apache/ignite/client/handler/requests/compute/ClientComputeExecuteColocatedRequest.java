@@ -72,7 +72,7 @@ public class ClientComputeExecuteColocatedRequest {
         byte[] tupleBytes = in.readBinary();
 
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
-        unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));// Placeholder for a possible future usage
+        unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID)); // Placeholder for a possible future usage
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
