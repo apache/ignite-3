@@ -39,33 +39,47 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.util.GridUnsafe.allocateMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.freeMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
+import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link PageHeader} testing. */
 public class PageHeaderTest {
-    private long pageHeaderAddr = -1;
+    private static long pageHeaderAddr = -1;
 
-    @BeforeEach
-    void setUp() {
+    @BeforeAll
+    static void beforeAll() {
         pageHeaderAddr = allocateMemory(PAGE_OVERHEAD);
     }
 
-    @AfterEach
-    void tearDown() {
-        if (pageHeaderAddr == -1) {
+    @AfterAll
+    static void afterAll() {
+        if (pageHeaderAddr != -1) {
             freeMemory(pageHeaderAddr);
         }
     }
 
+    @BeforeEach
+    void setUp() {
+        initNew(pageHeaderAddr);
+    }
+
+    @AfterEach
+    void tearDown() {
+        zeroMemory(pageHeaderAddr, PAGE_OVERHEAD);
+    }
+
     @Test
     void testInitNew() {
+        zeroMemory(pageHeaderAddr, PAGE_OVERHEAD);
         initNew(pageHeaderAddr);
 
         assertEquals(0L, readTimestamp(pageHeaderAddr));
@@ -79,8 +93,6 @@ public class PageHeaderTest {
 
     @Test
     void testReadWriteTimeStamp() {
-        initNew(pageHeaderAddr);
-
         long timestamp = System.currentTimeMillis();
 
         writeTimestamp(pageHeaderAddr, timestamp);
@@ -89,35 +101,27 @@ public class PageHeaderTest {
 
     @Test
     void testReadWritePartitionGeneration() {
-        initNew(pageHeaderAddr);
-
         writePartitionGeneration(pageHeaderAddr, 42);
         assertEquals(42, readPartitionGeneration(pageHeaderAddr));
     }
 
     @Test
     void testReadWriteDirtyFlagValue() {
-        initNew(pageHeaderAddr);
-
-        writeDirtyFlag(pageHeaderAddr, true);
+        assertFalse(writeDirtyFlag(pageHeaderAddr, true));
         assertTrue(readDirtyFlag(pageHeaderAddr));
 
-        writeDirtyFlag(pageHeaderAddr, false);
+        assertTrue(writeDirtyFlag(pageHeaderAddr, false));
         assertFalse(readDirtyFlag(pageHeaderAddr));
     }
 
     @Test
     void testReadWriteFullPageId() {
-        initNew(pageHeaderAddr);
-
         writeFullPageId(pageHeaderAddr, new FullPageId(4, 2));
         assertEquals(new FullPageId(4, 2), readFullPageId(pageHeaderAddr));
     }
 
     @Test
     void testAcquireRelease() {
-        initNew(pageHeaderAddr);
-
         assertEquals(1, acquirePage(pageHeaderAddr));
         assertEquals(1, readAcquiresCount(pageHeaderAddr));
         assertTrue(isAcquired(pageHeaderAddr));
@@ -129,8 +133,6 @@ public class PageHeaderTest {
 
     @Test
     void testReadWriteCheckpointTempBufferRelativePointer() {
-        initNew(pageHeaderAddr);
-
         writeCheckpointTempBufferRelativePointer(pageHeaderAddr, 42);
         assertEquals(42, readCheckpointTempBufferRelativePointer(pageHeaderAddr));
     }

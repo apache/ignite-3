@@ -80,10 +80,10 @@ public class PageHeader {
     private static final int MARKER_OR_TIMESTAMP_OFFSET = 0;
 
     /** Partition generation offset. */
-    private static final int PARTITION_GENERATION_OFFSET = 10;
+    private static final int PARTITION_GENERATION_OFFSET = 8;
 
     /** Flags offset. */
-    private static final int FLAGS_OFFSET = 8;
+    private static final int FLAGS_OFFSET = 12;
 
     /** Page ID offset. */
     private static final int PAGE_ID_OFFSET = 16;
@@ -170,7 +170,7 @@ public class PageHeader {
             flags &= ~flagMask;
         }
 
-        putLong(absPtr + FLAGS_OFFSET, flags);
+        putInt(absPtr + FLAGS_OFFSET, flags);
 
         return was;
     }
