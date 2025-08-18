@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data class representing the state of running/scheduled checkpoint.
  */
-class CheckpointProgressImpl implements CheckpointProgress {
+public class CheckpointProgressImpl implements CheckpointProgress {
     /** Checkpoint id. */
     private final UUID id = UUID.randomUUID();
 
@@ -92,7 +92,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param delay Delay in nanos before next checkpoint is to be executed. Value is from {@code 0} to {@code 365} days.
      */
-    CheckpointProgressImpl(long delay) {
+    public CheckpointProgressImpl(long delay) {
         nextCheckpointNanos(delay);
     }
 
