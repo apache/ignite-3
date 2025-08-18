@@ -108,7 +108,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
          * Flush is simply delegated to the {@link Stripe}.
          */
         @Override
-        protected LogId flush() {
+        public LogId flush() {
             stripe.flush();
 
             // Last ID is already updated at this point.
@@ -165,11 +165,12 @@ public class StripeAwareLogManager extends LogManagerImpl {
             storage.clear();
             size = 0;
 
+            // TODO is safe ?
             setDiskId(lastId);
         }
 
         @Override
-        protected void append(StableClosure done) {
+        public void append(StableClosure done) {
             if (stripe.size >= cap || stripe.bufferSize >= maxAppendBufferSize) {
                 flush();
             }

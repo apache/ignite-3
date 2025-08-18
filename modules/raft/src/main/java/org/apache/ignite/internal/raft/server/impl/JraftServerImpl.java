@@ -114,6 +114,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestIntercepto
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.SharedAppendQueue;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -398,6 +399,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
             opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+            opts.setAppendQueue(new SharedAppendQueue());
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

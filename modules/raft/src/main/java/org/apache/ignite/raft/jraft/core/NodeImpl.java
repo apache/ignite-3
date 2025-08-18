@@ -134,9 +134,10 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
-import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.SharedAppendQueue;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
@@ -667,9 +668,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
 
-        // Shared event loop not supports currently cross partition shared log.
         this.logManager = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP) ?
-            new LogManagerImpl() : new StripeAwareLogManager();
+            new SharedLogManagerImpl() : new StripeAwareLogManager();
 
         LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
@@ -681,6 +681,7 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setRaftOptions(this.raftOptions);
         opts.setLogManagerDisruptor(options.getLogManagerDisruptor());
         opts.setLogStripes(options.getLogStripes());
+        opts.setAppendQueue(options.getAppendQueue());
 
         return this.logManager.init(opts);
     }
@@ -1467,6 +1468,7 @@ public class NodeImpl implements Node, RaftServerService {
                     (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             opts.setNodeApplyDisruptor(
                     (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+            opts.setAppendQueue(new SharedAppendQueue());
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

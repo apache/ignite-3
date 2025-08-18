@@ -50,7 +50,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(0)
-@Threads(1)
+@Threads(2)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -66,7 +66,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"1"})
+    @Param({"2"})
     private int partitionCount;
 
     @Param({"0"})
@@ -79,7 +79,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"HASH"})
     private String indexType;
 
-    @Param({"uniquePrefix", "uniquePostfix"})
+    @Param({"uniquePrefix"})
     //@Param({"uniquePrefix", "uniquePostfix"})
     private String fieldValueGeneration;
 

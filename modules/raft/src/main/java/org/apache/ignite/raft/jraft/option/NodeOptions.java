@@ -23,6 +23,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.IAppendQueue;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -267,6 +268,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** */
     private List<Stripe> logStripes;
+
+    private IAppendQueue appendQueue;
 
     /**
      * Apply task in blocking or non-blocking mode, ApplyTaskMode.NonBlocking by default.
@@ -744,6 +747,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return this.logStripes;
     }
 
+    public IAppendQueue getAppendQueue() {
+        return appendQueue;
+    }
+
+    public void setAppendQueue(IAppendQueue appendQueue) {
+        this.appendQueue = appendQueue;
+    }
+
     public HybridClock getClock() {
         return this.clock;
     }
@@ -797,6 +808,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setNodeManager(this.getNodeManager());
         nodeOptions.setAppendEntriesByteBufferCollectorPool(appendEntriesByteBufferCollectorPool);
         nodeOptions.setUseVirtualThreads(this.isUseVirtualThreads());
+        nodeOptions.setAppendQueue(this.getAppendQueue());
 
         return nodeOptions;
     }

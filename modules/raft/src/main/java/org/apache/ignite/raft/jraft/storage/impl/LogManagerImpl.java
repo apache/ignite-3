@@ -470,7 +470,13 @@ public class LogManagerImpl implements LogManager {
         return this.logStorage.appendEntries(toAppend);
     }
 
-    protected class AppendBatcher {
+    public interface IAppendBatcher {
+        void append(StableClosure done);
+
+        LogId flush();
+    }
+
+    protected class AppendBatcher implements IAppendBatcher {
         protected final List<StableClosure> storage;
         protected final int cap;
         protected int size;
@@ -487,7 +493,8 @@ public class LogManagerImpl implements LogManager {
             this.lastId = lastId;
         }
 
-        protected LogId flush() {
+        @Override
+        public LogId flush() {
             if (this.size > 0) {
                 this.lastId = appendToStorage(this.toAppend);
                 for (int i = 0; i < this.size; i++) {
@@ -515,7 +522,8 @@ public class LogManagerImpl implements LogManager {
             return this.lastId;
         }
 
-        protected void append(final StableClosure done) {
+        @Override
+        public void append(final StableClosure done) {
             if (this.size == this.cap || this.bufferSize >= LogManagerImpl.this.raftOptions.getMaxAppendBufferSize()) {
                 flush();
             }
@@ -528,14 +536,13 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
-    protected AppendBatcher newAppendBatcher(List<StableClosure> storages, int cap, LogId diskId) {
+    protected IAppendBatcher newAppendBatcher(List<StableClosure> storages, int cap, LogId diskId) {
         return new AppendBatcher(storages, cap, new ArrayList<>(), diskId);
     }
 
     private class StableClosureEventHandler implements EventHandler<IStableClosureEvent> {
         LogId lastId = LogManagerImpl.this.diskId;
-        List<StableClosure> storage = new ArrayList<>(256);
-        AppendBatcher ab = newAppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
+        IAppendBatcher ab = newAppendBatcher(new ArrayList<>(256), 256, LogManagerImpl.this.diskId);
 
         @Override
         public void onEvent(final IStableClosureEvent event, final long sequence, final boolean endOfBatch)
