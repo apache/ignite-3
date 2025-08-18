@@ -71,8 +71,8 @@ import org.apache.ignite.spi.metric.noop.NoopMetricExporterSpi;
 
 /**
  * Minimal kernal context used to read an Apache Ignite 2 cluster working dir.
- * <p></p>
- * Inspired in the {@link StandaloneGridKernalContext}.
+ *
+ * <p>Inspired in the {@link StandaloneGridKernalContext}.
  */
 public class MigrationKernalContext extends GridKernalContextImpl {
 

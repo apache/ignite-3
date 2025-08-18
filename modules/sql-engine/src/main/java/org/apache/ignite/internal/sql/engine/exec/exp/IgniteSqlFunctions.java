@@ -62,7 +62,7 @@ public class IgniteSqlFunctions {
 
     private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, ColumnType.DATE);
     private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, ColumnType.DATE);
-    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01 */
+    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01. */
     private static final LocalDate JAVA_SQL_TIME_DATE = LocalDate.of(1970, 1, 1);
 
     /**

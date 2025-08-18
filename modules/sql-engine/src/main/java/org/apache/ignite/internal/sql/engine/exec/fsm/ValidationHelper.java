@@ -45,11 +45,7 @@ public final class ValidationHelper {
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
-        if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
+        validateQueryType(allowedTypes, queryType);
     }
 
     /** Performs validation of dynamic params provided. **/
@@ -70,6 +66,18 @@ public final class ValidationHelper {
 
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
+        }
+    }
+
+    /** Validates query type. */
+    static void validateQueryType(
+            Set<SqlQueryType> allowedTypes,
+            SqlQueryType queryType
+    ) {
+        if (!allowedTypes.contains(queryType)) {
+            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
     }
 }

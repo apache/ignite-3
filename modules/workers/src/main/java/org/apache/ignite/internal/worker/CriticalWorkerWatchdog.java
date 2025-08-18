@@ -142,7 +142,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
                         .append(delayedThreadIdsToDelays.get(threadInfo.getThreadId()))
                         .append(" ms that is more than the allowed ")
                         .append(maxAllowedLag)
-                        .append(" ms, it is ");
+                        .append(" ms (defined at ignite.system.criticalWorkers.maxAllowedLagMillis local config property), it is ");
 
                 appendThreadInfo(message, threadInfo);
 

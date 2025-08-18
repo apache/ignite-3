@@ -195,6 +195,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     void testAlterReplicaTriggerDefaultZone() throws Exception {
         startCluster(3);
 
+        assertEquals(3, cluster.size());
+
         Node node = getNode(0);
 
         CatalogManager catalogManager = node.catalogManager;
