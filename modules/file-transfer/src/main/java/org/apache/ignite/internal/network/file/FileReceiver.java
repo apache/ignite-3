@@ -133,7 +133,6 @@ class FileReceiver {
         }
     }
 
-
     /**
      * Cancels transfer.
      *

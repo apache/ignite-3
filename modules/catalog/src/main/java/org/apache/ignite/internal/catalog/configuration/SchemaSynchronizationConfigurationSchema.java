@@ -43,6 +43,7 @@ public class SchemaSynchronizationConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 1)
+    // Please pay attention that since maxClockSkewMillis is immutable it's cached in ClockServiceImpl.
     @Immutable
     @PublicName(legacyNames = "maxClockSkew")
     public long maxClockSkewMillis = 500;

@@ -59,7 +59,7 @@ public class Accumulators {
     private final IgniteTypeFactory typeFactory;
 
     /**
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-15859 Documentation.
      */
     public Accumulators(IgniteTypeFactory typeFactory) {
         this.typeFactory = typeFactory;
