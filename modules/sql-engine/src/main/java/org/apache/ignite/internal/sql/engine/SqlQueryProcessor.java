@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -544,7 +545,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     }
 
     private CompletableFuture<Void> waitForMetadata(HybridTimestamp timestamp) {
-        return schemaSyncService.waitForMetadataCompleteness(timestamp);
+        return schemaSyncService.waitForMetadataCompleteness(timestamp)
+                .whenComplete((res, ex) -> {
+                    Loggers.forClass(SqlQueryProcessor.class).info("Schema sync completed for ts={}.", timestamp);
+                });
     }
 
     @TestOnly

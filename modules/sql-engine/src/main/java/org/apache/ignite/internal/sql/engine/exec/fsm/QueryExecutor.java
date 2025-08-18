@@ -43,6 +43,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
@@ -504,7 +506,10 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
     }
 
     CompletableFuture<Void> waitForMetadata(HybridTimestamp timestamp) {
-        return schemaSyncService.waitForMetadataCompleteness(timestamp);
+        return schemaSyncService.waitForMetadataCompleteness(timestamp)
+                .whenComplete((res, ex) -> {
+                    Loggers.forClass(SqlQueryProcessor.class).info("Schema sync completed for ts={}.", timestamp);
+                });
     }
 
     CompletableFuture<QueryPlan> prepare(ParsedResult result, SqlOperationContext operationContext) {

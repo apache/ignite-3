@@ -1956,8 +1956,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }), ioExecutor);
         });
 
+        HybridTimestamp assignmentsHybridTs = hybridTimestamp(assignmentsTimestamp);
+        LOG.info("XXX sync part for table finished [id={}, activationTs={}]", tableId, assignmentsHybridTs);
+
         return tableFuture.thenCompose(table -> {
             tables.put(tableId, table);
+            LOG.info("XXX registered table [name={}, id={}, activationTs={}]", table.name(), tableId, assignmentsHybridTs);
 
             // TODO should be reworked in IGNITE-16763
 
