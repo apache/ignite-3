@@ -1594,7 +1594,7 @@ public class TestBuilders {
 
                     return (UpdatableTable) Proxy.newProxyInstance(
                             getClass().getClassLoader(),
-                            new Class<?> [] {UpdatableTable.class},
+                            new Class<?>[] {UpdatableTable.class},
                             (proxy, method, args) -> {
                                 if ("descriptor".equals(method.getName())) {
                                     return table.descriptor();

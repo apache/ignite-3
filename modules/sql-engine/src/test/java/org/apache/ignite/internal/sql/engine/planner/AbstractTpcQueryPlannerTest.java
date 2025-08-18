@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
@@ -120,7 +120,7 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
         int pos = 0;
 
         for (QueryPlan plan : plans) {
-            MultiStepPlan plan0 = (MultiStepPlan) plan;
+            ExplainablePlan plan0 = (ExplainablePlan) plan;
             String actualPlan = plan0.explain();
 
             if (planUpdater != null) {

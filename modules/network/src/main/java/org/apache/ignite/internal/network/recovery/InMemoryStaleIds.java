@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Implementation of {@link StaleIds} that holds its state in memory.
  */
 public class InMemoryStaleIds implements StaleIds {
-    private final Set<UUID> ids = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<UUID> ids = ConcurrentHashMap.newKeySet();
 
     @Override
     public boolean isIdStale(UUID nodeId) {

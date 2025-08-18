@@ -35,9 +35,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -126,7 +126,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SqlDistributedConfiguration sqlDistributedConfiguration;
 
-    final List<Node> cluster = new ArrayList<>();
+    final List<Node> cluster = new CopyOnWriteArrayList<>();
 
     private NodeFinder nodeFinder;
 

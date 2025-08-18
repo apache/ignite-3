@@ -30,9 +30,10 @@ import org.apache.ignite.internal.sql.SqlCommon;
 public class SqlProperties {
     private long queryTimeout;
     private Set<SqlQueryType> allowedQueryTypes = SqlQueryType.ALL;
+    private boolean allowMultiStatement = true;
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
     private ZoneId timeZoneId = DEFAULT_TIME_ZONE_ID;
-    private @Nullable String userName;
+    @Nullable private String userName;
 
     public SqlProperties() {
     }
@@ -44,6 +45,7 @@ public class SqlProperties {
         defaultSchema = other.defaultSchema;
         timeZoneId = other.timeZoneId;
         userName = other.userName;
+        allowMultiStatement = other.allowMultiStatement;
     }
 
     public SqlProperties queryTimeout(long queryTimeout) {
@@ -89,5 +91,14 @@ public class SqlProperties {
 
     public @Nullable String userName() {
         return userName;
+    }
+
+    public SqlProperties allowMultiStatement(boolean allowMultiStatement) {
+        this.allowMultiStatement = allowMultiStatement;
+        return this;
+    }
+
+    public boolean allowMultiStatement() {
+        return allowMultiStatement;
     }
 }

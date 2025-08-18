@@ -687,6 +687,8 @@ public class SqlDdlGenerator {
         return generate(cacheCfg).tableDefinition;
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private QueryEntity getOrCreateQueryEntity(CacheConfiguration cacheCfg) throws FieldNameConflictException {
         // TODO: Map the whole object and key instead of the query entities
         QueryEntity qe;
