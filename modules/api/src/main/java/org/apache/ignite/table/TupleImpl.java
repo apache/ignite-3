@@ -72,6 +72,7 @@ class TupleImpl implements Tuple, Serializable {
     }
 
     // Copied from IgniteUtils, because it's not accessible from this module.
+    // FIXME: https://issues.apache.org/jira/browse/IGNITE-26228
     private static int capacity(int expSize) {
         if (expSize < 3) {
             return expSize + 1;
