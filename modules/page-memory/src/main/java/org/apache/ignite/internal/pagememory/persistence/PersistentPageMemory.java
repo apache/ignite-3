@@ -122,12 +122,14 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>When page is allocated and is in use:
  * <pre>
- * +-----------------------+----------+
- * |{@link #PAGE_OVERHEAD} |PAGE_SIZE |
- * +-----------------------+----------+
- * |{@link PageHeader}     |Page data |
- * +-----------------------+----------+
+ * +--------------+----------+
+ * |PAGE_OVERHEAD |PAGE_SIZE |
+ * +--------------+----------+
+ * |Page header   |Page data |
+ * +--------------+----------+
  * </pre>
+ *
+ * <p>For the structure of the page header, see {@link PageHeader}.</p>
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PersistentPageMemory implements PageMemory {
