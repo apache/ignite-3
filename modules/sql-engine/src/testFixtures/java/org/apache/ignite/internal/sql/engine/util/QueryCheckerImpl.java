@@ -329,6 +329,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         SqlProperties properties = new SqlProperties()
                 .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false)
                 .timeZoneId(timeZoneId)
                 .defaultSchema(defaultSchema)
                 .userName(Commons.SYSTEM_USER_NAME);

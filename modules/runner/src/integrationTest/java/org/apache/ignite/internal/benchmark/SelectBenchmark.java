@@ -239,10 +239,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
         private final SqlProperties properties = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false);
 
         private final SqlProperties scriptProperties = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.ALL);
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         private final QueryProcessor queryProc = igniteImpl.queryEngine();
         private int pageSize;
