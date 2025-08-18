@@ -33,12 +33,13 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 /**
  * Page header.
  */
+// TODO: IGNITE-16350 Improve documentation and refactoring
 public class PageHeader {
     /** Page marker. */
     public static final long PAGE_MARKER = 0x0000000000000001L;
 
     /** Dirty flag. */
-    private static final long DIRTY_FLAG = 0x0100000000000000L;
+    private static final int DIRTY_FLAG = 0x01000000;
 
     /** Page relative pointer. Does not change once a page is allocated. */
     private static final int RELATIVE_PTR_OFFSET = 8;
@@ -55,6 +56,13 @@ public class PageHeader {
     /** Page temp copy buffer relative pointer offset. */
     private static final int PAGE_TMP_BUF_OFFSET = 40;
 
+    private static final int PARTITION_GENERATION_OFFSET = 8;
+
+    private static final int FLAGS_OFFSET = 12;
+
+    /** Unknown partition generation. */
+    static final int UNKNOWN_PARTITION_GENERATION = -1;
+
     /**
      * Initializes the header of the page.
      *
@@ -62,7 +70,7 @@ public class PageHeader {
      * @param relative Relative pointer to write.
      */
     public static void initNew(long absPtr, long relative) {
-        relative(absPtr, relative);
+        writePartitionGeneration(absPtr, UNKNOWN_PARTITION_GENERATION);
 
         tempBufferPointer(absPtr, INVALID_REL_PTR);
 
@@ -96,13 +104,13 @@ public class PageHeader {
      * @param absPtr Absolute pointer.
      * @param flag Flag mask.
      */
-    private static boolean flag(long absPtr, long flag) {
-        assert (flag & 0xFFFFFFFFFFFFFFL) == 0;
+    private static boolean flag(long absPtr, int flag) {
+        assert (flag & 0xFFFFFF) == 0;
         assert Long.bitCount(flag) == 1;
 
-        long relPtrWithFlags = getLong(absPtr + RELATIVE_PTR_OFFSET);
+        int flags = getInt(absPtr + FLAGS_OFFSET);
 
-        return (relPtrWithFlags & flag) != 0;
+        return (flags & flag) != 0;
     }
 
     /**
@@ -113,21 +121,21 @@ public class PageHeader {
      * @param set New flag value.
      * @return Previous flag value.
      */
-    private static boolean flag(long absPtr, long flag, boolean set) {
-        assert (flag & 0xFFFFFFFFFFFFFFL) == 0;
+    private static boolean flag(long absPtr, int flag, boolean set) {
+        assert (flag & 0xFFFFFF) == 0;
         assert Long.bitCount(flag) == 1;
 
-        long relPtrWithFlags = getLong(absPtr + RELATIVE_PTR_OFFSET);
+        int flags = getInt(absPtr + FLAGS_OFFSET);
 
-        boolean was = (relPtrWithFlags & flag) != 0;
+        boolean was = (flags & flag) != 0;
 
         if (set) {
-            relPtrWithFlags |= flag;
+            flags |= flag;
         } else {
-            relPtrWithFlags &= ~flag;
+            flags &= ~flag;
         }
 
-        putLong(absPtr + RELATIVE_PTR_OFFSET, relPtrWithFlags);
+        putInt(absPtr + FLAGS_OFFSET, flags);
 
         return was;
     }
@@ -295,5 +303,26 @@ public class PageHeader {
         pageId(absPtr, fullPageId.pageId());
 
         pageGroupId(absPtr, fullPageId.groupId());
+    }
+
+    /**
+     * Reads partition generation from page header, {@link #UNKNOWN_PARTITION_GENERATION} if the partition generation was not set.
+     *
+     * @param absPtr Absolute memory pointer to the page header.
+     */
+    public static int readPartitionGeneration(long absPtr) {
+        return getInt(absPtr + PARTITION_GENERATION_OFFSET);
+    }
+
+    /**
+     * Writes partition generation to page header.
+     *
+     * @param absPtr Absolute memory pointer to page header.
+     * @param partitionGeneration Partition generation, strictly positive or {@link #UNKNOWN_PARTITION_GENERATION} if reset is required.
+     */
+    static void writePartitionGeneration(long absPtr, int partitionGeneration) {
+        assert partitionGeneration > 0 || partitionGeneration == UNKNOWN_PARTITION_GENERATION : partitionGeneration;
+
+        putInt(absPtr + PARTITION_GENERATION_OFFSET, partitionGeneration);
     }
 }

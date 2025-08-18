@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullP
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePartitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
@@ -585,6 +586,7 @@ public class PersistentPageMemory implements PageMemory {
 
             fullPageId(absPtr, fullId);
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
+            writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
@@ -741,6 +743,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 fullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
+                writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
 
                 assert !isAcquired(absPtr) :
                         "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr) + ']';
@@ -792,6 +795,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 fullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
+                writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
                 setPageId(pageAddr, pageId);
 
                 assert !isAcquired(absPtr) :
