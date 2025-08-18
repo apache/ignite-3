@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -778,9 +777,7 @@ public final class Commons {
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
     public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
-
-        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+        return properties.allowMultiStatement();
     }
 
     /**

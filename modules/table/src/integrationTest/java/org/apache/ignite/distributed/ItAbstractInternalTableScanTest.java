@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -274,7 +275,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertTrue(subscriberFinishedLatch.await(10, TimeUnit.SECONDS), "count=" + subscriberFinishedLatch.getCount());
 
-        assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
+        assertEquals(NoSuchElementException.class, unwrapCause(gotException.get()).getClass());
 
         validateTxAbortedState(tx);
     }
@@ -319,7 +320,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
-        assertEquals(gotException.get().getCause().getClass(), StorageException.class);
+        assertEquals(StorageException.class, unwrapCause(gotException.get()).getClass());
 
         validateTxAbortedState(tx);
     }

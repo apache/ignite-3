@@ -65,6 +65,7 @@ import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -133,6 +134,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private ReplicationConfiguration replicationConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService testClockService = new TestClockService(clock);
 
     private Set<String> placementDriverNodeNames;
     private Set<String> nodeNames;
@@ -217,7 +220,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     nodeName,
                     clusterService,
                     cmgManager,
-                    new TestClockService(clock),
+                    testClockService,
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
@@ -352,7 +355,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
@@ -414,7 +417,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
