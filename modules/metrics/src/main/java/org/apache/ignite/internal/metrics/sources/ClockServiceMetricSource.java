@@ -23,6 +23,9 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource.Holder;
 
+/**
+ * Metric source, which provides clock service metrics.
+ */
 public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
     /** Source name. */
     public static final String SOURCE_NAME = "clock.service";
@@ -43,6 +46,11 @@ public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
         return new Holder();
     }
 
+    /**
+     * Closure to be called when clock skew exceeded max clock skew.
+     *
+     * @param observedClockSkew Observed max clock skew.
+     */
     public void onMaxClockSkewExceeded(long observedClockSkew) {
         Holder holder = holder();
 

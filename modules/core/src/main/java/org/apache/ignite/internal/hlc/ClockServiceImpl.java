@@ -36,7 +36,6 @@ public class ClockServiceImpl implements ClockService {
 
     private volatile long maxClockSkewMillis = -1;
 
-
     /**
      * Constructor.
      */

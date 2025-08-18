@@ -67,11 +67,11 @@ public class ClockServiceMetricSourceTest extends BaseIgniteAbstractTest {
         clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS / 2));
 
         // Should update bucket number 9
-        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 2 ));
+        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 2));
 
         // Should update bucket number 12
-        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10 ));
-        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10 ));
+        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10));
+        clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10));
 
         assertEquals(1L, clockSkew.value()[9]);
         assertEquals(2L, clockSkew.value()[12]);
