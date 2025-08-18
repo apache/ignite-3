@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.RELATIVE_PTR_MASK;
 import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getIntVolatile;
@@ -40,9 +39,6 @@ public class PageHeader {
 
     /** Dirty flag. */
     private static final int DIRTY_FLAG = 0x01000000;
-
-    /** Page relative pointer. Does not change once a page is allocated. */
-    private static final int RELATIVE_PTR_OFFSET = 8;
 
     /** Page ID offset. */
     private static final int PAGE_ID_OFFSET = 16;
@@ -176,25 +172,6 @@ public class PageHeader {
      */
     public static int pinCount(long absPtr) {
         return getIntVolatile(null, absPtr);
-    }
-
-    /**
-     * Reads relative pointer from the page at the given absolute position.
-     *
-     * @param absPtr Absolute memory pointer to the page header.
-     */
-    public static long readRelative(long absPtr) {
-        return getLong(absPtr + RELATIVE_PTR_OFFSET) & RELATIVE_PTR_MASK;
-    }
-
-    /**
-     * Writes relative pointer to the page at the given absolute position.
-     *
-     * @param absPtr Absolute memory pointer to the page header.
-     * @param relPtr Relative pointer to write.
-     */
-    public static void relative(long absPtr, long relPtr) {
-        putLong(absPtr + RELATIVE_PTR_OFFSET, relPtr & RELATIVE_PTR_MASK);
     }
 
     /**
