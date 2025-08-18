@@ -266,11 +266,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             "HIGH_AVAILABILITY, true",
             "HIGH_AVAILABILITY, false",
     })
-    void testRestartTablePartitionsWithCleanUpTxRollback(
-            ConsistencyMode consistencyMode,
-            boolean primaryReplica
-    ) throws Exception {
+    void testRestartTablePartitionsWithCleanUpTxRollback(ConsistencyMode consistencyMode, boolean primaryReplica) throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
         cluster.startNode(1);
 
         String testZone = "TEST_ZONE";
@@ -325,6 +323,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
 
         if (primaryReplica) {
+            // We expect here that tx will be rolled back because we have restarted primary replica. This is ensured by the fact that we
+            // use ReplicaManager.weakStopReplica(RESTART) in restartTablePartitionsWithCleanup, and this mechanism
+            // waits for replica expiration and stops lease prolongation. As a result, the transaction will not be able to commit
+            // because the primary replica has expired.
             assertThrows(TransactionException.class, tx::commit, "Primary replica has expired, transaction will be rolled back");
         } else {
             tx.commit();
@@ -337,7 +339,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     @Test
     void testRestartTablePartitionsWithCleanUpConcurrentRebalance() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-        IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
+
+        unwrapIgniteImpl(cluster.startNode(1));
 
         String testZone = "TEST_ZONE";
 
