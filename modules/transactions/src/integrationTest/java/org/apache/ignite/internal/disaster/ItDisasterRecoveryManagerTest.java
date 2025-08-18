@@ -199,6 +199,42 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    void testRestartHaTablePartitionsWithCleanUpFails() {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        String testZone = "TEST_ZONE";
+
+        createZone(node.catalogManager(), testZone, 1, 1, null, null, ConsistencyMode.HIGH_AVAILABILITY);
+
+        String tableName = "TABLE_NAME";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName
+        ));
+
+        int partitionId = 0;
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node.name()),
+                testZone,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName,
+                Set.of(partitionId)
+        );
+
+        ExecutionException exception = assertThrows(
+                ExecutionException.class,
+                () -> restartPartitionsWithCleanupFuture.get(10_000, MILLISECONDS)
+        );
+
+        assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
+
+        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     @ParameterizedTest(name = "consistencyMode={0}, primaryReplica={1}, raftLeader={2}")
     @CsvSource({
             "STRONG_CONSISTENCY, true, false",
@@ -312,13 +348,14 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         nodeToCleanup.sql().execute(tx, "INSERT INTO TABLE_NAME VALUES (2, 2)");
 
-        CompletableFuture<Void> restartPartitionsWithCleanupFuture = nodeToCleanup.disasterRecoveryManager().restartTablePartitionsWithCleanup(
-                Set.of(nodeToCleanup.name()),
-                testZone,
-                SqlCommon.DEFAULT_SCHEMA_NAME,
-                tableName,
-                Set.of(0)
-        );
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture =
+                nodeToCleanup.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                        Set.of(nodeToCleanup.name()),
+                        testZone,
+                        SqlCommon.DEFAULT_SCHEMA_NAME,
+                        tableName,
+                        Set.of(0)
+                );
 
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
 

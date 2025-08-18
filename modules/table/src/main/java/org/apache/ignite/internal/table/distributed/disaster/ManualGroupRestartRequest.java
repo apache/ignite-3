@@ -193,8 +193,10 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                                     assignmentsTimestamp
                             ));
                         } else {
-                            throw new DisasterRecoveryException(RESTART_WITH_CLEAN_UP_ERR, "Not enough alive nodes "
-                                    + "to perform reset with clean up.");
+                            restartFutures.add(CompletableFuture.failedFuture(
+                                    new DisasterRecoveryException(RESTART_WITH_CLEAN_UP_ERR, "Not enough alive nodes "
+                                            + "to perform reset with clean up.")
+                            ));
                         }
                     } else {
                         restartFutures.add(
