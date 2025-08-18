@@ -414,7 +414,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             StoragePartitionMeta partitionMeta = readOrCreatePartitionMeta(groupPartitionId, filePageStore, buffer.rewind());
 
             filePageStore.pages(partitionMeta.pageCount());
-            filePageStore.checkpointedPageCount(partitionMeta.pageCount());
 
             filePageStore.setPageAllocationListener(pageIdx -> {
                 assert dataRegion.checkpointManager().checkpointTimeoutLock().checkpointLockIsHeldByThread();

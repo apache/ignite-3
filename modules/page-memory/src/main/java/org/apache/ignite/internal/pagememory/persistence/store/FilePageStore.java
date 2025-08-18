@@ -155,7 +155,7 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Sets the page count.
+     * Init the page count.
      *
      * @param pageCount New page count.
      */
@@ -163,6 +163,8 @@ public class FilePageStore implements PageStore {
         assert pageCount >= 0 : pageCount;
 
         this.pageCount = pageCount;
+        this.checkpointedPageCount = pageCount;
+        this.persistedPageCount = pageCount;
     }
 
     /** Returns number of pages that were successfully checkpointed. */

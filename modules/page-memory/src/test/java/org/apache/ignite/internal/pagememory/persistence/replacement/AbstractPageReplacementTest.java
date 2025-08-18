@@ -360,7 +360,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 );
 
                 filePageStore.pages(partitionMeta.pageCount());
-                filePageStore.checkpointedPageCount(partitionMeta.pageCount());
 
                 filePageStore.setPageAllocationListener(pageIdx -> {
                     assert checkpointManager.checkpointTimeoutLock().checkpointLockIsHeldByThread();

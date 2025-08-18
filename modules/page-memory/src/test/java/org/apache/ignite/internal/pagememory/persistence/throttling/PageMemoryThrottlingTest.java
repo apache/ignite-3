@@ -58,6 +58,7 @@ import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakePartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
@@ -189,12 +190,16 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         filePageStore.ensure();
 
         pageStoreManager.addStore(groupPartitionId, filePageStore);
-        partitionMetaManager.addMeta(groupPartitionId, partitionMetaManager.readOrCreateMeta(
+        PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                 null,
                 groupPartitionId,
                 filePageStore,
                 ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN)
-        ));
+        );
+
+        partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
+
+        filePageStore.pages(partitionMeta.pageCount());
     }
 
     @AfterEach
