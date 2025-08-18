@@ -88,7 +88,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
-            ProtocolBitmaskFeature.COMPUTE_EVENTS,
+            ProtocolBitmaskFeature.COMPUTE_TASK_ID,
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,

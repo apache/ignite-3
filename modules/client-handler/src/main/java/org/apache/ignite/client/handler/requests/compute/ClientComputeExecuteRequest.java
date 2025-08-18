@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_EVENTS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
@@ -77,7 +77,7 @@ public class ClientComputeExecuteRequest {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
 
-        UUID taskId = clientContext.hasFeature(COMPUTE_EVENTS) ? in.unpackUuidNullable() : null;
+        UUID taskId = clientContext.hasFeature(COMPUTE_TASK_ID) ? in.unpackUuidNullable() : null;
 
         ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(taskId != null ? Type.BROADCAST : Type.SINGLE)
                 .eventUser(clientContext.userDetails())

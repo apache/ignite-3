@@ -527,7 +527,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private static void packTaskId(PayloadOutputChannel out, @Nullable UUID taskId) {
-        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_EVENTS)) {
+        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_TASK_ID)) {
             out.out().packUuidNullable(taskId);
         }
     }

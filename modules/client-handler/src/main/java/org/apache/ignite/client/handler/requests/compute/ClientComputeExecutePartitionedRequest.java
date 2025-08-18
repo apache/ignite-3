@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_EVENTS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.UUID;
@@ -67,7 +67,7 @@ public class ClientComputeExecutePartitionedRequest {
         int partitionId = in.unpackInt();
 
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
-        UUID taskId = clientContext.hasFeature(COMPUTE_EVENTS) ? in.unpackUuidNullable() : null;
+        UUID taskId = clientContext.hasFeature(COMPUTE_TASK_ID) ? in.unpackUuidNullable() : null;
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)

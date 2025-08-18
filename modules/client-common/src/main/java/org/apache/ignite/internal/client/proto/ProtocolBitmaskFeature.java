@@ -80,9 +80,9 @@ public enum ProtocolBitmaskFeature {
     SQL_DIRECT_TX_MAPPING(10),
 
     /**
-     * Compute events.
+     * Compute task ID for broadcast jobs.
      */
-    COMPUTE_EVENTS(11);
+    COMPUTE_TASK_ID(11);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
