@@ -60,7 +60,7 @@ public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
     }
 
     /** Holder class. */
-    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final DistributionMetric clockSkew = new DistributionMetric(
                 "ClockSkew",
                 "Observed clock skew.",
