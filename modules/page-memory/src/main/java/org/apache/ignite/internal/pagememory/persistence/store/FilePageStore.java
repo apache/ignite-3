@@ -154,19 +154,6 @@ public class FilePageStore implements PageStore {
         return pageCount;
     }
 
-    /** Returns number of pages persisted during last successful checkpoint. */
-    public int checkpointedPageCount() {
-        return checkpointedPageCount;
-    }
-
-    /**
-     * Returns number of pages persisted during last checkpoint. Can be larger than {@link #checkpointedPageCount} before checkpoint
-     * completes.
-     */
-    public int persistedPageCount() {
-        return persistedPageCount;
-    }
-
     /**
      * Sets the page count.
      *
@@ -176,6 +163,11 @@ public class FilePageStore implements PageStore {
         assert pageCount >= 0 : pageCount;
 
         this.pageCount = pageCount;
+    }
+
+    /** Returns number of pages that were successfully checkpointed. */
+    public int checkpointedPageCount() {
+        return checkpointedPageCount;
     }
 
     /**
@@ -188,6 +180,11 @@ public class FilePageStore implements PageStore {
 
         this.checkpointedPageCount = checkpointedPageCount;
         this.persistedPageCount = checkpointedPageCount;
+    }
+
+    /** Returns number of pages stored on the disk. Can be larger than {@link #checkpointedPageCount} before checkpoint completes. */
+    public int persistedPageCount() {
+        return persistedPageCount;
     }
 
     /**

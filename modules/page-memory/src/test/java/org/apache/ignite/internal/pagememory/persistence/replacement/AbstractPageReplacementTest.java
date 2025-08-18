@@ -129,7 +129,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         var dataRegionList = new ArrayList<DataRegion<PersistentPageMemory>>();
 
-        checkpointManager = spy(new CheckpointManager(
+        checkpointManager = new CheckpointManager(
                 NODE_NAME,
                 null,
                 failureManager,
@@ -141,7 +141,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 mock(LogSyncer.class),
                 executorService,
                 PAGE_SIZE
-        ));
+        );
 
         pageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
@@ -199,7 +199,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             doAnswer(invocation -> {
                 if (startWritePagesOnCheckpointFuture.isDone()) {
-
                     startWritePagesOnPageReplacementFuture.complete(null);
                 }
 
@@ -249,7 +248,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint.
             doAnswer(invocation -> {
                 CompletableFuture<DeltaFilePageStoreIo> callRealMethodResult =
                         (CompletableFuture<DeltaFilePageStoreIo>) invocation.callRealMethod();
@@ -278,7 +277,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             doAnswer(invocation -> {
                 if (startWritePagesOnCheckpointFuture.isDone()) {
-                    // Second time the method should be invoked on page replacement, let's hold it.
                     startWritePagesOnPageReplacementFuture.complete(null);
 
                     assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
@@ -362,6 +360,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 );
 
                 filePageStore.pages(partitionMeta.pageCount());
+                filePageStore.checkpointedPageCount(partitionMeta.pageCount());
 
                 filePageStore.setPageAllocationListener(pageIdx -> {
                     assert checkpointManager.checkpointTimeoutLock().checkpointLockIsHeldByThread();
@@ -401,9 +400,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private void createAndFillTestSimpleValuePages(int pageCount) throws Exception {
         for (int i = 0; i < pageCount; i++) {
-            long pageId = pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA);
-            createAndFillTestSimpleValuePage(pageId);
-            createAndFillTestSimpleValuePage(pageId);
+            createAndFillTestSimpleValuePage(pageMemory.allocatePage(null, GROUP_ID, PARTITION_ID, FLAG_DATA));
         }
     }
 
