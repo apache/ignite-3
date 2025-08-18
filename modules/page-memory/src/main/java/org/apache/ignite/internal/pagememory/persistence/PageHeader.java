@@ -30,7 +30,23 @@ import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
 import org.apache.ignite.internal.pagememory.FullPageId;
 
 /**
- * Page header.
+ * Helper class for working with the page header that is stored in memory for {@link PersistentPageMemory}.
+ *
+ * <p>Page header has the following structure:</p>
+ * <pre>
+ * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
+ * |     8 bytes     |       4 bytes       |4 bytes |8 bytes |4 bytes  |4 bytes   |8 bytes   |       8 bytes        |
+ * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
+ * |Marker/Timestamp |Partition generation |Flags   |Page ID |Group ID |Pin count |Lock data |Checkpoint tmp buffer |
+ * +-----------------+---------------------+--------+--------+---------+----------+----------+----------------------+
+ * </pre>
+ *
+ * <p>Additional information:</p>
+ * <ul>
+ *     <li>Size of the page header in {@link PersistentPageMemory#PAGE_OVERHEAD}.</li>
+ *     <li>Flags currently store only one value, whether the page is dirty or not. Only one byte is used for now, the rest can be reused
+ *     later, we do not remove them only for alignment.</li>
+ * </ul>
  */
 // TODO: IGNITE-16350 Improve documentation and refactoring
 public class PageHeader {

@@ -122,15 +122,12 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>When page is allocated and is in use:
  * <pre>
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
- * |     8 bytes      |8 bytes |8 bytes |4 b |4 b |8 bytes |8 bytes |       PAGE_SIZE      |
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
- * | Marker/Timestamp |Rel ptr |Page ID |C ID|PIN | LOCK   |TMP BUF |       Page data      |
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
+ * +-----------------------+----------+
+ * |{@link #PAGE_OVERHEAD} |PAGE_SIZE |
+ * +-----------------------+----------+
+ * |{@link PageHeader}     |Page data |
+ * +-----------------------+----------+
  * </pre>
- *
- * <p>Note that first 8 bytes of page header are used either for page marker or for next relative pointer depending on whether the page is
- * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PersistentPageMemory implements PageMemory {
@@ -149,7 +146,7 @@ public class PersistentPageMemory implements PageMemory {
     /** Page lock offset. */
     public static final int PAGE_LOCK_OFFSET = 32;
 
-    /** 8b Marker/timestamp 8b Relative pointer 8b Page ID 4b Group ID 4b Pin count 8b Lock 8b Temporary buffer. */
+    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 8b Lock, 8b Temporary buffer. */
     public static final int PAGE_OVERHEAD = 48;
 
     /** Try again tag. */
