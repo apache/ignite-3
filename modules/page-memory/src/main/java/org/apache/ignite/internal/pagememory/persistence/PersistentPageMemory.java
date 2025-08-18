@@ -115,7 +115,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Page memory with some persistence related additions.
  *
- * <p>Page header structure is described by the following diagram.
+ * <p>Page header structure is described in {@link PageHeader}.
  *
  * <p>When page is not allocated (in a free list):
  * <pre>
@@ -128,15 +128,12 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>When page is allocated and is in use:
  * <pre>
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
- * |     8 bytes      |8 bytes |8 bytes |4 b |4 b |8 bytes |8 bytes |       PAGE_SIZE      |
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
- * | Marker/Timestamp |Rel ptr |Page ID |C ID|PIN | LOCK   |TMP BUF |       Page data      |
- * +------------------+--------+--------+----+----+--------+--------+----------------------+
+ * +-------------------+----------+
+ * |PAGE_OVERHEAD      |PAGE_SIZE |
+ * +-------------------+----------+
+ * |{@link PageHeader} |Page data |
+ * +-------------------+----------+
  * </pre>
- *
- * <p>Note that first 8 bytes of page header are used either for page marker or for next relative pointer depending on whether the page is
- * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PersistentPageMemory implements PageMemory {
@@ -1131,19 +1128,19 @@ public class PersistentPageMemory implements PageMemory {
                     pageSize()
             );
 
-            assert getType(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : hexLong(fullPageId.pageId());
-            assert getVersion(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : hexLong(fullPageId.pageId());
+            assert getType(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : fullPageId;
+            assert getVersion(checkpointTmpAbsPtr + PAGE_OVERHEAD) != 0 : fullPageId;
 
             writeDirtyFlag(absPtr, false);
             writeCheckpointTempBufferRelativePointer(absPtr, checkpointTmpRelPtr);
             // info for checkpoint buffer cleaner.
             writeFullPageId(checkpointTmpAbsPtr, fullPageId);
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO GG-11480
-            assert getCrc(checkpointTmpAbsPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : fullPageId; // TODO IGNITE-16612
+            assert getCrc(checkpointTmpAbsPtr + PAGE_OVERHEAD) == 0 : fullPageId; // TODO IGNITE-16612
         }
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : hexLong(fullPageId.pageId()); // TODO IGNITE-16612
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : fullPageId; // TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
