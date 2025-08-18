@@ -144,7 +144,7 @@ public class PersistentPageMemory implements PageMemory {
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemory.class);
 
     /** Full relative pointer mask. */
-    public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
+    static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
 
     /** Invalid relative pointer value. */
     public static final long INVALID_REL_PTR = RELATIVE_PTR_MASK;
@@ -528,18 +528,18 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Returns {@code true} if page is dirty.
      *
-     * @param absPtr Absolute pointer.
+     * @param absPtr Absolute memory pointer to page with header.
      */
-    private boolean isDirty(long absPtr) {
+    private static boolean isDirty(long absPtr) {
         return readDirtyFlag(absPtr);
     }
 
     @Override
     public long allocatePageNoReuse(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
-        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : "grpId=" + grpId + ", partId=" + partId;
 
-        assert started;
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+        assert started : "grpId=" + grpId + ", partId=" + partId;
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread() : "grpId=" + grpId + ", partId=" + partId;
 
         PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null) {
@@ -558,13 +558,9 @@ public class PersistentPageMemory implements PageMemory {
         try {
             FullPageId fullId = new FullPageId(pageId, grpId);
 
-            long relPtr = seg.loadedPages.get(
-                    grpId,
-                    effectivePageId(pageId),
-                    seg.partGeneration(grpId, partId),
-                    INVALID_REL_PTR,
-                    OUTDATED_REL_PTR
-            );
+            int partGeneration = partitionGeneration(seg, fullId);
+
+            long relPtr = resolveRelativePointer(seg, fullId, partGeneration);
 
             if (relPtr == OUTDATED_REL_PTR) {
                 relPtr = seg.refreshOutdatedPage(grpId, pageId, false);
@@ -580,26 +576,27 @@ public class PersistentPageMemory implements PageMemory {
                 relPtr = seg.removePageForReplacement();
             }
 
+            // Absolute memory pointer to page with header.
             long absPtr = seg.absolute(relPtr);
 
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             writeFullPageId(absPtr, fullId);
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
+            writePartitionGeneration(absPtr, partGeneration);
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0 : fullId; // TODO IGNITE-16612
 
-            assert !isAcquired(absPtr) :
-                    "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr)
-                            + ", absPtr=" + hexLong(absPtr) + ", pinCntr=" + readAcquiresCount(absPtr) + ']';
+            assert !isAcquired(absPtr) : "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr)
+                    + ", pinCntr=" + readAcquiresCount(absPtr) + ", fullId=" + fullId + ']';
 
             setDirty(fullId, absPtr, true, true);
 
             seg.pageReplacementPolicy.onMiss(relPtr);
 
-            seg.loadedPages.put(grpId, effectivePageId(pageId), relPtr, seg.partGeneration(grpId, partId));
+            seg.loadedPages.put(grpId, effectivePageId(pageId), relPtr, partGeneration);
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + dataRegionConfiguration.name()
@@ -676,8 +673,11 @@ public class PersistentPageMemory implements PageMemory {
             boolean restore,
             @Nullable AtomicBoolean pageAllocated
     ) throws IgniteInternalCheckedException {
-        assert started;
-        assert pageIndex(pageId) != 0 : "Partition meta should should not be read through PageMemory so as not to occupy memory.";
+        assert started : "grpId=" + grpId + ", partId=" + pageId;
+        assert pageIndex(pageId) != 0 : String.format(
+                "Partition meta should should not be read through PageMemory so as not to occupy memory: [grpId=%s, pageId=%s]",
+                grpId, pageId
+        );
 
         int partId = partitionId(pageId);
 
@@ -696,6 +696,7 @@ public class PersistentPageMemory implements PageMemory {
 
             // The page is loaded to the memory.
             if (relPtr != INVALID_REL_PTR) {
+                // Absolute memory pointer to page with header.
                 long absPtr = seg.absolute(relPtr);
 
                 seg.acquirePage(absPtr);
@@ -716,16 +717,10 @@ public class PersistentPageMemory implements PageMemory {
         boolean readPageFromStore = false;
 
         try {
-            int partGeneration = seg.partGeneration(grpId, partId);
+            int partGeneration = partitionGeneration(seg, fullId);
 
             // Double-check.
-            long relPtr = seg.loadedPages.get(
-                    grpId,
-                    fullId.effectivePageId(),
-                    partGeneration,
-                    INVALID_REL_PTR,
-                    OUTDATED_REL_PTR
-            );
+            long relPtr = resolveRelativePointer(seg, fullId, partGeneration);
 
             // Absolute memory pointer to page with header.
             long absPtr;
@@ -741,6 +736,7 @@ public class PersistentPageMemory implements PageMemory {
                     relPtr = seg.removePageForReplacement();
                 }
 
+                // Absolute memory pointer to page with header.
                 absPtr = seg.absolute(relPtr);
 
                 writeFullPageId(absPtr, fullId);
@@ -764,6 +760,7 @@ public class PersistentPageMemory implements PageMemory {
                         partGeneration
                 );
 
+                // Absolute memory pointer to page without header.
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
                 if (!restore) {
@@ -791,18 +788,23 @@ public class PersistentPageMemory implements PageMemory {
 
                 relPtr = seg.refreshOutdatedPage(grpId, pageId, false);
 
+                // Absolute memory pointer to page with header.
                 absPtr = seg.absolute(relPtr);
 
+                // Absolute memory pointer to page without header.
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
                 zeroMemory(pageAddr, pageSize());
 
                 writeFullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
+                writePartitionGeneration(absPtr, partGeneration);
                 setPageId(pageAddr, pageId);
 
-                assert !isAcquired(absPtr) :
-                        "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr) + ']';
+                assert !isAcquired(absPtr) : String.format(
+                        "Pin counter must be 0 for a new page [relPtr=%s, absPtr=%s, fullId=%s]",
+                        hexLong(relPtr), hexLong(absPtr), fullId
+                );
 
                 rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
@@ -828,6 +830,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 assert isPageWriteLocked(lockedPageAbsPtr) : "Page is expected to be locked: [pageId=" + fullId + "]";
 
+                // Absolute memory pointer to page without header.
                 long pageAddr = lockedPageAbsPtr + PAGE_OVERHEAD;
 
                 ByteBuffer buf = wrapPointer(pageAddr, pageSize());
@@ -899,32 +902,28 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Get current partition generation tag.
+     * Returns current partition generation.
      *
      * @param seg Segment.
-     * @param fullPageId Full page id.
-     * @return Current partition generation tag.
+     * @param fullPageId Full page ID.
      */
-    private int generationTag(Segment seg, FullPageId fullPageId) {
-        return seg.partGeneration(
-                fullPageId.groupId(),
-                partitionId(fullPageId.pageId())
-        );
+    private int partitionGeneration(Segment seg, FullPageId fullPageId) {
+        return seg.partGeneration(fullPageId.groupId(), fullPageId.partitionId());
     }
 
     /**
      * Resolver relative pointer via {@link LoadedPagesMap}.
      *
      * @param seg Segment.
-     * @param fullId Full page id.
-     * @param reqVer Required version.
+     * @param fullId Full page ID.
+     * @param partitionGeneration Required partition generation.
      * @return Relative pointer.
      */
-    private long resolveRelativePointer(Segment seg, FullPageId fullId, int reqVer) {
+    private long resolveRelativePointer(Segment seg, FullPageId fullId, int partitionGeneration) {
         return seg.loadedPages.get(
                 fullId.groupId(),
                 fullId.effectivePageId(),
-                reqVer,
+                partitionGeneration,
                 INVALID_REL_PTR,
                 OUTDATED_REL_PTR
         );
@@ -1051,14 +1050,13 @@ public class PersistentPageMemory implements PageMemory {
     public boolean hasLoadedPage(FullPageId fullPageId) {
         int grpId = fullPageId.groupId();
         long pageId = fullPageId.effectivePageId();
-        int partId = partitionId(pageId);
 
         Segment seg = segment(grpId, pageId);
 
         seg.readLock().lock();
 
         try {
-            long res = seg.loadedPages.get(grpId, pageId, seg.partGeneration(grpId, partId), INVALID_REL_PTR, INVALID_REL_PTR);
+            long res = seg.loadedPages.get(grpId, pageId, partitionGeneration(seg, fullPageId), INVALID_REL_PTR, INVALID_REL_PTR);
 
             return res != INVALID_REL_PTR;
         } finally {
@@ -1557,14 +1555,14 @@ public class PersistentPageMemory implements PageMemory {
          * consistency. The phase should not start until all dirty pages are written by the checkpoint writer, but for page replacement we
          * must block it ourselves.</p>
          *
-         * @param fullPageId Candidate page ID.
-         * @param absPtr Absolute pointer to the candidate page.
+         * @param fullPageId Candidate full page ID.
+         * @param absPtr Absolute memory pointer to candidate page with header.
          * @return {@code True} if the page replacement was successful, otherwise need to try another one.
          * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
          *      checkpoint.
          */
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
-            assert writeLock().isHeldByCurrentThread();
+            assert writeLock().isHeldByCurrentThread() : fullPageId;
 
             if (isAcquired(absPtr)) {
                 // Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
@@ -1608,7 +1606,7 @@ public class PersistentPageMemory implements PageMemory {
          *
          * @param grpId Group ID.
          * @param pageId Page ID.
-         * @param rmv {@code True} if page should be removed.
+         * @param rmv {@code True} if page should be removed from {@link #loadedPages}.
          * @return Relative pointer to refreshed page.
          */
         public long refreshOutdatedPage(int grpId, long pageId, boolean rmv) {
@@ -1618,7 +1616,7 @@ public class PersistentPageMemory implements PageMemory {
 
             long relPtr = loadedPages.refresh(grpId, effectivePageId(pageId), partGeneration);
 
-            // TODO: IGNITE-26216 Продолжить тут
+            // Absolute memory pointer to page with header.
             long absPtr = absolute(relPtr);
 
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
@@ -1632,7 +1630,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 writeCheckpointTempBufferRelativePointer(absPtr, INVALID_REL_PTR);
 
-                // We pinned the page when allocated the temp buffer, release it now.
+                // We pinned the page when allocated the checkpoint temp buffer, release it now.
                 PageHeader.releasePage(absPtr);
 
                 releaseCheckpointBufferPage(checkpointTmpBufPtr);
@@ -1763,7 +1761,7 @@ public class PersistentPageMemory implements PageMemory {
          * @return New partition generation.
          */
         private int incrementPartGeneration(int grpId, int partId) {
-            assert getWriteHoldCount() > 0;
+            assert getWriteHoldCount() > 0 : "grpId=" + grpId + ", partId=" + partId;
 
             GroupPartitionId grpPart = new GroupPartitionId(grpId, partId);
 
@@ -2045,10 +2043,11 @@ public class PersistentPageMemory implements PageMemory {
             CheckpointMetricsTracker tracker,
             boolean useTryWriteLockOnPage
     ) throws IgniteInternalCheckedException {
-        assert buf.remaining() == pageSize() : "fullId=" + hexLong(fullId.pageId()) + ", remaining=" + buf.remaining();
+        assert buf.remaining() == pageSize() : "fullId=" + fullId + ", remaining=" + buf.remaining();
 
         Segment seg = segment(fullId.groupId(), fullId.pageId());
 
+        // Absolute memory pointer to page with header.
         long absPtr = 0;
 
         long relPtr;
@@ -2064,7 +2063,9 @@ public class PersistentPageMemory implements PageMemory {
                 return;
             }
 
-            relPtr = resolveRelativePointer(seg, fullId, partitionGeneration = generationTag(seg, fullId));
+            partitionGeneration = partitionGeneration(seg, fullId);
+
+            relPtr = resolveRelativePointer(seg, fullId, partitionGeneration);
 
             // Page may have been cleared during eviction. We have nothing to do in this case.
             if (relPtr == INVALID_REL_PTR) {
@@ -2090,7 +2091,7 @@ public class PersistentPageMemory implements PageMemory {
 
             try {
                 // Double-check.
-                relPtr = resolveRelativePointer(seg, fullId, generationTag(seg, fullId));
+                relPtr = resolveRelativePointer(seg, fullId, partitionGeneration(seg, fullId));
 
                 if (relPtr == INVALID_REL_PTR) {
                     return;

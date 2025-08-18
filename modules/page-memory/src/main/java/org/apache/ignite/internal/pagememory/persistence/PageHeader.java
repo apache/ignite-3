@@ -49,8 +49,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
  *     later, we do not remove them only for alignment.</li>
  * </ul>
  */
-// TODO: IGNITE-26216 заиспользовать уже
-// TODO: IGNITE-26216 я поменял расположение флагов, надо поменять документацию
 public class PageHeader {
     /** Page marker. */
     private static final long PAGE_MARKER = 0x0000000000000001L;
@@ -338,7 +336,7 @@ public class PageHeader {
      *
      * @param absPtr Absolute memory pointer to page header.
      */
-    static int readPartitionGeneration(long absPtr) {
+    public static int readPartitionGeneration(long absPtr) {
         return getInt(absPtr + PARTITION_GENERATION_OFFSET);
     }
 

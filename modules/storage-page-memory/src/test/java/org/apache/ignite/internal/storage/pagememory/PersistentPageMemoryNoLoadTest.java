@@ -65,6 +65,7 @@ import org.apache.ignite.internal.pagememory.configuration.CheckpointConfigurati
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -72,7 +73,9 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMet
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgressImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -583,5 +586,72 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         } finally {
             mem.stop(true);
         }
+    }
+
+    @Test
+    void testPartitionGenerationAfterAllocatePage() throws Exception {
+        runWithStartedPersistentPageMemory(mem -> {
+            FullPageId fullPageId = allocatePage(mem);
+
+            // Absolute memory pointer to page with header.
+            long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
+
+            assertEquals(1, PageHeader.readPartitionGeneration(absPtr));
+        });
+    }
+
+    @Test
+    void testPartitionGenerationAfterAllocatePageAndInvalidatePartition() throws Exception {
+        runWithStartedPersistentPageMemory(mem -> {
+            assertEquals(2, mem.invalidate(GRP_ID, PARTITION_ID));
+
+            FullPageId fullPageId = allocatePage(mem);
+
+            // Absolute memory pointer to page with header.
+            long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
+
+            assertEquals(2, PageHeader.readPartitionGeneration(absPtr));
+        });
+    }
+
+    @Test
+    void testPartitionGenerationAfterCheckpointWritePageAndInvalidatePartition() throws Exception {
+        runWithStartedPersistentPageMemory(mem -> {
+            FullPageId fullPageId = allocatePage(mem);
+
+            mem.beginCheckpoint(new CheckpointProgressImpl(42));
+
+            assertEquals(2, mem.invalidate(GRP_ID, PARTITION_ID));
+
+            mem.checkpointWritePage(
+                    fullPageId,
+                    ByteBuffer.allocate(mem.pageSize()),
+                    (fullPageId1, buf, tag) -> {},
+                    new CheckpointMetricsTracker(),
+                    true
+            );
+
+            // Absolute memory pointer to page with header.
+            long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
+
+            assertEquals(2, PageHeader.readPartitionGeneration(absPtr));
+        });
+    }
+
+    private void runWithStartedPersistentPageMemory(ConsumerX<PersistentPageMemory> c) throws Exception {
+        PersistentPageMemory mem = (PersistentPageMemory) memory();
+
+        mem.start();
+
+        try {
+            c.accept(mem);
+        } finally {
+            mem.stop(true);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ConsumerX<T> {
+        void accept(T t) throws Exception;
     }
 }

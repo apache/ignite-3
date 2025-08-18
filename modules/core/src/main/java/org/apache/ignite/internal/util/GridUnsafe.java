@@ -1272,7 +1272,7 @@ public abstract class GridUnsafe {
      * @param upd Upd.
      * @return {@code True} if operation completed successfully, {@code false} - otherwise.
      */
-    public static boolean compareAndSwapLong(Object obj, long off, long exp, long upd) {
+    public static boolean compareAndSwapLong(@Nullable Object obj, long off, long exp, long upd) {
         return UNSAFE.compareAndSwapLong(obj, off, exp, upd);
     }
 
@@ -1336,7 +1336,7 @@ public abstract class GridUnsafe {
      * @param off Offset.
      * @param val Value.
      */
-    public static void putIntVolatile(Object obj, long off, int val) {
+    public static void putIntVolatile(@Nullable Object obj, long off, int val) {
         UNSAFE.putIntVolatile(obj, off, val);
     }
 
@@ -1347,7 +1347,7 @@ public abstract class GridUnsafe {
      * @param off Offset.
      * @return Long value.
      */
-    public static long getLongVolatile(Object obj, long off) {
+    public static long getLongVolatile(@Nullable Object obj, long off) {
         return UNSAFE.getLongVolatile(obj, off);
     }
 

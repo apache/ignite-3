@@ -190,7 +190,6 @@ public class PagePool {
 
                 assert relative != INVALID_REL_PTR;
 
-                // TODO: IGNITE-26216 может еще поменяем парень!
                 initNew(absPtr);
 
                 rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag);
