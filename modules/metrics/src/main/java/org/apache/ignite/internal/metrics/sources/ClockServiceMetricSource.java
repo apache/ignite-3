@@ -25,7 +25,7 @@ import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource.Holde
 
 public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
     /** Source name. */
-    public static final String SOURCE_NAME = "clock-service";
+    public static final String SOURCE_NAME = "clock.service";
 
     /** Histogram buckets for clock skew in milliseconds. */
     private static final long[] HISTOGRAM_BUCKETS =
