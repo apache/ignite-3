@@ -21,6 +21,8 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.BitSet;
@@ -70,6 +72,7 @@ public class ClientComputeExecuteColocatedRequest {
         byte[] tupleBytes = in.readBinary();
 
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));// Placeholder for a possible future usage
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {

@@ -20,6 +20,8 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJob;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
@@ -29,7 +31,6 @@ import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -66,8 +67,8 @@ public class ClientComputeExecutePartitionedRequest {
         int tableId = in.unpackInt();
         int partitionId = in.unpackInt();
 
-        Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
-        UUID taskId = clientContext.hasFeature(COMPUTE_TASK_ID) ? in.unpackUuidNullable() : null;
+        Job job = unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        UUID taskId = unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.BROADCAST)

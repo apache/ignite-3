@@ -413,6 +413,7 @@ public class ClientCompute implements IgniteCompute {
                     keyWriter.accept(outputChannel, schema);
 
                     packJob(outputChannel, descriptor, arg);
+                    packTaskId(outputChannel, null); // Placeholder for a possible future usage
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
