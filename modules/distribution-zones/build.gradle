@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-catalog')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
@@ -67,6 +68,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
