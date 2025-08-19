@@ -17,9 +17,30 @@
 
 package org.apache.ignite.example.serialization;
 
-public class JsonResult {
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import org.apache.ignite.marshalling.Marshaller;
 
-    String originalWord;
-    String resultWord;
-    int length;
+class JsonResultMarshaller implements Marshaller<JsonResult, byte[]> {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Override
+    public byte[] marshal(JsonResult o) {
+        try {
+            return MAPPER.writeValueAsBytes(o);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public JsonResult unmarshal(byte[] raw) {
+        try {
+            return MAPPER.readValue(raw, JsonResult.class);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

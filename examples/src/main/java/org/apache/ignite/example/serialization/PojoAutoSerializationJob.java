@@ -17,17 +17,25 @@
 
 package org.apache.ignite.example.serialization;
 
-public class AutoSerialazableArg {
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-    public String word;
-    public boolean upper;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-    public AutoSerialazableArg() {
-    }
+public class PojoAutoSerializationJob implements ComputeJob<AutoSerializableArg, AutoSerializableResult> {
+    @Override
+    public CompletableFuture<AutoSerializableResult> executeAsync(JobExecutionContext ctx, AutoSerializableArg arg) {
 
-    public AutoSerialazableArg(String word, boolean upper) {
-        this.word = word;
-        this.upper = upper;
+        if (arg == null) {
+            return null;
+        }
+
+        AutoSerializableResult result = new AutoSerializableResult();
+
+        result.originalWord = arg.word;
+        result.resultWord = arg.isUpperCase ? arg.word.toUpperCase() : arg.word.toLowerCase();
+        result.length = arg.word.length();
+        return completedFuture(result);
     }
 }
-

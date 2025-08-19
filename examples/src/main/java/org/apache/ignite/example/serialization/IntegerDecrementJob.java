@@ -17,9 +17,16 @@
 
 package org.apache.ignite.example.serialization;
 
-public class JsonResult {
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-    String originalWord;
-    String resultWord;
-    int length;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+public class IntegerDecrementJob implements ComputeJob<Integer, Integer> {
+    @Override
+    public CompletableFuture<Integer> executeAsync(JobExecutionContext ctx, Integer arg) {
+        return completedFuture(Optional.ofNullable(arg).map(integer -> integer - 1).orElse(null));
+    }
 }

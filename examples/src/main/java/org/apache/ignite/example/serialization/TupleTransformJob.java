@@ -17,9 +17,20 @@
 
 package org.apache.ignite.example.serialization;
 
-public class JsonResult {
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-    String originalWord;
-    String resultWord;
-    int length;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.Tuple;
+
+class TupleTransformJob implements ComputeJob<Tuple, Tuple> {
+
+    @Override
+    public CompletableFuture<Tuple> executeAsync(JobExecutionContext ctx, Tuple arg) {
+        Tuple resultTuple = Tuple.copy(arg);
+        resultTuple.set("key", "new value");
+
+        return completedFuture(resultTuple);
+    }
 }

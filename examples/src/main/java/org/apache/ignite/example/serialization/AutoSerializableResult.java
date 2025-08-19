@@ -19,7 +19,7 @@ package org.apache.ignite.example.serialization;
 
 public class AutoSerializableResult {
 
-    public String original;
-    public String result;
-    public int length;
+    String originalWord;
+    String resultWord;
+    int length;
 }

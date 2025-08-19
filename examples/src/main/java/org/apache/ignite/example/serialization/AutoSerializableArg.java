@@ -17,9 +17,17 @@
 
 package org.apache.ignite.example.serialization;
 
-public class JsonResult {
+public class AutoSerializableArg {
 
-    String originalWord;
-    String resultWord;
-    int length;
+    String word;
+    boolean isUpperCase;
+
+    public AutoSerializableArg() {
+    }
+
+    AutoSerializableArg(String word, boolean isUpperCase) {
+        this.word = word;
+        this.isUpperCase = isUpperCase;
+    }
 }
+
