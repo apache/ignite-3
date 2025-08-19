@@ -55,20 +55,20 @@ public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
         Holder holder = holder();
 
         if (holder != null) {
-            holder.clockSkew.add(observedClockSkew);
+            holder.clockSkewExceedingMaxClockSkew.add(observedClockSkew);
         }
     }
 
     /** Holder class. */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final DistributionMetric clockSkew = new DistributionMetric(
-                "ClockSkew",
-                "Observed clock skew.",
+        private final DistributionMetric clockSkewExceedingMaxClockSkew = new DistributionMetric(
+                "ClockSkewExceedingMaxClockSkew",
+                "Observed clock skew that exceeded max clock skew.",
                 HISTOGRAM_BUCKETS);
 
         @Override
         public Iterable<Metric> metrics() {
-            return List.of(clockSkew);
+            return List.of(clockSkewExceedingMaxClockSkew);
         }
     }
 }

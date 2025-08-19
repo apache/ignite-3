@@ -56,11 +56,11 @@ public class ClockServiceMetricSourceTest extends BaseIgniteAbstractTest {
         MetricSet metricSet = registry.enable(clockServiceMetricSource);
         assertNotNull(metricSet);
 
-        DistributionMetric clockSkew = metricSet.get("ClockSkew");
-        assertNotNull(clockSkew);
+        DistributionMetric clockSkewExceedingMaxClockSkew = metricSet.get("ClockSkewExceedingMaxClockSkew");
+        assertNotNull(clockSkewExceedingMaxClockSkew);
 
-        for (int i = 0; i < clockSkew.value().length; i++) {
-            assertEquals(0L, clockSkew.value()[i]);
+        for (int i = 0; i < clockSkewExceedingMaxClockSkew.value().length; i++) {
+            assertEquals(0L, clockSkewExceedingMaxClockSkew.value()[i]);
         }
 
         // Less than max clock skew, should not upgrade the metric.
@@ -73,12 +73,12 @@ public class ClockServiceMetricSourceTest extends BaseIgniteAbstractTest {
         clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10));
         clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS * 10));
 
-        assertEquals(1L, clockSkew.value()[9]);
-        assertEquals(2L, clockSkew.value()[12]);
+        assertEquals(1L, clockSkewExceedingMaxClockSkew.value()[9]);
+        assertEquals(2L, clockSkewExceedingMaxClockSkew.value()[12]);
 
-        for (int i = 0; i < clockSkew.value().length; i++) {
+        for (int i = 0; i < clockSkewExceedingMaxClockSkew.value().length; i++) {
             if (i != 9 && i != 12) {
-                assertEquals(0L, clockSkew.value()[i]);
+                assertEquals(0L, clockSkewExceedingMaxClockSkew.value()[i]);
             }
         }
     }
