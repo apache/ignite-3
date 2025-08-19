@@ -115,6 +115,9 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     .keyManager(loadKeyManagerFactory(ssl))
                     .ciphers(ssl.ciphers());
 
+            // TODO: Configurable?
+            builder.endpointIdentificationAlgorithm(null);
+
             return builder.build();
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteClientConnectionException(

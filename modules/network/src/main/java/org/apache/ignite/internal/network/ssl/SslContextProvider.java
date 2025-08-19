@@ -61,6 +61,9 @@ public final class SslContextProvider {
 
             builder.keyManager(keyManagerFactory);
 
+            // TODO: Configurable?
+            builder.endpointIdentificationAlgorithm(null);
+
             return builder.build();
         } catch (NoSuchFileException e) {
             throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", e.getMessage()), e);
