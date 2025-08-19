@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.UNKNOWN_PARTITION_GENERATION;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPartitionGeneration;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
@@ -121,9 +122,9 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 CheckpointPages checkpointPages = seg.checkpointPages();
 
                 // TODO: IGNITE-26233 Исправить документацию или еще что нужно
-                Integer partitionGeneration = readPartitionGeneration(absPageAddr);
+                Integer partitionGeneration = partitionGeneration(absPageAddr);
 
-                assert partitionGeneration != PageHeader.UNKNOWN_PARTITION_GENERATION : partitionGeneration;
+                assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : partitionGeneration;
 
                 if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !partitionGeneration.equals(
                         checkpointPages.contains(fullId))))) {

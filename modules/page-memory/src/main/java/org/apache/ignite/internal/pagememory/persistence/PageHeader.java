@@ -56,7 +56,7 @@ public class PageHeader {
     private static final int DIRTY_FLAG = 0x01000000;
 
     /** Unknown partition generation. */
-    static final int UNKNOWN_PARTITION_GENERATION = -1;
+    public static final int UNKNOWN_PARTITION_GENERATION = -1;
 
     /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 8b Lock, 8b Temporary buffer. */
     public static final int PAGE_OVERHEAD = 48;

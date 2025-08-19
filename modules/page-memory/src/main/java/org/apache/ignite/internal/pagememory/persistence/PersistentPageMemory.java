@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPartitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.timestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
