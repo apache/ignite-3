@@ -418,7 +418,7 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count <= 1)
+            if (_endpoints.Count == 1)
             {
                 // No secondary connections to establish.
                 return;
