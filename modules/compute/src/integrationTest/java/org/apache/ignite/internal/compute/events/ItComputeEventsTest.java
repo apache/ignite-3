@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.events;
 
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.BROADCAST;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.SINGLE;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_CANCELED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_CANCELING;
@@ -34,17 +35,24 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.matchesRegex;
+import static org.hamcrest.Matchers.containsInRelativeOrder;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
-import java.util.ArrayList;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -56,6 +64,7 @@ import org.apache.ignite.internal.compute.FailingJob;
 import org.apache.ignite.internal.compute.GetNodeNameJob;
 import org.apache.ignite.internal.compute.SilentSleepJob;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.EventMatcher.Event;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -70,10 +79,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
-    private final List<String> events = new ArrayList<>();
+    private final List<String> events = new CopyOnWriteArrayList<>();
 
     private final LogInspector logInspector = new LogInspector(
             "EventLog", // From LogSinkConfigurationSchema.criteria default value
@@ -93,12 +104,6 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int initialNodes() {
-        // TODO IGNITE-26116
-        return 1;
-    }
-
-    @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         String allEvents = Arrays.stream(values())
                 .map(IgniteEventType::name)
@@ -113,48 +118,112 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
     protected abstract IgniteCompute compute();
 
-    @Test
-    void executesSingleJobLocally() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void singleJob(int targetNodeIndex) {
         JobDescriptor<Void, String> jobDescriptor = JobDescriptor.builder(GetNodeNameJob.class).build();
-        JobExecution<String> execution = submit(JobTarget.node(clusterNode(0)), jobDescriptor, null);
+        JobExecution<String> execution = submit(JobTarget.node(clusterNode(targetNodeIndex)), jobDescriptor, null);
 
         assertThat(execution.resultAsync(), willCompleteSuccessfully());
 
         UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
         String jobClassName = jobDescriptor.jobClassName();
-        String targetNode = node(0).name();
+        String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode)
         );
     }
 
     @Test
-    void executesFailingJobLocally() {
+    void broadcast() throws JsonProcessingException {
+        JobDescriptor<Void, String> jobDescriptor = JobDescriptor.builder(GetNodeNameJob.class).build();
+        BroadcastJobTarget target = BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1), clusterNode(2));
+        BroadcastExecution<String> broadcastExecution = submit(target, jobDescriptor, null);
+
+        assertThat(broadcastExecution.resultsAsync(), willCompleteSuccessfully());
+
+        await().until(() -> events, hasSize(9));
+
+        // Now get the task ID from the first event and assert that all events have the same task ID.
+        ObjectMapper mapper = new ObjectMapper();
+        Event firstEvent = mapper.readValue(events.get(0), Event.class);
+        UUID taskId = firstEvent.fields.taskId;
+        assertThat(taskId, notNullValue());
+
+        String jobClassName = jobDescriptor.jobClassName();
+        broadcastExecution.executions().forEach(execution -> {
+            UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
+            String targetNode = execution.node().name();
+            assertThat(events, containsInRelativeOrder(
+                    broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId),
+                    broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId),
+                    broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId)
+            ));
+        });
+    }
+
+    @Test
+    void partitionedBroadcast() throws JsonProcessingException {
+        createTestTableWithOneRow();
+
+        JobDescriptor<Void, String> jobDescriptor = JobDescriptor.builder(GetNodeNameJob.class).build();
+        BroadcastExecution<String> broadcastExecution = submit(BroadcastJobTarget.table("test"), jobDescriptor, null);
+
+        assertThat(broadcastExecution.resultsAsync(), willCompleteSuccessfully());
+
+        int defaultPartitionCount = 25;
+        assertThat(broadcastExecution.executions(), hasSize(defaultPartitionCount));
+        await().until(() -> events, hasSize(defaultPartitionCount * 3));
+
+        // Now get the task ID from the first event and assert that all events have the same task ID.
+        ObjectMapper mapper = new ObjectMapper();
+        Event firstEvent = mapper.readValue(events.get(0), Event.class);
+        UUID taskId = firstEvent.fields.taskId;
+        assertThat(taskId, notNullValue());
+
+        String jobClassName = jobDescriptor.jobClassName();
+        String tableName = QualifiedName.parse("test").toCanonicalForm();
+        broadcastExecution.executions().forEach(execution -> {
+            UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
+            String targetNode = execution.node().name();
+            assertThat(events, containsInRelativeOrder(
+                    broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
+                    broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
+                    broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId).withTableName(tableName)
+            ));
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void failingJob(int targetNodeIndex) {
         JobDescriptor<Void, String> jobDescriptor = JobDescriptor.builder(FailingJob.class).build();
-        JobExecution<String> execution = submit(JobTarget.node(clusterNode(0)), jobDescriptor, null);
+        JobExecution<String> execution = submit(JobTarget.node(clusterNode(targetNodeIndex)), jobDescriptor, null);
 
         assertThat(execution.resultAsync(), willThrow(ComputeException.class));
 
         UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
         String jobClassName = jobDescriptor.jobClassName();
-        String targetNode = execution.node().name();
+        String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_FAILED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, targetNode)
         );
     }
 
-    @Test
-    void cancelJobLocally() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void cancelJob(int targetNodeIndex) {
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Long, Void> jobDescriptor = JobDescriptor.builder(SilentSleepJob.class).build();
-        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(0)), jobDescriptor, cancelHandle.token(), Long.MAX_VALUE);
+        JobTarget target = JobTarget.node(clusterNode(targetNodeIndex));
+        JobExecution<Void> execution = submit(target, jobDescriptor, cancelHandle.token(), Long.MAX_VALUE);
 
         // Wait for start executing
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
@@ -165,33 +234,35 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
         String jobClassName = jobDescriptor.jobClassName();
-        String targetNode = execution.node().name();
+        String targetNode = node(targetNodeIndex).name();
 
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELING, SINGLE, jobId, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELING, jobId, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId, jobClassName, targetNode)
         );
     }
 
-    @Test
-    void cancelQueuedJobLocally() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void cancelQueuedJob(int targetNodeIndex) {
         // Start first job
         CancelHandle cancelHandle1 = CancelHandle.create();
 
         JobDescriptor<Long, Void> jobDescriptor = JobDescriptor.builder(SilentSleepJob.class).build();
-        JobExecution<Void> execution1 = submit(JobTarget.node(clusterNode(0)), jobDescriptor, cancelHandle1.token(), Long.MAX_VALUE);
+        JobTarget target = JobTarget.node(clusterNode(targetNodeIndex));
+        JobExecution<Void> execution1 = submit(target, jobDescriptor, cancelHandle1.token(), Long.MAX_VALUE);
         // Wait for it to start executing
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start second job, it will be queued due to the queue size limit
         UUID jobId1 = execution1.idAsync().join();
-        String targetNode = execution1.node().name();
+        String targetNode = node(targetNodeIndex).name();
 
         CancelHandle cancelHandle2 = CancelHandle.create();
 
-        JobExecution<Void> execution2 = submit(JobTarget.node(clusterNode(0)), jobDescriptor, cancelHandle2.token(), Long.MAX_VALUE);
+        JobExecution<Void> execution2 = submit(target, jobDescriptor, cancelHandle2.token(), Long.MAX_VALUE);
         UUID jobId2 = execution2.idAsync().join();
 
         // Cancel queued job
@@ -206,12 +277,12 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         // First job should transition queued->executing->canceling->canceled
         // Second one should transition queued->canceled
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId2, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId2, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELING, SINGLE, jobId1, jobClassName, targetNode),
-                jobEvent(COMPUTE_JOB_CANCELED, SINGLE, jobId1, jobClassName, targetNode)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_QUEUED, jobId2, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId2, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELING, jobId1, jobClassName, targetNode),
+                jobEvent(COMPUTE_JOB_CANCELED, jobId1, jobClassName, targetNode)
         );
     }
 
@@ -231,9 +302,9 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         String tableName = QualifiedName.parse("test").toCanonicalForm();
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode).withTableName(tableName)
         );
     }
 
@@ -253,13 +324,17 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         String tableName = QualifiedName.parse("test").toCanonicalForm();
         assertEvents(
-                jobEvent(COMPUTE_JOB_QUEUED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_EXECUTING, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName),
-                jobEvent(COMPUTE_JOB_COMPLETED, SINGLE, jobId, jobClassName, targetNode).withTableName(tableName)
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode).withTableName(tableName),
+                jobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode).withTableName(tableName)
         );
     }
 
     private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
+        return submit(target, descriptor, null, arg);
+    }
+
+    private <T, R> BroadcastExecution<R> submit(BroadcastJobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
         return submit(target, descriptor, null, arg);
     }
 
@@ -274,6 +349,36 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         return executionFut.join();
     }
 
+    private <T, R> BroadcastExecution<R> submit(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        CompletableFuture<BroadcastExecution<R>> executionFut = compute().submitAsync(target, descriptor, arg, cancellationToken);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    private EventMatcher broadcastJobEvent(
+            IgniteEventType eventType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            UUID taskId
+    ) {
+        return jobEvent(eventType, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId);
+    }
+
+    private EventMatcher jobEvent(
+            IgniteEventType eventType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode
+    ) {
+        return jobEvent(eventType, SINGLE, jobId, jobClassName, targetNode);
+    }
+
     protected EventMatcher jobEvent(
             IgniteEventType eventType,
             Type jobType,
@@ -283,11 +388,14 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
     ) {
         return EventMatcher.computeJobEvent(eventType)
                 .withTimestamp(notNullValue(Long.class))
-                .withProductVersion(matchesRegex(IgniteProductVersion.VERSION_PATTERN))
+                .withProductVersion(is(IgniteProductVersion.CURRENT_VERSION.toString()))
+                .withUsername(is("SYSTEM"))
                 .withType(jobType.name())
                 .withClassName(jobClassName)
                 .withJobId(jobId)
-                .withTargetNode(targetNode);
+                .withTargetNode(targetNode)
+                .withInitiatorNode(is(node(0).name()))
+                .withClientAddress(nullValue());
     }
 
     @SafeVarargs

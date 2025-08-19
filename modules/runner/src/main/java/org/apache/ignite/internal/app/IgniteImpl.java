@@ -987,7 +987,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1246,6 +1247,7 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(computeComponent);
 
         compute = new IgniteComputeImpl(
+                name,
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
                 distributedTblMgr,
