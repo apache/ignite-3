@@ -78,7 +78,7 @@ public class Cloner {
 
         private final RelOptCluster cluster;
 
-        private int sourceIndex;
+        private long sourceIndex;
 
         private final Long2ObjectMap<IgniteRel> sources = new Long2ObjectOpenHashMap<>();
 

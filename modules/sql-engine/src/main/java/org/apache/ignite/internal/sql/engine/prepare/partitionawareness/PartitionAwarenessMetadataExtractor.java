@@ -75,23 +75,6 @@ public class PartitionAwarenessMetadataExtractor {
     /**
      * Extracts partition awareness metadata from the given plan.
      *
-     * @param rel Plan.
-     * @return Metadata.
-     */
-    @Nullable
-    public static PartitionAwarenessMetadata getMetadata(IgniteRel rel) {
-        if (rel instanceof IgniteKeyValueGet) {
-            return getMetadata((IgniteKeyValueGet) rel);
-        } else if (rel instanceof IgniteKeyValueModify) {
-            return getMetadata((IgniteKeyValueModify) rel);
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Extracts partition awareness metadata from the given plan.
-     *
      * @param relationWithSources Relation with sources.
      * @param partitionPruningMetadata Partition-pruning metadata.
      * @return Metadata.
