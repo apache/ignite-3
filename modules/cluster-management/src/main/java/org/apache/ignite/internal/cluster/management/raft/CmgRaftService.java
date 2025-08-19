@@ -282,7 +282,7 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
-     * Returns a set of consistent IDs of the learners nodes of the CMG.
+     * Returns a known set of consistent IDs of the learners nodes of the CMG.
      */
     public CompletableFuture<Set<String>> learners() {
         List<Peer> currentLearners = raftService.learners();

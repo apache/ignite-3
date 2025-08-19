@@ -129,11 +129,14 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     @Nullable
     private volatile CompletableFuture<CmgRaftService> raftService;
 
-    @Nullable
-    private CompletableFuture<Void> topologyReconfigurationFuture;
-
     /** Lock for the {@code raftService} field. */
     private final Object raftServiceLock = new Object();
+
+    /** Current updateLearners operation to ensure linearization of updates. */
+    private volatile CompletableFuture<Void> currentUpdateLearners = nullCompletedFuture();
+
+    /** Lock for linearizing updateLearners operations. */
+    private final Object updateLearnersLock = new Object();
 
     /**
      * Future that resolves after the node has been validated on the CMG leader.
@@ -685,7 +688,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
 
                 updateLogicalTopology(service)
-                        .thenCompose(v -> inBusyLock(() -> service.updateLearners(term)))
+                        .thenCompose(v -> inBusyLock(() -> updateLearnersSerially(service, term, false)))
                         .thenAccept(v -> inBusyLock(() -> {
                             // Register a listener to send ClusterState messages to new nodes.
                             TopologyService topologyService = clusterService.topologyService();
@@ -953,9 +956,40 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         return new RaftNodeId(CmgGroupId.INSTANCE, serverPeer);
     }
 
+    /**
+     * Serializes calls to updateLearners to prevent race conditions between multiple topology changes
+     * and leader election callbacks.
+     *
+     * @param service CMG Raft service.
+     * @param term RAFT term.
+     * @param checkLeadership Whether to check leadership before updating learners.
+     */
+    private CompletableFuture<Void> updateLearnersSerially(CmgRaftService service, long term, boolean checkLeadership) {
+        synchronized (updateLearnersLock) {
+            currentUpdateLearners = currentUpdateLearners
+                    .thenCompose(v -> {
+                        if (checkLeadership) {
+                            return service.isCurrentNodeLeader().thenCompose(isLeader -> {
+                                if (!isLeader) {
+                                    return nullCompletedFuture();
+                                }
+                                return service.updateLearners(term);
+                            });
+                        } else {
+                            return service.updateLearners(term);
+                        }
+                    })
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            LOG.error("Failed to reset learners", throwable);
+                        }
+                    });
+            return currentUpdateLearners;
+        }
+    }
+
     private void onLogicalTopologyChanged(long term) {
         // We don't do it under lock to avoid deadlocks during node restart.
-
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
         // If the future is not here yet, this means we are still starting, so learners will be updated after start
@@ -964,33 +998,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             return;
         }
 
-        synchronized (raftServiceLock) {
-            if (topologyReconfigurationFuture == null) {
-                topologyReconfigurationFuture =
-                        serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term));
-            } else {
-                topologyReconfigurationFuture =
-                        // At the moment topology reconfiguration will stop if the previous one fails (see how thenCompose works).
-                        // This is going to change in the future when cmg/mg majority loss is handled properly.
-                        topologyReconfigurationFuture.thenCompose(v ->
-                                inBusyLock(() -> serviceFuture.thenCompose(service -> updateLearnersOnLeader(service, term)))
-                        );
-            }
-        }
-    }
-
-    private static CompletableFuture<Void> updateLearnersOnLeader(CmgRaftService service, long term) {
-        return service.isCurrentNodeLeader().thenCompose(isLeader -> {
-            if (!isLeader) {
-                return nullCompletedFuture();
-            }
-
-            return service.updateLearners(term);
-        }).whenComplete((unused, throwable) -> {
-            if (throwable != null) {
-                LOG.error("Failed to reset learners", throwable);
-            }
-        });
+        serviceFuture.thenCompose(service -> updateLearnersSerially(service, term, true));
     }
 
     /**
