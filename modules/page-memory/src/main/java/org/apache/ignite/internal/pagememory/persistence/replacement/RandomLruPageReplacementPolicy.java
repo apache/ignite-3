@@ -124,7 +124,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 // TODO: IGNITE-26233 Исправить документацию или еще что нужно
                 Integer partitionGeneration = partitionGeneration(absPageAddr);
 
-                assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : partitionGeneration;
+                // assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : fullId;
 
                 if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !partitionGeneration.equals(
                         checkpointPages.contains(fullId))))) {

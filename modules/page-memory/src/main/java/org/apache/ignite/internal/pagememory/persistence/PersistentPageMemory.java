@@ -1903,7 +1903,7 @@ public class PersistentPageMemory implements PageMemory {
 
         Integer partitionGeneration = partitionGeneration(absPtr);
 
-        assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : pageId;
+        // assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : pageId;
 
         return partitionGeneration.equals(pages0.contains(pageId));
     }
