@@ -337,7 +337,12 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView, filePageStore.checkpointedPageCount());
+                    return pageIndexesForDeltaFilePageStore(
+                            partitionView,
+                            pageId.groupId(),
+                            pageId.partitionId(),
+                            filePageStore.checkpointedPageCount()
+                    );
                 }
         );
 
@@ -348,13 +353,18 @@ public class CheckpointManager {
      * Returns the indexes of the dirty pages to be written to the delta file page store.
      *
      * @param partitionDirtyPages Dirty pages of the partition.
-     * @param persistedPages Number of pages persisted to the disk.
+     * @param persistedPages Number of pages of the partition persisted to the disk.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int persistedPages) {
+    static int[] pageIndexesForDeltaFilePageStore(
+            CheckpointDirtyPagesView partitionDirtyPages,
+            int groupId,
+            int partitionId,
+            int persistedPages
+    ) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(persistedPages) + offset];
+        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, persistedPages) + offset];
 
         for (int i = 0; i < pageIndexes.length - offset; i++) {
             pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();

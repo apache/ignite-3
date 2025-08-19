@@ -155,7 +155,7 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Init the page count.
+     * Initializes the page count.
      *
      * @param pageCount New page count.
      */
@@ -223,7 +223,7 @@ public class FilePageStore implements PageStore {
     public void write(long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException {
         int pageIndex = pageIndex(pageId);
 
-        assert pageIndex <= pageCount : "pageIdx=" + pageIndex + ", pageCount=" + pageCount;
+        assert pageIndex < pageCount : "pageIdx=" + pageIndex + ", pageCount=" + pageCount;
 
         filePageStoreIo.write(pageId, pageBuf);
 
