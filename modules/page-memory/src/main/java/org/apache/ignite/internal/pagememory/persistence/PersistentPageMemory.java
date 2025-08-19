@@ -27,13 +27,14 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.setPageId;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPageId;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writePartitionGeneration;
-import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.timestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.CP_BUF_FILL_THRESHOLD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
@@ -144,12 +145,6 @@ public class PersistentPageMemory implements PageMemory {
 
     /** Pointer which means that this page is outdated (for example, group was destroyed, partition eviction'd happened. */
     public static final long OUTDATED_REL_PTR = INVALID_REL_PTR + 1;
-
-    /** Page lock offset. */
-    public static final int PAGE_LOCK_OFFSET = 32;
-
-    /** 8b Marker/timestamp, 4b Partition generation, 4b flags, 8b Page ID, 4b Group ID, 4b Pin count, 8b Lock, 8b Temporary buffer. */
-    public static final int PAGE_OVERHEAD = 48;
 
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
@@ -442,7 +437,7 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         if (touch) {
-            writeTimestamp(absPtr, coarseCurrentTimeMillis());
+            timestamp(absPtr, coarseCurrentTimeMillis());
         }
 
         assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
@@ -584,8 +579,8 @@ public class PersistentPageMemory implements PageMemory {
             zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             fullPageId(absPtr, fullId);
-            writeTimestamp(absPtr, coarseCurrentTimeMillis());
-            writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
+            timestamp(absPtr, coarseCurrentTimeMillis());
+            partitionGeneration(absPtr, seg.partGeneration(grpId, partId));
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
@@ -741,8 +736,8 @@ public class PersistentPageMemory implements PageMemory {
                 absPtr = seg.absolute(relPtr);
 
                 fullPageId(absPtr, fullId);
-                writeTimestamp(absPtr, coarseCurrentTimeMillis());
-                writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
+                timestamp(absPtr, coarseCurrentTimeMillis());
+                partitionGeneration(absPtr, seg.partGeneration(grpId, partId));
 
                 assert !isAcquired(absPtr) :
                         "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr) + ", absPtr=" + hexLong(absPtr) + ']';
@@ -793,8 +788,8 @@ public class PersistentPageMemory implements PageMemory {
                 zeroMemory(pageAddr, pageSize());
 
                 fullPageId(absPtr, fullId);
-                writeTimestamp(absPtr, coarseCurrentTimeMillis());
-                writePartitionGeneration(absPtr, seg.partGeneration(grpId, partId));
+                timestamp(absPtr, coarseCurrentTimeMillis());
+                partitionGeneration(absPtr, seg.partGeneration(grpId, partId));
                 setPageId(pageAddr, pageId);
 
                 assert !isAcquired(absPtr) :
@@ -1116,7 +1111,7 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
-        writeTimestamp(absPtr, coarseCurrentTimeMillis());
+        timestamp(absPtr, coarseCurrentTimeMillis());
 
         // Create a buffer copy if the page is scheduled for a checkpoint.
         if (isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
@@ -1161,8 +1156,8 @@ public class PersistentPageMemory implements PageMemory {
             // info for checkpoint buffer cleaner.
             fullPageId(tmpAbsPtr, fullId);
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
-            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
         }
 
         assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
@@ -1188,7 +1183,7 @@ public class PersistentPageMemory implements PageMemory {
             long pageId = getPageId(page + PAGE_OVERHEAD);
 
             try {
-                assert pageId != 0 : hexLong(readPageId(page));
+                assert pageId != 0 : hexLong(PageHeader.pageId(page));
 
                 rwLock.writeUnlock(page + PAGE_LOCK_OFFSET, tag(pageId));
 
