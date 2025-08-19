@@ -561,6 +561,12 @@ namespace Apache.Ignite.Internal.Table
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
+            catch (Exception e)
+            {
+                _logger.LogFailedTableOpDebug(op, e.Message);
+
+                throw;
+            }
         }
 
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive.")]

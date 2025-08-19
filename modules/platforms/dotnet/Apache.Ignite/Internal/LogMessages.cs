@@ -219,4 +219,11 @@ internal static partial class LogMessages
         EventId = 1029)]
     internal static partial void LogServerOpTrace(
         this ILogger logger, long requestId, int op, ServerOp opType, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "Table op failed [op={Op}, message={Message}]",
+        Level = LogLevel.Debug,
+        EventId = 1030)]
+    internal static partial void LogFailedTableOpDebug(
+        this ILogger logger, ClientOp op, string message);
 }
