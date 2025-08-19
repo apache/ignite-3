@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.MAGIC_BYTES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
@@ -386,7 +387,7 @@ public class ClientInboundMessageHandler
         switch (state) {
             case STATE_BEFORE_HANDSHAKE:
                 state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                metrics.bytesReceivedAdd(MAGIC_BYTES.length);
                 // Packer buffer is released by Netty on send, or by inner exception handlers below.
                 var packer = getPacker(ctx.alloc());
                 handshake(ctx, unpacker, packer);
@@ -605,8 +606,9 @@ public class ClientInboundMessageHandler
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
-        ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
-        metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
+        // Netty needs a direct buffer and will create it anyway for a wrapped buffer.
+        ctx.write(Unpooled.directBuffer(4, 4).writeBytes(MAGIC_BYTES));
+        metrics.bytesSentAdd(MAGIC_BYTES.length);
     }
 
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
