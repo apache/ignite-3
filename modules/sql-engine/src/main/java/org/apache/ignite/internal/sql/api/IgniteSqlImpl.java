@@ -363,7 +363,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
         try {
             SqlProperties properties = toPropertiesBuilder(statement)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                    .allowMultiStatement(false);
 
             result = queryProcessor.queryAsync(
                     properties,
@@ -625,7 +626,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     ) {
 
         SqlProperties properties0 = new SqlProperties(properties)
-                .allowedQueryTypes(SqlQueryType.ALL);
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
                 properties0,

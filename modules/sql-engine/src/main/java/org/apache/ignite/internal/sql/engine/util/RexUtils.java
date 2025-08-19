@@ -58,7 +58,9 @@ import java.util.Set;
 import java.util.TimeZone;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
@@ -84,6 +86,7 @@ import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -1189,6 +1192,35 @@ public class RexUtils {
         }
 
         return val;
+    }
+
+    /** Context which triggers assertion if unexpected method is called. */
+    public static class FaultyContext implements DataContext {
+        public static final FaultyContext INSTANCE = new FaultyContext();
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus getRootSchema() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public JavaTypeFactory getTypeFactory() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public QueryProvider getQueryProvider() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable Object get(String name) {
+            throw new AssertionError("Should not call: [" + name + "] from current context.");
+        }
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {

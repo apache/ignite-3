@@ -140,6 +140,9 @@ class MultiStatementHandler {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
             if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+                // Ensure that TX_CONTROL statements are allowed.
+                ValidationHelper.validateQueryType(query.properties.allowedQueryTypes(), SqlQueryType.TX_CONTROL);
+
                 // start of a new transaction is possible only while there is no
                 // other explicit transaction; commit of a transaction will wait
                 // for related cursor to be closed. In other words, we have no

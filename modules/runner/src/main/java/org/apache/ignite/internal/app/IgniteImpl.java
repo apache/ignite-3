@@ -186,7 +186,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
@@ -618,7 +618,7 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStaleIds(vaultMgr),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureManager,
@@ -871,7 +871,7 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
-                clock,
+                clockService,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig,
                 threadPoolsManager.commonScheduler()
@@ -987,7 +987,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1246,6 +1247,7 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(computeComponent);
 
         compute = new IgniteComputeImpl(
+                name,
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
                 distributedTblMgr,

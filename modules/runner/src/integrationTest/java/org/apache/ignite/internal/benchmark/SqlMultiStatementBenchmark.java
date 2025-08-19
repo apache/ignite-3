@@ -359,10 +359,12 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     /** Executes SQL query/script using internal API. */
     private static class QueryRunner {
         private final SqlProperties props = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false);
 
         private final SqlProperties scriptProps = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.ALL);
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         private final QueryProcessor queryProcessor;
         private final HybridTimestampTracker observableTimeTracker;

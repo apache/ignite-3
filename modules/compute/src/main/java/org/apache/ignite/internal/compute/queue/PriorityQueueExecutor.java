@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 
@@ -100,15 +101,19 @@ public class PriorityQueueExecutor {
             Callable<CompletableFuture<R>> job,
             int priority,
             int maxRetries,
-            ComputeEventMetadata.Builder metadataBuilder
+            ComputeEventMetadataBuilder metadataBuilder
     ) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
 
+        // Job ID could be set previously, if this is a remotely initiated execution, see ComputeJobFailover.
+        if (metadataBuilder.jobId() == null) {
+            metadataBuilder.jobId(jobId);
+        }
+
         ComputeEventMetadata eventMetadata = metadataBuilder
-                .jobId(jobId)
-                .nodeName(nodeName)
+                .targetNode(nodeName)
                 .build();
         logJobQueuedEvent(eventLog, eventMetadata);
 

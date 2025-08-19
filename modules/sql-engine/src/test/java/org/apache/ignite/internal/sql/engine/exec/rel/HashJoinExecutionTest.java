@@ -124,6 +124,33 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     }
 
     @Test
+    void leftHashJoinWithPostFiltration() {
+        Object[][] persons = {
+                new Object[]{0, "Igor", 1},
+                new Object[]{1, "Roman", 2},
+                new Object[]{2, "Ivan", 5},
+                new Object[]{3, "Alexey", 1}
+        };
+
+        Object[][] deps = {
+                new Object[]{1, "Core"},
+                new Object[]{2, "SQL"},
+                new Object[]{3, "QA"}
+        };
+
+        Object[][] expected = {
+                {0, "Igor", 1, 1, "Core"},
+                {1, "Roman", 2, null, null},
+                {2, "Ivan", 5, null, null},
+                {3, "Alexey", 1, 1, "Core"},
+        };
+
+        BiPredicate<Object[], Object[]> condition = (l, r) -> ((String) r[1]).length() > 3;
+
+        validate(LEFT, condition, Stream.of(persons)::iterator, Stream.of(deps)::iterator, expected);
+    }
+
+    @Test
     void semiHashJoinWithPostFiltration() {
         Object[][] persons = {
                 new Object[]{0, "Igor", 1},
