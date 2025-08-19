@@ -187,8 +187,6 @@ public class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             return nextResultFuture;
         }
 
-        assert marshaller == null : "Multi-statement execution doesn't support custom mapper";
-
         ch.<ClientAsyncResultSet<T>>serviceAsync(ClientOp.SQL_CURSOR_NEXT_RESULT_SET,
                         w -> w.out().packLong(nextResultResourceId),
                         r -> new ClientAsyncResultSet<>(

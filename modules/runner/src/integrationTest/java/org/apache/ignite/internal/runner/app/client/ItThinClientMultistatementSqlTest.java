@@ -38,6 +38,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -110,8 +111,9 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         }
     }
 
+    /** Ensures that we can get the next result set after the current one is closed. */
     @Test
-    void iterateOverResults() {
+    void checkIterationOverResultSets() {
         ClientAsyncResultSet<SqlRow> asyncRs = runSql("SELECT 1; SELECT 2; SELECT 3;");
 
         // First result set.
@@ -124,7 +126,12 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         }
 
         assertThat(asyncRs.hasNextResultSet(), is(true));
-        assertThat(asyncRs.nextResultSet(), is(asyncRs.nextResultSet()));
+
+        CompletableFuture<ClientAsyncResultSet<SqlRow>> nextResultFut = asyncRs.nextResultSet();
+        // Ensures that the next result is cached locally
+        // and subsequent calls do not request data from the server.
+        assertThat(nextResultFut, is(asyncRs.nextResultSet()));
+
         asyncRs = await(asyncRs.nextResultSet());
 
         // Second result set.
@@ -137,6 +144,8 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
         }
 
         assertThat(asyncRs.hasNextResultSet(), is(true));
+        // Ensures that the next result is cached locally
+        // and subsequent calls do not request data from the server.
         assertThat(asyncRs.nextResultSet(), is(asyncRs.nextResultSet()));
         asyncRs = await(asyncRs.nextResultSet());
 
