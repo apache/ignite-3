@@ -155,11 +155,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
         long sizeBytes = dataRegionConfigView.sizeBytes();
         if (sizeBytes == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
+            sizeBytes = StorageEngine.defaultDataRegionSize();
 
             LOG.info(
                     "{}.{} property is not specified, setting its value to {}",
-                    cfg.name().value(), cfg.sizeBytes().key(), defaultDataRegionSize
+                    cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
             );
         }
 

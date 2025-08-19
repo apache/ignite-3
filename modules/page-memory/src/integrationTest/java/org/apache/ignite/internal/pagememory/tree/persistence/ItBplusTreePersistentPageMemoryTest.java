@@ -26,6 +26,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
@@ -50,7 +51,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
 
     @BeforeAll
     static void initLockOffset() {
-        lockOffset = PersistentPageMemory.PAGE_LOCK_OFFSET;
+        lockOffset = PageHeader.PAGE_LOCK_OFFSET;
     }
 
     /** {@inheritDoc} */
