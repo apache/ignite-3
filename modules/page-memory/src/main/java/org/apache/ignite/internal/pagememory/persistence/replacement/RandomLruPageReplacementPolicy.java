@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPartitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.HashSet;
@@ -132,7 +132,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                     continue;
                 }
 
-                long pageTs = PageHeader.readTimestamp(absPageAddr);
+                long pageTs = PageHeader.timestamp(absPageAddr);
 
                 boolean storMeta = isStoreMetadataPage(absPageAddr);
 
