@@ -36,18 +36,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
@@ -82,18 +88,26 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         }
     }
 
-    private void startCluster(int numNodes) {
-        cluster.addAll(createNodes(numNodes));
+    private void startCluster(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
+        cluster.addAll(createNodes(numNodes, onConfigurationCommittedListener));
 
         cluster.parallelStream().forEach(MockNode::startAndJoin);
     }
 
-    private void startNode(int idx, int clusterSize) {
-        MockNode node = createNode(idx, clusterSize);
+    private void startCluster(int numNodes) {
+        startCluster(numNodes, (i, config) -> {});
+    }
+
+    private void startNode(int idx, int clusterSize, Consumer<RaftGroupConfiguration> onConfigurationCommittedListener) {
+        MockNode node = createNode(idx, clusterSize, onConfigurationCommittedListener);
 
         cluster.add(node);
 
         node.startAndJoin();
+    }
+
+    private void startNode(int idx, int clusterSize) {
+        startNode(idx, clusterSize, config -> {});
     }
 
     private void stopCluster() throws Exception {
@@ -300,7 +314,12 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     @Test
     void testNoConfigurationReordering() throws Exception {
-        startCluster(5);
+        // Here we will be storing the raft configuration history for all nodes.
+        Map<Integer, List<RaftGroupConfiguration>> configs = new ConcurrentHashMap<>();
+
+        startCluster(5, (i, config) ->
+                configs.computeIfAbsent(i, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
 
         ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
 
@@ -317,6 +336,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         // Wait for the initial cluster reconfiguration to complete.
         assertLearnerSize(2);
+
+        // Same as above, but check the all 5 nodes see the same number of learners (which is 2 actually).
+        assertTrue(waitForCondition(() ->
+                        configs.size() == 5 && configs.values().stream()
+                                .map(list -> list.get(list.size() - 1))
+                                .mapToInt(raftGroupConfiguration -> raftGroupConfiguration.learners().size())
+                                .min().orElseThrow() == 2,
+                30_000
+        ));
 
         String node3Name = cluster.get(3).name();
 
@@ -341,37 +369,75 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
             return false;
         });
 
-        logger().info("Stop last node [4].");
+        logger().info("Stop the node [4].");
         MockNode node4 = cluster.remove(cluster.size() - 1);
         stopNodes(List.of(node4));
 
-        logger().info("Stop last node [3].");
+        logger().info("Stop the node [3].");
         MockNode node3 = cluster.remove(cluster.size() - 1);
         stopNodes(List.of(node3));
 
         // There should be still two learner nodes since the previous reconfiguration was blocked.
         assertLearnerSize(2);
 
+        // The configs will be properly updated when new 3 and 4 are started, so remove the history for the stopped nodes.
+        configs.remove(3);
+        configs.remove(4);
+
         // Start nodes 3 and 4 back, so that the topology is back to normal and no node availability issues are expected.
         logger().info("Start nodes [3] and [4].");
-        // Start node 4 first to avoid clashing with the earlier blocked message.
-        startNode(4, 5);
-        startNode(3, 5);
+        // Start node 4 first to avoid clashing with the earlier blocked message (as we get ResetLearnersRequest(3)
+        // both when we move from [3, 4] to [3] and when we move from [] to [3]).
+        startNode(4, 5, config ->
+                configs.computeIfAbsent(4, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
+        startNode(3, 5, config ->
+                configs.computeIfAbsent(3, k -> new CopyOnWriteArrayList<>()).add(config)
+        );
 
-        logger().info("Nodes started.");
-
-        // Waif for the nodes 3 and 4 to start.
+        // Wait for the nodes 3 and 4 to start.
         for (MockNode node : cluster) {
             assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
         }
 
+        logger().info("Nodes started.");
         assertLearnerSize(2);
 
         // Unblock the first reconfiguration.
         logger().info("Unblock message.");
         blockMessage.set(false);
 
-        assertLearnerSize(2);
+        // Now we need to wait for the reconfiguration to complete.
+        // To check it we will look through the raft configuration history and verify that all nodes have same transition history
+        // with regards to the learner nodes: [] -> [3] -> [3, 4] -> [4] -> [3, 4].
+        // Basically should be enough to check learners size only.
+        int[] count = {0, 1, 2, 1, 2};
+        assertTrue(waitForCondition(() ->
+                        configs.values().stream()
+                                .allMatch(transition -> checkLearnerTransitionsCorrect(transition, count)),
+                30_000
+        ));
+    }
+
+    /**
+     * Checks proper configuration history.
+     *
+     * @param configs Node configuration transitions history.
+     * @param count Expected number of learner nodes for each transition.
+     * @return {@code true} if the history is correct, {@code false} otherwise.
+     */
+    private static boolean checkLearnerTransitionsCorrect(List<RaftGroupConfiguration> configs, int[] count) {
+        if (configs.size() != count.length) {
+            return false;
+        }
+
+        for (int i = 0; i < configs.size(); i++) {
+            if (configs.get(i).learners().size() != count[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void assertLearnerSize(int size) throws InterruptedException {

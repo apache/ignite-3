@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -190,6 +192,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final NodeProperties nodeProperties;
 
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -206,6 +210,43 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
             NodeProperties nodeProperties
+    ) {
+        this(
+                vault,
+                clusterResetStorage,
+                clusterService,
+                clusterInitializer,
+                raftManager,
+                clusterStateStorageMgr,
+                logicalTopology,
+                validationManager,
+                nodeAttributes,
+                failureProcessor,
+                clusterIdStore,
+                raftGroupOptionsConfigurer,
+                metricManager,
+                nodeProperties,
+                config -> {}
+        );
+    }
+
+    /** Constructor. */
+    public ClusterManagementGroupManager(
+            VaultManager vault,
+            ClusterResetStorage clusterResetStorage,
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            RaftManager raftManager,
+            ClusterStateStorageManager clusterStateStorageMgr,
+            LogicalTopology logicalTopology,
+            ValidationManager validationManager,
+            NodeAttributes nodeAttributes,
+            FailureProcessor failureProcessor,
+            ClusterIdStore clusterIdStore,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            MetricManager metricManager,
+            NodeProperties nodeProperties,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.clusterResetStorage = clusterResetStorage;
         this.clusterService = clusterService;
@@ -241,6 +282,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
 
         this.nodeProperties = nodeProperties;
+        this.onConfigurationCommittedListener = onConfigurationCommittedListener;
     }
 
     private CmgMessageHandler createMessageHandler() {
@@ -329,7 +371,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this(
                 vault,
@@ -345,7 +388,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 clusterIdStore,
                 raftGroupOptionsConfigurer,
                 metricManager,
-                nodeProperties
+                nodeProperties,
+                onConfigurationCommittedListener
         );
     }
 
@@ -937,7 +981,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             validationManager,
                             this::onLogicalTopologyChanged,
                             clusterIdStore,
-                            failureProcessor
+                            failureProcessor,
+                            onConfigurationCommittedListener
                     ),
                     this::onElectedAsLeader,
                     null,

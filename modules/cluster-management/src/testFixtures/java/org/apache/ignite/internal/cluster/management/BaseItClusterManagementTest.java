@@ -23,12 +23,15 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -61,6 +64,10 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     }
 
     protected List<MockNode> createNodes(int numNodes) {
+        return createNodes(numNodes, (i, config) -> {});
+    }
+
+    protected List<MockNode> createNodes(int numNodes, BiConsumer<Integer, RaftGroupConfiguration> onConfigurationCommittedListener) {
         List<NetworkAddress> seedAddresses = createSeedAddresses(numNodes);
         NodeFinder nodeFinder = new StaticNodeFinder(seedAddresses);
 
@@ -72,8 +79,8 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                         workDir,
                         raftConfiguration,
                         userNodeAttributes,
-                        storageConfiguration
-
+                        storageConfiguration,
+                        config -> onConfigurationCommittedListener.accept(i, config)
                 ))
                 .collect(toList());
     }
@@ -87,6 +94,10 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     }
 
     protected MockNode createNode(int idx, int clusterSize) {
+        return createNode(idx, clusterSize, config -> {});
+    }
+
+    protected MockNode createNode(int idx, int clusterSize, Consumer<RaftGroupConfiguration> onConfigurationCommittedListener) {
         return new MockNode(
                 testInfo,
                 new NetworkAddress("localhost", PORT_BASE + idx),
@@ -94,7 +105,8 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 workDir,
                 raftConfiguration,
                 userNodeAttributes,
-                storageConfiguration
+                storageConfiguration,
+                onConfigurationCommittedListener
         );
     }
 
