@@ -607,7 +607,8 @@ public class ClientInboundMessageHandler
 
     private void writeMagic(ChannelHandlerContext ctx) {
         // Netty needs a direct buffer and will create it anyway for a wrapped buffer.
-        ctx.write(Unpooled.directBuffer(4, 4).writeBytes(MAGIC_BYTES));
+        ByteBuf magic = Unpooled.directBuffer(4, 4).writeBytes(MAGIC_BYTES);
+        ctx.write(magic);
         metrics.bytesSentAdd(MAGIC_BYTES.length);
     }
 
