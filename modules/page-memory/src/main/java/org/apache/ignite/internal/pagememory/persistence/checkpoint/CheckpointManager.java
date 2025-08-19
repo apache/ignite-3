@@ -154,6 +154,7 @@ public class CheckpointManager {
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
+                partitionMetaManager,
                 compactor,
                 pageSize,
                 checkpointConfig,
@@ -353,18 +354,18 @@ public class CheckpointManager {
      * Returns the indexes of the dirty pages to be written to the delta file page store.
      *
      * @param partitionDirtyPages Dirty pages of the partition.
-     * @param persistedPages Number of pages of the partition persisted to the disk.
+     * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
      */
     static int[] pageIndexesForDeltaFilePageStore(
             CheckpointDirtyPagesView partitionDirtyPages,
             int groupId,
             int partitionId,
-            int persistedPages
+            int checkpointedPages
     ) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, persistedPages) + offset];
+        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, checkpointedPages) + offset];
 
         for (int i = 0; i < pageIndexes.length - offset; i++) {
             pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();

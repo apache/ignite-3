@@ -179,17 +179,17 @@ public class CheckpointDirtyPages {
         }
 
         /**
-         * Returns number of modified (not newly allocated) pages. All pages with indexes less than {@code persistedPages} are
+         * Returns number of modified (not newly allocated) pages. All pages with indexes less than {@code checkpointedPages} are
          * considered as modified.
          *
          * @param groupId Group ID.
          * @param partitionId Partition ID.
-         * @param persistedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
+         * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
          */
-        int modifiedPages(int groupId, int partitionId, int persistedPages) {
+        int modifiedPages(int groupId, int partitionId, int checkpointedPages) {
             FullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
 
-            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, persistedPages - 1), groupId);
+            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, checkpointedPages - 1), groupId);
 
             int index = binarySearch(dirtyPages, fromPosition, toPosition, endPageId, DIRTY_PAGE_COMPARATOR);
 
