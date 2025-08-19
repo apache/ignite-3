@@ -357,7 +357,16 @@ public class TestClientHandlerModule implements IgniteComponent {
             var delayMs = delay == null ? 0 : delay.apply(cnt.incrementAndGet());
 
             if (delayMs > 0) {
-                Thread.sleep(delayMs);
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException e) {
+                    if (msg instanceof ReferenceCounted) {
+                        ((ReferenceCounted) msg).release();
+                    }
+
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
             }
 
             super.channelRead(ctx, msg);
