@@ -20,14 +20,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
-import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -39,11 +37,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used.</p>
  *
- * @see PersistentPageMemory#checkpointWritePage(FullPageId, ByteBuffer, PageStoreWriter, CheckpointMetricsTracker)
- * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
+ * @see PersistentPageMemory#checkpointWritePage
+ * @see PersistentPageMemory.Segment#tryToRemovePage
  */
+// TODO: IGNITE-26233 Думаю что тут надо будет разное поменять и доки тоже и тесты
 public class CheckpointPages {
-    private final Set<FullPageId> pageIds;
+    private final Map<FullPageId, Integer> pageIds;
 
     private final CheckpointProgressImpl checkpointProgress;
 
@@ -53,7 +52,7 @@ public class CheckpointPages {
      * @param pageIds Dirty page IDs in the segment that should be written at a checkpoint or page replacement.
      * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
+    public CheckpointPages(Map<FullPageId, Integer> pageIds, CheckpointProgress checkpointProgress) {
         this.pageIds = pageIds;
         this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
@@ -76,7 +75,7 @@ public class CheckpointPages {
      * @see #blockFsyncOnPageReplacement(FullPageId)
      * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
      */
-    public boolean removeOnPageReplacement(FullPageId pageId) throws IgniteInternalCheckedException {
+    public @Nullable Integer removeOnPageReplacement(FullPageId pageId) throws IgniteInternalCheckedException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
             getUninterruptibly(checkpointProgress.futureFor(PAGES_SORTED));
@@ -100,7 +99,7 @@ public class CheckpointPages {
      *      removes or did not exist.
      * @see #removeOnPageReplacement(FullPageId)
      */
-    public boolean removeOnCheckpoint(FullPageId pageId) {
+    public @Nullable Integer removeOnCheckpoint(FullPageId pageId) {
         return pageIds.remove(pageId);
     }
 
@@ -109,8 +108,8 @@ public class CheckpointPages {
      *
      * @param pageId Page ID for checking.
      */
-    public boolean contains(FullPageId pageId) {
-        return pageIds.contains(pageId);
+    public @Nullable Integer contains(FullPageId pageId) {
+        return pageIds.get(pageId);
     }
 
     /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */

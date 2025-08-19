@@ -73,7 +73,7 @@ public class PageHeader {
     private static final int FLAGS_OFFSET = 12;
 
     /** Unknown partition generation. */
-    static final int UNKNOWN_PARTITION_GENERATION = -1;
+    public static final int UNKNOWN_PARTITION_GENERATION = -1;
 
     /**
      * Initializes the header of the page.
