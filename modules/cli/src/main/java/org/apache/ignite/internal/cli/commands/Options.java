@@ -62,7 +62,10 @@ public enum Options {
     CLUSTER_CONFIG_FILE(
             Constants.CLUSTER_CONFIG_FILE_OPTION,
             Constants.CLUSTER_CONFIG_FILE_OPTION_DESC
-    );
+    ),
+
+    RECOVERY_NODE_NAMES(Constants.RECOVERY_NODE_NAMES_OPTION, Constants.RECOVERY_NODE_NAMES_OPTION_DESC),
+    RECOVERY_CMG_NODES(Constants.RECOVERY_CMG_NODES_OPTION, Constants.RECOVERY_CMG_NODES_OPTION_DESC);
 
     private final String fullName;
     private final String shortName;
