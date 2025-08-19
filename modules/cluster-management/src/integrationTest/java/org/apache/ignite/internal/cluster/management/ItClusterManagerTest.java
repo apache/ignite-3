@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -37,9 +39,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -302,11 +304,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
 
-        List<String> nodes = cluster.stream().map(MockNode::name).limit(3).collect(Collectors.toList());
+        List<String> votingNodes = cluster.stream().map(MockNode::name).limit(3).collect(toList());
 
-        // successful init
         assertThat(
-                clusterManager.initClusterAsync(nodes, List.of(), "cluster"),
+                clusterManager.initClusterAsync(votingNodes, List.of(), "cluster"),
                 willCompleteSuccessfully()
         );
 
@@ -341,19 +342,19 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         });
 
         logger().info("Stop last node [4].");
-        MockNode last = cluster.remove(cluster.size() - 1);
-        stopNodes(List.of(last));
+        MockNode node4 = cluster.remove(cluster.size() - 1);
+        stopNodes(List.of(node4));
 
         logger().info("Stop last node [3].");
-        MockNode last2 = cluster.remove(cluster.size() - 1);
-        stopNodes(List.of(last2));
+        MockNode node3 = cluster.remove(cluster.size() - 1);
+        stopNodes(List.of(node3));
 
         // There should be still two learner nodes since the previous reconfiguration was blocked.
         assertLearnerSize(2);
 
         // Start nodes 3 and 4 back, so that the topology is back to normal and no node availability issues are expected.
         logger().info("Start nodes [3] and [4].");
-        // Start node 4 first to avoid clashing with the earlier blocked message..
+        // Start node 4 first to avoid clashing with the earlier blocked message.
         startNode(4, 5);
         startNode(3, 5);
 
@@ -365,13 +366,6 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         }
 
         assertLearnerSize(2);
-
-        for (MockNode node : cluster) {
-            Boolean leader = node.clusterManager().isCmgLeader().get();
-            if (leader) {
-                logger().info("lerner nodes {}", node.clusterManager().learnerNodes().get());
-            }
-        }
 
         // Unblock the first reconfiguration.
         logger().info("Unblock message.");
@@ -385,15 +379,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                         cluster.stream()
                                 .filter(node -> {
                                     try {
-                                        return node.clusterManager().isCmgLeader().get();
-                                    } catch (InterruptedException | ExecutionException e) {
+                                        return node.clusterManager().isCmgLeader().get(10, SECONDS);
+                                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
                                         throw new RuntimeException(e);
                                     }
                                 })
                                 .mapToInt(node -> {
                                     try {
-                                        return node.clusterManager().learnerNodes().get().size();
-                                    } catch (InterruptedException | ExecutionException e) {
+                                        return node.clusterManager().learnerNodes().get(10, SECONDS).size();
+                                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
                                         throw new RuntimeException(e);
                                     }
                                 })
@@ -403,8 +397,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
-        cluster.stream().map(node -> node.clusterService().messagingService()).forEach(msg -> {
-            DefaultMessagingService dms = (DefaultMessagingService) msg;
+        cluster.stream().map(node -> node.clusterService().messagingService()).forEach(messagingService -> {
+            DefaultMessagingService dms = (DefaultMessagingService) messagingService;
 
             BiPredicate<String, NetworkMessage> oldPredicate = dms.dropMessagesPredicate();
 
@@ -642,7 +636,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private List<ClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {

@@ -133,7 +133,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private final Object raftServiceLock = new Object();
 
     /** Current updateLearners operation to ensure linearization of updates. */
-    private volatile CompletableFuture<Void> currentUpdateLearners = nullCompletedFuture();
+    private CompletableFuture<Void> currentUpdateLearners = nullCompletedFuture();
 
     /** Lock for linearizing updateLearners operations. */
     private final Object updateLearnersLock = new Object();
@@ -979,10 +979,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             return service.updateLearners(term);
                         }
                     })
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            LOG.error("Failed to reset learners", throwable);
-                        }
+                    .exceptionally(e -> {
+                        LOG.warn("Failed to update learners for term {}", e, term);
+
+                        return null;
                     });
             return currentUpdateLearners;
         }

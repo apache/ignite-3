@@ -293,7 +293,7 @@ public class CmgRaftService implements ManuallyCloseable {
 
         return completedFuture(currentLearners.stream()
                 .map(Peer::consistentId)
-                .collect(toCollection(HashSet::new)));
+                .collect(toSet()));
     }
 
     /**
