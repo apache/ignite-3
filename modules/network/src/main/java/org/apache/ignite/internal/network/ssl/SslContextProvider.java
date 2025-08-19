@@ -49,6 +49,9 @@ public final class SslContextProvider {
 
             var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
 
+            // TODO: Configurable?
+            builder.endpointIdentificationAlgorithm(null);
+
             setCiphers(builder, ssl);
 
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
@@ -60,9 +63,6 @@ public final class SslContextProvider {
             keyManagerFactory.init(KeystoreLoader.load(ssl.keyStore()), ssl.keyStore().password().toCharArray());
 
             builder.keyManager(keyManagerFactory);
-
-            // TODO: Configurable?
-            builder.endpointIdentificationAlgorithm(null);
 
             return builder.build();
         } catch (NoSuchFileException e) {
