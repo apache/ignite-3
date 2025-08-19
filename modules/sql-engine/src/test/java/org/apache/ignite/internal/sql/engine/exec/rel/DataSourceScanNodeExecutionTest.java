@@ -300,7 +300,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         public Publisher<InternalTuple> scan() {
             Iterator<InternalTuple> it = iterable.iterator();
 
-            return new Publisher<InternalTuple>() {
+            return new Publisher<>() {
                 @Override
                 public void subscribe(Subscriber<? super InternalTuple> subscriber) {
                     Subscription subscription = new Subscription() {

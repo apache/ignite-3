@@ -57,6 +57,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +71,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
-    @InjectConfiguration("mock.profiles.default.engine = aipersist")
+    @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
 
     private PersistentPageMemoryStorageEngine engine;

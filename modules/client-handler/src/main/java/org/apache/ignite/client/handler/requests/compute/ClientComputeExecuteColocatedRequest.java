@@ -21,6 +21,8 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.BitSet;
@@ -35,8 +37,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Builder;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -70,13 +72,14 @@ public class ClientComputeExecuteColocatedRequest {
         byte[] tupleBytes = in.readBinary();
 
         Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID)); // Placeholder for a possible future usage
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
-                    Builder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                    ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .eventUser(clientContext.userDetails())
                             .tableName(table.name())
-                            .initiatorClient(clientContext.remoteAddress().toString())
-                            .eventUser(clientContext.userDetails());
+                            .clientAddress(clientContext.remoteAddress().toString());
 
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,

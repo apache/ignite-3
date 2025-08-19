@@ -892,12 +892,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
         return typeFactory.createStructType(
                 types,
-                new AbstractList<String>() {
-                    @Override public String get(int index) {
+                new AbstractList<>() {
+                    @Override
+                    public String get(int index) {
                         return "?" + index;
                     }
 
-                    @Override public int size() {
+                    @Override
+                    public int size() {
                         return types.size();
                     }
                 });

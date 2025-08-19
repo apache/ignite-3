@@ -20,6 +20,7 @@ package org.apache.ignite.migrationtools.persistence;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,9 @@ import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.lang.GridCursor;
+import org.apache.ignite.migrationtools.persistence.exceptions.MigrateCacheException;
 import org.apache.ignite.migrationtools.persistence.mappers.CacheDataRowProcessor;
+import org.apache.ignite.migrationtools.persistence.utils.pubsub.BasicProcessor;
 import org.apache.ignite.migrationtools.persistence.utils.pubsub.StreamerPublisher;
 import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
 import org.apache.ignite.migrationtools.tablemanagement.SchemaUtils;
@@ -196,6 +199,7 @@ public class Ignite2PersistentCacheTools {
 
         var view = table.keyValueView();
         ClientSchema schema = SchemaUtils.getLatestSchemaForTable(table).join();
+        String tableName = table.name();
 
         // TODO: GG-40802 Allow more control on the converters side.
         // Call dump table
@@ -206,6 +210,24 @@ public class Ignite2PersistentCacheTools {
                                 schema,
                                 columnToFieldMappings,
                                 StaticTypeConverterFactory.DEFAULT_INSTANCE))
+                        .map(itemPublisher -> {
+                                var p = new BasicProcessor<DataStreamerItem<Map.Entry<Tuple, Tuple>>,
+                                        DataStreamerItem<Map.Entry<Tuple, Tuple>>>() {
+                                    @Override
+                                    public void onNext(DataStreamerItem<Entry<Tuple, Tuple>> item) {
+                                        subscriber.onNext(item);
+                                    }
+
+                                    @Override
+                                    public void onError(Throwable throwable) {
+                                        super.onError(new MigrateCacheException(cacheName, tableName, throwable));
+                                    }
+                                };
+
+                                itemPublisher.subscribe(p);
+                                return p;
+                            }
+                        )
                         .map((itemPublisher) -> view.streamData(itemPublisher, null)));
     }
 

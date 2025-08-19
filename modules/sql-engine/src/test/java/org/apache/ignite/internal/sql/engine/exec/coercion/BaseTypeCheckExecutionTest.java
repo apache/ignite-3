@@ -152,7 +152,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
                 byte res;
 
                 do {
-                    res = (byte) (((byte) SqlTestUtils.generateValueByType(type, 0, 0)));
+                    res = (((byte) SqlTestUtils.generateValueByType(type, 0, 0)));
                 } while (res == 0);
 
                 return res;

@@ -523,16 +523,6 @@ public class Node {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
-        ReplicaService replicaSvc = new ReplicaService(
-                clusterService.messagingService(),
-                hybridClock,
-                threadPoolsManager.partitionOperationsExecutor(),
-                replicationConfiguration,
-                threadPoolsManager.commonScheduler()
-        );
-
-        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
         clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
         var clockService = new ClockServiceImpl(
@@ -540,6 +530,16 @@ public class Node {
                 clockWaiter,
                 () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
         );
+
+        ReplicaService replicaSvc = new ReplicaService(
+                clusterService.messagingService(),
+                clockService,
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfiguration,
+                threadPoolsManager.commonScheduler()
+        );
+
+        resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         placementDriverManager = new PlacementDriverManager(
                 name,
@@ -714,7 +714,8 @@ public class Node {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

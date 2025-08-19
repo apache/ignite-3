@@ -1115,7 +1115,7 @@ public class ConfigurationUtil {
          */
         private void descendToNamedListNode(NamedListNode<?> node) {
             // This list must be mutable and RandomAccess.
-            var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
+            var orderedKeys = new ArrayList<>(node.namedListKeys());
 
             for (Entry<String, ?> entry : map.entrySet()) {
                 String internalIdStr = entry.getKey();

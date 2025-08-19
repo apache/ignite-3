@@ -1594,7 +1594,7 @@ public class TestBuilders {
 
                     return (UpdatableTable) Proxy.newProxyInstance(
                             getClass().getClassLoader(),
-                            new Class<?> [] {UpdatableTable.class},
+                            new Class<?>[] {UpdatableTable.class},
                             (proxy, method, args) -> {
                                 if ("descriptor".equals(method.getName())) {
                                     return table.descriptor();
@@ -1955,6 +1955,11 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+            return CompletableFuture.completedFuture(false);
         }
 
         @Override

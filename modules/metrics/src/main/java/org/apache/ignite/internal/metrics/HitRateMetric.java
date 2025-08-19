@@ -166,9 +166,12 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
     /**
      * Create a zero value with tag byte.
      *
+     * <p>https://issues.apache.org/jira/browse/IGNITE-26177
+     *
      * @param tag Tag byte.
      * @return 0L with given tag byte.
      */
+    @SuppressWarnings("PMD.UnnecessaryCast")
     private static long taggedLongZero(byte tag) {
         return ((long) tag << TAG_OFFSET);
     }

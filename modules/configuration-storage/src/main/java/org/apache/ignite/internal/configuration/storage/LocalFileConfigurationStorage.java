@@ -169,28 +169,40 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Data> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
-            SuperRoot superRoot = generator.createSuperRoot();
-            SuperRoot copiedSuperRoot = superRoot.copy();
+            String hocon = readHoconFromFile();
+            String hoconWithDynamicDefaults = patch(hocon, module);
 
-            KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
-
-            Config hocon = readHoconFromFile();
-            HoconConverter.hoconSource(hocon.root(), keyIgnorer).descend(copiedSuperRoot);
-
-            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap());
-            flattenedUpdatesMap.forEach((key, value) -> {
+            transformToMap(hocon).forEach((key, value) -> {
                 if (value != null) { // Filter defaults.
                     latest.put(key, value);
                 }
             });
 
-            return CompletableFuture.completedFuture(new Data(latest, lastRevision));
+            return CompletableFuture.completedFuture(new Data(transformToMap(hoconWithDynamicDefaults), lastRevision));
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private Config readHoconFromFile() {
+    private Map<String, Serializable> transformToMap(String hocon) {
+        SuperRoot superRoot = generator.createSuperRoot();
+        SuperRoot copiedSuperRoot = superRoot.copy();
+
+        KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+
+        HoconConverter.hoconSource(parseConfig(hocon).root(), keyIgnorer).descend(copiedSuperRoot);
+
+        return createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap())
+                .entrySet()
+                .stream()
+                .filter(e -> e.getValue() != null)
+                .collect(toMap(
+                        Entry::getKey,
+                        Entry::getValue)
+                );
+    }
+
+    private String readHoconFromFile() {
         checkAndRestoreConfigFile();
 
         try {
@@ -202,10 +214,18 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 throw new ConfigurationValidationException(duplicates);
             }
 
+            return confString;
+        } catch (Parse | IOException e) {
+            throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
+        }
+    }
+
+    private Config parseConfig(String confString) {
+        try {
             ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
 
-            return ConfigFactory.parseString(patch(confString, module), parseOptions);
-        } catch (Parse | IOException e) {
+            return ConfigFactory.parseString(confString, parseOptions);
+        } catch (Parse e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }
@@ -296,6 +316,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         futureTracker.cancelInFlightFutures();
 
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public boolean supportDefaults() {
+        return false;
     }
 
     private void saveConfigFile() {

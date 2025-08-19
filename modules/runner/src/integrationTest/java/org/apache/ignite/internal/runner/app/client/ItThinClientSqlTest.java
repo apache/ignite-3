@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +49,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
@@ -392,6 +394,63 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         var res = sql.executeAsync(null, "SELECT VAL FROM testTx").join();
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
+    }
+
+    /** The purpose of this test is to check clients with different timeZone settings.
+     * In case when literal is a part of primary key and has a type: TIMESTAMP WITH LOCAL TIME ZONE - no
+     * partition awareness meta need to be calculated.
+     */
+    @Test
+    void testPartitionAwarenessNotExtractedForTsLiteral() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute(null, "CREATE TABLE my_table (id int, ts TIMESTAMP WITH LOCAL TIME ZONE, val INT, "
+                + "PRIMARY KEY(id, ts))");
+
+        int count = 100;
+
+        for (int i = 0; i < count; i++) {
+            sql.execute(null, "INSERT INTO my_table VALUES (?, TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00', ?)", i, i);
+        }
+
+        StatementBuilder builder = sql.statementBuilder();
+
+        String query = "SELECT * FROM my_table WHERE id = ? AND ts = TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'";
+
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("Asia/Nicosia"));
+        Statement stmt1 = builder.build();
+
+        builder = sql.statementBuilder();
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("UTC"));
+        Statement stmt2 = builder.build();
+
+        Transaction tx = null;
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt1, i);
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt2, i);
+        }
     }
 
     @Test

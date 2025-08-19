@@ -146,14 +146,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void stopReplicaManager() {
         CompletableFuture<?>[] replicaStopFutures = replicaManager.startedGroups().stream()
-            .map(id -> {
-                try {
-                    return replicaManager.stopReplica(id);
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError(e);
-                }
-            })
-            .toArray(CompletableFuture[]::new);
+                .map(id -> {
+                    try {
+                        return replicaManager.stopReplica(id);
+                    } catch (NodeStoppingException e) {
+                        throw new AssertionError(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 

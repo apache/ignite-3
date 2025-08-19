@@ -38,7 +38,7 @@ public interface DataProvider<T> extends Iterable<T> {
      * @return A data provider instance backed by given collection.
      */
     static <T> DataProvider<T> fromCollection(Collection<T> collection) {
-        return new DataProvider<T>() {
+        return new DataProvider<>() {
             @Override
             public long estimatedSize() {
                 return collection.size();

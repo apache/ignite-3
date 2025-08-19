@@ -71,8 +71,8 @@ import org.apache.ignite.spi.metric.noop.NoopMetricExporterSpi;
 
 /**
  * Minimal kernal context used to read an Apache Ignite 2 cluster working dir.
- * <p></p>
- * Inspired in the {@link StandaloneGridKernalContext}.
+ *
+ * <p>Inspired in the {@link StandaloneGridKernalContext}.
  */
 public class MigrationKernalContext extends GridKernalContextImpl {
 
@@ -219,7 +219,7 @@ public class MigrationKernalContext extends GridKernalContextImpl {
             // This just happens in the migration tools context because we allow skipping errors while loading the beans.
             for (int i = 0; i < cacheCfgs.length; i++) {
                 if (cacheCfgs[i] == null) {
-                    cacheCfgs[i] = new CacheConfiguration();
+                    cacheCfgs[i] = new CacheConfiguration<>();
                 }
             }
         }

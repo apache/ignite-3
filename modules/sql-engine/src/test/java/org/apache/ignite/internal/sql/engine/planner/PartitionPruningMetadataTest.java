@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -614,7 +616,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     private void extractMetadataAndCheck(IgniteRel rel, List<String> columnNames, List<String> expectedMetadata) {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata actual = extractor.go(rel);
+        IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+        PartitionPruningMetadata actual = extractor.go(pair.second());
 
         List<String> actualMetadata;
 

@@ -174,6 +174,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
@@ -220,6 +221,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Creates a committed version.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new committed version is added.</li>

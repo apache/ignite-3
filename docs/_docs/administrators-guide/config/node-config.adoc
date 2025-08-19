@@ -528,9 +528,9 @@ NOTE: Note that the property names are in `camelCase`.
       "partitionsLogPath" : "",
       "properties":[],
       "criticalWorkers" : {
-        "livenessCheckIntervalMillis" : 200,
-        "maxAllowedLagMillis" : 500,
-        "nettyThreadsHeartbeatIntervalMillis" : 100
+        "livenessCheckIntervalMillis" : 2000,
+        "maxAllowedLagMillis" : 5000,
+        "nettyThreadsHeartbeatIntervalMillis" : 1000
       }
     }
   }
@@ -551,7 +551,7 @@ NOTE: Note that the property names are in `camelCase`.
 |system.partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
 |system.partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
 |system.properties| System properties used by the Ignite components.| | Yes | Yes | An array of properties.
-|system.criticalWorkers.livenessCheckIntervalMillis|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis)
-|system.criticalWorkers.maxAllowedLagMillis|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
-|system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
+|system.criticalWorkers.livenessCheckIntervalMillis|2000|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis)
+|system.criticalWorkers.maxAllowedLagMillis|5000|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
+|system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis|1000|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
 |======

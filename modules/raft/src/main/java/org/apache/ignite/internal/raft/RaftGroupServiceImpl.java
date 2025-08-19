@@ -957,7 +957,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             if (availablePeers.isEmpty()) {
-                if (!peersAreUnavailable.get()) {
+                if (!peersAreUnavailable.getAndSet(true)) {
                     LOG.warn(
                             "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
                                     + "request {}, origin command {}, instance={}].",
@@ -968,8 +968,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             retryContext.originCommandDescription(),
                             this
                     );
-
-                    peersAreUnavailable.set(true);
                 }
 
                 retryContext.resetUnavailablePeers();

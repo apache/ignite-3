@@ -43,9 +43,9 @@ public class FullSampleCluster extends Ignite2ClusterWithSamples {
     @Override
     protected Ignite2ClusterContainer createClusterContainers() {
         return new Ignite2ClusterContainer(
-                FullSampleCluster.CLUSTER_CFG_PATH,
-                FullSampleCluster.TEST_CLUSTER_PATH,
-                FullSampleCluster.clusterNodeIds
+                CLUSTER_CFG_PATH,
+                TEST_CLUSTER_PATH,
+                clusterNodeIds
         );
     }
 }

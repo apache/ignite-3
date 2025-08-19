@@ -120,7 +120,7 @@ public class RaftGroupService {
 
         this.nodeManager.add(this.node);
         this.started = true;
-        LOG.info("Start the RaftGroupService successfully {}", this.node.getNodeId());
+        LOG.info("Start the RaftGroupService successfully [node={}].", this.node.getNodeId());
         return this.node;
     }
 
@@ -135,12 +135,12 @@ public class RaftGroupService {
             this.node.join();
         }
         catch (InterruptedException e) {
-            LOG.error("Interrupted while waiting for the node to shutdown");
+            LOG.error("Interrupted while waiting for the node to shutdown [node={}].", this.node.getNodeId());
         }
 
         nodeManager.remove(this.node);
         this.started = false;
-        LOG.info("Stop the RaftGroupService successfully.");
+        LOG.info("Stop the RaftGroupService successfully [node={}].", this.node.getNodeId());
     }
 
     /**

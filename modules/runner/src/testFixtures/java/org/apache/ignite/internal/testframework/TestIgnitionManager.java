@@ -65,7 +65,10 @@ public class TestIgnitionManager {
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.ofEntries(
             entry("ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT)),
-            entry("ignite.system.properties.aipersistThrottling", "disabled")
+            entry("ignite.system.properties.aipersistThrottling", "disabled"),
+            entry("ignite.system.criticalWorkers.maxAllowedLagMillis", "500"),
+            entry("ignite.system.criticalWorkers.livenessCheckIntervalMillis", "200"),
+            entry("ignite.system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis", "100")
     );
 
     /** Map of pre-configured by default storage profiles. */
