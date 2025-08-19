@@ -25,7 +25,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 public class CodeDeploymentExample {
 
     /** Deployment unit name. */
-    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
+    private static final String DEPLOYMENT_UNIT_NAME = "codeDeploymentExampleUnit";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
