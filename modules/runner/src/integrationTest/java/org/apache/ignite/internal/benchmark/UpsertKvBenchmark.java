@@ -50,7 +50,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(16)
+@Threads(32)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -66,7 +66,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"16"})
+    @Param({"32"})
     private int partitionCount;
 
     @Param({"0"})
