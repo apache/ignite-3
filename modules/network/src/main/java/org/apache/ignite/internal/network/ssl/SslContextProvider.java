@@ -49,7 +49,7 @@ public final class SslContextProvider {
 
             var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
 
-            // TODO: Configurable?
+            // TODO IGNITE-26240 Make endpointIdentificationAlgorithm configurable
             builder.endpointIdentificationAlgorithm(null);
 
             setCiphers(builder, ssl);

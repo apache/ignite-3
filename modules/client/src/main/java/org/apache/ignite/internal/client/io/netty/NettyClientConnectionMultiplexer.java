@@ -115,7 +115,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     .keyManager(loadKeyManagerFactory(ssl))
                     .ciphers(ssl.ciphers());
 
-            // TODO: Configurable?
+            // TODO IGNITE-26240 Make endpointIdentificationAlgorithm configurable
             builder.endpointIdentificationAlgorithm(null);
 
             return builder.build();
