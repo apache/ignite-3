@@ -189,13 +189,13 @@ public class CheckpointDirtyPages {
         int modifiedPages(int groupId, int partitionId, int checkpointedPages) {
             FullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
 
-            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, checkpointedPages - 1), groupId);
+            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, checkpointedPages), groupId);
 
             int index = binarySearch(dirtyPages, fromPosition, toPosition, endPageId, DIRTY_PAGE_COMPARATOR);
 
             // If exact index is not found, binary search returns a bitwise complement to a potential insertion point.
             return index >= 0
-                    ? index - fromPosition + 1
+                    ? index - fromPosition
                     : ~index - fromPosition;
         }
     }

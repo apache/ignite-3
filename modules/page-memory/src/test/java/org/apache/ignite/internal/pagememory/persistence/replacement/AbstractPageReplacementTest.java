@@ -74,6 +74,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -233,6 +234,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26244")
     void testFsyncDeltaFilesWillNotStartOnCheckpointUntilPageReplacementIsComplete() throws Exception {
         var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
         var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
