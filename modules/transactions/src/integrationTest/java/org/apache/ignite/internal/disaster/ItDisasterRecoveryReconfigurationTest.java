@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
@@ -39,7 +41,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -69,13 +70,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -84,14 +83,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
-import org.apache.ignite.internal.metastorage.dsl.Statement;
-import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
@@ -106,7 +99,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -133,7 +125,6 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -455,7 +446,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment0));
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment0));
 
         // Init reset:
         // pending = [0, force]
@@ -536,7 +527,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignmentPending));
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignmentPending));
 
         // Stop 3. Nodes 0 and 1 survived.
         stopNode(3);
@@ -1044,7 +1035,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers));
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1191,7 +1182,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(blockedNode);
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1380,7 +1371,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage((nodeName, msg) -> blockedLink.get() && stableKeySwitchMessage(msg, partId, resetAssignments));
+        blockMessage(
+                cluster,
+                (nodeName, msg) -> blockedLink.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), resetAssignments)
+        );
 
         stopNodesInParallel(1, 2);
 
@@ -1496,7 +1490,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink2 = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage((nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partId, link2Assignments));
+        blockMessage(
+                cluster,
+                (nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), link2Assignments)
+        );
 
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{3, 4, 5, 6}));
 
@@ -1776,18 +1773,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return candidates.get(0);
     }
 
-    private void blockMessage(BiPredicate<String, NetworkMessage> predicate) {
-        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
-            BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
-
-            if (oldPredicate == null) {
-                node.dropMessages(predicate);
-            } else {
-                node.dropMessages(oldPredicate.or(predicate));
-            }
-        });
-    }
-
     private static boolean dataReplicateMessage(
             String nodeName,
             NetworkMessage msg,
@@ -1807,37 +1792,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Block rebalance, so stable won't be switched to specified pending.
      */
     private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
-        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment));
-    }
-
-    private boolean stableKeySwitchMessage(NetworkMessage msg, int partId, Assignments blockedAssignments) {
-        if (msg instanceof WriteActionRequest) {
-            var writeActionRequest = (WriteActionRequest) msg;
-            WriteCommand command = writeActionRequest.deserializedCommand();
-
-            if (command instanceof MultiInvokeCommand) {
-                MultiInvokeCommand multiInvokeCommand = (MultiInvokeCommand) command;
-
-                Statement andThen = multiInvokeCommand.iif().andThen();
-
-                if (andThen instanceof UpdateStatement) {
-                    UpdateStatement updateStatement = (UpdateStatement) andThen;
-                    List<Operation> operations = updateStatement.update().operations();
-
-                    ByteArray stablePartAssignmentsKey = stablePartitionAssignmentsKey(partitionGroupId(partId));
-
-                    for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
-
-                        if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
-                            return blockedAssignments.equals(Assignments.fromBytes(toByteArray(operation.value())));
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
+        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment));
     }
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
