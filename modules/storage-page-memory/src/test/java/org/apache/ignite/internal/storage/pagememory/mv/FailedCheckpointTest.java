@@ -91,7 +91,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class FailedCheckpointTest extends BaseMvStoragesTest {
     private static final int PARTITION_ID = 1;
-    private static final GroupPartitionId GROUP_ID = new GroupPartitionId(1, PARTITION_ID);
+    private static final GroupPartitionId GROUP_PARTITION_ID = new GroupPartitionId(1, PARTITION_ID);
 
     private final TestKey key = new TestKey(10, "foo");
     private final TestValue value = new TestValue(20, "bar");
@@ -138,14 +138,14 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
         doNormalCheckpoint();
 
-        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
+        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_PARTITION_ID).pageCount();
 
         writeRows();
 
         doFailedCheckpointAndRestart();
 
         // Check that we data region is not corrupted.
-        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(expectedPersistedPages));
+        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_PARTITION_ID).pageCount(), is(expectedPersistedPages));
         writeRows();
 
         // Check that next checkpoint will succeed.
@@ -154,14 +154,14 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
     @Test
     void testRestartAfterFailedFirstCheckpoint() throws Exception {
-        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount();
+        int expectedPersistedPages = dataRegion.partitionMetaManager().getMeta(GROUP_PARTITION_ID).pageCount();
 
         writeRows();
 
         doFailedCheckpointAndRestart();
 
         // Check that we data region is not corrupted.
-        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_ID).pageCount(), is(expectedPersistedPages));
+        assertThat(dataRegion.partitionMetaManager().getMeta(GROUP_PARTITION_ID).pageCount(), is(expectedPersistedPages));
         writeRows();
 
         // Check that next checkpoint will succeed.

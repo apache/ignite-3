@@ -189,7 +189,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // Blocking checkpoint.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 startWritePagesOnCheckpointFuture.complete(null);
 
@@ -198,6 +198,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 return invocation.callRealMethod();
             }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
 
+            // After checkpoint is blocked, writes will be done only by page replacements.
             doAnswer(invocation -> {
                 if (startWritePagesOnCheckpointFuture.isDone()) {
                     startWritePagesOnPageReplacementFuture.complete(null);
@@ -250,7 +251,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // Blocking checkpoint.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 CompletableFuture<DeltaFilePageStoreIo> callRealMethodResult =
                         (CompletableFuture<DeltaFilePageStoreIo>) invocation.callRealMethod();
@@ -277,6 +278,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 return callRealMethodResult;
             }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
 
+            // After checkpoint is blocked, writes will be done only by page replacements.
             doAnswer(invocation -> {
                 if (startWritePagesOnCheckpointFuture.isDone()) {
                     startWritePagesOnPageReplacementFuture.complete(null);

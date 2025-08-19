@@ -64,7 +64,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Implementation of {@link DataRegion} for persistent case.
@@ -434,7 +434,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     }
 
     /** Adds a table storage to the data region. */
-    @TestOnly
+    @VisibleForTesting
     public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
         boolean add = tableStorages.add(tableStorage);
 

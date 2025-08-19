@@ -211,9 +211,7 @@ public class FilePageStore implements PageStore {
 
     @Override
     public void write(long pageId, ByteBuffer pageBuf) throws IgniteInternalCheckedException {
-        int pageIndex = pageIndex(pageId);
-
-        assert pageIndex < pageCount : "pageIdx=" + pageIndex + ", pageCount=" + pageCount;
+        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
         filePageStoreIo.write(pageId, pageBuf);
     }
