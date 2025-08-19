@@ -189,5 +189,29 @@ public class DynamicCompleterActivationPoint {
                         .build(),
                 metricSourceDynamicCompleterFactory
         );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "partitions", "states")
+                        .enableOptions(Options.RECOVERY_NODE_NAMES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "partitions", "restart")
+                        .enableOptions(Options.RECOVERY_NODE_NAMES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("recovery", "cluster", "reset")
+                        .enableOptions(Options.RECOVERY_CMG_NODES)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
     }
 }
