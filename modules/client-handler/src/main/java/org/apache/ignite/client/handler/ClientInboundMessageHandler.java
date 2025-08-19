@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.MAGIC_BYTES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
@@ -387,7 +386,7 @@ public class ClientInboundMessageHandler
         switch (state) {
             case STATE_BEFORE_HANDSHAKE:
                 state = STATE_HANDSHAKE_REQUESTED;
-                metrics.bytesReceivedAdd(MAGIC_BYTES.length);
+                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
                 // Packer buffer is released by Netty on send, or by inner exception handlers below.
                 var packer = getPacker(ctx.alloc());
                 handshake(ctx, unpacker, packer);
@@ -428,7 +427,6 @@ public class ClientInboundMessageHandler
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
         try (unpacker) {
-            writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER)) {
@@ -529,7 +527,7 @@ public class ClientInboundMessageHandler
 
             writeErrorCore(t, errPacker);
 
-            write(errPacker, ctx);
+            writeWithMagic(errPacker, ctx);
         } catch (Throwable t2) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t2.getMessage(), t2);
@@ -574,7 +572,7 @@ public class ClientInboundMessageHandler
         HandshakeUtils.packFeatures(packer, mutuallySupportedFeatures);
         HandshakeUtils.packExtensions(packer, extensions);
 
-        write(packer, ctx);
+        writeWithMagic(packer, ctx);
 
         state = STATE_HANDSHAKE_RESPONSE_SENT;
 
@@ -605,14 +603,7 @@ public class ClientInboundMessageHandler
         throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
-    private void writeMagic(ChannelHandlerContext ctx) {
-        // Netty needs a direct buffer and will create it anyway for a wrapped buffer.
-        ByteBuf magic = Unpooled.directBuffer(4, 4).writeBytes(MAGIC_BYTES);
-        ctx.write(magic);
-        metrics.bytesSentAdd(MAGIC_BYTES.length);
-    }
-
-    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void writeAndFlush(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
 
@@ -620,11 +611,17 @@ public class ClientInboundMessageHandler
             // writeAndFlush releases pooled buffer.
             ctx.writeAndFlush(buf);
         } catch (Throwable t) {
-            buf.release();
+            packer.close();
             throw t;
         }
 
         metrics.bytesSentAdd(bytes);
+    }
+
+    private void writeWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+        ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
+        writeAndFlush(packer, ctx); // Flushes.
+        metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
     private void writeResponseHeader(
@@ -660,7 +657,7 @@ public class ClientInboundMessageHandler
             writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
             writeErrorCore(err, packer);
 
-            write(packer, ctx);
+            writeAndFlush(packer, ctx);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
@@ -1055,7 +1052,7 @@ public class ClientInboundMessageHandler
 
                 out.setLong(observableTsIdx, tsTracker.getLong());
 
-                write(out, ctx);
+                writeAndFlush(out, ctx);
 
                 metrics.requestsProcessedIncrement();
 
@@ -1152,7 +1149,7 @@ public class ClientInboundMessageHandler
                 writer.accept(packer);
             }
 
-            write(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(channelHandlerContext, t);
@@ -1259,7 +1256,7 @@ public class ClientInboundMessageHandler
             var fut = new CompletableFuture<ClientMessageUnpacker>();
             serverToClientRequests.put(requestId, fut);
 
-            write(packer, channelHandlerContext);
+            writeAndFlush(packer, channelHandlerContext);
 
             return fut;
         } catch (Throwable t) {
