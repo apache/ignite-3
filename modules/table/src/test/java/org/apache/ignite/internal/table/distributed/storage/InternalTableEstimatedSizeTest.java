@@ -210,7 +210,12 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         node = clusterService.topologyService().localMember();
 
-        var clockService = new ClockServiceImpl(clock, clockWaiter, () -> 0);
+        var clockService = new ClockServiceImpl(
+                clock,
+                clockWaiter,
+                () -> 0,
+                skew -> {}
+        );
 
         table = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME),

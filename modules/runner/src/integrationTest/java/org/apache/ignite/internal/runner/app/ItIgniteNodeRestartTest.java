@@ -565,7 +565,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ClockService clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
-                () -> schemaSyncConfiguration.maxClockSkewMillis().value()
+                () -> schemaSyncConfiguration.maxClockSkewMillis().value(),
+                skew -> {}
         );
 
         var lowWatermark = new LowWatermarkImpl(

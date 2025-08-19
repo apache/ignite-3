@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.hlc;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -30,18 +31,24 @@ public class ClockServiceImpl implements ClockService {
 
     private final HybridClock clock;
     private final ClockWaiter clockWaiter;
-
     private final LongSupplier maxClockSkewMsSupplier;
+    private final Consumer<Long> onMaxClockSkewExceededClosure;
 
     private volatile long maxClockSkewMillis = -1;
 
     /**
      * Constructor.
      */
-    public ClockServiceImpl(HybridClock clock, ClockWaiter clockWaiter, LongSupplier maxClockSkewMsSupplier) {
+    public ClockServiceImpl(
+            HybridClock clock,
+            ClockWaiter clockWaiter,
+            LongSupplier maxClockSkewMsSupplier,
+            Consumer<Long> onMaxClockSkewExceededClosure
+    ) {
         this.clock = clock;
         this.clockWaiter = clockWaiter;
         this.maxClockSkewMsSupplier = maxClockSkewMsSupplier;
+        this.onMaxClockSkewExceededClosure = onMaxClockSkewExceededClosure;
     }
 
     @Override
@@ -70,9 +77,13 @@ public class ClockServiceImpl implements ClockService {
         // However, since benchmarks did not show any noticeable performance penalty due to the aforementioned call duplication,
         // design purity was prioritized over call redundancy.
         HybridTimestamp currentLocalTimestamp = clock.current();
-        if (requestTime.getPhysical() - maxClockSkewMillis() > currentLocalTimestamp.getPhysical()) {
+        long requestTimePhysical = requestTime.getPhysical();
+        long currentLocalTimePhysical = currentLocalTimestamp.getPhysical();
+
+        if (requestTimePhysical - maxClockSkewMillis() > currentLocalTimePhysical) {
             log.warn("Maximum allowed clock drift exceeded [requestTime={}, localTime={}, maxClockSkew={}]", requestTime,
                     currentLocalTimestamp, maxClockSkewMillis());
+            onMaxClockSkewExceededClosure.accept(requestTimePhysical - currentLocalTimePhysical);
         }
 
         return clock.update(requestTime);
