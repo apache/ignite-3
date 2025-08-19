@@ -563,7 +563,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (Exception e)
             {
-                _logger.LogFailedTableOpDebug(op, e.Message);
+                _logger.LogFailedTableOpDebug(e, op);
 
                 throw;
             }
