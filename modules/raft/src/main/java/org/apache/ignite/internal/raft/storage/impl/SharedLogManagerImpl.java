@@ -75,7 +75,7 @@ public class SharedLogManagerImpl extends LogManagerImpl {
                 StableClosure clo = tuple.get2();
 
                 // It doesn't throw. TODO fragile.
-                broken = storage.appendEntriesToBatch(clo.getEntries());
+                broken = !storage.appendEntriesToBatch(clo.getEntries());
                 clo.getEntries().clear();
 
                 // Commit batch on last entry.
@@ -117,7 +117,7 @@ public class SharedLogManagerImpl extends LogManagerImpl {
                 return logId;
             }
 
-            if (!queue.flush()) {
+            if (queue.flush()) {
                 reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
             }
 
@@ -149,6 +149,10 @@ public class SharedLogManagerImpl extends LogManagerImpl {
     public interface IAppendQueue {
         void append(RocksDbSharedLogStorage sharedLogManager, StableClosure done);
 
+        /**
+         *
+         * @return {@code True} if flush was unsuccessful.
+         */
         boolean flush();
     }
 }
