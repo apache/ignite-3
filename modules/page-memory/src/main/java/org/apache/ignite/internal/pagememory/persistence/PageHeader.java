@@ -322,7 +322,7 @@ public class PageHeader {
      * @param absPtr Absolute memory pointer to page header.
      * @param partitionGeneration Partition generation, strictly positive or {@link #UNKNOWN_PARTITION_GENERATION} if reset is required.
      */
-    static void partitionGeneration(long absPtr, int partitionGeneration) {
+    public static void partitionGeneration(long absPtr, int partitionGeneration) {
         assert partitionGeneration > 0 || partitionGeneration == UNKNOWN_PARTITION_GENERATION : partitionGeneration;
 
         putInt(absPtr + PARTITION_GENERATION_OFFSET, partitionGeneration);

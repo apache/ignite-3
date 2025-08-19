@@ -120,10 +120,11 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
         long pageAbsPtr = pagePool.absolute(pageRelPtr);
 
         PageHeader.dirty(pageAbsPtr, true);
+        PageHeader.partitionGeneration(pageAbsPtr, 1);
 
         FullPageId fullPageId = fullPageId(pageAbsPtr);
 
-        when(checkpointPages.contains(fullPageId)).thenReturn(true);
+        when(checkpointPages.contains(fullPageId)).thenReturn(1);
 
         when(loadedPagesMap.getNearestAt(anyInt())).thenReturn(new ReplaceCandidate(42, pageRelPtr, fullPageId));
 
