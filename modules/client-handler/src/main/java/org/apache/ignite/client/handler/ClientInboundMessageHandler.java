@@ -620,7 +620,7 @@ public class ClientInboundMessageHandler
 
     private void writeWithMagic(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
-        writeAndFlush(packer, ctx); // Flushes.
+        writeAndFlush(packer, ctx);
         metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
