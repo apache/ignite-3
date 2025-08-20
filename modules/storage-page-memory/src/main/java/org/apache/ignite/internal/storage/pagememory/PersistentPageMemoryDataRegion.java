@@ -64,11 +64,12 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryDataRegion.class);
 
@@ -124,7 +125,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
-    PersistentPageMemoryDataRegion(
+    public PersistentPageMemoryDataRegion(
             MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
             @Nullable SystemLocalConfiguration systemLocalConfig,
@@ -155,11 +156,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
         long sizeBytes = dataRegionConfigView.sizeBytes();
         if (sizeBytes == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
+            sizeBytes = StorageEngine.defaultDataRegionSize();
 
             LOG.info(
                     "{}.{} property is not specified, setting its value to {}",
-                    cfg.name().value(), cfg.sizeBytes().key(), defaultDataRegionSize
+                    cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
             );
         }
 
@@ -333,7 +334,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     private void flushDirtyPageOnReplacement(
             PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
     ) throws IgniteInternalCheckedException {
-        checkpointManager.writePageToDeltaFilePageStore(pageMemory, fullPageId, byteBuffer);
+        checkpointManager.writePageToFilePageStore(pageMemory, fullPageId, byteBuffer);
 
         CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 
@@ -432,7 +433,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         }
     }
 
-    void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+    /** Adds a table storage to the data region. */
+    @VisibleForTesting
+    public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
         boolean add = tableStorages.add(tableStorage);
 
         assert add : tableStorage.getTableId();

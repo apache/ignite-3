@@ -528,7 +528,8 @@ public class Node {
         var clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
-                () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
+                () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS,
+                skew -> {}
         );
 
         ReplicaService replicaSvc = new ReplicaService(
@@ -714,7 +715,8 @@ public class Node {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

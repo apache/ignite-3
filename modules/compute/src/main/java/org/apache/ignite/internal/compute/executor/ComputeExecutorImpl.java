@@ -42,7 +42,7 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -118,7 +118,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeEventMetadata.Builder metadataBuilder,
+            ComputeEventMetadataBuilder metadataBuilder,
             ComputeJobDataHolder input
     ) {
         assert executorService != null;

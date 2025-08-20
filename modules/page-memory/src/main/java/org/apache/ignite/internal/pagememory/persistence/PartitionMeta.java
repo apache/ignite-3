@@ -136,6 +136,9 @@ public abstract class PartitionMeta {
          */
         @Nullable
         UUID checkpointId();
+
+        /** Returns count of pages in the partition. */
+        int pageCount();
     }
 
     /**

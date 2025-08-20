@@ -1426,7 +1426,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ClockService clockService = new ClockServiceImpl(
                     hybridClock,
                     clockWaiter,
-                    () -> DEFAULT_MAX_CLOCK_SKEW_MS
+                    () -> DEFAULT_MAX_CLOCK_SKEW_MS,
+                    skew -> {}
             );
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -1569,7 +1570,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     systemDistributedConfiguration,
-                    clockService
+                    clockService,
+                    metricManager
             );
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();

@@ -1101,6 +1101,25 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .returns(8, 0, 8, 2)
                 .returns(10, 0, 10, 1)
                 .check();
+
+        assertQuery(""
+                + "SELECT t1.c1, t1.c2, t2.c1, t2.c2 FROM"
+                + "  (SELECT x::integer AS c1, x % 2 AS c2 FROM system_range(1, 10)) AS t1"
+                + " LEFT JOIN"
+                + "  (SELECT x::integer AS c1, x % 3 AS c2 FROM system_range(1, 10)) t2"
+                + "   ON t1.c1 = t2.c1 AND t1.c2 < t2.c2", type
+        )
+                .returns(1, 1, null, null)
+                .returns(2, 0, 2, 2)
+                .returns(3, 1, null, null)
+                .returns(4, 0, 4, 1)
+                .returns(5, 1, 5, 2)
+                .returns(6, 0, null, null)
+                .returns(7, 1, null, null)
+                .returns(8, 0, 8, 2)
+                .returns(9, 1, null, null)
+                .returns(10, 0, 10, 1)
+                .check();
     }
 
     private static Stream<Arguments> joinTypes() {
