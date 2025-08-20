@@ -192,6 +192,7 @@ public class CheckpointPagesWriter implements Runnable {
         }
     }
 
+    // TODO: IGNITE-26233 вот тут наверное надо будет как-то поправить
     private void writeDirtyPages(
             PersistentPageMemory pageMemory,
             GroupPartitionId partitionId,

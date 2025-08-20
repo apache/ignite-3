@@ -104,6 +104,7 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPa
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1267,6 +1268,12 @@ public class PersistentPageMemory implements PageMemory {
     private void setDirty(FullPageId pageId, long absPtr, boolean dirty, boolean forceAdd) {
         boolean wasDirty = dirty(absPtr, dirty);
 
+        int partitionGeneration = partitionGeneration(absPtr);
+
+        assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : pageId;
+
+        var dirtyPageId = new DirtyFullPageId(pageId.pageId(), pageId.groupId(), partitionGeneration);
+
         if (dirty) {
             assert checkpointTimeoutLock.checkpointLockIsHeldByThread() : pageId;
             assert pageIndex(pageId.pageId()) != 0 : "Partition meta should only be updated via the instance of PartitionMeta: " + pageId;
@@ -1274,11 +1281,7 @@ public class PersistentPageMemory implements PageMemory {
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
 
-                int partitionGeneration = partitionGeneration(absPtr);
-
-                assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : pageId;
-
-                if (seg.dirtyPages.putIfAbsent(pageId, partitionGeneration) == null) {
+                if (seg.dirtyPages.add(dirtyPageId)) {
                     long dirtyPagesCnt = seg.dirtyPagesCntr.incrementAndGet();
 
                     if (dirtyPagesCnt >= seg.dirtyPagesSoftThreshold) {
@@ -1297,7 +1300,7 @@ public class PersistentPageMemory implements PageMemory {
         } else {
             Segment seg = segment(pageId.groupId(), pageId.pageId());
 
-            if (seg.dirtyPages.remove(pageId) != null) {
+            if (seg.dirtyPages.remove(dirtyPageId)) {
                 seg.dirtyPagesCntr.decrementAndGet();
             }
         }
@@ -1338,7 +1341,7 @@ public class PersistentPageMemory implements PageMemory {
         Set<FullPageId> res = new HashSet<>((int) loadedPages());
 
         for (Segment seg : segments) {
-            res.addAll(seg.dirtyPages.keySet());
+            res.addAll(seg.dirtyPages);
         }
 
         return res;
@@ -1395,7 +1398,7 @@ public class PersistentPageMemory implements PageMemory {
 
         /** Pages marked as dirty since the last checkpoint. */
         // TODO: IGNITE-26233 Улучшить документацию
-        private volatile Map<FullPageId, Integer> dirtyPages = new ConcurrentHashMap<>();
+        private volatile Set<DirtyFullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
@@ -1532,7 +1535,7 @@ public class PersistentPageMemory implements PageMemory {
          * Clear dirty pages collection and reset counter.
          */
         private void resetDirtyPages() {
-            dirtyPages = new ConcurrentHashMap<>();
+            dirtyPages = ConcurrentHashMap.newKeySet();
 
             dirtyPagesCntr.set(0);
         }
@@ -1584,7 +1587,9 @@ public class PersistentPageMemory implements PageMemory {
 
                 assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : fullPageId;
 
-                if (checkpointPages != null && partitionGeneration.equals(checkpointPages.removeOnPageReplacement(fullPageId))) {
+                var dirtyFullPageId = new DirtyFullPageId(fullPageId.pageId(), fullPageId.groupId(), partitionGeneration);
+
+                if (checkpointPages != null && checkpointPages.removeOnPageReplacement(dirtyFullPageId)) {
                     checkpointPages.blockFsyncOnPageReplacement(fullPageId);
 
                     DelayedDirtyPageWrite delayedDirtyPageWrite = delayedPageReplacementTracker.delayedPageWrite();
@@ -1905,7 +1910,9 @@ public class PersistentPageMemory implements PageMemory {
 
         // assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : pageId;
 
-        return partitionGeneration.equals(pages0.contains(pageId));
+        var dirtyFullPageId = new DirtyFullPageId(pageId.pageId(), pageId.groupId(), partitionGeneration);
+
+        return pages0.contains(dirtyFullPageId);
     }
 
     /**
@@ -1925,7 +1932,9 @@ public class PersistentPageMemory implements PageMemory {
 
         assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : fullPageId;
 
-        return partitionGeneration.equals(pages0.removeOnCheckpoint(fullPageId));
+        var dirtyFullPageId = new DirtyFullPageId(fullPageId.pageId(), fullPageId.groupId(), partitionGeneration);
+
+        return pages0.removeOnCheckpoint(dirtyFullPageId);
     }
 
     /**
@@ -2080,8 +2089,13 @@ public class PersistentPageMemory implements PageMemory {
             // if (!isInCheckpoint(fullId, absPtr)) {
             //     return;
             // }
+            partitionGeneration = generationTag(seg, fullId);
 
-            relPtr = resolveRelativePointer(seg, fullId, partitionGeneration = generationTag(seg, fullId));
+            if (((DirtyFullPageId) fullId).partitionGeneration() != partitionGeneration) {
+                return;
+            }
+
+            relPtr = resolveRelativePointer(seg, fullId, partitionGeneration);
 
             // Page may have been cleared during eviction. We have nothing to do in this case.
             if (relPtr == INVALID_REL_PTR) {
@@ -2183,12 +2197,12 @@ public class PersistentPageMemory implements PageMemory {
      * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public Collection<FullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
+    public Collection<DirtyFullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
         if (segments == null) {
             return List.of();
         }
 
-        Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
+        Set<DirtyFullPageId>[] dirtyPageIds = new Set[segments.length];
 
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
@@ -2199,8 +2213,8 @@ public class PersistentPageMemory implements PageMemory {
             );
 
             // TODO: IGNITE-26233 Вот тут еще поправить нужно будет
-            Map<FullPageId, Integer> segmentDirtyPages = segment.dirtyPages;
-            dirtyPageIds[i] = segmentDirtyPages.keySet();
+            Set<DirtyFullPageId> segmentDirtyPages = segment.dirtyPages;
+            dirtyPageIds[i] = segmentDirtyPages;
 
             segment.checkpointPages = new CheckpointPages(segmentDirtyPages, checkpointProgress);
 
@@ -2261,5 +2275,19 @@ public class PersistentPageMemory implements PageMemory {
     @TestOnly
     public boolean pageReplacementOccurred() {
         return pageReplacementWarned > 0;
+    }
+
+    // TODO: IGNITE-26233 Может исправить или вроде того
+    /** No doc yet. */
+    public int partitionGeneration0(int grpId, int partId) {
+        Segment segment = segment(grpId, partId);
+
+        segment.readLock().lock();
+
+        try {
+            return segment.partGeneration(grpId, partId);
+        } finally {
+            segment.readLock().unlock();
+        }
     }
 }

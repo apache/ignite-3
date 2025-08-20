@@ -64,7 +64,6 @@ import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -338,7 +337,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void abortRebalancePartitionAndDoCheckpointInParallel() throws Exception {
         stopCompactor();

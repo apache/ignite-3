@@ -52,15 +52,16 @@ import org.apache.ignite.internal.util.IgniteUtils;
  *
  * <p>Effective page ID is a page ID with zeroed bits used for page ID rotation.
  */
-public final class FullPageId {
+// TODO: IGNITE-26233 возможно тут что-то исправлю или улучшу
+public class FullPageId {
     /** Null page ID. */
     public static final FullPageId NULL_PAGE = new FullPageId(-1, -1);
 
     /** Page ID. */
-    private final long pageId;
+    protected final long pageId;
 
     /** Group ID. */
-    private final int groupId;
+    protected final int groupId;
 
     /**
      * Constructor.

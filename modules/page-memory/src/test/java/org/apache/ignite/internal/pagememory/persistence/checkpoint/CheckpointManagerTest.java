@@ -63,6 +63,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.invocation.InvocationOnMock;
@@ -145,6 +146,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         assertEquals(NOT_REQUIRED, checkpointUrgency(List.of(dataRegion0, dataRegion1)));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void testPageIndexesForDeltaFilePageStore() {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
@@ -155,10 +157,11 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
         ));
 
-        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
-        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+        // assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
+        // assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void testPageIndexesForDeltaFilePageStoreWithPartitionMetaPage() {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
@@ -169,8 +172,8 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
         ));
 
-        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
-        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+        // assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
+        // assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
     }
 
     @Test

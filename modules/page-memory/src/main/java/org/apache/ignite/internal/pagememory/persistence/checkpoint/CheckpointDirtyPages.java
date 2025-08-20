@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
@@ -34,9 +35,10 @@ import org.jetbrains.annotations.Nullable;
 /** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and partition IDs that should be checkpointed. */
 public class CheckpointDirtyPages {
     /** Dirty page ID comparator by groupId -> partitionId -> pageIdx. */
-    static final Comparator<FullPageId> DIRTY_PAGE_COMPARATOR = Comparator
-            .comparingInt(FullPageId::groupId)
-            .thenComparingLong(FullPageId::effectivePageId);
+    static final Comparator<DirtyFullPageId> DIRTY_PAGE_COMPARATOR = Comparator
+            .comparingInt(DirtyFullPageId::groupId)
+            .thenComparingLong(DirtyFullPageId::effectivePageId)
+            .thenComparingDouble(DirtyFullPageId::partitionGeneration);
 
     /** Empty checkpoint dirty pages. */
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
@@ -97,11 +99,12 @@ public class CheckpointDirtyPages {
         throw new IllegalArgumentException("Unknown PageMemory: " + pageMemory);
     }
 
+    // TODO: IGNITE-26233 Думаю тут надо будет аккуратно все или частично поменять
     private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
-        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
-        FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
+        DirtyFullPageId startPageId = new DirtyFullPageId(pageId(partId, (byte) 0, 0), grpId, 1);
+        DirtyFullPageId endPageId = new DirtyFullPageId(pageId(partId + 1, (byte) 0, 0), grpId, 1);
 
-        FullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
+        DirtyFullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
 
         int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
@@ -160,7 +163,7 @@ public class CheckpointDirtyPages {
          *
          * @param index Dirty page index.
          */
-        public FullPageId get(int index) {
+        public DirtyFullPageId get(int index) {
             return dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages[fromPosition + index];
         }
 

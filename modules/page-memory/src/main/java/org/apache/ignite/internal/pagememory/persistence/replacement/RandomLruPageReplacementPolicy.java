@@ -31,6 +31,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
@@ -126,8 +127,10 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 // assert partitionGeneration != UNKNOWN_PARTITION_GENERATION : fullId;
 
-                if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !partitionGeneration.equals(
-                        checkpointPages.contains(fullId))))) {
+                var dirtyFullPageId = new DirtyFullPageId(fullId.pageId(), fullId.groupId(), partitionGeneration);
+
+                if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || checkpointPages.contains(
+                        dirtyFullPageId)))) {
                     i--;
 
                     continue;

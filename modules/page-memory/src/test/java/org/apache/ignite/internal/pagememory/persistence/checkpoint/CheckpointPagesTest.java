@@ -17,27 +17,24 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -49,11 +46,11 @@ public class CheckpointPagesTest {
         // TODO: IGNITE-26233 Починить!
         CheckpointPages checkpointPages = createCheckpointPages(new FullPageId(0, 0), new FullPageId(1, 0));
 
-        assertNull(checkpointPages.contains(new FullPageId(0, 0)));
-        assertNull(checkpointPages.contains(new FullPageId(1, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(0, 0, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(1, 0, 0)));
 
-        assertNull(checkpointPages.contains(new FullPageId(2, 0)));
-        assertNull(checkpointPages.contains(new FullPageId(3, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(2, 0, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(3, 0, 0)));
     }
 
     @Test
@@ -70,15 +67,15 @@ public class CheckpointPagesTest {
         CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0), fullPageId(2, 0));
 
         assertNull(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
-        assertNull(checkpointPages.contains(new FullPageId(0, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(0, 0, 0)));
         assertEquals(2, checkpointPages.size());
 
         assertNull(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
-        assertNull(checkpointPages.contains(new FullPageId(0, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(0, 0, 0)));
         assertEquals(2, checkpointPages.size());
 
         assertNull(checkpointPages.removeOnCheckpoint(fullPageId(1, 0)));
-        assertNull(checkpointPages.contains(new FullPageId(0, 0)));
+        assertNull(checkpointPages.contains(new DirtyFullPageId(0, 0, 0)));
         assertEquals(1, checkpointPages.size());
     }
 
@@ -136,9 +133,15 @@ public class CheckpointPagesTest {
     }
 
     private static CheckpointPages createCheckpointPages(CheckpointProgressImpl checkpointProgress, FullPageId... pageIds) {
-        Map<FullPageId, Integer> collect = Arrays.stream(pageIds).collect(Collectors.toMap(Function.identity(), FullPageId::groupId));
+        Set<DirtyFullPageId> collect = Arrays.stream(pageIds)
+                .map(fullPageId -> new DirtyFullPageId(fullPageId.pageId(), fullPageId.groupId(), fullPageId.groupId()))
+                .collect(toSet());
 
         // TODO: IGNITE-26233 вот тут надо будет починить
         return new CheckpointPages(collect, checkpointProgress);
+    }
+
+    private static DirtyFullPageId fullPageId(int groupId, int partitionId) {
+        return new DirtyFullPageId(pageId(partitionId, FLAG_DATA, 0), groupId, groupId);
     }
 }

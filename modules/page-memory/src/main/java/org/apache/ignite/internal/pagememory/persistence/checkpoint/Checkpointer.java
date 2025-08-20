@@ -229,7 +229,7 @@ public class Checkpointer extends IgniteWorker {
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
                     // TODO IGNITE-25590 Add node name.
-                    IgniteThreadFactory.createWithFixedPrefix(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", false, log)
+                    IgniteThreadFactory.createWithFixedPrefix(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io-" + igniteInstanceName, false, log)
             );
         } else {
             checkpointWritePagesPool = null;

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -332,7 +335,9 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView);
+                    int partitionGeneration0 = pageMemory.partitionGeneration0(pageId.groupId(), pageId.partitionId());
+
+                    return pageIndexesForDeltaFilePageStore(partitionView, partitionGeneration0);
                 }
         );
 
@@ -344,14 +349,26 @@ public class CheckpointManager {
      *
      * @param partitionDirtyPages Dirty pages of the partition.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+    // TODO: IGNITE-26233 Вот тут что-то сделать надо будет
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages, int partitionGeneration) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
+        // TODO: IGNITE-26233 Вот тут скорее всего надо будет починякать ибо поколение может быть уже не тем
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
+
+        int size = 0;
 
         int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
 
         for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+            DirtyFullPageId dirtyFullPageId = partitionDirtyPages.get(i);
+
+            if (dirtyFullPageId.partitionGeneration() == partitionGeneration) {
+                pageIndexes[size++ + offset] = dirtyFullPageId.pageIdx();
+            }
+        }
+
+        if (size != pageIndexes.length) {
+            pageIndexes = Arrays.copyOf(pageIndexes, size);
         }
 
         return pageIndexes;

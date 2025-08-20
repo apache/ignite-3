@@ -37,6 +37,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
@@ -123,8 +124,9 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
         PageHeader.partitionGeneration(pageAbsPtr, 1);
 
         FullPageId fullPageId = fullPageId(pageAbsPtr);
+        DirtyFullPageId dirtyFullPageId = new DirtyFullPageId(fullPageId.pageId(), fullPageId.groupId(), 1);
 
-        when(checkpointPages.contains(fullPageId)).thenReturn(1);
+        when(checkpointPages.contains(dirtyFullPageId)).thenReturn(true);
 
         when(loadedPagesMap.getNearestAt(anyInt())).thenReturn(new ReplaceCandidate(42, pageRelPtr, fullPageId));
 
