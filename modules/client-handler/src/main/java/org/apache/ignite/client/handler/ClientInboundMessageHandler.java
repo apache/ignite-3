@@ -539,7 +539,6 @@ public class ClientInboundMessageHandler
 
         try {
             writeHandshakeResponse(mutuallySupportedFeatures, packer);
-
             writeAndFlushWithMagic(packer, ctx); // Releases packer.
         } catch (Throwable t) {
             packer.close();
