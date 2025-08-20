@@ -115,6 +115,13 @@ public class SqlDateTimeFormatterSelfTest extends BaseIgniteAbstractTest {
         assertEquals(str, actual);
     }
 
+    @ParameterizedTest
+    @MethodSource("timestampValues")
+    public void testFormatTimestampSupportsTz(String format, String str, LocalDateTime value) {
+        String actual = SqlDateTimeFormatter.timestampFormatter(format + " TZH:TZM").formatTimestamp(value, ZoneOffset.UTC);
+        assertEquals(str + " +00:00", actual);
+    }
+
     private static Stream<Arguments> timestampValues() {
         List<Arguments> dates = dateValues().collect(Collectors.toList());
         List<Arguments> times = timeValues().collect(Collectors.toList());
