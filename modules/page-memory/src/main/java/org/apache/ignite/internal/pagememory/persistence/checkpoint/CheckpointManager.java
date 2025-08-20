@@ -367,7 +367,7 @@ public class CheckpointManager {
             }
         }
 
-        if (size != pageIndexes.length) {
+        if (size != pageIndexes.length - offset) {
             pageIndexes = Arrays.copyOf(pageIndexes, size);
         }
 
