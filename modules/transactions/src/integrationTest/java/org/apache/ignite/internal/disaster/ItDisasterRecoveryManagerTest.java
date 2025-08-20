@@ -23,6 +23,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
@@ -32,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,14 +48,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -76,9 +86,13 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.Disaster
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
 // TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
@@ -181,30 +195,24 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive node to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
     }
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     @Test
-    void testRestartTablePartitionsWithCleanUp() throws Exception {
+    void testRestartHaTablePartitionsWithCleanUpFails() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-        IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
-        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
 
         String testZone = "TEST_ZONE";
 
-        createZone(node.catalogManager(), testZone, 1, 3);
+        createZone(node.catalogManager(), testZone, 1, 1, null, null, ConsistencyMode.HIGH_AVAILABILITY);
 
-        String tableName2 = "TABLE_NAME_2";
+        String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
                 "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName2
+                tableName
         ));
-
-        insert(0, 0, tableName2);
-
-        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 0, 0);
 
         int partitionId = 0;
 
@@ -212,17 +220,275 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 Set.of(node.name()),
                 testZone,
                 SqlCommon.DEFAULT_SCHEMA_NAME,
-                tableName2,
+                tableName,
                 Set.of(partitionId)
         );
 
+        ExecutionException exception = assertThrows(
+                ExecutionException.class,
+                () -> restartPartitionsWithCleanupFuture.get(10_000, MILLISECONDS)
+        );
+
+        assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
+
+        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @ParameterizedTest(name = "consistencyMode={0}, primaryReplica={1}, raftLeader={2}")
+    @CsvSource({
+            "STRONG_CONSISTENCY, true, false",
+            "STRONG_CONSISTENCY, false, true",
+            "STRONG_CONSISTENCY, false, false",
+            "HIGH_AVAILABILITY, true, false",
+            "HIGH_AVAILABILITY, false, true",
+            "HIGH_AVAILABILITY, false, false"
+    })
+    void testRestartTablePartitionsWithCleanUp(
+            ConsistencyMode consistencyMode,
+            boolean primaryReplica,
+            boolean raftLeader
+    ) throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+        cluster.startNode(1);
+
+        String testZone = "TEST_ZONE";
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            createZone(node.catalogManager(), testZone, 1, 2, null, null, ConsistencyMode.HIGH_AVAILABILITY);
+        } else {
+            cluster.startNode(2);
+
+            createZone(node.catalogManager(), testZone, 1, 3);
+        }
+
+        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        String tableName = "TABLE_NAME";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName
+        ));
+
+        insert(0, 0, tableName);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        IgniteImpl nodeToCleanup = findNodeConformingOptions(tableName, primaryReplica, raftLeader);
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(nodeToCleanup.name()),
+                testZone,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName,
+                Set.of(0)
+        );
+
         assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
-        assertThat(awaitPrimaryReplicaForNow(node, new TablePartitionId(tableId(node), partitionId)), willCompleteSuccessfully());
 
-        insert(1, 1, tableName2);
+        insert(1, 1, tableName);
 
-        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 0, 0);
-        assertValueOnSpecificNodes(tableName2, Set.of(node, node1, node2), 1, 1);
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @ParameterizedTest(name = "consistencyMode={0}, primaryReplica={1}")
+    @CsvSource({
+            "STRONG_CONSISTENCY, true",
+            "STRONG_CONSISTENCY, false",
+            "HIGH_AVAILABILITY, true",
+            "HIGH_AVAILABILITY, false",
+    })
+    void testRestartTablePartitionsWithCleanUpTxRollback(ConsistencyMode consistencyMode, boolean primaryReplica) throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        cluster.startNode(1);
+
+        String testZone = "TEST_ZONE";
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            createZone(node.catalogManager(), testZone, 1, 2, null, null, ConsistencyMode.HIGH_AVAILABILITY);
+        } else {
+            cluster.startNode(2);
+
+            createZone(node.catalogManager(), testZone, 1, 3);
+        }
+
+        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        String tableName = "TABLE_NAME";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName
+        ));
+
+        insert(0, 0, tableName);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        IgniteImpl primaryNode = unwrapIgniteImpl(findPrimaryIgniteNode(node, new TablePartitionId(tableId(node, tableName), 0)));
+
+        IgniteImpl nodeToCleanup;
+
+        if (primaryReplica) {
+            nodeToCleanup = primaryNode;
+        } else {
+            nodeToCleanup = cluster.runningNodes()
+                    .filter(n -> !n.name().equals(primaryNode.name()))
+                    .map(TestWrappers::unwrapIgniteImpl)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No node found that is not a primary replica."));
+        }
+
+        Transaction tx = nodeToCleanup.transactions().begin();
+
+        nodeToCleanup.sql().execute(tx, "INSERT INTO TABLE_NAME VALUES (2, 2)");
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture =
+                nodeToCleanup.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                        Set.of(nodeToCleanup.name()),
+                        testZone,
+                        SqlCommon.DEFAULT_SCHEMA_NAME,
+                        tableName,
+                        Set.of(0)
+                );
+
+        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
+
+        if (primaryReplica) {
+            // We expect here that tx will be rolled back because we have restarted primary replica. This is ensured by the fact that we
+            // use ReplicaManager.weakStopReplica(RESTART) in restartTablePartitionsWithCleanup, and this mechanism
+            // waits for replica expiration and stops lease prolongation. As a result, the transaction will not be able to commit
+            // because the primary replica has expired.
+            assertThrows(TransactionException.class, tx::commit, "Primary replica has expired, transaction will be rolled back");
+        } else {
+            tx.commit();
+
+            assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
+        }
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    void testRestartTablePartitionsWithCleanUpConcurrentRebalance() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        unwrapIgniteImpl(cluster.startNode(1));
+
+        String testZone = "TEST_ZONE";
+
+        createZone(node.catalogManager(), testZone, 1, 2);
+
+        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        String tableName = "TABLE_NAME";
+
+        node.sql().executeScript(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
+                tableName
+        ));
+
+        insert(0, 0, tableName);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
+
+        int catalogVersion = node.catalogManager().latestCatalogVersion();
+
+        long timestamp = node.catalogManager().catalog(catalogVersion).time();
+
+        Assignments assignmentPending = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        );
+
+        TablePartitionId replicationGroupId = new TablePartitionId(tableId(node, tableName), 0);
+
+        AtomicBoolean blocked = new AtomicBoolean(true);
+
+        AtomicBoolean reached = new AtomicBoolean(false);
+
+        blockMessage(cluster, (nodeName, msg) -> {
+            reached.set(true);
+            return blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentPending);
+        });
+
+        alterZone(node.catalogManager(), testZone, 3);
+
+        waitForCondition(reached::get, 10_000L);
+
+        CompletableFuture<Void> restartPartitionsWithCleanupFuture = node.disasterRecoveryManager().restartTablePartitionsWithCleanup(
+                Set.of(node2.name()),
+                testZone,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                tableName,
+                Set.of(0)
+        );
+
+        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
+
+        insert(1, 1, tableName);
+
+        blocked.set(false);
+
+        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
+
+        assertEquals(3, runningNodes.size(), "Expected 3 running nodes after zone alteration");
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
+
+        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
+    }
+
+    private IgniteImpl findNodeConformingOptions(String tableName, boolean primaryReplica, boolean raftLeader) throws InterruptedException {
+        Ignite nodeToCleanup;
+
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
+
+        TablePartitionId replicationGroupId = new TablePartitionId(tableId(ignite, tableName), 0);
+
+        String primaryNodeName = findPrimaryNodeName(ignite, replicationGroupId);
+
+        String raftLeaderNodeName = cluster.leaderServiceFor(replicationGroupId).getServerId().getConsistentId();
+
+        if (primaryReplica) {
+            nodeToCleanup = findPrimaryIgniteNode(ignite, replicationGroupId);
+        } else if (raftLeader) {
+            nodeToCleanup = cluster.runningNodes()
+                    .filter(node -> node.name().equals(raftLeaderNodeName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No node found that is a raft leader for the specified options."));
+        } else {
+            nodeToCleanup = cluster.runningNodes()
+                    .filter(node -> !node.name().equals(raftLeaderNodeName) && !node.name().equals(primaryNodeName))
+                    .findFirst()
+                    .orElse(cluster.aliveNode());
+        }
+
+        return unwrapIgniteImpl(nodeToCleanup);
+    }
+
+    private String findPrimaryNodeName(IgniteImpl ignite, TablePartitionId replicationGroupId) {
+        assertThat(awaitPrimaryReplicaForNow(ignite, replicationGroupId), willCompleteSuccessfully());
+
+        CompletableFuture<ReplicaMeta> primary = ignite.placementDriver().getPrimaryReplica(replicationGroupId, ignite.clock().now());
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        return primary.join().getLeaseholder();
+    }
+
+    private Ignite findPrimaryIgniteNode(IgniteImpl ignite, TablePartitionId replicationGroupId) {
+        return cluster.runningNodes()
+                .filter(node -> node.name().equals(findPrimaryNodeName(ignite, replicationGroupId)))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No node found that is a primary replica for the specified options."));
     }
 
     private static void assertValueOnSpecificNodes(String tableName, Set<IgniteImpl> nodes, int id, int val) throws Exception {
@@ -237,11 +503,15 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         Row keyValueRow0 = createKeyValueRow(id, val);
         Row keyRow0 = createKeyRow(id);
 
-        CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
+        assertTrue(waitForCondition(() -> {
+            try {
+                CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
 
-        assertThat(getFut, willCompleteSuccessfully());
-
-        assertTrue(compareRows(getFut.get(), keyValueRow0));
+                return compareRows(getFut.get(), keyValueRow0);
+            } catch (Exception e) {
+                return false;
+            }
+        }, 10_000), "Row comparison failed within the timeout.");
     }
 
     @Test
@@ -518,7 +788,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     private static int tableId(IgniteImpl node) {
-        return ((Wrapper) node.tables().table(TABLE_NAME)).unwrap(TableImpl.class).tableId();
+        return tableId(node, TABLE_NAME);
+    }
+
+    private static int tableId(IgniteImpl node, String tableName) {
+        return ((Wrapper) node.tables().table(tableName)).unwrap(TableImpl.class).tableId();
     }
 
     private static int zoneId(IgniteImpl node) {

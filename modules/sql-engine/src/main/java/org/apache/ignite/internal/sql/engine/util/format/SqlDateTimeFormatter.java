@@ -31,9 +31,9 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
 /**
- * SQL date/time parser.
+ * SQL date/time formatter.
  */
-public final class SqlDateTimeParser {
+public final class SqlDateTimeFormatter {
 
     private static final Clock CLOCK = Clock.systemDefaultZone();
 
@@ -69,7 +69,7 @@ public final class SqlDateTimeParser {
 
     private final List<DateTimeFormatElement> elements;
 
-    SqlDateTimeParser(List<DateTimeFormatElement> elements) {
+    SqlDateTimeFormatter(List<DateTimeFormatElement> elements) {
         this.elements = elements;
     }
 
@@ -79,12 +79,23 @@ public final class SqlDateTimeParser {
      * @param pattern Pattern.
      * @return Formatter.
      */
-    public static SqlDateTimeParser timeFormatter(String pattern) {
+    public static SqlDateTimeFormatter timeFormatter(String pattern) {
         try {
-            return new SqlDateTimeParser(new Scanner(pattern, "TIME", TIME_FIELDS).scan());
+            return new SqlDateTimeFormatter(new Scanner(pattern, "TIME", TIME_FIELDS).scan());
         } catch (DateTimeException e) {
             throw new SqlException(Sql.RUNTIME_ERR, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Formats the given time value into a string according to format rules.
+     *
+     * @param value Time value.
+     * @return Formatted value.
+     */
+    public String formatTime(LocalTime value) {
+        Formatter formatter = new Formatter(elements);
+        return formatter.format(value, ZoneOffset.UTC);
     }
 
     /**
@@ -112,12 +123,23 @@ public final class SqlDateTimeParser {
      * @param pattern Pattern.
      * @return Formatter.
      */
-    public static SqlDateTimeParser dateFormatter(String pattern) {
+    public static SqlDateTimeFormatter dateFormatter(String pattern) {
         try {
-            return new SqlDateTimeParser(new Scanner(pattern, "DATE", DATE_FIELDS).scan());
+            return new SqlDateTimeFormatter(new Scanner(pattern, "DATE", DATE_FIELDS).scan());
         } catch (DateTimeException e) {
             throw new SqlException(Sql.RUNTIME_ERR, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Formats the given date value into a string according to format rules.
+     *
+     * @param value Date value.
+     * @return Formatted value.
+     */
+    public String formatDate(LocalDate value) {
+        Formatter formatter = new Formatter(elements);
+        return formatter.format(value, ZoneOffset.UTC);
     }
 
     /**
@@ -157,12 +179,24 @@ public final class SqlDateTimeParser {
      * @param pattern Pattern.
      * @return Formatter.
      */
-    public static SqlDateTimeParser timestampFormatter(String pattern) {
+    public static SqlDateTimeFormatter timestampFormatter(String pattern) {
         try {
-            return new SqlDateTimeParser(new Scanner(pattern, "TIMESTAMP", TIMESTAMP_FIELDS).scan());
+            return new SqlDateTimeFormatter(new Scanner(pattern, "TIMESTAMP", TIMESTAMP_FIELDS).scan());
         } catch (DateTimeException e) {
             throw new SqlException(Sql.RUNTIME_ERR, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Formats the given timestamp value into a string according to format rules.
+     *
+     * @param value Timestamp value.
+     * @param offset Time zone offset.
+     * @return Formatted value.
+     */
+    public String formatTimestamp(LocalDateTime value, ZoneOffset offset) {
+        Formatter formatter = new Formatter(elements);
+        return formatter.format(value, offset);
     }
 
     /**

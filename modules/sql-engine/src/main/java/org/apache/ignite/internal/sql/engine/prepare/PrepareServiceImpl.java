@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimi
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -453,14 +452,27 @@ public class PrepareServiceImpl implements PrepareService {
                     IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
 
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, kvGet, resultSetMetadata,
-                            parameterMetadata, relWithMetadata.paMetadata, relWithMetadata.ppMetadata
+                            nextPlanId(), 
+                            catalogVersion, 
+                            kvGet, 
+                            resultSetMetadata,
+                            parameterMetadata,
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 }
 
                 var plan = new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion, 
-                        relWithMetadata.numTables, fastPlan, relWithMetadata.paMetadata, relWithMetadata.ppMetadata
+                        nextPlanId(), 
+                        SqlQueryType.QUERY, 
+                        optimizedRel, 
+                        resultSetMetadata, 
+                        parameterMetadata, 
+                        catalogVersion, 
+                        relWithMetadata.numSources, 
+                        fastPlan, 
+                        relWithMetadata.paMetadata,
+                        relWithMetadata.ppMetadata
                 );
 
                 logPlan(parsedResult.originalQuery(), plan);
@@ -523,13 +535,25 @@ public class PrepareServiceImpl implements PrepareService {
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
-                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
-                    parameterMetadata, null, null
+                    nextPlanId(),
+                    ctx.catalogVersion(), 
+                    (IgniteKeyValueModify) optimizedRel,
+                    DML_METADATA,
+                    parameterMetadata, 
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
             );
         } else {
             plan = new MultiStepPlan(
-                    nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, ctx.catalogVersion(), 
-                    relWithMetadata.numTables, null, relWithMetadata.paMetadata, relWithMetadata.ppMetadata
+                    nextPlanId(),
+                    SqlQueryType.DML,
+                    optimizedRel, DML_METADATA,
+                    parameterMetadata,
+                    ctx.catalogVersion(), 
+                    relWithMetadata.numSources, 
+                    null, 
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
             );
         }
 
@@ -584,13 +608,26 @@ public class PrepareServiceImpl implements PrepareService {
                     IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
 
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, kvModify, DML_METADATA,
-                            parameterMetadata, relWithMetadata.paMetadata, relWithMetadata.ppMetadata
+                            nextPlanId(), 
+                            catalogVersion,
+                            kvModify,
+                            DML_METADATA,
+                            parameterMetadata, 
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(
-                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion,
-                            relWithMetadata.numTables, null, relWithMetadata.paMetadata, relWithMetadata.ppMetadata
+                            nextPlanId(), 
+                            SqlQueryType.DML,
+                            optimizedRel,
+                            DML_METADATA, 
+                            parameterMetadata, 
+                            catalogVersion,
+                            relWithMetadata.numSources, 
+                            null, 
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 }
 
@@ -757,15 +794,15 @@ public class PrepareServiceImpl implements PrepareService {
         // cluster keeps a lot of cached stuff that won't be used anymore.
         // In order let GC collect that, let's reattach tree to an empty cluster
         // before storing tree in plan cache
-        IntObjectPair<IgniteRel> pair = Cloner.cloneAndAssignSourceId(igniteRel, Commons.emptyCluster());
-        int numTables = pair.firstInt();
-        IgniteRel rel = pair.right();
-
-        PartitionAwarenessMetadata partitionAwarenessMetadata =
-                PartitionAwarenessMetadataExtractor.getMetadata(rel);
+        RelWithSources reWithSources = Cloner.cloneAndAssignSourceId(igniteRel, Commons.emptyCluster());
+        int numTables = reWithSources.sources().size();
+        IgniteRel rel = reWithSources.root();
 
         PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor()
                 .go(rel);
+
+        PartitionAwarenessMetadata partitionAwarenessMetadata =
+                PartitionAwarenessMetadataExtractor.getMetadata(reWithSources, partitionPruningMetadata);
 
         return new RelWithMetadata(rel, numTables, partitionAwarenessMetadata, partitionPruningMetadata);
     }
@@ -861,16 +898,16 @@ public class PrepareServiceImpl implements PrepareService {
         final IgniteRel rel;
         final @Nullable PartitionAwarenessMetadata paMetadata;
         final @Nullable PartitionPruningMetadata ppMetadata;
-        final int numTables;
+        final int numSources;
 
         RelWithMetadata(
                 IgniteRel rel,
-                int numTables,
+                int numSources,
                 @Nullable PartitionAwarenessMetadata paMetadata, 
                 @Nullable PartitionPruningMetadata ppMetadata
         ) {
             this.rel = rel;
-            this.numTables = numTables;
+            this.numSources = numSources;
             this.paMetadata = paMetadata;
             this.ppMetadata = ppMetadata;
         }
