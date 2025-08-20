@@ -56,6 +56,7 @@ import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -141,11 +142,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(2, metrics().handshakesFailed());
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testHandshakesFailedTimeout() throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() < 3 ? 600 : 0;
+        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() <= 1 ? 600 : 0;
         server = new TestServer(
                 1000,
                 new FakeIgnite(),
@@ -161,7 +162,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 5000),
+                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 1_500),
                 () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
