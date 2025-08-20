@@ -125,7 +125,7 @@ public class CheckpointReadWriteLock {
     public boolean checkpointLockIsHeldByThread() {
         return isWriteLockHeldByCurrentThread()
                 || checkpointReadLockHoldCount.get() > 0
-                || Thread.currentThread().getName().startsWith(CHECKPOINT_RUNNER_THREAD_PREFIX);
+                || Thread.currentThread() instanceof IgniteCheckpointThread;
     }
 
     /**
