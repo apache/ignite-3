@@ -83,6 +83,7 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextResultRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptRequest;
@@ -963,6 +964,9 @@ public class ClientInboundMessageHandler
                         clockService, notificationSender(requestId), resolveCurrentUsername(),
                         clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT)
                 );
+
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientSqlCursorNextResultRequest.process(in, resources, partitionOperationsExecutor, metrics);
 
             case ClientOp.OPERATION_CANCEL:
                 return ClientOperationCancelRequest.process(in, cancelHandles);

@@ -34,13 +34,16 @@ public enum QueryModifier {
     ALLOW_APPLIED_RESULT(2),
 
     /** Queries with transaction control statements. */
-    ALLOW_TX_CONTROL(3);
+    ALLOW_TX_CONTROL(3),
+
+    /** Queries with multiple statements. */
+    ALLOW_MULTISTATEMENT(4);
 
     /** A set containing all modifiers. **/
     public static final Set<QueryModifier> ALL = EnumSet.allOf(QueryModifier.class);
 
     /** A set of modifiers that can apply to single statements. **/
-    public static final Set<QueryModifier> SINGLE_STMT_MODIFIERS = EnumSet.complementOf(EnumSet.of(ALLOW_TX_CONTROL));
+    public static final Set<QueryModifier> SINGLE_STMT_MODIFIERS = EnumSet.complementOf(EnumSet.of(ALLOW_TX_CONTROL, ALLOW_MULTISTATEMENT));
 
     private static final QueryModifier[] VALS = new QueryModifier[values().length];
 

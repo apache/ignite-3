@@ -766,11 +766,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
         Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
         Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
+        Statement multiStatement = client().sql().createStatement("SELECT 1; SELECT 2;");
 
         BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
             await(sql.executeAsyncInternal(
                     null,
-                    () -> SqlRow.class,
+                    null,
                     null,
                     types,
                     stmt
@@ -822,10 +823,20 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             );
         }
 
-        // No exception expected with correct modifiers.
-        check.accept(ddlStatement, QueryModifier.ALL);
-        check.accept(dmlStatement, QueryModifier.ALL);
-        check.accept(selectStatement, QueryModifier.ALL);
+        // Incorrect modifier for multi-statement.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(multiStatement, QueryModifier.SINGLE_STMT_MODIFIERS),
+                    "Multiple statements are not allowed."
+            );
+        }
+
+        // No exception expected with correct query modifier.
+        check.accept(ddlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(dmlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(selectStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(multiStatement, QueryModifier.ALL);
     }
 
     @Test
