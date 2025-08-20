@@ -187,9 +187,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
 
-        IntStream.range(INITIAL_NODES, zoneParams.nodes()).forEach(i -> cluster.startNode(i));
-        // TODO: IGNITE-22818 Fails with "Race operations took too long"
-        // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
+        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
                         + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
