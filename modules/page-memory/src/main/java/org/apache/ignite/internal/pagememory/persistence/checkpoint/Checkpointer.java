@@ -69,7 +69,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
@@ -235,8 +234,7 @@ public class Checkpointer extends IgniteWorker {
                     0L,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    // TODO IGNITE-25590 Add node name.
-                    IgniteThreadFactory.createWithFixedPrefix(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", false, log)
+                    IgniteCheckpointThreadFactory.create(igniteInstanceName, CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", false, log)
             );
         } else {
             checkpointWritePagesPool = null;
