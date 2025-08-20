@@ -522,7 +522,7 @@ public class ClientInboundMessageHandler
 
             writeErrorCore(t, errPacker);
 
-            writeAndFlushWithMagic(errPacker, ctx);
+            writeAndFlushWithMagic(errPacker, ctx); // Releases packer.
         } catch (Throwable t2) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t2.getMessage(), t2);
