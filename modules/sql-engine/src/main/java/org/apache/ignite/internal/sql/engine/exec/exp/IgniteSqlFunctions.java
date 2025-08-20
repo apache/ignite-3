@@ -45,7 +45,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeParser;
+import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeFormatter;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -625,7 +625,7 @@ public class IgniteSqlFunctions {
         Objects.requireNonNull(timeZone, "timeZone");
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDateTime dateTime = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        LocalDateTime dateTime = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
         Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
         // Adjust instant millis
@@ -642,7 +642,7 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDate date = SqlDateTimeParser.dateFormatter(format).parseDate(v);
+        LocalDate date = SqlDateTimeFormatter.dateFormatter(format).parseDate(v);
         return SqlFunctions.toInt(Date.valueOf(date));
     }
 
@@ -653,7 +653,7 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalTime time = SqlDateTimeParser.timeFormatter(format).parseTime(v);
+        LocalTime time = SqlDateTimeFormatter.timeFormatter(format).parseTime(v);
         Instant instant = time.atDate(JAVA_SQL_TIME_DATE).toInstant(ZoneOffset.UTC);
         return (int) instant.toEpochMilli();
     }
@@ -665,9 +665,56 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDateTime ts = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        LocalDateTime ts = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
         Instant instant = ts.toInstant(ZoneOffset.UTC);
         return instant.toEpochMilli();
+    }
+
+    /** Converts a date value into a date string. */
+    public static @Nullable String formatDate(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDate date = LocalDate.ofEpochDay(v.longValue());
+        return SqlDateTimeFormatter.dateFormatter(format).formatDate(date);
+    }
+
+    /** Converts a time value into a time string. */
+    public static @Nullable String formatTime(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalTime time = LocalTime.ofInstant(Instant.ofEpochMilli(v.longValue()), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timeFormatter(format).formatTime(time);
+    }
+
+    /** Converts a timestamp value into a timestamp string. */
+    public static @Nullable String formatTimestamp(String format, @Nullable Long v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(v), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(dateTime, ZoneOffset.UTC);
+    }
+
+    /** Converts a timestamp value with local time zone into a timestamp string. */
+    public static @Nullable String formatTimestampWithLocalTimeZone(String format, @Nullable Long v, TimeZone timeZone) {
+        if (v == null) {
+            return null;
+        }
+
+        Instant instant = Instant.ofEpochMilli(v);
+        ZoneRules rules = timeZone.toZoneId().getRules();
+        ZoneOffset offset = rules.getOffset(instant);
+        LocalDateTime value = LocalDateTime.ofEpochSecond(instant.getEpochSecond(), instant.getNano(), offset);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(value, offset);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
