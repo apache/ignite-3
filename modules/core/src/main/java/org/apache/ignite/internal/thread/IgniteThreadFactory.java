@@ -51,7 +51,7 @@ public class IgniteThreadFactory implements ThreadFactory {
     /**
      * Constructor.
      */
-    private IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
+    protected IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
         this.prefix = Objects.requireNonNull(prefix, "prefix");
         this.daemon = daemon;
         this.exHnd = new LogUncaughtExceptionHandler(log);

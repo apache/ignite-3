@@ -24,7 +24,7 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 /** Extension for creating {@link IgniteCheckpointThread}. */
 class IgniteCheckpointThreadFactory extends IgniteThreadFactory {
     /** Constructor. */
-    IgniteCheckpointThreadFactory(
+    private IgniteCheckpointThreadFactory(
             String nodeName,
             String poolName,
             boolean daemon,
