@@ -21,7 +21,9 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignmentsGetLocally;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.MULTI_NODE;
 import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.getAliveNodesWithData;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -224,8 +226,48 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                     }
                 }
             } else {
-                if (replicationGroupId instanceof ZonePartitionId) { // NOPMD
-                    // todo support zone partitions https://issues.apache.org/jira/browse/IGNITE-25979
+                if (replicationGroupId instanceof ZonePartitionId) {
+                    ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
+
+                    if (groupId.zoneId() == zoneId && partitionIds.contains(groupId.partitionId())) {
+                        if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
+                            if (zoneDescriptor.replicas() >= 2) {
+                                restartFutures.add(disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartitionWithCleanUp(
+                                        groupId,
+                                        revision,
+                                        assignmentsTimestamp
+                                ));
+                            } else {
+                                restartFutures.add(CompletableFuture.failedFuture(
+                                        new DisasterRecoveryException(RESTART_WITH_CLEAN_UP_ERR, "Not enough alive nodes "
+                                                + "to perform reset with clean up.")
+                                ));
+                            }
+                        } else {
+                            restartFutures.add(
+                                    enoughAliveNodesToRestartWithCleanUp(
+                                        disasterRecoveryManager,
+                                        revision,
+                                        replicationGroupId,
+                                        zoneDescriptor,
+                                        catalog
+                                    ).thenCompose(
+                                        enoughNodes -> {
+                                            if (enoughNodes) {
+                                                return disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartitionWithCleanUp(
+                                                        groupId,
+                                                        revision,
+                                                        assignmentsTimestamp
+                                                );
+                                            } else {
+                                                throw new DisasterRecoveryException(RESTART_WITH_CLEAN_UP_ERR, "Not enough alive nodes "
+                                                        + "to perform reset with clean up.");
+                                            }
+                                        }
+                                    )
+                            );
+                        }
+                    }
                 }
             }
         });
@@ -242,9 +284,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             return falseCompletedFuture();
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25979 do proper casting for ZonePartitionId
-        TablePartitionId tablePartitionId = (TablePartitionId) replicationGroupId;
-
         MetaStorageManager metaStorageManager = disasterRecoveryManager.metaStorageManager;
 
         Set<String> aliveNodesConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
@@ -252,29 +291,63 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 .map(NodeWithAttributes::nodeName)
                 .collect(toSet());
 
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture =
-                disasterRecoveryManager.localPartitionStatesInternal(
-                        Set.of(zoneDescriptor.name()),
-                        emptySet(),
-                        Set.of(tablePartitionId.partitionId()),
-                        catalog,
-                        tableState()
-                );
+        if (replicationGroupId instanceof TablePartitionId) {
+            TablePartitionId tablePartitionId = (TablePartitionId) replicationGroupId;
 
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments =
-                tableStableAssignments(metaStorageManager, tableId, new int[]{tablePartitionId.partitionId()});
+            CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    disasterRecoveryManager.localPartitionStatesInternal(
+                            Set.of(zoneDescriptor.name()),
+                            emptySet(),
+                            Set.of(tablePartitionId.partitionId()),
+                            catalog,
+                            tableState()
+                    );
 
-        return localStatesFuture.thenCombine(stableAssignments, (localPartitionStatesMap, currentAssignments) -> {
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(tablePartitionId);
+            CompletableFuture<Map<Integer, Assignments>> stableAssignments =
+                    tableStableAssignments(metaStorageManager, tableId, new int[]{tablePartitionId.partitionId()});
 
-            Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+            return localStatesFuture.thenCombine(stableAssignments, (localPartitionStatesMap, currentAssignments) -> {
+                LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(tablePartitionId);
 
-            Set<Assignment> currentStableAssignments = currentAssignments.get(tablePartitionId.partitionId()).nodes();
+                Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
 
-            Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
+                Set<Assignment> currentStableAssignments = currentAssignments.get(tablePartitionId.partitionId()).nodes();
 
-            return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
-        });
+                Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
+
+                return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
+            });
+        } else if (replicationGroupId instanceof ZonePartitionId) {
+            ZonePartitionId zonePartitionId = (ZonePartitionId) replicationGroupId;
+
+            CompletableFuture<Map<ZonePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    disasterRecoveryManager.localPartitionStatesInternal(
+                            Set.of(zoneDescriptor.name()),
+                            emptySet(),
+                            Set.of(zonePartitionId.partitionId()),
+                            catalog,
+                            zoneState()
+                    );
+
+            Assignments stableAssignmentsForPartition = zoneStableAssignmentsGetLocally(
+                    metaStorageManager, 
+                    zonePartitionId, 
+                    msRevision);
+
+            return localStatesFuture.thenApply(localPartitionStatesMap -> {
+                LocalPartitionStateMessageByNode localPartitionStateMessageByNode = localPartitionStatesMap.get(zonePartitionId);
+
+                Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+
+                Set<Assignment> currentStableAssignments = stableAssignmentsForPartition.nodes();
+
+                Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentStableAssignments, partAssignments);
+
+                return aliveStableNodes.size() > (zoneDescriptor.replicas() / 2 + 1);
+            });
+        } else {
+            throw new IllegalArgumentException("Unsupported replication group type: " + replicationGroupId.getClass());
+        }
     }
 
     @Override
