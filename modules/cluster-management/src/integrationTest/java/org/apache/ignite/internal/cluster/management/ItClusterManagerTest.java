@@ -337,12 +337,12 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // Wait for the initial cluster reconfiguration to complete.
         assertLearnerSize(2);
 
-        // Same as above, but check the all 5 nodes see the same number of learners (which is 2 actually).
+        // Same as above, but check that all 5 nodes see the same number of learners (which is 2 actually).
         assertTrue(waitForCondition(() ->
                         configs.size() == 5 && configs.values().stream()
                                 .map(list -> list.get(list.size() - 1))
                                 .mapToInt(raftGroupConfiguration -> raftGroupConfiguration.learners().size())
-                                .min().orElseThrow() == 2,
+                                .allMatch(size -> size == 2),
                 30_000
         ));
 
@@ -411,10 +411,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // To check it we will look through the raft configuration history and verify that all nodes have same transition history
         // with regards to the learner nodes: [] -> [3] -> [3, 4] -> [4] -> [3, 4].
         // Basically should be enough to check learners size only.
-        int[] count = {0, 1, 2, 1, 2};
+        int[] counts = {0, 1, 2, 1, 2};
         assertTrue(waitForCondition(() ->
                         configs.values().stream()
-                                .allMatch(transition -> checkLearnerTransitionsCorrect(transition, count)),
+                                .allMatch(transition -> checkLearnerTransitionsCorrect(transition, counts)),
                 30_000
         ));
     }
@@ -423,16 +423,16 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Checks proper configuration history.
      *
      * @param configs Node configuration transitions history.
-     * @param count Expected number of learner nodes for each transition.
+     * @param counts Expected number of learner nodes for each transition.
      * @return {@code true} if the history is correct, {@code false} otherwise.
      */
-    private static boolean checkLearnerTransitionsCorrect(List<RaftGroupConfiguration> configs, int[] count) {
-        if (configs.size() != count.length) {
+    private static boolean checkLearnerTransitionsCorrect(List<RaftGroupConfiguration> configs, int[] counts) {
+        if (configs.size() != counts.length) {
             return false;
         }
 
         for (int i = 0; i < configs.size(); i++) {
-            if (configs.get(i).learners().size() != count[i]) {
+            if (configs.get(i).learners().size() != counts[i]) {
                 return false;
             }
         }
