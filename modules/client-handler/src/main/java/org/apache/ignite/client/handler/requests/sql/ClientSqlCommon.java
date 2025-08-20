@@ -23,15 +23,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
+import org.apache.ignite.client.handler.ClientResource;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common SQL request handling logic.
@@ -223,11 +236,150 @@ class ClientSqlCommon {
                     queryTypes.add(SqlQueryType.TX_CONTROL);
                     break;
 
+                case ALLOW_MULTISTATEMENT:
+                    break;
+
                 default:
                     throw new IllegalArgumentException("Unexpected modifier " + queryModifier);
             }
         }
 
         return queryTypes;
+    }
+
+    static CompletableFuture<ResponseWriter> writeResultSetAsync(
+            ClientResourceRegistry resources,
+            AsyncResultSetImpl asyncResultSet,
+            ClientHandlerMetricSource metrics,
+            int pageSize,
+            boolean includePartitionAwarenessMeta,
+            boolean sqlDirectTxMappingSupported,
+            boolean sqlMultiStatementSupported
+    ) {
+        try {
+            Long nextResultResourceId = sqlMultiStatementSupported && asyncResultSet.cursor().hasNextResult()
+                    ? saveNextResultResource(asyncResultSet.cursor().nextResult(), pageSize, resources)
+                    : null;
+
+            if ((asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages())) {
+                metrics.cursorsActiveIncrement();
+
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
+
+                ClientResource resource = new ClientResource(
+                        clientResultSet,
+                        clientResultSet::closeAsync);
+
+                var resourceId = resources.put(resource);
+
+                return CompletableFuture.completedFuture(out ->
+                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta,
+                                sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
+            }
+
+            return asyncResultSet.closeAsync()
+                    .thenApply(v -> (ResponseWriter) out ->
+                            writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta,
+                                    sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
+
+        } catch (IgniteInternalCheckedException e) {
+            // Resource registry was closed.
+            return asyncResultSet
+                    .closeAsync()
+                    .thenRun(() -> {
+                        throw new IgniteInternalException(e.getMessage(), e);
+                    });
+        }
+    }
+
+    private static Long saveNextResultResource(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextResultFuture,
+            int pageSize,
+            ClientResourceRegistry resources
+    ) throws IgniteInternalCheckedException {
+        ClientResource resource = new ClientResource(
+                new CursorWithPageSize(nextResultFuture, pageSize),
+                () -> nextResultFuture.thenApply(AsyncCursor::closeAsync));
+
+        return resources.put(resource);
+    }
+
+    private static void writeResultSet(
+            ClientMessagePacker out,
+            AsyncResultSetImpl res,
+            @Nullable Long resourceId,
+            boolean includePartitionAwarenessMeta,
+            boolean sqlDirectTxMappingSupported,
+            boolean sqlMultiStatementsSupported,
+            @Nullable Long nextResultResourceId
+    ) {
+        out.packLongNullable(resourceId);
+
+        out.packBoolean(res.hasRowSet());
+        out.packBoolean(res.hasMorePages());
+        out.packBoolean(res.wasApplied());
+        out.packLong(res.affectedRows());
+
+        packMeta(out, res.metadata());
+
+        if (includePartitionAwarenessMeta) {
+            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported);
+        }
+
+        if (sqlMultiStatementsSupported) {
+            out.packLongNullable(nextResultResourceId);
+        }
+
+        if (res.hasRowSet()) {
+            packCurrentPage(out, res);
+        }
+    }
+
+    private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
+        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
+        if (meta == null || meta.columns() == null) {
+            out.packInt(0);
+            return;
+        }
+
+        packColumns(out, meta.columns());
+    }
+
+    private static void packPartitionAwarenessMeta(
+            ClientMessagePacker out,
+            @Nullable PartitionAwarenessMetadata meta,
+            boolean sqlDirectTxMappingSupported
+    ) {
+        if (meta == null) {
+            out.packNil();
+            return;
+        }
+
+        out.packInt(meta.tableId());
+        out.packIntArray(meta.indexes());
+        out.packIntArray(meta.hash());
+
+        if (sqlDirectTxMappingSupported) {
+            out.packByte(meta.directTxMode().id);
+        }
+    }
+
+    /** Holder of the cursor future and page size. */
+    static class CursorWithPageSize {
+        private final CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture;
+        private final int pageSize;
+
+        CursorWithPageSize(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture, int pageSize) {
+            this.cursorFuture = cursorFuture;
+            this.pageSize = pageSize;
+        }
+
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture() {
+            return cursorFuture;
+        }
+
+        int pageSize() {
+            return pageSize;
+        }
     }
 }
