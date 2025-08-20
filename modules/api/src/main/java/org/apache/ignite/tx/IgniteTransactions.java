@@ -129,7 +129,7 @@ public interface IgniteTransactions {
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      *
      * @param clo The closure.
      *
@@ -169,7 +169,7 @@ public interface IgniteTransactions {
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      *
      * @param options Transaction options.
      * @param clo The closure.
@@ -215,7 +215,7 @@ public interface IgniteTransactions {
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      *
      * @param clo Closure.
      * @param <T> Closure result type.
@@ -257,7 +257,7 @@ public interface IgniteTransactions {
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      *
      * @param clo The closure.
      * @param options Transaction options.
@@ -267,6 +267,8 @@ public interface IgniteTransactions {
      * @throws TransactionException If a transaction can't be finished successfully.
      */
     default <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
         long startTimestamp = System.currentTimeMillis();
         long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
         return runInTransactionInternal(this, clo, options, startTimestamp, initialTimeout);
@@ -288,7 +290,7 @@ public interface IgniteTransactions {
      *
      * <p>If the asynchronous chain resulted with no exception, the commitAsync will be automatically called. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
      *
      * @param clo The closure.
      * @param <T> Closure result type.
@@ -314,7 +316,8 @@ public interface IgniteTransactions {
      *
      * <p>If the asynchronous chain resulted with no exception, the commitAsync will be automatically called. In a case of exception, the
      * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
-     * expires before the closure succeeds and transaction is committed, then the transaction is rolled back.
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     *
      *
      * @param clo The closure.
      * @param options Transaction options.
@@ -325,6 +328,8 @@ public interface IgniteTransactions {
             Function<Transaction, CompletableFuture<T>> clo,
             @Nullable TransactionOptions options
     ) {
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
         long startTimestamp = System.currentTimeMillis();
         long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
         return runInTransactionAsyncInternal(this, clo, options, startTimestamp, initialTimeout, null);
