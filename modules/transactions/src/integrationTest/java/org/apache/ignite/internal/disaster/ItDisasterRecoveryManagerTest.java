@@ -474,7 +474,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return unwrapIgniteImpl(nodeToCleanup);
     }
 
-    private String findPrimaryNodeName(IgniteImpl ignite, TablePartitionId replicationGroupId) {
+    private static String findPrimaryNodeName(IgniteImpl ignite, TablePartitionId replicationGroupId) {
         assertThat(awaitPrimaryReplicaForNow(ignite, replicationGroupId), willCompleteSuccessfully());
 
         CompletableFuture<ReplicaMeta> primary = ignite.placementDriver().getPrimaryReplica(replicationGroupId, ignite.clock().now());
@@ -482,6 +482,23 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(primary, willCompleteSuccessfully());
 
         return primary.join().getLeaseholder();
+    }
+
+    private static String findPrimaryNodeName(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
+        assertThat(awaitPrimaryReplicaForNow(ignite, replicationGroupId), willCompleteSuccessfully());
+
+        CompletableFuture<ReplicaMeta> primary = ignite.placementDriver().getPrimaryReplica(replicationGroupId, ignite.clock().now());
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        return primary.join().getLeaseholder();
+    }
+
+    private Ignite findPrimaryIgniteNode(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
+        return cluster.runningNodes()
+                .filter(node -> node.name().equals(findPrimaryNodeName(ignite, replicationGroupId)))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No node found that is a primary replica for the specified options."));
     }
 
     private Ignite findPrimaryIgniteNode(IgniteImpl ignite, TablePartitionId replicationGroupId) {
@@ -803,24 +820,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
     }
 
-    private String findPrimaryNodeName(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
-        assertThat(awaitPrimaryReplicaForNow(ignite, replicationGroupId), willCompleteSuccessfully());
-
-        CompletableFuture<ReplicaMeta> primary = ignite.placementDriver().getPrimaryReplica(replicationGroupId, ignite.clock().now());
-
-        assertThat(primary, willCompleteSuccessfully());
-
-        return primary.join().getLeaseholder();
-    }
-
-    private Ignite findPrimaryIgniteNode(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
-        return cluster.runningNodes()
-                .filter(node -> node.name().equals(findPrimaryNodeName(ignite, replicationGroupId)))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No node found that is a primary replica for the specified options."));
-    }
-
-    private IgniteImpl findZoneNodeConformingOptions(String testZone, boolean primaryReplica, boolean raftLeader) throws InterruptedException {
+    private IgniteImpl findZoneNodeConformingOptions(String testZone, boolean primaryReplica, boolean raftLeader)
+            throws InterruptedException {
         Ignite nodeToCleanup;
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(ignite.catalogManager(), testZone), 0);
@@ -1045,7 +1046,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
-        IgniteImpl primaryNode = unwrapIgniteImpl(findPrimaryIgniteNode(node, new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0)));
+        IgniteImpl primaryNode =
+                unwrapIgniteImpl(findPrimaryIgniteNode(node, new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0)));
 
         IgniteImpl nodeToCleanup;
 
