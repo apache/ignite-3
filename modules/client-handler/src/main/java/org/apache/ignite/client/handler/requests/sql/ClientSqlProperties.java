@@ -75,7 +75,7 @@ class ClientSqlProperties {
         SqlProperties sqlProperties = new SqlProperties()
                 .queryTimeout(queryTimeout)
                 .allowedQueryTypes(ClientSqlCommon.convertQueryModifierToQueryType(queryModifiers))
-                .allowMultiStatement(false);
+                .allowMultiStatement(queryModifiers.contains(QueryModifier.ALLOW_MULTISTATEMENT));
 
         if (schema != null) {
             sqlProperties.defaultSchema(schema);

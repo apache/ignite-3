@@ -43,7 +43,7 @@ public class ClientSqlCommonTest {
     void testConvertQueryModifierToQueryType(QueryModifier type) {
         Set<SqlQueryType> sqlQueryTypes = ClientSqlCommon.convertQueryModifierToQueryType(Set.of(type));
 
-        assertFalse(sqlQueryTypes.isEmpty());
+        assertThat(sqlQueryTypes.isEmpty(), is(type == QueryModifier.ALLOW_MULTISTATEMENT));
 
         sqlQueryTypes.forEach(sqlQueryType -> {
             switch (type) {
