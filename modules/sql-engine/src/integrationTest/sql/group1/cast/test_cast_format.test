@@ -18,44 +18,10 @@ SELECT cast(date '2018-01-30' as varchar format 'YYY')
 ----
 018
 
-skipif ignite3
-query T
-SELECT cast(date '2018-01-30' as varchar format 'MONTH')
-----
-JANUARY
-
-# MON is not supported
-skipif ignite3
-query T
-SELECT cast(date '2018-01-30' as varchar format 'MON')
-----
-JAN
-
 query T
 SELECT cast(date '2018-01-30' as varchar format 'MM')
 ----
 01
-
-# DAY is not supported
-skipif ignite3
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DAY')
-----
-TUESDAY
-
-# DY is not supported
-skipif ignite3
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DY')
-----
-TUE
-
-# D is not supported
-skipif ignite3
-query T
-SELECT cast(date '2018-01-30' as varchar format 'D')
-----
-3
 
 query T
 SELECT cast(date '2018-01-30' as varchar format 'DD')
@@ -71,13 +37,6 @@ query T
 SELECT cast(date '2018-01-30' as varchar format 'MM-DD-YY')
 ----
 01-30-18
-
-# Quarter is not supported
-skipif ignite3
-query T
-SELECT cast(date '2021-12-21' as varchar format 'YY Q MON DD')
-----
-21 4 DEC 21
 
 # Cast TIME to String
 
