@@ -465,6 +465,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         /**
          * Returns count of pages in the partition.
          */
+        @Override
         public int pageCount() {
             return pageCount;
         }

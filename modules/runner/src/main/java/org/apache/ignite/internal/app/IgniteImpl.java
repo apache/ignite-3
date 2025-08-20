@@ -170,6 +170,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
+import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -508,6 +509,8 @@ public class IgniteImpl implements Ignite {
     @Nullable
     private volatile ClusterState clusterState;
 
+    private final ClockServiceMetricSource clockServiceMetricSource;
+
     /**
      * The Constructor.
      *
@@ -829,7 +832,14 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkewMillis().value());
+        clockServiceMetricSource = new ClockServiceMetricSource();
+
+        clockService = new ClockServiceImpl(
+                clock,
+                clockWaiter,
+                () -> schemaSyncConfig.maxClockSkewMillis().value(),
+                clockServiceMetricSource::onMaxClockSkewExceeded
+        );
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
@@ -1462,6 +1472,9 @@ public class IgniteImpl implements Ignite {
             OsMetricSource osMetrics = new OsMetricSource();
             metricManager.registerSource(osMetrics);
             metricManager.enable(osMetrics);
+
+            metricManager.registerSource(clockServiceMetricSource);
+            metricManager.enable(clockServiceMetricSource);
 
             // Start the components that are required to join the cluster.
             // TODO https://issues.apache.org/jira/browse/IGNITE-22570
