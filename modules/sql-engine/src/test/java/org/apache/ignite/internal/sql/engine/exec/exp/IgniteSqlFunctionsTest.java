@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -515,11 +516,19 @@ public class IgniteSqlFunctionsTest {
 
         String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
 
+        String format = "YYYY-MM-DD HH24:MI:SS.FF3";
         TimeZone timeZone = TimeZone.getTimeZone(zoneId);
         long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh24:mi:ss.ff3", timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, format, timeZone);
 
         assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+
+        String formatted = IgniteSqlFunctions.formatTimestampWithLocalTimeZone(format + " TZHTZM", calciteTsLtz, timeZone);
+
+        String tzOffsetStr = OffsetDateTime.ofInstant(Instant.ofEpochMilli(tsLtz), zoneId)
+                .format(DateTimeFormatter.ofPattern("Z"));
+
+        assertEquals(v + " " + tzOffsetStr, formatted);
     }
 
     private static Stream<Arguments> timeZoneTime() {
@@ -554,13 +563,17 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("timeValues")
     public void testToTime(String timeStr, int expectedMillis) {
+        String format = "HH24:MI:SS";
 
         DateParseFunction f = new DateParseFunction();
-        int millis = f.parseTime("HH:mi:SS", timeStr);
-        int time2 = IgniteSqlFunctions.toTime(timeStr, "HH24:MI:SS");
+        int millis = f.parseTime(format, timeStr);
+        int time2 = IgniteSqlFunctions.toTime(timeStr, format);
 
         assertEquals(expectedMillis, millis);
         assertEquals(millis, time2);
+
+        String formatted = IgniteSqlFunctions.formatTime(format, time2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> timeValues() {
@@ -576,13 +589,17 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("dateValues")
     public void testToDate(String timeStr, int expectedDays) {
+        String format = "YYYY-MM-DD";
 
         DateParseFunction f = new DateParseFunction();
-        int days = f.parseDate("YYYY-MM-DD", timeStr);
-        int days2 = IgniteSqlFunctions.toDate(timeStr, "YYYY-MM-DD");
+        int days = f.parseDate(format, timeStr);
+        int days2 = IgniteSqlFunctions.toDate(timeStr, format);
 
         assertEquals(expectedDays, days);
         assertEquals(days, days2);
+
+        String formatted = IgniteSqlFunctions.formatDate(format, days2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> dateValues() {
@@ -595,19 +612,25 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("timestampValues")
     public void testToTimestamp(String timeStr, long expectedTs) {
+        String format = "YYYY-MM-DD HH24:MI:SS";
 
         DateParseFunction f = new DateParseFunction();
-        long ts = f.parseTimestamp("YYYY-MM-DD", timeStr);
-        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, "YYYY-MM-DD");
+        long ts = f.parseTimestamp(format, timeStr);
+        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, format);
 
         assertEquals(expectedTs, ts);
         assertEquals(ts, ts2);
+
+        String formatted = IgniteSqlFunctions.formatTimestamp(format, ts2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> timestampValues() {
         return Stream.of(
-                Arguments.of("1970-01-01", 0),
-                Arguments.of("2025-01-01", 1735689600000L)
+                Arguments.of("1970-01-01 00:00:00", 0),
+                Arguments.of("1970-01-01 00:00:10", 10000),
+                Arguments.of("2025-01-01 00:00:00", 1735689600000L),
+                Arguments.of("2025-01-01 00:00:20", 1735689620000L)
         );
     }
 }
