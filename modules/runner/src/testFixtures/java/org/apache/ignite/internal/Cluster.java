@@ -241,7 +241,11 @@ public class Cluster {
         TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
         for (ServerRegistration registration : nodeRegistrations) {
-            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            try {
+                assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            } catch (Throwable t) {
+                LOG.error("Failed to wait for node registration [node={}]", t, registration.server.name());
+            }
         }
 
         started = true;

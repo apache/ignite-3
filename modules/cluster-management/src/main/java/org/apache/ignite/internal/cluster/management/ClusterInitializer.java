@@ -206,34 +206,38 @@ public class ClusterInitializer {
 
             // Handler of prepareInitMessage validates that all CMG nodes have the same enabledColocation mode.
             return invokeMessage(cmgNodes, prepareInitMessage)
-                    .thenCompose(ignored -> invokeMessage(cmgNodes, initMessage)
-                            .handle((v, e) -> {
-                                if (e == null) {
-                                    LOG.info(
-                                            "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
-                                            initMessage.clusterName(),
-                                            initMessage.cmgNodes(),
-                                            initMessage.metaStorageNodes()
-                                    );
+                    .thenCompose(ignored -> {
+                        LOG.info("CMG initialization preparation completed.");
 
-                                    return CompletableFutures.<Void>nullCompletedFuture();
-                                } else {
-                                    if (e instanceof CompletionException) {
-                                        e = e.getCause();
-                                    }
+                        return invokeMessage(cmgNodes, initMessage)
+                                .handle((v, e) -> {
+                                    if (e == null) {
+                                        LOG.info(
+                                                "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                                initMessage.clusterName(),
+                                                initMessage.cmgNodes(),
+                                                initMessage.metaStorageNodes()
+                                        );
 
-                                    LOG.info("Initialization failed [reason={}]", e, e.getMessage());
-
-                                    if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
-                                        return CompletableFuture.<Void>failedFuture(e);
+                                        return CompletableFutures.<Void>nullCompletedFuture();
                                     } else {
-                                        LOG.debug("Critical error encountered, rolling back the init procedure");
+                                        if (e instanceof CompletionException) {
+                                            e = e.getCause();
+                                        }
 
-                                        return cancelInit(cmgNodes, e);
+                                        LOG.info("Initialization failed [reason={}]", e, e.getMessage());
+
+                                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                                            return CompletableFuture.<Void>failedFuture(e);
+                                        } else {
+                                            LOG.debug("Critical error encountered, rolling back the init procedure");
+
+                                            return cancelInit(cmgNodes, e);
+                                        }
                                     }
-                                }
-                            })
-                            .thenCompose(Function.identity()));
+                                })
+                                .thenCompose(Function.identity());
+                    });
         } catch (Exception e) {
             return failedFuture(e);
         }
