@@ -21,6 +21,7 @@ import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.thread.IgniteThread;
@@ -110,7 +112,7 @@ class CheckpointWorkflow {
      * Not required to be volatile, read/write is protected by a {@link #checkpointReadWriteLock}. Publication of the initial value should
      * be guaranteed by external user. {@link CheckpointManager}, in particular.
      */
-    private Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = new ConcurrentHashMap<>();
+    private Map<DataRegion<?>, Set<DirtyFullPageId>> dirtyPartitionsMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -181,9 +183,13 @@ class CheckpointWorkflow {
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
     public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        Set<FullPageId> dirtyMetaPageIds = dirtyPartitionsMap.computeIfAbsent(dataRegion, unused -> newKeySet());
+        Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.computeIfAbsent(dataRegion, unused -> newKeySet());
 
-        dirtyMetaPageIds.add(new FullPageId(partitionMetaPageId(partitionId), groupId));
+        assert dataRegion.pageMemory() instanceof PersistentPageMemory;
+
+        int partGen = ((PersistentPageMemory) dataRegion.pageMemory()).partGeneration(groupId, partitionId);
+
+        dirtyMetaPageIds.add(new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partGen));
     }
 
     /**
@@ -376,7 +382,7 @@ class CheckpointWorkflow {
     private DataRegionsDirtyPages beginCheckpoint(CheckpointProgressImpl checkpointProgress) {
         assert checkpointReadWriteLock.isWriteLockHeldByCurrentThread();
 
-        Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
+        Map<DataRegion<?>, Set<DirtyFullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
 
         this.dirtyPartitionsMap = new ConcurrentHashMap<>();
 
@@ -384,25 +390,39 @@ class CheckpointWorkflow {
 
         // First, we iterate all regions that have dirty pages.
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress);
+            // TODO: IGNITE-26233 Исправить
+            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress)
+                    .stream()
+                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
+                    .collect(toSet());
 
-            Set<FullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
+            Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
 
             if (dirtyMetaPageIds != null) {
+                // TODO: IGNITE-26233 Исправить
+                Set<FullPageId> tmp = dirtyMetaPageIds.stream()
+                        .map(p -> new FullPageId(p.pageId(), p.groupId()))
+                        .collect(toSet());
+
                 // Merge these two collections. There should be no intersections.
-                dirtyPages = CollectionUtils.concat(dirtyMetaPageIds, dirtyPages);
+                dirtyPages = CollectionUtils.concat(tmp, dirtyPages);
             }
 
             dataRegionsDirtyPages.add(new DataRegionDirtyPages<>(dataRegion.pageMemory(), dirtyPages));
         }
 
         // Then we iterate regions that don't have dirty pages, but somehow have dirty partitions.
-        for (Entry<DataRegion<?>, Set<FullPageId>> entry : dirtyPartitionsMap.entrySet()) {
+        for (Entry<DataRegion<?>, Set<DirtyFullPageId>> entry : dirtyPartitionsMap.entrySet()) {
             PageMemory pageMemory = entry.getKey().pageMemory();
 
             assert pageMemory instanceof PersistentPageMemory;
 
-            dataRegionsDirtyPages.add(new DataRegionDirtyPages<>((PersistentPageMemory) pageMemory, entry.getValue()));
+            // TODO: IGNITE-26233 Исправить
+            Set<FullPageId> value = entry.getValue().stream()
+                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
+                    .collect(toSet());
+
+            dataRegionsDirtyPages.add(new DataRegionDirtyPages<>((PersistentPageMemory) pageMemory, value));
         }
 
         return new DataRegionsDirtyPages(dataRegionsDirtyPages);

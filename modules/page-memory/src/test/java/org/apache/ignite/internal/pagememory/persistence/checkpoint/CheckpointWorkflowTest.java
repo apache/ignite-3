@@ -71,6 +71,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -185,7 +186,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
     void testMarkCheckpointBegin() throws Exception {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
-        List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
+        List<DirtyFullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
 
         PersistentPageMemory pageMemory = newPageMemory(dirtyPages);
 
@@ -578,9 +579,10 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         int groupId = 10;
         int partitionId = 20;
+        int partitionGeneration = 1;
 
-        FullPageId metaPageId = new FullPageId(partitionMetaPageId(partitionId), groupId);
-        FullPageId dataPageId = new FullPageId(pageId(partitionId, FLAG_DATA, 1), groupId);
+        var metaPageId = new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration);
+        var dataPageId = new DirtyFullPageId(pageId(partitionId, FLAG_DATA, 1), groupId, partitionGeneration);
 
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
         when(pageMemory.beginCheckpoint(any())).thenReturn(List.of(dataPageId));
@@ -674,7 +676,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(updateHeartbeat, times(5)).run();
     }
 
-    private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
+    private static PersistentPageMemory newPageMemory(Collection<DirtyFullPageId> pageIds) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
         when(mock.beginCheckpoint(any(CheckpointProgress.class))).thenReturn(pageIds);
@@ -689,8 +691,8 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         return new DataRegionDirtyPages<>(pageMemory, List.of(pageIds));
     }
 
-    private static FullPageId of(int grpId, int partId, int pageIdx) {
-        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    private static DirtyFullPageId of(int grpId, int partId, int pageIdx) {
+        return new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1);
     }
 
     /**

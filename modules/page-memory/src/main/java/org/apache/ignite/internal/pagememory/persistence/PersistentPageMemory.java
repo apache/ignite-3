@@ -913,6 +913,24 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
+     * Get current partition generation.
+     *
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     */
+    public int partGeneration(int grpId, int partId) {
+        Segment seg = segment(grpId, partId);
+
+        seg.readLock().lock();
+
+        try {
+            return seg.partGeneration(grpId, partId);
+        } finally {
+            seg.readLock().unlock();
+        }
+    }
+
+    /**
      * Resolver relative pointer via {@link LoadedPagesMap}.
      *
      * @param seg Segment.
@@ -2176,12 +2194,12 @@ public class PersistentPageMemory implements PageMemory {
      * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public Collection<FullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
+    public Collection<DirtyFullPageId> beginCheckpoint(CheckpointProgress checkpointProgress) throws IgniteInternalException {
         if (segments == null) {
             return List.of();
         }
 
-        Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
+        Set<DirtyFullPageId>[] dirtyPageIds = new Set[segments.length];
 
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
@@ -2191,13 +2209,15 @@ public class PersistentPageMemory implements PageMemory {
                     dataRegionConfiguration.name(), i
             );
 
-            // TODO: IGNITE-26233 Вот конечно исправить надо, пока тупо для удобства
-            Set<FullPageId> segmentDirtyPages = segment.dirtyPages.stream()
-                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
-                    .collect(toSet());
+            Set<DirtyFullPageId> segmentDirtyPages = segment.dirtyPages;
             dirtyPageIds[i] = segmentDirtyPages;
 
-            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, checkpointProgress);
+            // TODO: IGNITE-26233 Избавиться и заменить на segmentDirtyPages
+            Set<FullPageId> dirtyPagesForCheckpointPages = segmentDirtyPages.stream()
+                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
+                    .collect(toSet());
+
+            segment.checkpointPages = new CheckpointPages(dirtyPagesForCheckpointPages, checkpointProgress);
 
             segment.resetDirtyPages();
         }

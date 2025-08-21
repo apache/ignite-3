@@ -58,7 +58,7 @@ public final class DirtyFullPageId extends FullPageId {
             return true;
         }
 
-        if (!(o instanceof DirtyFullPageId)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
 

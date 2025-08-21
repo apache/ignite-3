@@ -101,7 +101,7 @@ public class FullPageId {
             return true;
         }
 
-        if (!(o instanceof FullPageId)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
