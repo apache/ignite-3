@@ -54,7 +54,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -422,7 +421,7 @@ class CheckpointWorkflow {
 
         // Collects dirty pages into an array (then we will sort them) and collects dirty partitions.
         for (DataRegionDirtyPages<Collection<DirtyFullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
-            var pageIds = new FullPageId[dataRegionDirtyPages.dirtyPages.size()];
+            var pageIds = new DirtyFullPageId[dataRegionDirtyPages.dirtyPages.size()];
 
             var partitionIds = new HashSet<GroupPartitionId>();
 
@@ -432,8 +431,7 @@ class CheckpointWorkflow {
                 assert realPagesArrSize++ != dataRegionsDirtyPages.dirtyPageCount :
                         "Incorrect estimated dirty pages number: " + dataRegionsDirtyPages.dirtyPageCount;
 
-                // TODO: IGNITE-26233 Исправить
-                pageIds[pagePos++] = new FullPageId(dirtyPage.pageId(), dirtyPage.groupId());
+                pageIds[pagePos++] = dirtyPage;
                 partitionIds.add(GroupPartitionId.convert(dirtyPage));
             }
 

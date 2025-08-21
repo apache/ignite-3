@@ -24,13 +24,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /** Helper class for checkpoint testing that may contain useful methods and constants. */
 class TestCheckpointUtils {
     /** Sorts dirty pages and creates a new instance {@link DirtyPagesAndPartitions}. */
-    static DirtyPagesAndPartitions createDirtyPagesAndPartitions(PersistentPageMemory pageMemory, FullPageId... dirtyPages) {
+    static DirtyPagesAndPartitions createDirtyPagesAndPartitions(PersistentPageMemory pageMemory, DirtyFullPageId... dirtyPages) {
         Arrays.sort(dirtyPages, DIRTY_PAGE_COMPARATOR);
 
         return new DirtyPagesAndPartitions(

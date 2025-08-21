@@ -36,6 +36,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -149,12 +150,12 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static DirtyPagesAndPartitions createDirtyPagesAndPartitions(FullPageId... pageIds) {
+    private static DirtyPagesAndPartitions createDirtyPagesAndPartitions(DirtyFullPageId... pageIds) {
         return TestCheckpointUtils.createDirtyPagesAndPartitions(mock(PersistentPageMemory.class), pageIds);
     }
 
-    private static FullPageId of(int groupId, int partId, int pageIdx) {
-        return new FullPageId(PageIdUtils.pageId(partId, (byte) 0, pageIdx), groupId);
+    private static DirtyFullPageId of(int groupId, int partId, int pageIdx) {
+        return new DirtyFullPageId(PageIdUtils.pageId(partId, (byte) 0, pageIdx), groupId, 1);
     }
 
     private static <T> List<IgniteBiTuple<PersistentPageMemory, T>> toListPair(
@@ -179,11 +180,11 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
                 .collect(toList());
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(DirtyPagesAndPartitions... dirtyPages) {
+    private static List<IgniteBiTuple<PersistentPageMemory, DirtyFullPageId>> toListDirtyPagePair(DirtyPagesAndPartitions... dirtyPages) {
         return toListDirtyPagePair(dirtyPageId -> true, dirtyPages);
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(
+    private static List<IgniteBiTuple<PersistentPageMemory, DirtyFullPageId>> toListDirtyPagePair(
             Predicate<FullPageId> predicate,
             DirtyPagesAndPartitions... dirtyPages
     ) {

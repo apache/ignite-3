@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.Collection;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 

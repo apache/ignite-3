@@ -60,6 +60,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -97,12 +98,12 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
     void testWritePages() throws Exception {
         PersistentPageMemory pageMemory = createPageMemory(3);
 
-        FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
-        FullPageId fullPageId2 = new FullPageId(pageId(0, FLAG_DATA, 2), 0);
-        FullPageId fullPageId3 = new FullPageId(pageId(0, FLAG_AUX, 3), 0);
-        FullPageId fullPageId4 = new FullPageId(pageId(0, FLAG_AUX, 4), 0);
-        FullPageId fullPageId5 = new FullPageId(pageId(0, FLAG_DATA, 5), 0);
-        FullPageId fullPageId6 = new FullPageId(pageId(1, FLAG_DATA, 6), 0);
+        var fullPageId1 = new DirtyFullPageId(pageId(0, FLAG_DATA, 1), 0, 1);
+        var fullPageId2 = new DirtyFullPageId(pageId(0, FLAG_DATA, 2), 0, 1);
+        var fullPageId3 = new DirtyFullPageId(pageId(0, FLAG_AUX, 3), 0, 1);
+        var fullPageId4 = new DirtyFullPageId(pageId(0, FLAG_AUX, 4), 0, 1);
+        var fullPageId5 = new DirtyFullPageId(pageId(0, FLAG_DATA, 5), 0, 1);
+        var fullPageId6 = new DirtyFullPageId(pageId(1, FLAG_DATA, 6), 0, 1);
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5, fullPageId6)
@@ -207,7 +208,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory, new FullPageId(pageId(0, FLAG_DATA, 1), 0))
+                createDirtyPagesAndPartitions(pageMemory, new DirtyFullPageId(pageId(0, FLAG_DATA, 1), 0, 1))
         ));
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
@@ -258,7 +259,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
-                createDirtyPagesAndPartitions(pageMemory, fullPageId(0, 0, 1), fullPageId(0, 1, 2))
+                createDirtyPagesAndPartitions(pageMemory, dirtyFullPageId(0, 0, 1), dirtyFullPageId(0, 1, 2))
         ));
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
@@ -359,8 +360,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         return writer;
     }
 
-    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
-        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    private static DirtyFullPageId dirtyFullPageId(int grpId, int partId, int pageIdx) {
+        return new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1);
     }
 
     private static GroupPartitionId groupPartId(int grpId, int partId) {
