@@ -109,6 +109,11 @@ public class RecoveryDescriptor {
         }
     }
 
+    /**
+     * Acknowledges that messages were sent before the given invoke operation.
+     *
+     * @param invokeResponse Invoke response to acknowledge.
+     */
     public void acknowledge(InvokeResponse invokeResponse) {
         long correlationId = invokeResponse.correlationId();
 
