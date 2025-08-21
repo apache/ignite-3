@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.SINGLE;
-import static org.apache.ignite.internal.compute.events.ItComputeEventsTest.configureComputeEvents;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_EXECUTING;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_FAILED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_QUEUED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.values;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -72,7 +73,15 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        configureComputeEvents(builder);
+        String allComputeEvents = Arrays.stream(values())
+                .map(IgniteEventType::name)
+                .filter(name -> name.startsWith("COMPUTE_JOB"))
+                .collect(Collectors.joining(", ", "[", "]"));
+
+        builder.clusterConfiguration("ignite.eventlog {"
+                + " sinks.logSink.channel: testChannel,"
+                + " channels.testChannel.events: " + allComputeEvents
+                + "}");
     }
 
     @Override

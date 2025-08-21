@@ -93,10 +93,6 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        configureComputeEvents(builder);
-    }
-
-    public static void configureComputeEvents(InitParametersBuilder builder) {
         String allEvents = Arrays.stream(values())
                 .map(IgniteEventType::name)
                 .filter(name -> name.startsWith("COMPUTE_JOB"))
