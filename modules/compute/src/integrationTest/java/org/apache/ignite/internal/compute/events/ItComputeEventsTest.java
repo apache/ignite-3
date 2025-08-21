@@ -36,6 +36,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInRelativeOrder;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -46,6 +47,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -65,12 +67,15 @@ import org.apache.ignite.internal.compute.GetNodeNameJob;
 import org.apache.ignite.internal.compute.SilentSleepJob;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.EventMatcher.Event;
+import org.apache.ignite.internal.compute.utils.InteractiveJobs;
+import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -214,6 +219,56 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
                 jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
                 jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, targetNode)
         );
+    }
+
+    @Test
+    void failover() throws Exception {
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(Set.of(clusterNode(1), clusterNode(2)));
+
+        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
+
+        UUID jobId = execution.idSync();
+        String jobClassName = InteractiveJobs.globalJob().name();
+
+        // This should trigger a failover to another node
+        int firstWorkerIndex = CLUSTER.nodeIndex(workerNodeName);
+        CLUSTER.stopNode(firstWorkerIndex);
+
+        // Wait for continue executing on another node
+        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
+
+        // This should fail the job since no more candidates found
+        int failoverWorkerIndex = CLUSTER.nodeIndex(failoverWorker);
+        CLUSTER.stopNode(failoverWorkerIndex);
+
+        execution.assertFailed();
+
+        // When node is shut down gracefully, the job execution is interrupted and event could be logged anyway
+        // So there would be 4 events from worker nodes, 2 failed events from both worker nodes and 1 failed event from the coordinator
+        // The order of failed events is not determined
+        await().until(() -> events, hasSize(7));
+
+        assertThat(events, containsInRelativeOrder(
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, workerNodeName),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, workerNodeName),
+                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, failoverWorker),
+                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, failoverWorker),
+                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, failoverWorker)
+        ));
+
+        // Failed event from second worker node
+        assertThat(events, hasItem(
+                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName)
+        ));
+    }
+
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
+        return new TestingJobExecution<>(compute().submitAsync(
+                JobTarget.anyNode(nodes),
+                JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
+                null,
+                null
+        ));
     }
 
     @ParameterizedTest
