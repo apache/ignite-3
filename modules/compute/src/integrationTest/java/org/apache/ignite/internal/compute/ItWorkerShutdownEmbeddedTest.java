@@ -19,19 +19,10 @@ package org.apache.ignite.internal.compute;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.compute.utils.Clients;
-import org.junit.jupiter.api.AfterEach;
 
-class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
-    private final Clients clients = new Clients();
-
-    @AfterEach
-    void cleanup() {
-        clients.cleanup();
-    }
-
+class ItWorkerShutdownEmbeddedTest extends ItWorkerShutdownTest {
     @Override
-    protected IgniteCompute compute(Ignite entryNode) {
-        return clients.compute(entryNode);
+    IgniteCompute compute(Ignite entryNode) {
+        return entryNode.compute();
     }
 }

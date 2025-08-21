@@ -36,7 +36,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInRelativeOrder;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -45,12 +44,9 @@ import static org.hamcrest.Matchers.nullValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.compute.BroadcastExecution;
@@ -67,15 +63,11 @@ import org.apache.ignite.internal.compute.GetNodeNameJob;
 import org.apache.ignite.internal.compute.SilentSleepJob;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.EventMatcher.Event;
-import org.apache.ignite.internal.compute.utils.InteractiveJobs;
-import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
+import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -88,17 +80,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
-abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
-    private final List<String> events = new CopyOnWriteArrayList<>();
-
-    private final LogInspector logInspector = new LogInspector(
-            "EventLog", // From LogSinkConfigurationSchema.criteria default value
-            new Handler(event -> true, event -> events.add(event.getMessage().getFormattedMessage()))
-    );
+public abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
+    private final EventLogInspector logInspector = new EventLogInspector();
 
     @BeforeEach
     void startLogInspector() {
-        events.clear();
         logInspector.start();
     }
 
@@ -110,6 +96,10 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
+        configureComputeEvents(builder);
+    }
+
+    public static void configureComputeEvents(InitParametersBuilder builder) {
         String allEvents = Arrays.stream(values())
                 .map(IgniteEventType::name)
                 .filter(name -> name.startsWith("COMPUTE_JOB"))
@@ -150,11 +140,11 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         assertThat(broadcastExecution.resultsAsync(), willCompleteSuccessfully());
 
-        await().until(() -> events, hasSize(9));
+        await().until(logInspector::events, hasSize(9));
 
         // Now get the task ID from the first event and assert that all events have the same task ID.
         ObjectMapper mapper = new ObjectMapper();
-        Event firstEvent = mapper.readValue(events.get(0), Event.class);
+        Event firstEvent = mapper.readValue(logInspector.events().get(0), Event.class);
         UUID taskId = firstEvent.fields.taskId;
         assertThat(taskId, notNullValue());
 
@@ -162,7 +152,7 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         broadcastExecution.executions().forEach(execution -> {
             UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
             String targetNode = execution.node().name();
-            assertThat(events, containsInRelativeOrder(
+            assertThat(logInspector.events(), containsInRelativeOrder(
                     broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId),
                     broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId),
                     broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId)
@@ -181,11 +171,11 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         int defaultPartitionCount = 25;
         assertThat(broadcastExecution.executions(), hasSize(defaultPartitionCount));
-        await().until(() -> events, hasSize(defaultPartitionCount * 3));
+        await().until(logInspector::events, hasSize(defaultPartitionCount * 3));
 
         // Now get the task ID from the first event and assert that all events have the same task ID.
         ObjectMapper mapper = new ObjectMapper();
-        Event firstEvent = mapper.readValue(events.get(0), Event.class);
+        Event firstEvent = mapper.readValue(logInspector.events().get(0), Event.class);
         UUID taskId = firstEvent.fields.taskId;
         assertThat(taskId, notNullValue());
 
@@ -194,7 +184,7 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         broadcastExecution.executions().forEach(execution -> {
             UUID jobId = execution.idAsync().join(); // Safe to join since execution is complete.
             String targetNode = execution.node().name();
-            assertThat(events, containsInRelativeOrder(
+            assertThat(logInspector.events(), containsInRelativeOrder(
                     broadcastJobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
                     broadcastJobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode, taskId).withTableName(tableName),
                     broadcastJobEvent(COMPUTE_JOB_COMPLETED, jobId, jobClassName, targetNode, taskId).withTableName(tableName)
@@ -219,56 +209,6 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
                 jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, targetNode),
                 jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, targetNode)
         );
-    }
-
-    @Test
-    void failover() throws Exception {
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(Set.of(clusterNode(1), clusterNode(2)));
-
-        String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
-
-        UUID jobId = execution.idSync();
-        String jobClassName = InteractiveJobs.globalJob().name();
-
-        // This should trigger a failover to another node
-        int firstWorkerIndex = CLUSTER.nodeIndex(workerNodeName);
-        CLUSTER.stopNode(firstWorkerIndex);
-
-        // Wait for continue executing on another node
-        String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
-
-        // This should fail the job since no more candidates found
-        int failoverWorkerIndex = CLUSTER.nodeIndex(failoverWorker);
-        CLUSTER.stopNode(failoverWorkerIndex);
-
-        execution.assertFailed();
-
-        // When node is shut down gracefully, the job execution is interrupted and event could be logged anyway
-        // So there would be 4 events from worker nodes, 2 failed events from both worker nodes and 1 failed event from the coordinator
-        // The order of failed events is not determined
-        await().until(() -> events, hasSize(7));
-
-        assertThat(events, containsInRelativeOrder(
-                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, workerNodeName),
-                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, workerNodeName),
-                jobEvent(COMPUTE_JOB_QUEUED, jobId, jobClassName, failoverWorker),
-                jobEvent(COMPUTE_JOB_EXECUTING, jobId, jobClassName, failoverWorker),
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, failoverWorker)
-        ));
-
-        // Failed event from second worker node
-        assertThat(events, hasItem(
-                jobEvent(COMPUTE_JOB_FAILED, jobId, jobClassName, workerNodeName)
-        ));
-    }
-
-    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute().submitAsync(
-                JobTarget.anyNode(nodes),
-                JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
-                null,
-                null
-        ));
     }
 
     @ParameterizedTest
@@ -425,21 +365,25 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         return jobEvent(eventType, BROADCAST, jobId, jobClassName, targetNode).withTaskId(taskId);
     }
 
-    private EventMatcher jobEvent(
-            IgniteEventType eventType,
-            @Nullable UUID jobId,
-            String jobClassName,
-            String targetNode
-    ) {
+    private EventMatcher jobEvent(IgniteEventType eventType, @Nullable UUID jobId, String jobClassName, String targetNode) {
         return jobEvent(eventType, SINGLE, jobId, jobClassName, targetNode);
     }
 
-    protected EventMatcher jobEvent(
+    protected abstract EventMatcher jobEvent(
             IgniteEventType eventType,
             Type jobType,
             @Nullable UUID jobId,
             String jobClassName,
             String targetNode
+    );
+
+    public static EventMatcher embeddedJobEvent(
+            IgniteEventType eventType,
+            Type jobType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            String initiatorNode
     ) {
         return EventMatcher.computeJobEvent(eventType)
                 .withTimestamp(notNullValue(Long.class))
@@ -449,13 +393,27 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
                 .withClassName(jobClassName)
                 .withJobId(jobId)
                 .withTargetNode(targetNode)
-                .withInitiatorNode(is(node(0).name()))
+                .withInitiatorNode(is(initiatorNode))
                 .withClientAddress(nullValue());
+    }
+
+    public static EventMatcher thinClientJobEvent(
+            IgniteEventType eventType,
+            Type jobType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            String initiatorNode
+    ) {
+        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, initiatorNode)
+                .withUsername(is("unknown"))
+                .withClientAddress(notNullValue(String.class));
+
     }
 
     @SafeVarargs
     private void assertEvents(Matcher<String>... matchers) {
-        await().until(() -> events, contains(matchers));
+        await().until(logInspector::events, contains(matchers));
     }
 
     private static void createTestTableWithOneRow() {

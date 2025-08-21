@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.events;
 
-import org.apache.ignite.Ignite;
+import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.jetbrains.annotations.Nullable;
 
-class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
+class ItComputeEventsEmbeddedTest extends ItComputeEventsTest {
     @Override
-    IgniteCompute compute(Ignite entryNode) {
-        return entryNode.compute();
+    protected IgniteCompute compute() {
+        return node(0).compute();
+    }
+
+    @Override
+    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, @Nullable UUID jobId, String jobClassName, String targetNode) {
+        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, node(0).name());
     }
 }
