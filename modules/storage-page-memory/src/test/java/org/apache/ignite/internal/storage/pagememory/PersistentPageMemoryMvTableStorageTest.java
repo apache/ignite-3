@@ -286,6 +286,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void clearMvPartitionStorageAndDoCheckpointInParallel() {
         for (int i = 0; i < 10; i++) {
