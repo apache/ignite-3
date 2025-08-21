@@ -37,9 +37,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInRelativeOrder;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,7 +62,6 @@ import org.apache.ignite.internal.compute.SilentSleepJob;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.EventMatcher.Event;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
-import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -80,7 +77,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
-public abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
+abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
     private final EventLogInspector logInspector = new EventLogInspector();
 
     @BeforeEach
@@ -376,40 +373,6 @@ public abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest
             String jobClassName,
             String targetNode
     );
-
-    public static EventMatcher embeddedJobEvent(
-            IgniteEventType eventType,
-            Type jobType,
-            @Nullable UUID jobId,
-            String jobClassName,
-            String targetNode,
-            String initiatorNode
-    ) {
-        return EventMatcher.computeJobEvent(eventType)
-                .withTimestamp(notNullValue(Long.class))
-                .withProductVersion(is(IgniteProductVersion.CURRENT_VERSION.toString()))
-                .withUsername(is("SYSTEM"))
-                .withType(jobType.name())
-                .withClassName(jobClassName)
-                .withJobId(jobId)
-                .withTargetNode(targetNode)
-                .withInitiatorNode(is(initiatorNode))
-                .withClientAddress(nullValue());
-    }
-
-    public static EventMatcher thinClientJobEvent(
-            IgniteEventType eventType,
-            Type jobType,
-            @Nullable UUID jobId,
-            String jobClassName,
-            String targetNode,
-            String initiatorNode
-    ) {
-        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, initiatorNode)
-                .withUsername(is("unknown"))
-                .withClientAddress(notNullValue(String.class));
-
-    }
 
     @SafeVarargs
     private void assertEvents(Matcher<String>... matchers) {

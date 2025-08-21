@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.events.ItComputeEventsTest.embeddedJobEvent;
+import static org.apache.ignite.internal.compute.events.EventMatcher.embeddedJobEvent;
 
 import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;

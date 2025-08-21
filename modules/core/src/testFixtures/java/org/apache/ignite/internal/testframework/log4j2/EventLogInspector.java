@@ -32,7 +32,7 @@ public class EventLogInspector {
             new Handler(event -> true, event -> events.add(event.getMessage().getFormattedMessage()))
     );
 
-     public void start() {
+    public void start() {
         events.clear();
         logInspector.start();
     }
