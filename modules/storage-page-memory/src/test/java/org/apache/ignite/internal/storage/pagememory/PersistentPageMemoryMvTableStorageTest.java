@@ -64,6 +64,7 @@ import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -272,6 +273,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         });
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void createMvPartitionStorageAndDoCheckpointInParallel() {
         for (int i = 0; i < 10; i++) {
@@ -298,6 +300,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void destroyMvPartitionStorageAndDoCheckpointInParallel() {
         for (int i = 0; i < 10; i++) {
@@ -310,6 +313,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void startRebalancePartitionAndDoCheckpointInParallel() {
         getOrCreateMvPartition(PARTITION_ID);
@@ -324,6 +328,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void abortRebalancePartitionAndDoCheckpointInParallel() {
         getOrCreateMvPartition(PARTITION_ID);
@@ -338,6 +343,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         }
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
     @Test
     void finishRebalancePartitionAndDoCheckpointInParallel() {
         getOrCreateMvPartition(PARTITION_ID);

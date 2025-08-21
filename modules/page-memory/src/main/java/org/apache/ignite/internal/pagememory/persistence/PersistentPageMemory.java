@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
@@ -29,6 +30,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.UNKNOWN_PARTITION_GENERATION;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
@@ -1273,16 +1275,20 @@ public class PersistentPageMemory implements PageMemory {
      *      or not.
      */
     private void setDirty(FullPageId pageId, long absPtr, boolean dirty, boolean forceAdd) {
-        boolean wasDirty = dirty(absPtr, dirty);
+        int partGen = partitionGeneration(absPtr);
+
+        assert partGen != UNKNOWN_PARTITION_GENERATION : pageId;
 
         if (dirty) {
-            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
-            assert pageIndex(pageId.pageId()) != 0 : "Partition meta should only be updated via the instance of PartitionMeta.";
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread() : pageId;
+            assert pageIndex(pageId.pageId()) != 0 : "Partition meta should only be updated via the instance of PartitionMeta: " + pageId;
+
+            boolean wasDirty = dirty(absPtr, dirty);
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
 
-                if (seg.dirtyPages.add(pageId)) {
+                if (seg.dirtyPages.add(new DirtyFullPageId(pageId, partGen))) {
                     long dirtyPagesCnt = seg.dirtyPagesCntr.incrementAndGet();
 
                     if (dirtyPagesCnt >= seg.dirtyPagesSoftThreshold) {
@@ -1301,7 +1307,7 @@ public class PersistentPageMemory implements PageMemory {
         } else {
             Segment seg = segment(pageId.groupId(), pageId.pageId());
 
-            if (seg.dirtyPages.remove(pageId)) {
+            if (seg.dirtyPages.remove(new DirtyFullPageId(pageId, partGen))) {
                 seg.dirtyPagesCntr.decrementAndGet();
             }
         }
@@ -1333,13 +1339,13 @@ public class PersistentPageMemory implements PageMemory {
      * Returns a collection of all pages currently marked as dirty. Will create a collection copy.
      */
     @TestOnly
-    public Set<FullPageId> dirtyPages() {
+    public Set<DirtyFullPageId> dirtyPages() {
         Segment[] segments = this.segments;
         if (segments == null) {
             return Set.of();
         }
 
-        Set<FullPageId> res = new HashSet<>((int) loadedPages());
+        var res = new HashSet<DirtyFullPageId>();
 
         for (Segment seg : segments) {
             res.addAll(seg.dirtyPages);
@@ -1398,7 +1404,7 @@ public class PersistentPageMemory implements PageMemory {
         private long memPerRepl;
 
         /** Pages marked as dirty since the last checkpoint. */
-        private volatile Set<FullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
+        private volatile Set<DirtyFullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
@@ -2185,7 +2191,10 @@ public class PersistentPageMemory implements PageMemory {
                     dataRegionConfiguration.name(), i
             );
 
-            Set<FullPageId> segmentDirtyPages = segment.dirtyPages;
+            // TODO: IGNITE-26233 Вот конечно исправить надо, пока тупо для удобства
+            Set<FullPageId> segmentDirtyPages = segment.dirtyPages.stream()
+                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
+                    .collect(toSet());
             dirtyPageIds[i] = segmentDirtyPages;
 
             segment.checkpointPages = new CheckpointPages(segmentDirtyPages, checkpointProgress);

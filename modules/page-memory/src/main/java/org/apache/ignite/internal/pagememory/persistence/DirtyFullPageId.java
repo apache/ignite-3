@@ -37,6 +37,16 @@ public final class DirtyFullPageId extends FullPageId {
         this.partitionGeneration = partitionGeneration;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param fullPageId Full page ID.
+     * @param partitionGeneration Partition generation.
+     */
+    public DirtyFullPageId(FullPageId fullPageId, int partitionGeneration) {
+        this(fullPageId.pageId(), fullPageId.groupId(), partitionGeneration);
+    }
+
     /** Returns partition generation. */
     public int partitionGeneration() {
         return partitionGeneration;

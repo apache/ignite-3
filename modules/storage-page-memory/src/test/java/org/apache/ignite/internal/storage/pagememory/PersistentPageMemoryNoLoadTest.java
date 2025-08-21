@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
@@ -64,8 +66,8 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -175,9 +177,13 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
-                Set<FullPageId> dirtyPages = Set.of(createDirtyPage(pageMemory), createDirtyPage(pageMemory));
-
+                Set<DirtyFullPageId> dirtyPages = Set.of(createDirtyPage(pageMemory), createDirtyPage(pageMemory));
                 assertThat(pageMemory.dirtyPages(), equalTo(dirtyPages));
+
+                assertEquals(2, pageMemory.invalidate(GRP_ID, PARTITION_ID));
+
+                Set<DirtyFullPageId> dirtyPagesAfterInvalidation = Set.of(createDirtyPage(pageMemory), createDirtyPage(pageMemory));
+                assertThat(pageMemory.dirtyPages(), equalTo(union(dirtyPages, dirtyPagesAfterInvalidation)));
             } finally {
                 checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
             }
@@ -460,18 +466,18 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         );
     }
 
-    protected FullPageId createDirtyPage(PersistentPageMemory pageMemory) throws Exception {
+    private DirtyFullPageId createDirtyPage(PersistentPageMemory pageMemory) throws Exception {
         FullPageId fullPageId = allocatePage(pageMemory);
 
         long page = pageMemory.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
         try {
             writePage(pageMemory, fullPageId, page, 100);
+
+            return new DirtyFullPageId(fullPageId.pageId(), fullPageId.groupId(), partitionGeneration(page));
         } finally {
             pageMemory.releasePage(fullPageId.groupId(), fullPageId.pageId(), page);
         }
-
-        return fullPageId;
     }
 
     private static long[] defaultSegmentSizes() {
@@ -596,7 +602,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(1, PageHeader.partitionGeneration(absPtr));
+            assertEquals(1, partitionGeneration(absPtr));
         });
     }
 
@@ -610,7 +616,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(2, PageHeader.partitionGeneration(absPtr));
+            assertEquals(2, partitionGeneration(absPtr));
         });
     }
 
@@ -634,7 +640,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             // Absolute memory pointer to page with header.
             long absPtr = mem.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
-            assertEquals(2, PageHeader.partitionGeneration(absPtr));
+            assertEquals(2, partitionGeneration(absPtr));
         });
     }
 
