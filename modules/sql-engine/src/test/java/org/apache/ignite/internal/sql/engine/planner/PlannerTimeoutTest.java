@@ -68,7 +68,13 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         SqlOperationContext ctx = operationContext();
 
         PrepareService prepareService = new PrepareServiceImpl("test", 0,
-                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManagerImpl(), new PredefinedSchemaManager(schema));
+                CaffeineCacheFactory.INSTANCE, 
+                null, 
+                plannerTimeout, 
+                1, Integer.MAX_VALUE, 
+                new MetricManagerImpl(),
+                new PredefinedSchemaManager(schema)
+        );
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl();
