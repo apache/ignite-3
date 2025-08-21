@@ -21,7 +21,6 @@ import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
@@ -386,26 +385,17 @@ class CheckpointWorkflow {
 
         this.dirtyPartitionsMap = new ConcurrentHashMap<>();
 
-        Collection<DataRegionDirtyPages<Collection<FullPageId>>> dataRegionsDirtyPages = new ArrayList<>(dataRegions.size());
+        Collection<DataRegionDirtyPages<Collection<DirtyFullPageId>>> dataRegionsDirtyPages = new ArrayList<>(dataRegions.size());
 
         // First, we iterate all regions that have dirty pages.
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            // TODO: IGNITE-26233 Исправить
-            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress)
-                    .stream()
-                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
-                    .collect(toSet());
+            Collection<DirtyFullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(checkpointProgress);
 
             Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.remove(dataRegion);
 
             if (dirtyMetaPageIds != null) {
-                // TODO: IGNITE-26233 Исправить
-                Set<FullPageId> tmp = dirtyMetaPageIds.stream()
-                        .map(p -> new FullPageId(p.pageId(), p.groupId()))
-                        .collect(toSet());
-
                 // Merge these two collections. There should be no intersections.
-                dirtyPages = CollectionUtils.concat(tmp, dirtyPages);
+                dirtyPages = CollectionUtils.concat(dirtyMetaPageIds, dirtyPages);
             }
 
             dataRegionsDirtyPages.add(new DataRegionDirtyPages<>(dataRegion.pageMemory(), dirtyPages));
@@ -417,12 +407,7 @@ class CheckpointWorkflow {
 
             assert pageMemory instanceof PersistentPageMemory;
 
-            // TODO: IGNITE-26233 Исправить
-            Set<FullPageId> value = entry.getValue().stream()
-                    .map(p -> new FullPageId(p.pageId(), p.groupId()))
-                    .collect(toSet());
-
-            dataRegionsDirtyPages.add(new DataRegionDirtyPages<>((PersistentPageMemory) pageMemory, value));
+            dataRegionsDirtyPages.add(new DataRegionDirtyPages<>((PersistentPageMemory) pageMemory, entry.getValue()));
         }
 
         return new DataRegionsDirtyPages(dataRegionsDirtyPages);
@@ -436,18 +421,19 @@ class CheckpointWorkflow {
         int realPagesArrSize = 0;
 
         // Collects dirty pages into an array (then we will sort them) and collects dirty partitions.
-        for (DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
+        for (DataRegionDirtyPages<Collection<DirtyFullPageId>> dataRegionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
             var pageIds = new FullPageId[dataRegionDirtyPages.dirtyPages.size()];
 
             var partitionIds = new HashSet<GroupPartitionId>();
 
             int pagePos = 0;
 
-            for (FullPageId dirtyPage : dataRegionDirtyPages.dirtyPages) {
+            for (DirtyFullPageId dirtyPage : dataRegionDirtyPages.dirtyPages) {
                 assert realPagesArrSize++ != dataRegionsDirtyPages.dirtyPageCount :
                         "Incorrect estimated dirty pages number: " + dataRegionsDirtyPages.dirtyPageCount;
 
-                pageIds[pagePos++] = dirtyPage;
+                // TODO: IGNITE-26233 Исправить
+                pageIds[pagePos++] = new FullPageId(dirtyPage.pageId(), dirtyPage.groupId());
                 partitionIds.add(GroupPartitionId.convert(dirtyPage));
             }
 

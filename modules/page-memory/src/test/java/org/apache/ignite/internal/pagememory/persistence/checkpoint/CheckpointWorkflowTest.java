@@ -425,14 +425,14 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<DirtyFullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
                 pageMemory0,
                 of(10, 10, 2), of(10, 10, 1), of(10, 10, 0),
                 of(10, 5, 100), of(10, 5, 99),
                 of(10, 1, 50), of(10, 1, 51), of(10, 1, 99)
         );
 
-        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<DirtyFullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
                 pageMemory1,
                 of(77, 5, 100), of(77, 5, 99),
                 of(88, 1, 51), of(88, 1, 50), of(88, 1, 99),
@@ -487,8 +487,8 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
     void testParallelSortDirtyPages() throws Exception {
         int count = CheckpointWorkflow.PARALLEL_SORT_THRESHOLD + 10;
 
-        FullPageId[] dirtyPages0 = IntStream.range(0, count).mapToObj(i -> of(0, 0, count - i)).toArray(FullPageId[]::new);
-        FullPageId[] dirtyPages1 = IntStream.range(0, count).mapToObj(i -> of(1, 1, i)).toArray(FullPageId[]::new);
+        DirtyFullPageId[] dirtyPages0 = IntStream.range(0, count).mapToObj(i -> of(0, 0, count - i)).toArray(DirtyFullPageId[]::new);
+        DirtyFullPageId[] dirtyPages1 = IntStream.range(0, count).mapToObj(i -> of(1, 1, i)).toArray(DirtyFullPageId[]::new);
 
         workflow = new CheckpointWorkflow(
                 "test",
@@ -684,9 +684,9 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         return mock;
     }
 
-    private static DataRegionDirtyPages<Collection<FullPageId>> createDataRegionDirtyPages(
+    private static DataRegionDirtyPages<Collection<DirtyFullPageId>> createDataRegionDirtyPages(
             PersistentPageMemory pageMemory,
-            FullPageId... pageIds
+            DirtyFullPageId... pageIds
     ) {
         return new DataRegionDirtyPages<>(pageMemory, List.of(pageIds));
     }
