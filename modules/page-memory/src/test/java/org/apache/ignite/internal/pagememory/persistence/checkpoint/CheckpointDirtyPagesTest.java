@@ -132,7 +132,7 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSortDirtyPageIds() {
-        List<FullPageId> pageIds = new ArrayList<>(List.of(
+        List<DirtyFullPageId> pageIds = new ArrayList<>(List.of(
                 of(10, 10, 10), of(10, 10, 9), of(10, 10, 0), of(10, 0, 10), of(10, 0, 0),
                 of(0, 1, 3), of(0, 1, 2), of(0, 1, 1), of(0, 1, 0), of(0, 0, 0),
                 of(1, 2, 0), of(1, 2, 1)

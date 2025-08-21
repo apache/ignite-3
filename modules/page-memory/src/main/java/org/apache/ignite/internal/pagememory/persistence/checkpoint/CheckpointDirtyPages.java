@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
@@ -33,10 +34,11 @@ import org.jetbrains.annotations.Nullable;
 
 /** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and partition IDs that should be checkpointed. */
 public class CheckpointDirtyPages {
-    /** Dirty page ID comparator by groupId -> partitionId -> pageIdx. */
-    static final Comparator<FullPageId> DIRTY_PAGE_COMPARATOR = Comparator
-            .comparingInt(FullPageId::groupId)
-            .thenComparingLong(FullPageId::effectivePageId);
+    /** Dirty page ID comparator by groupId -> partitionId -> pageIdx -> partitionGeneration. */
+    static final Comparator<DirtyFullPageId> DIRTY_PAGE_COMPARATOR = Comparator
+            .comparingInt(DirtyFullPageId::groupId)
+            .thenComparingLong(DirtyFullPageId::effectivePageId)
+            .thenComparingInt(DirtyFullPageId::partitionGeneration);
 
     /** Empty checkpoint dirty pages. */
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
@@ -98,10 +100,10 @@ public class CheckpointDirtyPages {
     }
 
     private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
-        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
-        FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
+        var startPageId = new DirtyFullPageId(pageId(partId, (byte) 0, 0), grpId, 0);
+        var endPageId = new DirtyFullPageId(pageId(partId + 1, (byte) 0, 0), grpId, 0);
 
-        FullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
+        DirtyFullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
 
         int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
@@ -161,6 +163,7 @@ public class CheckpointDirtyPages {
          * @param index Dirty page index.
          */
         public FullPageId get(int index) {
+            // TODO: IGNITE-26233 Продолжить
             return dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages[fromPosition + index];
         }
 
@@ -187,9 +190,9 @@ public class CheckpointDirtyPages {
          * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
          */
         int modifiedPages(int groupId, int partitionId, int checkpointedPages) {
-            FullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
+            DirtyFullPageId[] dirtyPages = dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages;
 
-            FullPageId endPageId = new FullPageId(pageId(partitionId, (byte) 0, checkpointedPages), groupId);
+            var endPageId = new DirtyFullPageId(pageId(partitionId, (byte) 0, checkpointedPages), groupId, 0);
 
             int index = binarySearch(dirtyPages, fromPosition, toPosition, endPageId, DIRTY_PAGE_COMPARATOR);
 
