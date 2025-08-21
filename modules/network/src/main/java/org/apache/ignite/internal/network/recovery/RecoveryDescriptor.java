@@ -28,6 +28,8 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.InvokeRequest;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -105,6 +107,28 @@ public class RecoveryDescriptor {
 
             acknowledgedCount++;
         }
+    }
+
+    public void acknowledge(InvokeResponse invokeResponse) {
+        long correlationId = invokeResponse.correlationId();
+
+        long acknowledgedId = 0;
+
+        do {
+            OutNetworkObject req = unacknowledgedMessages.poll();
+
+            assert req != null;
+
+            req.acknowledge();
+
+            if (req.networkMessage() instanceof InvokeRequest) {
+                InvokeRequest invokeReq = (InvokeRequest) req.networkMessage();
+
+                acknowledgedId = invokeReq.correlationId();
+            }
+
+            acknowledgedCount++;
+        } while (acknowledgedId != correlationId);
     }
 
     /**
