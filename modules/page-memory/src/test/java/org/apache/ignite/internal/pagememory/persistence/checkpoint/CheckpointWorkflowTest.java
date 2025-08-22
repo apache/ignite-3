@@ -70,7 +70,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -539,8 +538,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
 
         int groupId = 10;
         int partitionId = 20;
+        int partitionGeneration = 1;
 
-        FullPageId metaPageId = new FullPageId(partitionMetaPageId(partitionId), groupId);
+        var metaPageId = new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration);
+
+        when(pageMemory.partGeneration(anyInt(), anyInt())).thenReturn(partitionGeneration);
         workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
@@ -584,8 +586,10 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         var metaPageId = new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration);
         var dataPageId = new DirtyFullPageId(pageId(partitionId, FLAG_DATA, 1), groupId, partitionGeneration);
 
-        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
         when(pageMemory.beginCheckpoint(any())).thenReturn(List.of(dataPageId));
+        when(pageMemory.partGeneration(anyInt(), anyInt())).thenReturn(partitionGeneration);
+
+        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
                 coarseCurrentTimeMillis(),
