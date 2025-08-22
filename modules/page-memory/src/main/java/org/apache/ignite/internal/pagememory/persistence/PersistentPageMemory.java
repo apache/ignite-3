@@ -1956,7 +1956,7 @@ public class PersistentPageMemory implements PageMemory {
      */
     private void copyPageForCheckpoint(
             long absPtr,
-            FullPageId fullId,
+            DirtyFullPageId fullId,
             ByteBuffer buf,
             int partitionGeneration,
             boolean pageSingleAcquire,
@@ -1965,7 +1965,8 @@ public class PersistentPageMemory implements PageMemory {
             boolean useTryWriteLockOnPage
     ) throws IgniteInternalCheckedException {
         assert absPtr != 0 : hexLong(fullId.pageId());
-        assert isAcquired(absPtr) || !isInCheckpoint(fullId) : hexLong(fullId.pageId());
+        // TODO: IGNITE-26233 починить конечно
+        assert isAcquired(absPtr) || !isInCheckpoint(fullId.toFullPageId()) : hexLong(fullId.pageId());
 
         if (useTryWriteLockOnPage) {
             if (!rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS)) {
@@ -2067,7 +2068,7 @@ public class PersistentPageMemory implements PageMemory {
      * @throws IgniteInternalCheckedException If failed to obtain page data.
      */
     public void checkpointWritePage(
-            FullPageId fullId,
+            DirtyFullPageId fullId,
             ByteBuffer buf,
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker,
@@ -2088,7 +2089,8 @@ public class PersistentPageMemory implements PageMemory {
         seg.readLock().lock();
 
         try {
-            if (!isInCheckpoint(fullId)) {
+            // TODO: IGNITE-26233 Починить конечно
+            if (!isInCheckpoint(fullId.toFullPageId())) {
                 return;
             }
 

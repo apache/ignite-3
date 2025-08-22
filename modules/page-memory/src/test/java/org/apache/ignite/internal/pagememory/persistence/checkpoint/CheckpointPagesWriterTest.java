@@ -170,11 +170,11 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 writtenFullPageIds.getAllValues(),
                 equalTo(List.of(
                         // At the beginning, we write the partition meta for each new partition.
-                        new DirtyFullPageId(pageId(0, FLAG_AUX, 0), 0, 1),
+                        new FullPageId(pageId(0, FLAG_AUX, 0), 0),
                         // Order is different because the first 3 pages we have to try to write to the page store 2 times.
                         fullPageId4, fullPageId5,
                         // At the beginning, we write the partition meta for each new partition.
-                        new DirtyFullPageId(pageId(1, FLAG_AUX, 0), 0, 1),
+                        new FullPageId(pageId(1, FLAG_AUX, 0), 0),
                         fullPageId6,
                         // Now the retry pages.
                         fullPageId1, fullPageId2, fullPageId3
@@ -198,7 +198,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         doThrow(new IgniteInternalCheckedException(INTERNAL_ERR))
                 .when(pageMemory)
                 .checkpointWritePage(
-                        any(FullPageId.class),
+                        any(DirtyFullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
                         any(CheckpointMetricsTracker.class),
@@ -251,7 +251,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         })
                 .when(pageMemory)
                 .checkpointWritePage(
-                        any(FullPageId.class),
+                        any(DirtyFullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
                         any(CheckpointMetricsTracker.class),
@@ -311,7 +311,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
             int tag = pageCount.incrementAndGet() > tryAgainTagFirstPageCount ? 0 : TRY_AGAIN_TAG;
 
-            FullPageId fullPageId = answer.getArgument(0);
+            DirtyFullPageId fullPageId = answer.getArgument(0);
 
             ByteBuffer buffer = answer.getArgument(1);
 
@@ -323,7 +323,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         })
                 .when(pageMemory)
                 .checkpointWritePage(
-                        any(FullPageId.class),
+                        any(DirtyFullPageId.class),
                         any(ByteBuffer.class),
                         any(PageStoreWriter.class),
                         any(CheckpointMetricsTracker.class),

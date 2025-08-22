@@ -212,9 +212,7 @@ public class CheckpointPagesWriter implements Runnable {
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
                 updateHeartbeat.run();
 
-                // TODO: IGNITE-26233 Починить позже тут
-                DirtyFullPageId dirtyPageId = checkpointDirtyPagesView.get(i);
-                FullPageId pageId = new FullPageId(dirtyPageId.pageId(), dirtyPageId.groupId());
+                DirtyFullPageId pageId = checkpointDirtyPagesView.get(i);
 
                 if (pageId.pageIdx() == 0) {
                     // Skip meta-pages, they are written by "writePartitionMeta".
@@ -230,7 +228,7 @@ public class CheckpointPagesWriter implements Runnable {
 
     private void writeDirtyPage(
             PersistentPageMemory pageMemory,
-            FullPageId pageId,
+            DirtyFullPageId pageId,
             ByteBuffer tmpWriteBuf,
             PageStoreWriter pageStoreWriter,
             boolean useTryWriteLockLockOnPage
@@ -285,7 +283,8 @@ public class CheckpointPagesWriter implements Runnable {
                         checkpointProgress.blockPartitionDestruction(partitionId);
                     }
 
-                    writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, useTryWriteLockOnPage);
+                    // TODO: IGNITE-26233 Починить конечно
+                    writeDirtyPage(pageMemory, (DirtyFullPageId) pageId, tmpWriteBuf, pageStoreWriter, useTryWriteLockOnPage);
                 }
             } finally {
                 if (partitionId != null) {
@@ -414,6 +413,7 @@ public class CheckpointPagesWriter implements Runnable {
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
+        // TODO: IGNITE-26233 вот тут возможно надо починить брат
         FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
         pageWriter.write(pageMemory, fullPageId, buffer.rewind());

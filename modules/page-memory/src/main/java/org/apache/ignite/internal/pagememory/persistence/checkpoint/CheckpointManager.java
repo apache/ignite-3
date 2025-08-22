@@ -338,6 +338,7 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
+                    // TODO: IGNITE-26233 Вот тут надо починить и брать только те страницы которые в текущем поколнеии
                     return pageIndexesForDeltaFilePageStore(
                             partitionView,
                             pageId.groupId(),

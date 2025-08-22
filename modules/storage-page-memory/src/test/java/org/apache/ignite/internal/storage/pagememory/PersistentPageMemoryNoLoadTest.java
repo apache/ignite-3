@@ -59,9 +59,11 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
@@ -623,7 +625,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     @Test
     void testPartitionGenerationAfterCheckpointWritePageAndInvalidatePartition() throws Exception {
         runWithStartedPersistentPageMemory(mem -> {
-            FullPageId fullPageId = allocatePage(mem);
+            DirtyFullPageId fullPageId = allocateDirtyPage(mem);
 
             mem.beginCheckpoint(new CheckpointProgressImpl(42));
 
@@ -659,5 +661,23 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     @FunctionalInterface
     private interface ConsumerX<T> {
         void accept(T t) throws Exception;
+    }
+
+    /**
+     * Allocates dirty page.
+     *
+     * @param mem Memory.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public static DirtyFullPageId allocateDirtyPage(PersistentPageMemory mem) throws IgniteInternalCheckedException {
+        long pageId = mem.allocatePageNoReuse(GRP_ID, PARTITION_ID, PageIdAllocator.FLAG_DATA);
+
+        long page = mem.acquirePage(GRP_ID, pageId);
+
+        try {
+            return new DirtyFullPageId(pageId, GRP_ID, partitionGeneration(page));
+        } finally {
+            mem.releasePage(GRP_ID, pageId, page);
+        }
     }
 }
