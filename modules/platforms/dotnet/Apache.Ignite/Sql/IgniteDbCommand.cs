@@ -27,32 +27,40 @@ using Transactions;
 
 public class IgniteDbCommand : DbCommand
 {
-    private IgniteParameterCollection _parameters;
+    private IgniteDbParameterCollection? _parameters;
 
+    /// <inheritdoc />
     public override string CommandText { get; set; }
 
+    /// <inheritdoc />
     public override int CommandTimeout { get; set; }
 
+    /// <inheritdoc />
     public override CommandType CommandType { get; set; }
 
+    /// <inheritdoc />
     public override UpdateRowSource UpdatedRowSource { get; set; }
 
+    /// <inheritdoc />
     public override bool DesignTimeVisible { get; set; }
 
-    public CommandSource CommandSource { get; set; }
-
+    /// <inheritdoc />
     protected override DbConnection DbConnection { get; set; }
 
+    /// <inheritdoc />
     protected override DbParameterCollection DbParameterCollection =>
-        _parameters ??= new IgniteParameterCollection();
+        _parameters ??= new IgniteDbParameterCollection();
 
+    /// <inheritdoc />
     protected override DbTransaction DbTransaction { get; set; }
 
+    /// <inheritdoc />
     public override void Cancel()
     {
-        // No-op.
+        // TODO: cancellation token
     }
 
+    /// <inheritdoc />
     public override int ExecuteNonQuery()
     {
         return ExecuteNonQueryAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -62,9 +70,6 @@ public class IgniteDbCommand : DbCommand
     {
         var args = GetArgs();
         var statement = GetStatement();
-
-        // TODO: Remove debug output.
-        Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
         // TODO: Use ExecuteBatch for multiple statements.
@@ -88,9 +93,6 @@ public class IgniteDbCommand : DbCommand
     {
         var args = GetArgs();
         var statement = GetStatement();
-
-        // TODO: Remove debug output.
-        Console.WriteLine($"IgniteCommand.ExecuteScalarAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
             transaction: GetTransaction(),
@@ -116,14 +118,6 @@ public class IgniteDbCommand : DbCommand
 
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
-        if (CommandSource == CommandSource.SaveChanges)
-        {
-            // Ignite-specific: SaveChangesDataReader is used to return the number of rows affected.
-            var rowsAffected = await ExecuteNonQueryAsync(cancellationToken);
-
-            return new IgniteSaveChangesDataReader(rowsAffected);
-        }
-
         var args = GetArgs();
         var statement = GetStatement();
 
@@ -137,14 +131,16 @@ public class IgniteDbCommand : DbCommand
             args);
     }
 
-    protected override DbParameter CreateDbParameter() => new IgniteParameter();
+    /// <inheritdoc />
+    protected override DbParameter CreateDbParameter() => new IgniteDbParameter();
 
+    /// <inheritdoc />
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
         ExecuteDbDataReaderAsync(behavior, CancellationToken.None).GetAwaiter().GetResult();
 
     private ISql GetSql()
     {
-        if (DbConnection is not IgniteConnection igniteConn)
+        if (DbConnection is not IgniteDbConnection igniteConn)
         {
             throw new InvalidOperationException("DbConnection is not an IgniteConnection or is null.");
         }
