@@ -32,6 +32,18 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public const char EndpointSeparator = ',';
 
+    private static readonly IReadOnlySet<string> KnownKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(Endpoints),
+        nameof(SocketTimeout),
+        nameof(OperationTimeout),
+        nameof(HeartbeatInterval),
+        nameof(ReconnectInterval),
+        nameof(SslEnabled),
+        nameof(Username),
+        nameof(Password)
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbConnectionStringBuilder"/> class.
     /// </summary>
@@ -132,6 +144,22 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     {
         get => GetString(nameof(Password));
         set => this[nameof(Password)] = value;
+    }
+
+    /// <inheritdoc />
+    [AllowNull]
+    public override object this[string keyword]
+    {
+        get => base[keyword];
+        set
+        {
+            if (!KnownKeys.Contains(keyword))
+            {
+                throw new ArgumentException($"Unknown connection string key: '{keyword}'.", nameof(keyword));
+            }
+
+            base[keyword] = value;
+        }
     }
 
     /// <summary>

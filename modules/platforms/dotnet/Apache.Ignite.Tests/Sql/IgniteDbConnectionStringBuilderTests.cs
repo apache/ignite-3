@@ -16,6 +16,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -136,5 +137,25 @@ public class IgniteDbConnectionStringBuilderTests
             Assert.NotNull(builderProp, $"Property '{configProp.Name}' not found in IgniteDbConnectionStringBuilder");
             Assert.AreEqual(configProp.PropertyType, builderProp!.PropertyType, $"Property '{configProp.Name}' type mismatch");
         }
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "ObjectCreationAsStatement", Justification = "Tests")]
+    public void TestUnknownConnectionStringPropertyThrows()
+    {
+        var connStr = "foo=bar;Endpoints=localhost:10800";
+
+        var ex = Assert.Throws<ArgumentException>(() => new IgniteDbConnectionStringBuilder(connStr));
+        Assert.AreEqual("Unknown connection string key: 'foo'. (Parameter 'keyword')", ex.Message);
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "CollectionNeverQueried.Local", Justification = "Tests")]
+    public void TestUnknownSetterPropertyThrows()
+    {
+        var builder = new IgniteDbConnectionStringBuilder();
+
+        var ex = Assert.Throws<ArgumentException>(() => builder["baz"] = "bar");
+        Assert.AreEqual("Unknown connection string key: 'baz'. (Parameter 'keyword')", ex.Message);
     }
 }
