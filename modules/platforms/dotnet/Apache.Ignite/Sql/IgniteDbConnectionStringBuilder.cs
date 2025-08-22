@@ -22,6 +22,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Threading;
 using Internal.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Ignite connection string builder.
@@ -57,7 +59,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// If the port is not specified, the default port 10800 is used.
     /// </summary>
     [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Reviewed.")]
-    public ICollection<string> Endpoints
+    public IList<string> Endpoints
     {
         get => this[nameof(IgniteClientConfiguration.Endpoints)] is string endpoints
             ? endpoints.Split(EndpointSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

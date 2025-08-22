@@ -16,6 +16,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Linq;
 using Ignite.Sql;
 using NUnit.Framework;
 
@@ -42,5 +43,26 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual(
             "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000",
             builder.ToString());
+    }
+
+    [Test]
+    public void TestBuilderHasSamePropertiesAsClientConfig()
+    {
+        var builderProps = typeof(IgniteDbConnectionStringBuilder).GetProperties();
+        var configProps = typeof(IgniteClientConfiguration).GetProperties();
+
+        foreach (var configProp in configProps)
+        {
+            if (configProp.Name == nameof(IgniteClientConfiguration.LoggerFactory) ||
+                configProp.Name == nameof(IgniteClientConfiguration.RetryPolicy))
+            {
+                // Not supported yet.
+                continue;
+            }
+
+            var builderProp = builderProps.SingleOrDefault(x => x.Name == configProp.Name);
+            Assert.NotNull(builderProp, $"Property '{configProp.Name}' not found in IgniteDbConnectionStringBuilder");
+            Assert.AreEqual(configProp.PropertyType, builderProp!.PropertyType, $"Property '{configProp.Name}' type mismatch");
+        }
     }
 }
