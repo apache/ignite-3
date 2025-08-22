@@ -767,7 +767,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         return op1Matches && op2Matches;
     }
 
-
     static class FunctionCallMatcher {
 
         private final List<Matcher<RexNode>> args;
@@ -836,7 +835,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             public void describeTo(Description description) {
 
             }
-
 
             @Nullable
             private RexCall getRexCall(RelNode relNode) {

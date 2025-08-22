@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
@@ -187,7 +186,7 @@ public class DistributionZoneRebalanceEngine {
 
             return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 

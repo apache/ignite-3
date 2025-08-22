@@ -113,7 +113,8 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
                 validationManager,
                 onLogicalTopologyChanged,
                 clusterIdHolder,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                config -> {}
         );
     }
 

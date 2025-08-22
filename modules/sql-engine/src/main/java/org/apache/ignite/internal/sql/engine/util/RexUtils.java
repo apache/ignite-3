@@ -58,7 +58,9 @@ import java.util.Set;
 import java.util.TimeZone;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
@@ -84,6 +86,7 @@ import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -847,7 +850,7 @@ public class RexUtils {
     }
 
     private static Boolean containsFieldAccess(RexNode node) {
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitFieldAccess(RexFieldAccess fieldAccess) {
                 throw Util.FoundOne.NULL;
@@ -1043,7 +1046,7 @@ public class RexUtils {
      */
     public static boolean hasCorrelation(List<RexNode> nodes) {
         try {
-            RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+            RexVisitor<Void> v = new RexVisitorImpl<>(true) {
                 @Override
                 public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                     throw new ControlFlowException();
@@ -1077,7 +1080,7 @@ public class RexUtils {
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                 cors.add(correlVariable.id);
@@ -1189,6 +1192,35 @@ public class RexUtils {
         }
 
         return val;
+    }
+
+    /** Context which triggers assertion if unexpected method is called. */
+    public static class FaultyContext implements DataContext {
+        public static final FaultyContext INSTANCE = new FaultyContext();
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus getRootSchema() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public JavaTypeFactory getTypeFactory() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public QueryProvider getQueryProvider() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable Object get(String name) {
+            throw new AssertionError("Should not call: [" + name + "] from current context.");
+        }
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
@@ -1323,6 +1355,10 @@ public class RexUtils {
                 && SqlTypeFamily.CHARACTER.getTypeNames().contains(target.getSqlTypeName())) {
             return target.getSqlTypeName().compareTo(source.getSqlTypeName()) >= 0
                     && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
+        }
+
+        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeUtil.isDatetime(source)) {
+            return source.getPrecision() <= target.getPrecision();
         }
 
         return RexUtil.isLosslessCast(source, target);

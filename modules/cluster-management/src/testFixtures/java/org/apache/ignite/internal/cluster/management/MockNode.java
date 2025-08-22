@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -87,7 +88,8 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributes,
-            StorageConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
@@ -147,7 +149,8 @@ public class MockNode {
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
-                () -> colocationEnabled
+                () -> colocationEnabled,
+                onConfigurationCommittedListener
         );
 
         components = List.of(

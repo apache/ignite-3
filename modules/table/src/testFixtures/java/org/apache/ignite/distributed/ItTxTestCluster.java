@@ -509,7 +509,7 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
-                    clock,
+                    clockService,
                     partitionOperationsExecutor,
                     replicationConfiguration,
                     executor
@@ -545,7 +545,8 @@ public class ItTxTestCluster {
                     transactionInflights,
                     txMgr,
                     lowWatermark,
-                    new NoOpFailureManager()
+                    new NoOpFailureManager(),
+                    new TestMetricManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -1297,7 +1298,7 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock,
+                clientClockService,
                 partitionOperationsExecutor,
                 replicationConfiguration,
                 executor
@@ -1342,7 +1343,8 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 clientTxManager,
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new TestMetricManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

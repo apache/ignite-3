@@ -58,10 +58,8 @@ dependencies {
     testFixturesImplementation project(':ignite-rest-api')
 }
 
-private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {
-    def notations = [dependencyNotation]
-    notations.addAll(additionalNotations)
-    def dependencies = notations.collect {
+private def resolveAllDependencies(String... dependencyNotations) {
+    def dependencies = dependencyNotations.collect {
         dependencies.create(it)
     }
     Configuration detached = configurations.detachedConfiguration(dependencies as Dependency[])
@@ -76,17 +74,17 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
                 objects.named(TargetJvmEnvironment.class, TargetJvmEnvironment.STANDARD_JVM)
         )
     }
-    println "resolving $dependencyNotation"
+    println "resolving $dependencyNotations"
     return detached.resolve()  // Set<File> of *.jar
 }
 
-// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined, at
-// most 2 last versions are resolved
+// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined or is
+// not equals to `true`, at most 2 last versions are resolved
 def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityTestDependencies') {
     doLast {
         def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
         def versionsJson = new JsonSlurper().parseText(versionsFile.text)
-        def versions = System.getProperty("testAllVersions") != null ? versionsJson.versions : versionsJson.versions.takeRight(2)
+        def versions = shouldTestAllVersions() ? versionsJson.versions : versionsJson.versions.takeRight(2)
         versions.each { version ->
             versionsJson.artifacts.each { artifact ->
                 resolveAllDependencies("$artifact:$version.version")
@@ -95,12 +93,21 @@ def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityT
     }
 }
 
+private shouldTestAllVersions() {
+    def value = System.getProperty("testAllVersions")
+    if (value != null) {
+        value = value.trim().toLowerCase()
+        return value.isEmpty() || "true".equals(value)
+    }
+    return false
+}
+
 integrationTest.dependsOn resolveCompatibilityTestDependencies
 
 tasks.register('constructArgFile') {
     doLast {
-        def depNotation = project.property('dependencyNotation')
-        def jars = resolveAllDependencies(depNotation)
+        String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
+        def jars = resolveAllDependencies(dependencies)
         def jarFiles = files(jars)
         def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')

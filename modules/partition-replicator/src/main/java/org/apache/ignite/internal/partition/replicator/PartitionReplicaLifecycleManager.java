@@ -1799,7 +1799,7 @@ public class PartitionReplicaLifecycleManager extends
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
 
                         try {
-                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                            replicaMgr.destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
                         } catch (NodeStoppingException e) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
                         }

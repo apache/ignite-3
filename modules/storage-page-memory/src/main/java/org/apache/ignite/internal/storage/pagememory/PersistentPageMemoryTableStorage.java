@@ -73,7 +73,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param dataRegion Data region for the table.
      * @param failureProcessor Failure processor.
      */
-    PersistentPageMemoryTableStorage(
+    public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,

@@ -192,7 +192,7 @@ public class BinaryTupleParser {
             return Readability.READABLE;
         }
 
-        if (offset >=  buffer.capacity()) {
+        if (offset >= buffer.capacity()) {
             return Readability.NOT_READABLE;
         }
 
@@ -386,7 +386,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    protected BigInteger numberValue(int begin, int end) {
+    public BigInteger numberValue(int begin, int end) {
         int len = end - begin;
         if (len <= 0) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
@@ -628,7 +628,7 @@ public class BinaryTupleParser {
      */
     private static LocalDate getDate(ByteBufferAccessor byteBufferAccessor, int offset) {
         int date = Short.toUnsignedInt(byteBufferAccessor.getShort(offset));
-        date |= ((int) byteBufferAccessor.get(offset + 2)) << 16;
+        date |= byteBufferAccessor.get(offset + 2) << 16;
 
         int day = date & 31;
         int month = (date >> 5) & 15;

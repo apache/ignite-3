@@ -59,7 +59,6 @@ class ArrayUtilsTest {
         );
     }
 
-
     @ParameterizedTest
     @MethodSource("wordsForFindLastNotEmptyWord")
     void findLastNotEmptyWord(String[] words, String expectedWord) {

@@ -69,7 +69,6 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
             executeUpdate(sql, session);
         });
 
-
         for (int i = 0; i < 1000; i++) {
             executeSql("INSERT INTO " + TABLE_NAME + " (key, val) VALUES (" + i + ", 'one')");
         }

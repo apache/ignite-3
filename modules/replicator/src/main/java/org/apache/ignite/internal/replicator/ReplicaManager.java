@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
@@ -44,6 +45,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
@@ -107,6 +109,7 @@ import org.apache.ignite.internal.replicator.exception.ExpectedReplicationExcept
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
@@ -145,6 +148,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private static final int MAXIMUM_ATTEMPTS_WITHOUT_LOGGING = 10;
+
+    private final Map<ReplicationGroupId, Integer> timeoutAttemptsCounters = new ConcurrentHashMap<>();
 
     /** Executor for the throttled log. */
     // TODO: IGNITE-20063 Maybe get rid of it
@@ -744,6 +751,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftGroupServiceFactory
         );
 
+        timeoutAttemptsCounters.put(replicaGrpId, 0);
+
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
         Replica newReplica = replicaFactory.apply(raftClient);
@@ -897,6 +906,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (!replicaWasRemoved) {
                         return false;
                     }
+
+                    timeoutAttemptsCounters.remove(replicaGrpId);
 
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
@@ -1102,12 +1113,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         Replica replica = replicaFuture.join();
 
+        ReplicationGroupId replicaGroupId = replica.groupId();
+
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                .groupId(toReplicationGroupIdMessage(replica.groupId()))
+                .groupId(toReplicationGroupIdMessage(replicaGroupId))
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null) {
+                if (hasCause(ex, TimeoutException.class, ReplicationTimeoutException.class)) {
+                    tryToLogTimeoutFailure(replicaGroupId, ex);
+                } else {
+                    // Reset counter if timeouts aren't the reason.
+                    timeoutAttemptsCounters.put(replicaGroupId, 0);
+                }
+
                 if (!hasCause(
                         ex,
                         NodeStoppingException.class,
@@ -1121,6 +1141,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
             }
         });
+    }
+
+    private void tryToLogTimeoutFailure(ReplicationGroupId replicaGroupId, Throwable timeoutException) {
+        Integer currentAttempt = timeoutAttemptsCounters.computeIfPresent(replicaGroupId, (id, attempts) -> attempts + 1);
+
+        // In case if for the group id there no entry, thus replica was stopped and this call in race, then skip logging.
+        if (currentAttempt == null) {
+            return;
+        }
+
+        if (currentAttempt < MAXIMUM_ATTEMPTS_WITHOUT_LOGGING) {
+            return;
+        }
+
+        throttledLog.warn(
+                "SafeTime-Sync-Timeouts", // Common key to throttle among all replicas and don't spoil the log.
+                "Failed to sync safe time for partition, the same kind of issue may affect all other replicas on this node "
+                        + "[groupId={}, attempt={}].",
+                timeoutException,
+                replicaGroupId,
+                currentAttempt
+        );
     }
 
     private boolean shouldAdvanceIdleSafeTime() {
@@ -1217,6 +1259,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Destroys replication protocol storages for the given group ID.
      *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void destroyReplicationProtocolStoragesOnStartup(ReplicationGroupId replicaGrpId)
+            throws NodeStoppingException {
+        // We use 'isVolatileStorage' of false because on startup it's not a problem if the value is wrong. If it actually
+        // was volatile, the log storage is already destroyed on an earlier phase of node startup, so we will just issue an excessive
+        // log storage destruction request, and it's not a problem as persistent log storage with same table/zone ID cannot exist
+        // if the storage was volatile.
+        destroyReplicationProtocolStorages(replicaGrpId, false);
+    }
+
+    /**
+     * Destroys replication protocol storages for the given group ID.
+     *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
+     *
      * @param replicaGrpId Replication group ID.
      * @param isVolatileStorage is table storage volatile?
      * @throws NodeStoppingException If the node is being stopped.
@@ -1227,6 +1288,39 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
 
         ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
+    }
+
+    /**
+     * Destroys replication protocol storages for the given group ID.
+     *
+     * <p>Destruction is durable: that is, if this method returns and after that the node crashes, after it starts up, the storage
+     * will not be there.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param isVolatileStorage is table storage volatile?
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void destroyReplicationProtocolStoragesDurably(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
+            throws NodeStoppingException {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
+
+        ((Loza) raftManager).destroyRaftNodeStoragesDurably(raftNodeId, groupOptions);
+    }
+
+    /**
+     * Returns IDs of all partitions of tables for which any storage of replication protocol is present on disk.
+     */
+    public Set<TablePartitionId> replicationProtocolTablePartitionIdsOnDisk() throws NodeStoppingException {
+        return ((Loza) raftManager).raftNodeIdsOnDisk().stream()
+                .map(id -> {
+                    assert id.peer().idx() == 0 : id;
+
+                    return id.groupIdName();
+                })
+                .filter(PartitionGroupId::matchesString)
+                .map(TablePartitionId::fromString)
+                .collect(toUnmodifiableSet());
     }
 
     /**

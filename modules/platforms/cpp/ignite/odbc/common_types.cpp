@@ -232,7 +232,7 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
-        case error::code::PORT_IN_USE:
+        case error::code::BIND:
         case error::code::FILE_TRANSFER:
         case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:

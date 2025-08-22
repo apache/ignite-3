@@ -245,7 +245,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             clockService = new ClockServiceImpl(
                     clock,
                     clockWaiter,
-                    () -> TEST_MAX_CLOCK_SKEW_MILLIS
+                    () -> TEST_MAX_CLOCK_SKEW_MILLIS,
+                    skew -> {}
             );
         }
 

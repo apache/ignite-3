@@ -80,6 +80,7 @@ public class ClientSqlExecuteRequest {
      *         transaction.
      * @param notificationSender Notification sender is required to send acknowledge for underlying write operation within a remote
      *         transaction.
+     * @param username Authenticated user name or {@code null} for unknown user.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -95,7 +96,8 @@ public class ClientSqlExecuteRequest {
             boolean sqlDirectTxMappingSupported,
             TxManager txManager,
             ClockService clockService,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            @Nullable String username
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -122,7 +124,7 @@ public class ClientSqlExecuteRequest {
                 statement,
                 cancelHandle.token(),
                 props.pageSize(),
-                props.toSqlProps(),
+                props.toSqlProps().userName(username),
                 () -> cancelHandles.remove(requestId),
                 arguments
         ).thenCompose(asyncResultSet ->
@@ -246,7 +248,8 @@ public class ClientSqlExecuteRequest {
     ) {
         try {
             SqlProperties properties = new SqlProperties(props)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                    .allowMultiStatement(false);
 
             CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
                         properties,

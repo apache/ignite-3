@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
 import org.apache.calcite.sql.type.SqlTypeName;

@@ -61,7 +61,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private final SearchBoundsImplementor searchBoundsImplementor;
     private final ValuesImplementor valuesImplementor;
 
-
     /**
      * Constructs the object.
      *
@@ -201,8 +200,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 continue;
             }
 
-            b.append(':');
-            b.append(node.getType().getFullTypeString());
+            b.append(':').append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override

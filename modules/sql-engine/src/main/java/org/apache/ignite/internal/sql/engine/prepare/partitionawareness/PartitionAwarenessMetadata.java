@@ -110,7 +110,8 @@ public final class PartitionAwarenessMetadata {
     public String toString() {
         return S.toString(PartitionAwarenessMetadata.class, this,
                 "indexes", Arrays.toString(indexes),
-                "hash", Arrays.toString(hash)
+                "hash", Arrays.toString(hash),
+                "directTxMode", directTxMode
         );
     }
 }

@@ -50,6 +50,11 @@ class DummyUpdatableTable implements UpdatableTable {
     }
 
     @Override
+    public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+        return new CompletableFuture<>();
+    }
+
+    @Override
     public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows,
             ColocationGroup colocationGroup) {
         return new CompletableFuture<>();

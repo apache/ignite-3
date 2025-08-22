@@ -325,11 +325,10 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         StringBuilder stmt = new StringBuilder();
         for (int i = 0; i < 100; i++) {
             if (i > 0) {
-                stmt.append("UNION");
-                stmt.append(System.lineSeparator());
+                stmt.append("UNION")
+                        .append(System.lineSeparator());
             }
-            stmt.append("SELECT * FROM t WHERE c = ").append(i);
-            stmt.append(System.lineSeparator());
+            stmt.append("SELECT * FROM t WHERE c = ").append(i).append(System.lineSeparator());
         }
 
         ParsedResult parsedResult = parse(stmt.toString());
@@ -386,9 +385,9 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(NativeTypes.blobOf(42), -1, noScale),
                 Arguments.of(NativeTypes.UUID, noPrecision, noScale),
                 Arguments.of(NativeTypes.DATE, noPrecision, noScale),
-                Arguments.of(NativeTypes.time(2), 0, noScale),
-                Arguments.of(NativeTypes.datetime(2), 6, noScale),
-                Arguments.of(NativeTypes.timestamp(2), 6, noScale)
+                Arguments.of(NativeTypes.time(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.datetime(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.timestamp(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale)
         );
     }
 

@@ -142,7 +142,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
                         .append(delayedThreadIdsToDelays.get(threadInfo.getThreadId()))
                         .append(" ms that is more than the allowed ")
                         .append(maxAllowedLag)
-                        .append(" ms, it is ");
+                        .append(" ms (defined at ignite.system.criticalWorkers.maxAllowedLagMillis local config property), it is ");
 
                 appendThreadInfo(message, threadInfo);
 
@@ -206,22 +206,17 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         int i = 0;
         for (; i < threadInfo.getStackTrace().length; i++) {
             StackTraceElement ste = threadInfo.getStackTrace()[i];
-            sb.append("\tat ").append(ste.toString());
-            sb.append('\n');
+            sb.append("\tat ").append(ste.toString()).append('\n');
+
             if (i == 0 && threadInfo.getLockInfo() != null) {
                 Thread.State ts = threadInfo.getThreadState();
                 switch (ts) {
                     case BLOCKED:
-                        sb.append("\t-  blocked on ").append(threadInfo.getLockInfo());
-                        sb.append('\n');
+                        sb.append("\t-  blocked on ").append(threadInfo.getLockInfo()).append('\n');
                         break;
                     case WAITING:
-                        sb.append("\t-  waiting on ").append(threadInfo.getLockInfo());
-                        sb.append('\n');
-                        break;
                     case TIMED_WAITING:
-                        sb.append("\t-  waiting on ").append(threadInfo.getLockInfo());
-                        sb.append('\n');
+                        sb.append("\t-  waiting on ").append(threadInfo.getLockInfo()).append('\n');
                         break;
                     default:
                 }
@@ -229,19 +224,16 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
             for (MonitorInfo mi : threadInfo.getLockedMonitors()) {
                 if (mi.getLockedStackDepth() == i) {
-                    sb.append("\t-  locked ").append(mi);
-                    sb.append('\n');
+                    sb.append("\t-  locked ").append(mi).append('\n');
                 }
             }
         }
 
         LockInfo[] locks = threadInfo.getLockedSynchronizers();
         if (locks.length > 0) {
-            sb.append("\n\tNumber of locked synchronizers = ").append(locks.length);
-            sb.append('\n');
+            sb.append("\n\tNumber of locked synchronizers = ").append(locks.length).append('\n');
             for (LockInfo li : locks) {
-                sb.append("\t- ").append(li);
-                sb.append('\n');
+                sb.append("\t- ").append(li).append('\n');
             }
         }
         sb.append('\n');

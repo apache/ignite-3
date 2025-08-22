@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_TI
 
 import java.time.ZoneId;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.sql.SqlCommon;
 
 /**
@@ -29,8 +30,10 @@ import org.apache.ignite.internal.sql.SqlCommon;
 public class SqlProperties {
     private long queryTimeout;
     private Set<SqlQueryType> allowedQueryTypes = SqlQueryType.ALL;
+    private boolean allowMultiStatement = true;
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
     private ZoneId timeZoneId = DEFAULT_TIME_ZONE_ID;
+    @Nullable private String userName;
 
     public SqlProperties() {
     }
@@ -41,6 +44,8 @@ public class SqlProperties {
         allowedQueryTypes = other.allowedQueryTypes;
         defaultSchema = other.defaultSchema;
         timeZoneId = other.timeZoneId;
+        userName = other.userName;
+        allowMultiStatement = other.allowMultiStatement;
     }
 
     public SqlProperties queryTimeout(long queryTimeout) {
@@ -77,5 +82,23 @@ public class SqlProperties {
 
     public ZoneId timeZoneId() {
         return timeZoneId;
+    }
+
+    public SqlProperties userName(@Nullable String userName) {
+        this.userName = userName;
+        return this;
+    }
+
+    public @Nullable String userName() {
+        return userName;
+    }
+
+    public SqlProperties allowMultiStatement(boolean allowMultiStatement) {
+        this.allowMultiStatement = allowMultiStatement;
+        return this;
+    }
+
+    public boolean allowMultiStatement() {
+        return allowMultiStatement;
     }
 }

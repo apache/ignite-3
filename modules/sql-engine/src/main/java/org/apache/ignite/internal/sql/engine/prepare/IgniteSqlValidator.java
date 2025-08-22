@@ -64,12 +64,14 @@ import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -129,6 +131,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
     public static final int DECIMAL_DYNAMIC_PARAM_SCALE = 6;
+    public static final int TEMPORAL_DYNAMIC_PARAM_PRECISION = 9;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
@@ -889,12 +892,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
         return typeFactory.createStructType(
                 types,
-                new AbstractList<String>() {
-                    @Override public String get(int index) {
+                new AbstractList<>() {
+                    @Override
+                    public String get(int index) {
                         return "?" + index;
                     }
 
-                    @Override public int size() {
+                    @Override
+                    public int size() {
                         return types.size();
                     }
                 });
@@ -969,8 +974,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         setValidatedNodeType(expr, returnType);
 
         if (castOperand instanceof SqlDynamicParam
-                && operandType.getSqlTypeName() == SqlTypeName.DECIMAL
-                && returnType.getSqlTypeName() == SqlTypeName.DECIMAL
+                && (hasSameTypeName(operandType, returnType, SqlTypeName.DECIMAL)
+                || hasSameTypeName(operandType, returnType, SqlTypeName.TIME)
+                || hasSameTypeName(operandType, returnType, SqlTypeName.TIMESTAMP)
+                || hasSameTypeName(operandType, returnType, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE))
         ) {
             // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and
             // DECIMAL_DYNAMIC_PARAM_SCALE at the beginning of the class declaration). Although this default seems
@@ -978,6 +985,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // there is an ability to specify more precise type by CAST operation. Therefore if type of the dyn param
             // is decimal, and it immediately casted to DECIMAL as well, we need override type of the dyn param to desired
             // one.
+            // The same is required for temporal types to downcast the value according to the specified precision before
+            // going to the index.
             setDynamicParamType((SqlDynamicParam) castOperand, returnType);
 
             return;
@@ -1006,6 +1015,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             throw newValidationError(expr,
                     RESOURCE.cannotCastValue(operandType.toString(), returnType.toString()));
         }
+    }
+
+    /** Returns a flag indicating whether both specified types have the specified type name. */
+    private static boolean hasSameTypeName(RelDataType type1, RelDataType type2, SqlTypeName expected) {
+        return type1.getSqlTypeName() == expected && type2.getSqlTypeName() == expected;
     }
 
     @Override
@@ -1409,6 +1423,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         try {
+            if (call.getKind() == SqlKind.INTERVAL) {
+                assert !(call.operand(0) instanceof SqlCharStringLiteral)
+                        && !(call.operand(0) instanceof SqlIntervalLiteral)
+                        : "Should never got here in case of interval literal";
+
+                throw newValidationError(call, IgniteResource.INSTANCE.unsupportedExpression("String literal expected"));
+            }
             super.validateCall(call, scope);
 
             checkCallsWithCustomTypes(call, scope);
@@ -1578,11 +1599,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (cls == LocalDate.class) {
             return typeFactory.createSqlType(SqlTypeName.DATE);
         } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME);
+            return typeFactory.createSqlType(SqlTypeName.TIME, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == LocalDateTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == Instant.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == byte[].class) {
             return typeFactory.createSqlType(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED);
         } else if (cls == String.class) {

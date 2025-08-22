@@ -523,23 +523,24 @@ public class Node {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
+        clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
+
+        var clockService = new ClockServiceImpl(
+                hybridClock,
+                clockWaiter,
+                () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS,
+                skew -> {}
+        );
+
         ReplicaService replicaSvc = new ReplicaService(
                 clusterService.messagingService(),
-                hybridClock,
+                clockService,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfiguration,
                 threadPoolsManager.commonScheduler()
         );
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-        clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
-
-        var clockService = new ClockServiceImpl(
-                hybridClock,
-                clockWaiter,
-                () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
-        );
 
         placementDriverManager = new PlacementDriverManager(
                 name,
@@ -553,7 +554,9 @@ public class Node {
                 clockService,
                 failureManager,
                 nodeProperties,
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run,
+                metricManager
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
@@ -712,7 +715,8 @@ public class Node {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -757,7 +761,8 @@ public class Node {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                failureManager
+                failureManager,
+                metricManager
         );
 
         tableManager = new TableManager(

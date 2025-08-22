@@ -46,17 +46,7 @@ public class DelayedPageReplacementTracker {
     private final Stripe[] stripes;
 
     /** Byte buffer thread local. */
-    private final ThreadLocal<ByteBuffer> byteBufThreadLoc = new ThreadLocal<>() {
-        /** {@inheritDoc} */
-        @Override
-        protected ByteBuffer initialValue() {
-            ByteBuffer buf = ByteBuffer.allocateDirect(pageSize);
-
-            buf.order(ByteOrder.nativeOrder());
-
-            return buf;
-        }
-    };
+    private final ThreadLocal<ByteBuffer> byteBufThreadLoc;
 
     /**
      * Dirty page write for replacement operations thread local. Because page write {@link DelayedDirtyPageWrite} is stateful and not
@@ -89,6 +79,14 @@ public class DelayedPageReplacementTracker {
         for (int i = 0; i < stripes.length; i++) {
             stripes[i] = new Stripe();
         }
+
+        byteBufThreadLoc = ThreadLocal.withInitial(() -> {
+            ByteBuffer buf = ByteBuffer.allocateDirect(pageSize);
+
+            buf.order(ByteOrder.nativeOrder());
+
+            return buf;
+        });
     }
 
     /**

@@ -306,7 +306,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(manager.activeCatalog(beforeDropTimestamp).version() + 1, catalog.version());
     }
 
-
     @Test
     public void testRenameDefaultZone() {
         CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.util.StringUtils;
  *     <li>a list of rows where items are separated by {@code TAB} character (#)</li>
  *     <li>a number of rows and a hash of those results.</li>
  * </ul>
+ *
  * <p>
  * # CAVEAT: beware that certain IDE settings if configured may cause translation of {@code TAB} characters
  * into multiple {code SPACE} characters.
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.util.StringUtils;
  *     2 values hashing to 6DDB4095EB719E2A9F0A3F95677D24E0
  * </pre>
  * <b>Expecting results of multiple queries to be equal</b>
+ *
  * <p>
  * It is possible to expect the results of multiple to be same using a combination of {@code label} and {@code hash}.
  * </p>

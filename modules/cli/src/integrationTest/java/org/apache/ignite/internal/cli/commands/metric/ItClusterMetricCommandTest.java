@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.metric;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.junit.jupiter.api.Test;
@@ -79,15 +82,30 @@ class ItClusterMetricCommandTest extends CliIntegrationTest {
         execute("cluster", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
         // Then
-        List<Executable> assertions = new ArrayList<>();
+        List<String> sourceNames = Arrays.stream(ALL_METRIC_SOURCES)
+                .map(org.apache.ignite.rest.client.model.MetricSource::getName)
+                .sorted()
+                .collect(toList());
+
+        List<String> nodeNames = CLUSTER.nodes().stream()
+                .map(Ignite::name)
+                .sorted()
+                .collect(toList());
+
+        var assertions = new ArrayList<Executable>();
+
         assertions.add(this::assertExitCodeIsZero);
         assertions.add(this::assertErrOutputIsEmpty);
-        assertions.add(() -> assertOutputContains("Node\tSource name\tDescription"));
-        for (org.apache.ignite.rest.client.model.MetricSource source : ALL_METRIC_SOURCES) {
-            assertions.add(() -> assertOutputContains(source.getName() + "\tenabled" + NL));
+        assertions.add(() -> assertOutputContains("Node\tSource name\tAvailability"));
+        for (String sourceName : sourceNames) {
+            assertions.add(() -> assertOutputContains(sourceName + "\tenabled" + NL));
         }
         // Header + number of nodes * (node name header + metric sources)
         assertions.add(() -> assertOutputHasLineCount(1 + initialNodes() * (ALL_METRIC_SOURCES.length + 1)));
+        // Let's check that the substrings are in the correct order.
+        assertions.add(() -> assertOutputContainsSubsequence(nodeNames));
+        assertions.add(() -> assertOutputContainsSubsequence(sourceNames));
+
         assertAll(assertions);
     }
 

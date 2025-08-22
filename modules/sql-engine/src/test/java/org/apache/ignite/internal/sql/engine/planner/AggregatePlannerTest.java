@@ -692,7 +692,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         );
     }
 
-
     private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -880,7 +879,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 ))
         ));
     }
-
 
     private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
         RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
@@ -744,7 +745,6 @@ public class DdlSqlToCommandConverter {
         return builder.build();
     }
 
-
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
      */
@@ -859,6 +859,24 @@ public class DdlSqlToCommandConverter {
 
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();
+
+        if (zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_UP || zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_DOWN) {
+            if (literal.getTypeName() == SqlTypeName.SYMBOL) {
+                IgniteSqlZoneOptionMode zoneOptionMode = literal.symbolValue(IgniteSqlZoneOptionMode.class);
+
+                if (zoneOptionMode != IgniteSqlZoneOptionMode.SCALE_OFF) {
+                    throw new SqlException(STMT_VALIDATION_ERR, format(
+                            "Unexpected value of zone auto adjust scale [expected OFF, was {}; query=\"{}\"",
+                            zoneOptionMode, ctx.query()
+                    ));
+                }
+
+                // Directly set the option value and return
+                zoneOptionInfo.setter.accept(target, Commons.cast(INFINITE_TIMER_VALUE));
+
+                return;
+            }
+        }
 
         if (zoneOption == REPLICAS) {
             if (literal.getTypeName() == SqlTypeName.SYMBOL) {

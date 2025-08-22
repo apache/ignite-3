@@ -117,7 +117,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",

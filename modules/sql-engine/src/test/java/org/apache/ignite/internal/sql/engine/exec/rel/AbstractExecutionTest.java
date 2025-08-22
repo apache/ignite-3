@@ -157,7 +157,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
                 SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null
         );
 
         contexts.add(executionContext);
@@ -276,7 +277,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                                         return null;
                                 }
                             })
-                            .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
+                            .collect(Collectors.toList()).toArray(new Function[0])
             );
         }
 

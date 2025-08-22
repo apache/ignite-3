@@ -19,15 +19,27 @@ package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -95,5 +107,55 @@ public class ItNodeBootstrapConfigurationTest {
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
                 "Validation did not pass for keys: [ignite.rest.ssl.enabled, Duplicated key]");
+    }
+
+    @Test
+    public void configurationFileNotModifiedAfterStart(TestInfo testInfo) throws IOException {
+        String config = "ignite {\n"
+                + "  rest: {\n"
+                + "    port: 10300\n"
+                + "    ssl: {\n"
+                + "      enabled: false\n"
+                + "    }\n"
+                + "  }\n"
+                + "  network: {\n"
+                + "    port: 3344\n"
+                + "    nodeFinder {\n"
+                + "      netClusterNodes: [ \"localhost:3344\" ]\n"
+                + "      type: STATIC\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
+
+        IgniteServer igniteServer = TestIgnitionManager.startWithProductionDefaults(testNodeName(testInfo, 0), config, workDir);
+
+        try {
+            igniteServer.initCluster(InitParameters.builder().clusterName("name").build());
+            Ignite ignite = igniteServer.api();
+
+            Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
+            String storedConfig = Files.readString(configFile);
+            Config hoconConfig = ConfigFactory.parseString(config);
+            assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig));
+
+            IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(ignite);
+            ConfigurationRegistry nodeCfgRegistry = igniteImpl.nodeConfiguration();
+            HoconPresentation hoconPresentation = new HoconPresentation(nodeCfgRegistry);
+
+            String configUpdate = "ignite {\n"
+                    + "  rest: {\n"
+                    + "    httpToHttpsRedirection: true\n"
+                    + "  }\n"
+                    + "}\n";
+
+            CompletableFuture<Void> update = hoconPresentation.update(configUpdate);
+
+            assertThat(update, willCompleteSuccessfully());
+            storedConfig = Files.readString(configFile);
+
+            assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig.withFallback(ConfigFactory.parseString(configUpdate))));
+        } finally {
+            igniteServer.shutdown();
+        }
     }
 }

@@ -173,6 +173,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-configuration-presentation')
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -275,16 +276,6 @@ tasks.register('runClientPutBenchmark', JavaExec) {
 
 tasks.register('runClientGetBenchmark', JavaExec) {
     mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetBenchmark'
-
-    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
-
-    classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
-}
-
-tasks.register('runRemoteBenchmark', JavaExec) {
-    mainClass = 'org.apache.ignite.internal.benchmark.RemoteKvBenchmark'
 
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 

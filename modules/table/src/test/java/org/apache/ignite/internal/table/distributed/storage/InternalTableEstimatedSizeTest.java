@@ -210,7 +210,12 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         node = clusterService.topologyService().localMember();
 
-        var clockService = new ClockServiceImpl(clock, clockWaiter, () -> 0);
+        var clockService = new ClockServiceImpl(
+                clock,
+                clockWaiter,
+                () -> 0,
+                skew -> {}
+        );
 
         table = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME),
@@ -221,7 +226,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txManager,
                 tableStorage,
                 txStateStorage,
-                new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
+                new ReplicaService(clusterService.messagingService(), clockService, replicationConfiguration),
                 clockService,
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,

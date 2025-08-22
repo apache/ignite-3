@@ -387,7 +387,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-
         UUID row1Id = UUID.randomUUID();
         UUID row2Id = UUID.randomUUID();
         UUID row3Id = UUID.randomUUID();
@@ -822,7 +821,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null, null);
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
-
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
