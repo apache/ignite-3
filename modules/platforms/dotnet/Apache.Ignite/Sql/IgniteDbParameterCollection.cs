@@ -24,12 +24,17 @@ using System.Linq;
 /// <summary>
 /// Ignite database parameter collection.
 /// </summary>
-public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<IgniteDbParameter>
+public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<IgniteDbParameter>, IList<IgniteDbParameter>
 {
     private readonly List<IgniteDbParameter> _parameters = new();
 
     protected internal IgniteDbParameterCollection()
     {
+    }
+
+    bool ICollection<IgniteDbParameter>.Remove(IgniteDbParameter item)
+    {
+        throw new NotImplementedException();
     }
 
     /// <inheritdoc/>
@@ -50,14 +55,26 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
 
     /// <inheritdoc/>
     public override void AddRange(Array values)
-        => AddRange(values.Cast<IgniteDbParameter>());
+        => _parameters.AddRange(values.Cast<IgniteDbParameter>());
 
-    public virtual void AddRange(IEnumerable<IgniteDbParameter> values)
-        => _parameters.AddRange(values);
+    /// <inheritdoc />
+    public void Add(IgniteDbParameter item) => _parameters.Add(item);
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Removes all parameters from the collection.
+    /// </summary>
     public override void Clear()
         => _parameters.Clear();
+
+    /// <inheritdoc />
+    public bool Contains(IgniteDbParameter item) => _parameters.Contains(item);
+
+    /// <inheritdoc />
+    public void CopyTo(IgniteDbParameter[] array, int arrayIndex) => _parameters.CopyTo(array, arrayIndex);
+
+    /// <inheritdoc/>
+    public override void CopyTo(Array array, int index)
+        => _parameters.CopyTo((IgniteDbParameter[])array, index);
 
     /// <inheritdoc/>
     public override bool Contains(object value)
@@ -68,12 +85,8 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
         => IndexOf(value) != -1;
 
     /// <inheritdoc/>
-    public override void CopyTo(Array array, int index)
-        => _parameters.CopyTo((IgniteDbParameter[])array, index);
-
-    /// <inheritdoc/>
-    IEnumerator<IgniteDbParameter> IEnumerable<IgniteDbParameter>.GetEnumerator() =>
-        _parameters.GetEnumerator();
+    IEnumerator<IgniteDbParameter> IEnumerable<IgniteDbParameter>.GetEnumerator()
+        => _parameters.GetEnumerator();
 
     /// <inheritdoc/>
     public override IEnumerator GetEnumerator()
@@ -108,6 +121,11 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
     /// <inheritdoc/>
     public override void Insert(int index, object value)
         => Insert(index, (IgniteDbParameter)value);
+
+    public int IndexOf(IgniteDbParameter item)
+    {
+        throw new NotImplementedException();
+    }
 
     public virtual void Insert(int index, IgniteDbParameter value)
         => _parameters.Insert(index, value);
@@ -146,5 +164,9 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
         return index;
     }
 
-    public IgniteDbParameter this[int index] => throw new NotImplementedException();
+    public IgniteDbParameter this[int index]
+    {
+        get => throw new NotImplementedException();
+        set => throw new NotImplementedException();
+    }
 }
