@@ -54,11 +54,11 @@ public class IgniteDbConnectionTests : IgniteTestsBase
 
         if (ownsClient)
         {
-            Assert.That(Client.GetConnections(), Is.Empty, "Client should be closed after connection is closed with ownsClient: true");
+            Assert.That(client.GetConnections(), Is.Empty, "Client should be closed after connection is closed with ownsClient: true");
         }
         else
         {
-            Assert.That(Client.GetConnections(), Is.Not.Empty, "Client should be open after connection is closed with ownsClient: false");
+            Assert.That(client.GetConnections(), Is.Not.Empty, "Client should be open after connection is closed with ownsClient: false");
         }
     }
 }
