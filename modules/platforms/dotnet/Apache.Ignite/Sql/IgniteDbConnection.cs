@@ -60,7 +60,9 @@ public sealed class IgniteDbConnection : DbConnection
     public override string Database => string.Empty;
 
     /// <inheritdoc />
-    public override ConnectionState State => _igniteClient == null ? ConnectionState.Closed : ConnectionState.Open;
+    public override ConnectionState State => _igniteClient == null
+        ? ConnectionState.Closed
+        : ConnectionState.Open;
 
     /// <inheritdoc />
     public override string DataSource => string.Empty;
@@ -92,7 +94,8 @@ public sealed class IgniteDbConnection : DbConnection
     /// <inheritdoc />
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
-        _igniteClient ??= await IgniteClient.StartAsync(_config);
+        // TODO: Parse connection string.
+        _igniteClient ??= await IgniteClient.StartAsync(new(ConnectionString!)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -104,17 +107,18 @@ public sealed class IgniteDbConnection : DbConnection
         IsolationLevel isolationLevel,
         CancellationToken cancellationToken)
     {
-        var tx = await _igniteClient!.Transactions.BeginAsync();
+        var tx = await _igniteClient!.Transactions.BeginAsync().ConfigureAwait(false);
 
         return new IgniteDbTransaction(tx, isolationLevel, this);
     }
 
+    /// <inheritdoc />
     protected override DbCommand CreateDbCommand() => new IgniteDbCommand
     {
-        Connection = this,
-        CommandTimeout = DefaultTimeout
+        Connection = this
     };
 
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing)
