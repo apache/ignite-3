@@ -140,26 +140,26 @@ public class IgniteDbCommand : DbCommand
         throw new InvalidOperationException("Query returned no results: " + statement);
     }
 
-    public override object ExecuteScalar() => ExecuteScalarAsync().GetAwaiter().GetResult();
+    /// <inheritdoc />
+    public override object? ExecuteScalar() => ExecuteScalarAsync().GetAwaiter().GetResult();
 
+    /// <inheritdoc />
     public override void Prepare()
     {
         // No-op.
     }
 
+    /// <inheritdoc />
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
         var args = GetArgs();
         var statement = GetStatement();
 
-        // TODO: Remove debug output.
-        Console.WriteLine($"IgniteCommand.ExecuteDbDataReaderAsync [statement={statement}, parameters={string.Join(", ", args)}]");
-
         return await GetSql().ExecuteReaderAsync(
             GetTransaction(),
             statement,
             cancellationToken,
-            args);
+            args).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
