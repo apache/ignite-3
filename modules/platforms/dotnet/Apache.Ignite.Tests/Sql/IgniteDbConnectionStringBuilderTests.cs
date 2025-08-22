@@ -37,7 +37,10 @@ public class IgniteDbConnectionStringBuilderTests
         {
             Endpoints = ["localhost:10800", "localhost:10801"],
             SocketTimeout = TimeSpan.FromSeconds(2.5),
-            OperationTimeout = TimeSpan.FromMinutes(1.2345)
+            OperationTimeout = TimeSpan.FromMinutes(1.2345),
+            HeartbeatInterval = TimeSpan.FromSeconds(1.364),
+            ReconnectInterval = TimeSpan.FromSeconds(0.54321),
+            SslEnabled = true
         };
 
         Assert.AreEqual(
