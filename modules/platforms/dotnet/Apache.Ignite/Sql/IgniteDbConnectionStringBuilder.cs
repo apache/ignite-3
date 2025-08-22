@@ -121,6 +121,24 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     /// <summary>
+    /// Gets or sets the username for authentication.
+    /// </summary>
+    public string? Username
+    {
+        get => this[nameof(Username)] as string;
+        set => this[nameof(Username)] = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the username for authentication.
+    /// </summary>
+    public string? Password
+    {
+        get => this[nameof(Password)] as string;
+        set => this[nameof(Password)] = value;
+    }
+
+    /// <summary>
     /// Converts this instance to <see cref="IgniteClientConfiguration"/>.
     /// </summary>
     /// <returns>Ignite client configuration.</returns>
@@ -133,6 +151,11 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
             HeartbeatInterval = HeartbeatInterval,
             ReconnectInterval = ReconnectInterval,
             SslStreamFactory = SslEnabled ? new SslStreamFactory() : null,
+            Authenticator = Username is null && Password is null ? null : new BasicAuthenticator
+            {
+                Username = Username ?? string.Empty,
+                Password = Password ?? string.Empty
+            }
         };
     }
 }

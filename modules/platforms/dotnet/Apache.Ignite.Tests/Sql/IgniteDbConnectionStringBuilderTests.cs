@@ -23,15 +23,28 @@ using NUnit.Framework;
 public class IgniteDbConnectionStringBuilderTests
 {
     [Test]
-    public void TestCtorParsesConnectionString([Values("Data Source", "DataSource", "Endpoints")] string keyword)
+    public void TestParseConnectionString()
     {
-        var builder = new IgniteDbConnectionStringBuilder($"{keyword}=localhost:10800");
+        var connStr =
+            "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000;" +
+            "HeartbeatInterval=00:00:01.3640000;ReconnectInterval=00:00:00.5432100;SslEnabled=True;Username=user1;Password=hunter2";
 
-        Assert.AreEqual("localhost:10800", builder[keyword]);
+        var builder = new IgniteDbConnectionStringBuilder(connStr);
+
+        CollectionAssert.AreEquivalent(new[] {"localhost:10800", "localhost:10801"}, builder.Endpoints);
+        Assert.AreEqual(TimeSpan.FromSeconds(2.5), builder.SocketTimeout);
+        Assert.AreEqual(TimeSpan.FromMinutes(1.2345), builder.OperationTimeout);
+        Assert.AreEqual(TimeSpan.FromSeconds(1.364), builder.HeartbeatInterval);
+        Assert.AreEqual(TimeSpan.FromSeconds(0.54321), builder.ReconnectInterval);
+        Assert.IsTrue(builder.SslEnabled);
+        Assert.AreEqual("user1", builder.Username);
+        Assert.AreEqual("hunter2", builder.Password);
+
+        Assert.AreEqual(connStr.ToLowerInvariant(), builder.ToString().ToLowerInvariant());
     }
 
     [Test]
-    public void TestToStringBuildsConnectionString()
+    public void TestToStringBuildsFullConnectionString()
     {
         var builder = new IgniteDbConnectionStringBuilder
         {
@@ -40,12 +53,26 @@ public class IgniteDbConnectionStringBuilderTests
             OperationTimeout = TimeSpan.FromMinutes(1.2345),
             HeartbeatInterval = TimeSpan.FromSeconds(1.364),
             ReconnectInterval = TimeSpan.FromSeconds(0.54321),
-            SslEnabled = true
+            SslEnabled = true,
+            Username = "user1",
+            Password = "hunter2"
         };
 
         Assert.AreEqual(
-            "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000",
+            "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000;" +
+            "HeartbeatInterval=00:00:01.3640000;ReconnectInterval=00:00:00.5432100;SslEnabled=True;Username=user1;Password=hunter2",
             builder.ToString());
+    }
+
+    [Test]
+    public void TestToStringBuildsMinimalConnectionString()
+    {
+        var builder = new IgniteDbConnectionStringBuilder
+        {
+            Endpoints = ["foo:123"]
+        };
+
+        Assert.AreEqual("Endpoints=foo:123", builder.ToString());
     }
 
     [Test]
@@ -56,8 +83,10 @@ public class IgniteDbConnectionStringBuilderTests
 
         foreach (var configProp in configProps)
         {
-            if (configProp.Name == nameof(IgniteClientConfiguration.LoggerFactory) ||
-                configProp.Name == nameof(IgniteClientConfiguration.RetryPolicy))
+            if (configProp.Name is nameof(IgniteClientConfiguration.LoggerFactory)
+                or nameof(IgniteClientConfiguration.RetryPolicy)
+                or nameof(IgniteClientConfiguration.Authenticator)
+                or nameof(IgniteClientConfiguration.SslStreamFactory))
             {
                 // Not supported yet.
                 continue;
