@@ -55,6 +55,15 @@ public class IgniteDbCommand : DbCommand
     /// <inheritdoc />
     public override bool DesignTimeVisible { get; set; }
 
+    /// <summary>
+    /// Gets or sets the transaction within which the command executes.
+    /// </summary>
+    public IgniteDbTransaction? IgniteDbTransaction
+    {
+        get => (IgniteDbTransaction?)Transaction;
+        set => Transaction = value;
+    }
+
     /// <inheritdoc />
     protected override DbConnection? DbConnection { get; set; }
 
@@ -63,7 +72,11 @@ public class IgniteDbCommand : DbCommand
         _parameters ??= new IgniteDbParameterCollection();
 
     /// <inheritdoc />
-    protected override DbTransaction? DbTransaction { get; set; }
+    protected override DbTransaction? DbTransaction
+    {
+        get => Transaction;
+        set => Transaction = (IgniteDbTransaction?)value;
+    }
 
     /// <inheritdoc />
     public override void Cancel()
@@ -77,6 +90,8 @@ public class IgniteDbCommand : DbCommand
         return ExecuteNonQueryAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
+    /// <inheritdoc />
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive")]
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
         var args = GetArgs();
@@ -85,10 +100,10 @@ public class IgniteDbCommand : DbCommand
         // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
         // TODO: Use ExecuteBatch for multiple statements.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
-            transaction: null, // DDL does not support transactions.
+            transaction: IgniteDbTransaction?.IgniteTransaction,
             statement,
             cancellationToken,
-            args);
+            args).ConfigureAwait(false);
 
         Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
 
