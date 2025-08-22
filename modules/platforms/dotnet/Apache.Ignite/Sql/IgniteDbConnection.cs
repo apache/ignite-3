@@ -30,6 +30,8 @@ public sealed class IgniteDbConnection : DbConnection
 {
     private IIgniteClient? _igniteClient;
 
+    private string _connectionString = string.Empty;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbConnection"/> class.
     /// </summary>
@@ -54,7 +56,19 @@ public sealed class IgniteDbConnection : DbConnection
 
     /// <inheritdoc />
     [AllowNull]
-    public override string ConnectionString { get; set; }
+    public override string ConnectionString
+    {
+        get => _connectionString;
+        set
+        {
+            if (State != ConnectionState.Closed)
+            {
+                throw new InvalidOperationException("Cannot set ConnectionString while the connection is open.");
+            }
+
+            _connectionString = value ?? string.Empty;
+        }
+    }
 
     /// <inheritdoc />
     public override string Database => string.Empty;
