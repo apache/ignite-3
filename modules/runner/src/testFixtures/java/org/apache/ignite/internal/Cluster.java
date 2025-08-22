@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -244,7 +244,7 @@ public class Cluster {
             try {
                 assertThat(registration.registrationFuture(), willCompleteSuccessfully());
             } catch (Throwable t) {
-                LOG.error("Failed to wait for node registration [node={}]", t, registration.server.name());
+                throw new AssertionError(format("Failed to wait for node registration [node={}]", registration.server.name()), t);
             }
         }
 
@@ -306,7 +306,7 @@ public class Cluster {
     ) {
         String nodeName = nodeName(nodeIndex);
 
-        String config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
+        String config = nodeBootstrapConfigUpdater.update(format(
                 nodeBootstrapConfigTemplate,
                 port(nodeIndex),
                 seedAddressesString(),

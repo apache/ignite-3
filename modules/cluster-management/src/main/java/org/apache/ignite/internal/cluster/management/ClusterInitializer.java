@@ -207,7 +207,7 @@ public class ClusterInitializer {
             // Handler of prepareInitMessage validates that all CMG nodes have the same enabledColocation mode.
             return invokeMessage(cmgNodes, prepareInitMessage)
                     .thenCompose(ignored -> {
-                        LOG.info("CMG initialization preparation completed.");
+                        LOG.info("CMG initialization preparation completed, going to send init message [initMessage={}].", initMessage);
 
                         return invokeMessage(cmgNodes, initMessage)
                                 .handle((v, e) -> {
