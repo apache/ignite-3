@@ -23,7 +23,7 @@ using NUnit.Framework;
 public class IgniteDbConnectionStringBuilderTests
 {
     [Test]
-    public void TestParseConnectionString()
+    public void TestParseFullConnectionString()
     {
         var connStr =
             "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000;" +
@@ -41,6 +41,46 @@ public class IgniteDbConnectionStringBuilderTests
         Assert.AreEqual("hunter2", builder.Password);
 
         Assert.AreEqual(connStr.ToLowerInvariant(), builder.ToString().ToLowerInvariant());
+
+        IgniteClientConfiguration clientConfig = builder.ToIgniteClientConfiguration();
+
+        CollectionAssert.AreEquivalent(new[] {"localhost:10800", "localhost:10801"}, clientConfig.Endpoints);
+        Assert.AreEqual(TimeSpan.FromSeconds(2.5), clientConfig.SocketTimeout);
+        Assert.AreEqual(TimeSpan.FromMinutes(1.2345), clientConfig.OperationTimeout);
+        Assert.AreEqual(TimeSpan.FromSeconds(1.364), clientConfig.HeartbeatInterval);
+        Assert.AreEqual(TimeSpan.FromSeconds(0.54321), clientConfig.ReconnectInterval);
+        Assert.IsNotNull(clientConfig.SslStreamFactory);
+        Assert.AreEqual("user1", ((BasicAuthenticator)clientConfig.Authenticator!).Username);
+        Assert.AreEqual("hunter2", ((BasicAuthenticator)clientConfig.Authenticator!).Password);
+    }
+
+    [Test]
+    public void TestParseMinimalConnectionString()
+    {
+        var connStr = "endpoints=foobar:1234";
+
+        var builder = new IgniteDbConnectionStringBuilder(connStr);
+
+        CollectionAssert.AreEquivalent(new[] {"foobar:1234"}, builder.Endpoints);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultSocketTimeout, builder.SocketTimeout);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultOperationTimeout, builder.OperationTimeout);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultHeartbeatInterval, builder.HeartbeatInterval);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultReconnectInterval, builder.ReconnectInterval);
+        Assert.IsFalse(builder.SslEnabled);
+        Assert.IsNull(builder.Username);
+        Assert.IsNull(builder.Password);
+
+        Assert.AreEqual(connStr, builder.ToString());
+
+        IgniteClientConfiguration clientConfig = builder.ToIgniteClientConfiguration();
+
+        CollectionAssert.AreEquivalent(new[] {"foobar:1234"}, clientConfig.Endpoints);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultSocketTimeout, clientConfig.SocketTimeout);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultOperationTimeout, clientConfig.OperationTimeout);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultHeartbeatInterval, clientConfig.HeartbeatInterval);
+        Assert.AreEqual(IgniteClientConfiguration.DefaultReconnectInterval, clientConfig.ReconnectInterval);
+        Assert.IsNull(clientConfig.SslStreamFactory);
+        Assert.IsNull(clientConfig.Authenticator);
     }
 
     [Test]
