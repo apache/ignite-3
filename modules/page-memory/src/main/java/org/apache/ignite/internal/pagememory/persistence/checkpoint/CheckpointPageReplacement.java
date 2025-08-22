@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -43,10 +42,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Thread safe.</p>
  */
-// TODO: IGNITE-26233 Возможно и тут надо что-то чинить
 class CheckpointPageReplacement {
     /** IDs of pages for which page replacement is in progress. */
-    private final Set<FullPageId> pageIds = ConcurrentHashMap.newKeySet();
+    private final Set<DirtyFullPageId> pageIds = ConcurrentHashMap.newKeySet();
 
     private final CompletableFuture<Void> stopBlockingFuture = new CompletableFuture<>();
 

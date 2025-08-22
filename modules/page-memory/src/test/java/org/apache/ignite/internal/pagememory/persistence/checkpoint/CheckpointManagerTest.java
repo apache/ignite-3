@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -150,6 +151,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
+        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
+
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1, 3, 5)),
                 createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 6, 7, 9))
@@ -176,6 +180,10 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory2 = mock(PersistentPageMemory.class);
+
+        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory2.partGeneration(anyInt(), anyInt())).thenReturn(1);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1, 3, 5)),
