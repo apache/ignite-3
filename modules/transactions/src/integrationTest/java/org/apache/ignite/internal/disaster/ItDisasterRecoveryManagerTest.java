@@ -267,8 +267,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
@@ -322,8 +323,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
@@ -346,7 +348,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         Transaction tx = nodeToCleanup.transactions().begin();
 
-        nodeToCleanup.sql().execute(tx, "INSERT INTO TABLE_NAME VALUES (2, 2)");
+        nodeToCleanup.sql().execute(tx, String.format("INSERT INTO %s VALUES (2, 2)", tableName));
 
         CompletableFuture<Void> restartPartitionsWithCleanupFuture =
                 nodeToCleanup.disasterRecoveryManager().restartTablePartitionsWithCleanup(
@@ -388,8 +390,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
@@ -913,8 +916,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         int partitionId = 0;
@@ -968,8 +972,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
@@ -1021,8 +1026,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
@@ -1046,7 +1052,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         Transaction tx = nodeToCleanup.transactions().begin();
 
-        nodeToCleanup.sql().execute(tx, "INSERT INTO TABLE_NAME VALUES (2, 2)");
+        nodeToCleanup.sql().execute(tx, String.format("INSERT INTO %s VALUES (2, 2)", tableName));
 
         CompletableFuture<Void> restartPartitionsWithCleanupFuture =
                 nodeToCleanup.disasterRecoveryManager().restartPartitionsWithCleanup(
@@ -1097,8 +1103,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         String tableName = "TABLE_NAME";
 
         node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE TEST_ZONE",
-                tableName
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
+                tableName,
+                testZone
         ));
 
         insert(0, 0, tableName);
