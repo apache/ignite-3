@@ -97,25 +97,29 @@ class UnitDownloader {
                     if (status.status() == DEPLOYED) {
                         return trueCompletedFuture();
                     }
-                    return messaging.downloadUnitContent(id, version, nodes)
-                            .thenCompose(content -> {
-                                DeploymentUnit unit = toDeploymentUnit(content);
-                                return deployer.deploy(id, version, unit)
-                                        .whenComplete((deployed, throwable) -> {
-                                            try {
-                                                unit.close();
-                                            } catch (Exception e) {
-                                                LOG.error("Error closing deployment unit", e);
-                                            }
-                                        });
-                            })
-                            .thenCompose(deployed -> {
-                                if (deployed) {
-                                    return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
-                                }
-                                return falseCompletedFuture();
-                            });
+                    return downloadUnitContent(id, version, nodes);
                 })
         );
+    }
+
+    private CompletableFuture<Boolean> downloadUnitContent(String id, Version version, Collection<String> nodes) {
+        return messaging.downloadUnitContent(id, version, nodes)
+                .thenCompose(content -> {
+                    DeploymentUnit unit = toDeploymentUnit(content);
+                    return deployer.deploy(id, version, unit)
+                            .whenComplete((deployed, throwable) -> {
+                                try {
+                                    unit.close();
+                                } catch (Exception e) {
+                                    LOG.error("Error closing deployment unit", e);
+                                }
+                            });
+                })
+                .thenCompose(deployed -> {
+                    if (deployed) {
+                        return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
+                    }
+                    return falseCompletedFuture();
+                });
     }
 }
