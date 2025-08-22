@@ -25,6 +25,9 @@ using System.Diagnostics.CodeAnalysis;
 /// </summary>
 public sealed class IgniteDbParameter : DbParameter
 {
+    private string _parameterName = string.Empty;
+    private string _sourceColumn = string.Empty;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbParameter"/> class.
     /// </summary>
@@ -88,7 +91,7 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <summary>
-    ///     Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
+    /// Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
     /// </summary>
     /// <value>The direction of the parameter.</value>
     public override ParameterDirection Direction
@@ -107,10 +110,20 @@ public sealed class IgniteDbParameter : DbParameter
     public override bool IsNullable { get; set; }
 
     /// <inheritdoc />
-    public override string ParameterName { get; set; } = string.Empty;
+    [AllowNull]
+    public override string ParameterName
+    {
+        get => _parameterName;
+        set => _parameterName = value ?? string.Empty;
+    }
 
     /// <inheritdoc />
-    public override string SourceColumn { get; set; } = string.Empty;
+    [AllowNull]
+    public override string SourceColumn
+    {
+        get => _sourceColumn;
+        set => _sourceColumn = value ?? string.Empty;
+    }
 
     /// <inheritdoc />
     public override object? Value { get; set; }
@@ -122,9 +135,5 @@ public sealed class IgniteDbParameter : DbParameter
     public override int Size { get; set; }
 
     /// <inheritdoc />
-    public override void ResetDbType()
-    {
-        // TODO?
-        throw new NotImplementedException();
-    }
+    public override void ResetDbType() => IgniteColumnType = ColumnType.String;
 }
