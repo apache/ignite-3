@@ -20,10 +20,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Threading;
-using Internal.Common;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 /// <summary>
 /// Ignite connection string builder.
