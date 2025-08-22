@@ -49,9 +49,6 @@ public sealed class IgniteDbConnection : DbConnection
     {
         IgniteArgumentCheck.NotNull(igniteClient);
         _igniteClient = igniteClient;
-
-        // TODO: Via builder.
-        ConnectionString = igniteClient.Configuration.ToString();
     }
 
     /// <inheritdoc />
