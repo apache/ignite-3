@@ -97,8 +97,8 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
                 "Some storage profiles don't exist [missedProfileNames=[" + EXTRA_PROFILE_NAME + "]]."
         );
 
-        // Node 1 won't see node 2 joined with extra profile because node 0 is CMG leader and all CMG-related RAFT-replicated messages to node 1 will be
-        // dropped after the code below.
+        // Node 1 won't see node 2 joined with extra profile because node 0 is CMG leader and all CMG-related RAFT-replicated messages to
+        // node 1 will be dropped after the code below.
         node0.dropMessages((recipient, msg) -> msg instanceof AppendEntriesRequest
                 && ((AppendEntriesRequest) msg).groupId().equals(CmgGroupId.INSTANCE.toString())
                 && node1.name().equals(recipient));
