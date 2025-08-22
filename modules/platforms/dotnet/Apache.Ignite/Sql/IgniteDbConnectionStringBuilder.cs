@@ -90,6 +90,28 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     /// <summary>
+    /// Gets or sets the heartbeat interval. See <see cref="IgniteClientConfiguration.HeartbeatInterval"/> for more details.
+    /// </summary>
+    public TimeSpan HeartbeatInterval
+    {
+        get => this[nameof(IgniteClientConfiguration.HeartbeatInterval)] is string s
+            ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
+            : IgniteClientConfiguration.DefaultHeartbeatInterval;
+        set => this[nameof(IgniteClientConfiguration.HeartbeatInterval)] = value.ToString();
+    }
+
+    /// <summary>
+    /// Gets or sets the reconnect interval. See <see cref="IgniteClientConfiguration.ReconnectInterval"/> for more details.
+    /// </summary>
+    public TimeSpan ReconnectInterval
+    {
+        get => this[nameof(IgniteClientConfiguration.ReconnectInterval)] is string s
+            ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
+            : IgniteClientConfiguration.DefaultReconnectInterval;
+        set => this[nameof(IgniteClientConfiguration.ReconnectInterval)] = value.ToString();
+    }
+
+    /// <summary>
     /// Converts this instance to <see cref="IgniteClientConfiguration"/>.
     /// </summary>
     /// <returns>Ignite client configuration.</returns>
@@ -97,7 +119,10 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     {
         return new IgniteClientConfiguration([.. Endpoints])
         {
-            SocketTimeout = SocketTimeout
+            SocketTimeout = SocketTimeout,
+            OperationTimeout = OperationTimeout,
+            HeartbeatInterval = HeartbeatInterval,
+            ReconnectInterval = ReconnectInterval
         };
     }
 }
