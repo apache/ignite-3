@@ -38,4 +38,11 @@ public class SqlPlannerDistributedConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 0)
     public final int estimatedNumberOfQueries = 1024;
+
+    /**
+     * The number of seconds after which a query plan is removed from the query plan cache if it is not used.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public final int planCacheExpiresAfterSeconds = 30 * 60;
 }

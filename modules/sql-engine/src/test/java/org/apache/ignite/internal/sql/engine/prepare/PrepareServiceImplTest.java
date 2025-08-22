@@ -34,12 +34,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -69,6 +71,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -318,6 +321,11 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
                 return (Cache<K, V>) cache;
             }
+
+            @Override
+            public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+                return (Cache<K, V>) cache;
+            }
         };
 
         PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 100);
@@ -365,6 +373,41 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 parse("SELECT * FROM test.t WHERE c = 1"),
                 operationContext().defaultSchemaName("MISSING").build()
         ));
+    }
+
+    @Test
+    public void planCacheExpiry() {
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table));
+
+        Awaitility.await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
+            int expireSeconds = 2;
+            PrepareService service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, Integer.MAX_VALUE, 2);
+
+            String query = "SELECT * FROM test.t WHERE c = 1";
+            QueryPlan p0 = await(service.prepareAsync(parse(query), operationContext().build()));
+
+            // Expires if not used
+            TimeUnit.SECONDS.sleep(expireSeconds * 2);
+            QueryPlan p2 = await(service.prepareAsync(parse(query), operationContext().build()));
+            assertNotSame(p0, p2);
+
+            // Returns the previous plan
+            TimeUnit.MILLISECONDS.sleep(500);
+
+            QueryPlan p3 = await(service.prepareAsync(parse(query), operationContext().build()));
+            assertSame(p2, p3);
+
+            // Eventually expires
+            TimeUnit.SECONDS.sleep(expireSeconds * 2);
+            QueryPlan p4 = await(service.prepareAsync(parse(query), operationContext().build()));
+            assertNotSame(p4, p3);
+        });
     }
 
     private static Stream<Arguments> parameterTypes() {
@@ -429,8 +472,17 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static PrepareServiceImpl createPlannerService(IgniteSchema schemas, CacheFactory cacheFactory, int timeoutMillis) {
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, Integer.MAX_VALUE);
+    }
+
+    private static PrepareServiceImpl createPlannerService(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds
+    ) {
         PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
-                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, mock(MetricManagerImpl.class),
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
                 new PredefinedSchemaManager(schemas));
 
         createdServices.add(service);

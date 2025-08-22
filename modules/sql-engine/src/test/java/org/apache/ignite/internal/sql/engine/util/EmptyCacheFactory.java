@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.time.Duration;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -47,6 +48,11 @@ public class EmptyCacheFactory implements CacheFactory {
     /** {@inheritDoc} */
     @Override
     public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+        return create(size);
+    }
+
+    @Override
+    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
         return create(size);
     }
 

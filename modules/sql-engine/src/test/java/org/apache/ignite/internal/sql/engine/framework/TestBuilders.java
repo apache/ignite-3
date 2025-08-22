@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -745,7 +746,7 @@ public class TestBuilders {
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT, PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(), schemaManager);
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
