@@ -1599,6 +1599,7 @@ public class PersistentPageMemory implements PageMemory {
          * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
          *      checkpoint.
          */
+        // TODO: IGNITE-26233 вот тут возможно надо будет починить, тут скорее всего надо будет грязную страницу получать
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
@@ -1978,7 +1979,8 @@ public class PersistentPageMemory implements PageMemory {
 
                 buf.clear();
 
-                if (isInCheckpoint(fullId)) {
+                // TODO: IGNITE-26233 починить конечно
+                if (isInCheckpoint(fullId.toFullPageId())) {
                     pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
                 }
 
@@ -1990,7 +1992,8 @@ public class PersistentPageMemory implements PageMemory {
             assert locked : hexLong(fullId.pageId());
         }
 
-        if (!removeOnCheckpoint(fullId)) {
+        // TODO: IGNITE-26233 починить конечно
+        if (!removeOnCheckpoint(fullId.toFullPageId())) {
             rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
             if (!pageSingleAcquire) {
