@@ -16,11 +16,12 @@
 namespace Apache.Ignite.Sql;
 
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Ignite connection string builder.
 /// </summary>
-#pragma warning disable CA1010 // TODO
+[SuppressMessage("Design", "CA1010:Generic interface should also be implemented", Justification = "Reviewed.")]
 public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
 {
     /// <summary>
