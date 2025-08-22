@@ -15,6 +15,7 @@
 
 namespace Apache.Ignite.Tests.Sql;
 
+using System;
 using Ignite.Sql;
 using NUnit.Framework;
 
@@ -26,5 +27,17 @@ public class IgniteDbConnectionStringBuilderTests
         var builder = new IgniteDbConnectionStringBuilder($"{keyword}=localhost:10800");
 
         Assert.AreEqual("localhost:10800", builder[keyword]);
+    }
+
+    [Test]
+    public void TestToStringBuildsConnectionString()
+    {
+        var builder = new IgniteDbConnectionStringBuilder
+        {
+            Endpoints = ["localhost:10800", "localhost:10801"],
+            SocketTimeout = TimeSpan.FromSeconds(2.5)
+        };
+
+        Assert.AreEqual("Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000", builder.ToString());
     }
 }

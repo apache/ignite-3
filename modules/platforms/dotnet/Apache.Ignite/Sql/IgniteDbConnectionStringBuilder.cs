@@ -61,7 +61,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
         get => this[nameof(IgniteClientConfiguration.Endpoints)] is string endpoints
             ? endpoints.Split(EndpointSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
-        set => this[nameof(IgniteClientConfiguration.Endpoints)] = value.StringJoin();
+        set => this[nameof(IgniteClientConfiguration.Endpoints)] = string.Join(EndpointSeparator, value);
     }
 
     /// <summary>
