@@ -59,10 +59,32 @@ public sealed class IgniteDbParameter : DbParameter
             ColumnType.Date => DbType.Date,
             ColumnType.Timestamp => DbType.DateTimeOffset,
             ColumnType.ByteArray => DbType.Binary,
-            ColumnType.Period or ColumnType.Duration or _
-                => throw new NotSupportedException($"Unsupported Ignite column type: {IgniteColumnType}")
+            ColumnType.Period or ColumnType.Duration
+                => throw new NotSupportedException($"Unsupported Ignite column type: {IgniteColumnType}"),
+            _ => throw new InvalidOperationException($"Unexpected Ignite column type: {IgniteColumnType}")
         };
-        set => throw new NotImplementedException();
+        set => IgniteColumnType = value switch
+        {
+            DbType.Boolean => ColumnType.Boolean,
+            DbType.Byte => ColumnType.Int8,
+            DbType.Int16 => ColumnType.Int16,
+            DbType.Int32 => ColumnType.Int32,
+            DbType.Int64 => ColumnType.Int64,
+            DbType.Single => ColumnType.Float,
+            DbType.Double => ColumnType.Double,
+            DbType.Decimal => ColumnType.Decimal,
+            DbType.String => ColumnType.String,
+            DbType.Time => ColumnType.Time,
+            DbType.Guid => ColumnType.Uuid,
+            DbType.DateTime => ColumnType.Datetime,
+            DbType.Date => ColumnType.Date,
+            DbType.DateTimeOffset => ColumnType.Timestamp,
+            DbType.Binary => ColumnType.ByteArray,
+            DbType.AnsiString or DbType.Currency or DbType.Object or DbType.SByte or DbType.UInt16 or DbType.UInt32 or DbType.UInt64
+                or DbType.VarNumeric or DbType.AnsiStringFixedLength or DbType.StringFixedLength or DbType.Xml or DbType.DateTime2
+                => throw new NotSupportedException($"Unsupported Db type: {value}"),
+            _ => throw new InvalidOperationException($"Unexpected Db type: {value}")
+        };
     }
 
     /// <summary>
