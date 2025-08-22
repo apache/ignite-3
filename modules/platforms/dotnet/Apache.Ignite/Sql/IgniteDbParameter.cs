@@ -18,11 +18,12 @@ namespace Apache.Ignite.Sql;
 using System;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Ignite database parameter.
 /// </summary>
-public class IgniteDbParameter : DbParameter
+public sealed class IgniteDbParameter : DbParameter
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbParameter"/> class.
@@ -32,14 +33,37 @@ public class IgniteDbParameter : DbParameter
         // No-op.
     }
 
-    public override void ResetDbType()
+    /// <summary>
+    /// Gets or sets the Ignite column type.
+    /// </summary>
+    public ColumnType IgniteColumnType { get; set; } = ColumnType.String;
+
+    /// <inheritdoc />
+    [SuppressMessage("ReSharper", "PatternIsRedundant", Justification = "For clarity.")]
+    public override DbType DbType
     {
-        throw new NotImplementedException();
+        get => IgniteColumnType switch
+        {
+            ColumnType.Boolean => DbType.Boolean,
+            ColumnType.Int8 => DbType.Byte,
+            ColumnType.Int16 => DbType.Int16,
+            ColumnType.Int32 => DbType.Int32,
+            ColumnType.Int64 => DbType.Int64,
+            ColumnType.Float => DbType.Single,
+            ColumnType.Double => DbType.Double,
+            ColumnType.Decimal => DbType.Decimal,
+            ColumnType.String => DbType.String,
+            ColumnType.Time => DbType.Time,
+            ColumnType.Uuid => DbType.Guid,
+            ColumnType.Datetime => DbType.DateTime,
+            ColumnType.Date => DbType.Date,
+            ColumnType.Timestamp => DbType.DateTimeOffset,
+            ColumnType.ByteArray => DbType.Binary,
+            ColumnType.Period or ColumnType.Duration or _
+                => throw new NotSupportedException($"Unsupported Ignite column type: {IgniteColumnType}")
+        };
+        set => throw new NotImplementedException();
     }
-
-    public ColumnType IgniteColumnType { get; set; }
-
-    public override DbType DbType { get; set; }
 
     /// <summary>
     ///     Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
@@ -57,15 +81,28 @@ public class IgniteDbParameter : DbParameter
         }
     }
 
+    /// <inheritdoc />
     public override bool IsNullable { get; set; }
 
-    public override string ParameterName { get; set; }
+    /// <inheritdoc />
+    public override string ParameterName { get; set; } = string.Empty;
 
-    public override string SourceColumn { get; set; }
+    /// <inheritdoc />
+    public override string SourceColumn { get; set; } = string.Empty;
 
-    public override object Value { get; set; }
+    /// <inheritdoc />
+    public override object? Value { get; set; }
 
+    /// <inheritdoc />
     public override bool SourceColumnNullMapping { get; set; }
 
+    /// <inheritdoc />
     public override int Size { get; set; }
+
+    /// <inheritdoc />
+    public override void ResetDbType()
+    {
+        // TODO?
+        throw new NotImplementedException();
+    }
 }
