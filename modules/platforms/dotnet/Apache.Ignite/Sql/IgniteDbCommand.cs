@@ -35,6 +35,8 @@ public class IgniteDbCommand : DbCommand
 
     private string _commandText = string.Empty;
 
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+
     /// <inheritdoc />
     [AllowNull]
     public override string CommandText
@@ -79,16 +81,11 @@ public class IgniteDbCommand : DbCommand
     }
 
     /// <inheritdoc />
-    public override void Cancel()
-    {
-        // TODO: cancellation token
-    }
+    public override void Cancel() => _cancellationTokenSource.Cancel();
 
     /// <inheritdoc />
-    public override int ExecuteNonQuery()
-    {
-        return ExecuteNonQueryAsync(CancellationToken.None).GetAwaiter().GetResult();
-    }
+    public override int ExecuteNonQuery() =>
+        ExecuteNonQueryAsync(CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc />
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive")]
@@ -97,12 +94,15 @@ public class IgniteDbCommand : DbCommand
         var args = GetArgs();
         var statement = GetStatement();
 
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _cancellationTokenSource.Token);
+
         // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
         // TODO: Use ExecuteBatch for multiple statements.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
             transaction: IgniteDbTransaction?.IgniteTransaction,
             statement,
-            cancellationToken,
+            linkedCts.Token,
             args).ConfigureAwait(false);
 
         Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
@@ -115,16 +115,21 @@ public class IgniteDbCommand : DbCommand
         return (int)resultSet.AffectedRows;
     }
 
-    public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+    /// <inheritdoc />
+    [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive")]
+    public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
         var args = GetArgs();
         var statement = GetStatement();
 
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _cancellationTokenSource.Token);
+
         await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
             transaction: GetTransaction(),
             statement,
-            cancellationToken,
-            args);
+            linkedCts.Token,
+            args).ConfigureAwait(false);
 
         await foreach (var row in resultSet)
         {
