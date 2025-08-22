@@ -108,8 +108,10 @@ public sealed class IgniteDbConnection : DbConnection
     /// <inheritdoc />
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
-        // TODO: Parse connection string.
-        _igniteClient ??= await IgniteClient.StartAsync(new(ConnectionString!)).ConfigureAwait(false);
+        var connStrBuilder = new IgniteDbConnectionStringBuilder(ConnectionString);
+        IgniteClientConfiguration cfg = connStrBuilder.ToIgniteClientConfiguration();
+
+        _igniteClient ??= await IgniteClient.StartAsync(cfg).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
