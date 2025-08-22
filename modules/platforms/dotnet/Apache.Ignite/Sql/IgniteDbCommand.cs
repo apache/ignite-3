@@ -29,7 +29,7 @@ using Transactions;
 /// <summary>
 /// Ignite database command.
 /// </summary>
-public class IgniteDbCommand : DbCommand
+public sealed class IgniteDbCommand : DbCommand
 {
     private IgniteDbParameterCollection? _parameters;
 
@@ -100,7 +100,7 @@ public class IgniteDbCommand : DbCommand
         // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
         // TODO: Use ExecuteBatch for multiple statements.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
-            transaction: IgniteDbTransaction?.IgniteTransaction,
+            transaction: GetIgniteTx(),
             statement,
             linkedCts.Token,
             args).ConfigureAwait(false);
@@ -126,7 +126,7 @@ public class IgniteDbCommand : DbCommand
             cancellationToken, _cancellationTokenSource.Token);
 
         await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
-            transaction: GetTransaction(),
+            transaction: GetIgniteTx(),
             statement,
             linkedCts.Token,
             args).ConfigureAwait(false);
@@ -150,13 +150,26 @@ public class IgniteDbCommand : DbCommand
     }
 
     /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing)
+        {
+            _cancellationTokenSource.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
         var args = GetArgs();
         var statement = GetStatement();
 
         return await GetSql().ExecuteReaderAsync(
-            GetTransaction(),
+            transaction: GetIgniteTx(),
             statement,
             cancellationToken,
             args).ConfigureAwait(false);
@@ -184,10 +197,7 @@ public class IgniteDbCommand : DbCommand
 
     private SqlStatement GetStatement() => new(CommandText);
 
-    private ITransaction? GetTransaction() =>
-        DbTransaction is IgniteTransaction igniteTx
-            ? igniteTx.InternalTransaction
-            : null;
+    private ITransaction? GetIgniteTx() => IgniteDbTransaction?.IgniteTransaction;
 
     private object[] GetArgs()
     {
