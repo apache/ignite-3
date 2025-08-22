@@ -30,7 +30,7 @@ using Internal.Common;
 /// </summary>
 public sealed class IgniteDbConnection : DbConnection
 {
-    private readonly bool _ownsClient;
+    private bool _ownsClient;
 
     private IIgniteClient? _igniteClient;
 
@@ -43,19 +43,6 @@ public sealed class IgniteDbConnection : DbConnection
     public IgniteDbConnection(string? connectionString)
     {
         ConnectionString = connectionString;
-        _ownsClient = true;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="IgniteDbConnection"/> class.
-    /// </summary>
-    /// <param name="igniteClient">Ignite client.</param>
-    /// <param name="ownsClient">Whether to dispose the client when the connection is disposed.</param>
-    public IgniteDbConnection(IIgniteClient igniteClient, bool ownsClient = false)
-    {
-        IgniteArgumentCheck.NotNull(igniteClient);
-        _igniteClient = igniteClient;
-        _ownsClient = ownsClient;
     }
 
     /// <inheritdoc />
@@ -114,10 +101,33 @@ public sealed class IgniteDbConnection : DbConnection
     /// <inheritdoc />
     public override async Task OpenAsync(CancellationToken cancellationToken)
     {
+        if (State != ConnectionState.Closed)
+        {
+            throw new InvalidOperationException("Connection is already open.");
+        }
+
         var connStrBuilder = new IgniteDbConnectionStringBuilder(ConnectionString);
         IgniteClientConfiguration cfg = connStrBuilder.ToIgniteClientConfiguration();
 
-        _igniteClient ??= await IgniteClient.StartAsync(cfg).ConfigureAwait(false);
+        _igniteClient = await IgniteClient.StartAsync(cfg).ConfigureAwait(false);
+        _ownsClient = true;
+    }
+
+    /// <summary>
+    /// Opens the connection using an existing Ignite client.
+    /// </summary>
+    /// <param name="igniteClient">Ignite client.</param>
+    /// <param name="ownsClient">Whether to dispose the client when the connection is disposed.</param>
+    public void Open(IIgniteClient igniteClient, bool ownsClient = false)
+    {
+        if (State != ConnectionState.Closed)
+        {
+            throw new InvalidOperationException("Connection is already open.");
+        }
+
+        IgniteArgumentCheck.NotNull(igniteClient);
+        _igniteClient = igniteClient;
+        _ownsClient = ownsClient;
     }
 
     /// <inheritdoc />

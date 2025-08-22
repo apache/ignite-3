@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -27,7 +28,7 @@ public class IgniteDbConnectionTests : IgniteTestsBase
     [Test]
     public async Task TestOpenClose()
     {
-        await using var conn = new IgniteDbConnection("Endpoints=localhost:10800");
+        await using var conn = new IgniteDbConnection($"Endpoints={GetConfig().Endpoints.First()}");
         Assert.AreEqual(ConnectionState.Closed, conn.State);
 
         await conn.OpenAsync();
@@ -38,15 +39,26 @@ public class IgniteDbConnectionTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestExistingClient()
+    public async Task TestExistingClient([Values(true, false)] bool ownsClient)
     {
-        await using var conn = new IgniteDbConnection(Client);
-        Assert.AreEqual(ConnectionState.Open, conn.State);
+        using var client = await IgniteClient.StartAsync(GetConfig());
 
-        await conn.OpenAsync();
+        await using var conn = new IgniteDbConnection(null);
+        Assert.AreEqual(ConnectionState.Closed, conn.State);
+
+        conn.Open(client, ownsClient);
         Assert.AreEqual(ConnectionState.Open, conn.State);
 
         await conn.CloseAsync();
         Assert.AreEqual(ConnectionState.Closed, conn.State);
+
+        if (ownsClient)
+        {
+            Assert.That(Client.GetConnections(), Is.Empty, "Client should be closed after connection is closed with ownsClient: true");
+        }
+        else
+        {
+            Assert.That(Client.GetConnections(), Is.Not.Empty, "Client should be open after connection is closed with ownsClient: false");
+        }
     }
 }
