@@ -22,6 +22,7 @@ import static java.util.Collections.emptyNavigableMap;
 import static java.util.Collections.singletonMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
@@ -59,6 +60,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +73,8 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
+import java.lang.reflect.Field;
+
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
@@ -681,26 +686,23 @@ public class ConfigurationUtilTest {
         );
 
         assertThrows(IllegalArgumentException.class, () -> extensionsFields(extensions0, true));
-
-        assertEquals(
-                extensions0.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
-                List.copyOf(extensionsFields(extensions0, false))
-        );
+        
+        // Compare sets, to prevent nondeterminism in field ordering.
+        Set<Field> expectedFields0 = extensions0.stream()
+                .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
+                .collect(Collectors.toSet());
+        assertEquals(expectedFields0, new HashSet<>(extensionsFields(extensions0, false)));
 
         List<Class<?>> extensions1 = List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class
         );
-
-        assertEquals(
-                extensions1.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
-                List.copyOf(extensionsFields(extensions1, true))
-        );
-
-        assertEquals(
-                extensions1.stream().flatMap(cls -> Arrays.stream(cls.getDeclaredFields())).collect(toList()),
-                List.copyOf(extensionsFields(extensions1, false))
-        );
+    
+        Set<Field> expectedFields1 = extensions1.stream()
+                .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
+                .collect(Collectors.toSet());
+        assertEquals(expectedFields1, new HashSet<>(extensionsFields(extensions1, true)));
+        assertEquals(expectedFields1, new HashSet<>(extensionsFields(extensions1, false)));
     }
 
     @Test

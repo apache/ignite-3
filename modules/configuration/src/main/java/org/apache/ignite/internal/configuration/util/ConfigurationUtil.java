@@ -31,6 +31,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,9 +45,11 @@ import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.NamedListView;
@@ -644,8 +647,25 @@ public class ConfigurationUtil {
      */
     public static List<Field> schemaFields(Class<?> schemaClass) {
         return Arrays.stream(schemaClass.getDeclaredFields())
-                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f) || isInjectedName(f))
-                .collect(toList());
+                .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f)
+                        || isInjectedName(f))
+                .sorted(Comparator
+                        .<Field>comparingInt(f -> {
+                            // Enforce deterministic field ordering.
+                            if (isPolymorphicId(f))
+                                return 0;
+                            if (isValue(f))
+                                return 1;
+                            if (isConfigValue(f))
+                                return 2;
+                            if (isNamedConfigValue(f))
+                                return 3;
+                            if (isInjectedName(f))
+                                return 4;
+                            return 5; // This should never happen due to the filter above.
+                        })
+                        .thenComparing(Field::getName))
+                .collect(Collectors.toList());
     }
 
     /**
