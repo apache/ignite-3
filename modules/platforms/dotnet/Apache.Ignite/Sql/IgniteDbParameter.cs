@@ -18,12 +18,18 @@ namespace Apache.Ignite.Sql;
 using System;
 using System.Data;
 using System.Data.Common;
-using Apache.Ignite.Sql;
 
+/// <summary>
+/// Ignite database parameter.
+/// </summary>
 public class IgniteDbParameter : DbParameter
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbParameter"/> class.
+    /// </summary>
     public IgniteDbParameter()
     {
+        // No-op.
     }
 
     public override void ResetDbType()
@@ -31,11 +37,25 @@ public class IgniteDbParameter : DbParameter
         throw new NotImplementedException();
     }
 
-    public ColumnType ColumnType { get; set; }
+    public ColumnType IgniteColumnType { get; set; }
 
     public override DbType DbType { get; set; }
 
-    public override ParameterDirection Direction { get; set; }
+    /// <summary>
+    ///     Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
+    /// </summary>
+    /// <value>The direction of the parameter.</value>
+    public override ParameterDirection Direction
+    {
+        get => ParameterDirection.Input;
+        set
+        {
+            if (value != ParameterDirection.Input)
+            {
+                throw new ArgumentException($"Only ParameterDirection.Input is supported: {value}", nameof(value));
+            }
+        }
+    }
 
     public override bool IsNullable { get; set; }
 

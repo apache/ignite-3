@@ -34,7 +34,7 @@ public sealed class IgniteDbTransaction : DbTransaction
     /// <param name="connection">Connection.</param>
     public IgniteDbTransaction(ITransaction tx, IsolationLevel isolationLevel, DbConnection connection)
     {
-        InternalTransaction = tx;
+        IgniteTransaction = tx;
         IsolationLevel = isolationLevel;
         DbConnection = connection;
     }
@@ -48,7 +48,7 @@ public sealed class IgniteDbTransaction : DbTransaction
     /// <summary>
     /// Gets the underlying Ignite transaction.
     /// </summary>
-    internal ITransaction InternalTransaction { get; }
+    public ITransaction IgniteTransaction { get; }
 
     /// <inheritdoc />
     protected override DbConnection DbConnection { get; }
@@ -61,9 +61,9 @@ public sealed class IgniteDbTransaction : DbTransaction
 
     /// <inheritdoc />
     public override async Task CommitAsync(CancellationToken cancellationToken = default) =>
-        await InternalTransaction.CommitAsync().ConfigureAwait(false);
+        await IgniteTransaction.CommitAsync().ConfigureAwait(false);
 
     /// <inheritdoc />
     public override async Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
-        await InternalTransaction.RollbackAsync().ConfigureAwait(false);
+        await IgniteTransaction.RollbackAsync().ConfigureAwait(false);
 }
