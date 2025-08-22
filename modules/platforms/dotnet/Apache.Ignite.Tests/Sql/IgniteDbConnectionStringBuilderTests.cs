@@ -21,10 +21,10 @@ using NUnit.Framework;
 public class IgniteDbConnectionStringBuilderTests
 {
     [Test]
-    public void TestCtorParsesConnectionString([Values("Data Source", "DataSource")] string keyword)
+    public void TestCtorParsesConnectionString([Values("Data Source", "DataSource", "Endpoints")] string keyword)
     {
-        var builder = new SqliteConnectionStringBuilder($"{keyword}=test.db");
+        var builder = new IgniteDbConnectionStringBuilder($"{keyword}=localhost:10800");
 
-        Assert.AreEqual("test.db", builder.DataSource);
+        Assert.AreEqual("localhost:10800", builder[keyword]);
     }
 }

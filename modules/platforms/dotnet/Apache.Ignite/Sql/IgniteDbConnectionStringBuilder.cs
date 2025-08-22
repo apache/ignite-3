@@ -18,9 +18,25 @@ namespace Apache.Ignite.Sql;
 using System.Data.Common;
 
 /// <summary>
-/// Ignite database connection string builder.
+/// Ignite connection string builder.
 /// </summary>
 #pragma warning disable CA1010 // TODO
 public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbConnectionStringBuilder"/> class.
+    /// </summary>
+    public IgniteDbConnectionStringBuilder()
+    {
+        // No-op.
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbConnectionStringBuilder"/> class.
+    /// </summary>
+    /// <param name="connectionString">Connection string.</param>
+    public IgniteDbConnectionStringBuilder(string connectionString)
+    {
+        ConnectionString = connectionString;
+    }
 }
