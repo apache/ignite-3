@@ -25,7 +25,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -162,8 +161,7 @@ public class CheckpointDirtyPages {
          *
          * @param index Dirty page index.
          */
-        public FullPageId get(int index) {
-            // TODO: IGNITE-26233 Продолжить
+        public DirtyFullPageId get(int index) {
             return dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages[fromPosition + index];
         }
 
@@ -203,7 +201,7 @@ public class CheckpointDirtyPages {
         }
     }
 
-    private static boolean equalsByGroupAndPartition(FullPageId pageId0, FullPageId pageId1) {
+    private static boolean equalsByGroupAndPartition(DirtyFullPageId pageId0, DirtyFullPageId pageId1) {
         return pageId0.groupId() == pageId1.groupId() && pageId0.partitionId() == pageId1.partitionId();
     }
 }

@@ -35,7 +35,6 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -185,7 +184,7 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
     }
 
     private static List<IgniteBiTuple<PersistentPageMemory, DirtyFullPageId>> toListDirtyPagePair(
-            Predicate<FullPageId> predicate,
+            Predicate<DirtyFullPageId> predicate,
             DirtyPagesAndPartitions... dirtyPages
     ) {
         return Stream.of(dirtyPages)
@@ -196,11 +195,11 @@ public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
                 .collect(toList());
     }
 
-    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(CheckpointDirtyPagesView view) {
+    private static List<IgniteBiTuple<PersistentPageMemory, DirtyFullPageId>> toListDirtyPagePair(CheckpointDirtyPagesView view) {
         return IntStream.range(0, view.size()).mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.get(i))).collect(toList());
     }
 
-    private static Predicate<FullPageId> equalsByGroupAndPartition(int grpId, int partId) {
+    private static Predicate<DirtyFullPageId> equalsByGroupAndPartition(int grpId, int partId) {
         return fullPageId -> fullPageId.groupId() == grpId && partitionId(fullPageId.pageId()) == partId;
     }
 }
