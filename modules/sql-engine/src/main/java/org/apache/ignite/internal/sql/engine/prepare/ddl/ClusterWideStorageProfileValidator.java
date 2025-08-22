@@ -61,9 +61,9 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
                     )).handle((missedProfileNames, e) -> {
                         if (e != null) {
                             String msg = format(
-                                    "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], "
+                                    "Storage profiles {} doesn't exist in local topology snapshot with profiles [{}], "
                                             + "and distributed refresh failed.",
-                                    missedProfileNames,
+                                    missedStorageProfileNames,
                                     localLogicalTopologySnapshot
                                             .nodes()
                                             .stream()
