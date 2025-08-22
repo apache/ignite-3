@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.failure;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
@@ -25,6 +26,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -58,11 +60,11 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
     /** Failure log message. */
     private static final String FAILURE_LOG_MSG = "Critical system error detected. "
-            + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}]";
+            + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}, failureCtxId={}]";
 
     /** Ignored failure log message. */
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
-            + "[hnd={}, failureCtx={}]";
+            + "[hnd={}, failureCtx={}, failureCtxId={}]";
 
     /** Failure processor configuration. */
     private final FailureProcessorConfiguration configuration;
@@ -190,17 +192,19 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
         var exceptionForLogging = new StackTraceCapturingException(failureCtx.message(), failureCtx.error());
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
-            LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
+            LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type(), failureCtx.id());
         } else {
-            LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
+            LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type(), failureCtx.id());
         }
 
         if (reserveBuf != null && failureCtx.error() != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 
-        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type())) {
-            ThreadUtils.dumpThreads(LOG, !handler.ignoredFailureTypes().contains(failureCtx.type()));
+        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type(), failureCtx.id())) {
+            String ctxId = format(" [failureCtxId={}]", failureCtx.id());
+
+            ThreadUtils.dumpThreads(LOG, ctxId, !handler.ignoredFailureTypes().contains(failureCtx.type()));
         }
 
         boolean invalidated = handler.onFailure(failureCtx);
@@ -316,9 +320,10 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * because it can modify throttling timeout for the given failure type {@link #threadDumpPerFailureTypeTs}.
      *
      * @param type Failure type.
+     * @param failureCtxId Failure context id.
      * @return {@code true} if thread dump generation should be throttled for given failure type.
      */
-    private boolean throttleThreadDump(FailureType type) {
+    private boolean throttleThreadDump(FailureType type, UUID failureCtxId) {
         Map<FailureType, Long> dumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
         long dumpThrottlingTimeout = dumpThreadsThrottlingTimeout;
 
@@ -338,7 +343,10 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             dumpPerFailureTypeTs.put(type, curr);
         } else {
             LOG.info("Thread dump is hidden due to throttling settings. "
-                    + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps.");
+                    + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps "
+                    + "[failureCtxId={}].",
+                    failureCtxId
+            );
         }
 
         return throttle;
