@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -53,14 +50,39 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
                 localLogicalTopologySnapshot
         );
 
-        if (!missedStorageProfileNames.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, format(
-                    "Some storage profiles don't exist [missedProfileNames={}].",
-                    missedStorageProfileNames
-            ));
+        if (missedStorageProfileNames.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        return completedFuture(null);
+        return logicalTopologyService.logicalTopologyOnLeader()
+                    .thenApply(topologySnapshot -> findStorageProfileNotPresentedInLogicalTopologySnapshot(
+                            storageProfiles,
+                            topologySnapshot
+                    )).handle((missedProfileNames, e) -> {
+                        if (e != null) {
+                            String msg = format(
+                                    "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], "
+                                            + "and distributed refresh failed.",
+                                    missedProfileNames,
+                                    localLogicalTopologySnapshot
+                                            .nodes()
+                                            .stream()
+                                            .map(LogicalNode::storageProfiles)
+                                            .collect(Collectors.toSet())
+                            );
+
+                            throw new SqlException(INTERNAL_ERR, msg, e);
+                        }
+
+                        if (!missedProfileNames.isEmpty()) {
+                            throw new SqlException(STMT_VALIDATION_ERR, format(
+                                    "Some storage profiles don't exist [missedProfileNames={}].",
+                                    missedProfileNames
+                            ));
+                        }
+
+                        return null;
+                    });
     }
 
     private static Set<String> findStorageProfileNotPresentedInLogicalTopologySnapshot(
