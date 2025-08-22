@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
@@ -204,7 +205,9 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
-                            failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
+                            if (!hasCause(ex, NodeStoppingException.class)) {
+                                failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
+                            }
 
                             raftClientFuture.completeExceptionally(ex);
                         }
