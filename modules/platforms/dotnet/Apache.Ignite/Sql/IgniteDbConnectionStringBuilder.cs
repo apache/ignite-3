@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Threading;
 using Internal.Common;
 
 /// <summary>
@@ -73,6 +74,17 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultSocketTimeout;
         set => this[nameof(IgniteClientConfiguration.SocketTimeout)] = value.ToString();
+    }
+
+    /// <summary>
+    /// Gets or sets the socket timeout. See <see cref="IgniteClientConfiguration.OperationTimeout"/> for more details.
+    /// </summary>
+    public TimeSpan OperationTimeout
+    {
+        get => this[nameof(IgniteClientConfiguration.OperationTimeout)] is string s
+            ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
+            : IgniteClientConfiguration.DefaultOperationTimeout;
+        set => this[nameof(IgniteClientConfiguration.OperationTimeout)] = value.ToString();
     }
 
     /// <summary>

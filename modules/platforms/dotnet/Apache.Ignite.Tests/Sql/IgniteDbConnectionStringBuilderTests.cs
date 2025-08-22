@@ -35,9 +35,12 @@ public class IgniteDbConnectionStringBuilderTests
         var builder = new IgniteDbConnectionStringBuilder
         {
             Endpoints = ["localhost:10800", "localhost:10801"],
-            SocketTimeout = TimeSpan.FromSeconds(2.5)
+            SocketTimeout = TimeSpan.FromSeconds(2.5),
+            OperationTimeout = TimeSpan.FromMinutes(1.2345)
         };
 
-        Assert.AreEqual("Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000", builder.ToString());
+        Assert.AreEqual(
+            "Endpoints=localhost:10800,localhost:10801;SocketTimeout=00:00:02.5000000;OperationTimeout=00:01:14.0700000",
+            builder.ToString());
     }
 }
