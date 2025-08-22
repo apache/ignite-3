@@ -207,13 +207,17 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             CatalogZoneDescriptor zoneDescriptor,
             Catalog catalog
     ) {
-        if (zoneDescriptor.replicas() <= 2) {
-            return notEnoughAliveNodes();
-        }
-
         if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
-            return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
+            if (zoneDescriptor.replicas() >= 2) {
+                return createCleanupRestartFuture(disasterRecoveryManager, replicationGroupId, revision);
+            } else {
+                return notEnoughAliveNodes();
+            }
         } else {
+            if (zoneDescriptor.replicas() <= 2) {
+                return notEnoughAliveNodes();
+            }
+
             return enoughAliveNodesToRestartWithCleanUp(
                     disasterRecoveryManager,
                     revision,
