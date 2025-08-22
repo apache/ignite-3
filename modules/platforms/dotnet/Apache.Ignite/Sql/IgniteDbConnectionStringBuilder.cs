@@ -61,10 +61,10 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Reviewed.")]
     public IList<string> Endpoints
     {
-        get => this[nameof(IgniteClientConfiguration.Endpoints)] is string endpoints
+        get => this[nameof(Endpoints)] is string endpoints
             ? endpoints.Split(EndpointSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
-        set => this[nameof(IgniteClientConfiguration.Endpoints)] = string.Join(EndpointSeparator, value);
+        set => this[nameof(Endpoints)] = string.Join(EndpointSeparator, value);
     }
 
     /// <summary>
@@ -72,10 +72,10 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public TimeSpan SocketTimeout
     {
-        get => this[nameof(IgniteClientConfiguration.SocketTimeout)] is string s
+        get => GetString(nameof(SocketTimeout)) is { } s
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultSocketTimeout;
-        set => this[nameof(IgniteClientConfiguration.SocketTimeout)] = value.ToString();
+        set => this[nameof(SocketTimeout)] = value.ToString();
     }
 
     /// <summary>
@@ -83,10 +83,10 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public TimeSpan OperationTimeout
     {
-        get => this[nameof(IgniteClientConfiguration.OperationTimeout)] is string s
+        get => GetString(nameof(OperationTimeout)) is { } s
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultOperationTimeout;
-        set => this[nameof(IgniteClientConfiguration.OperationTimeout)] = value.ToString();
+        set => this[nameof(OperationTimeout)] = value.ToString();
     }
 
     /// <summary>
@@ -94,10 +94,10 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public TimeSpan HeartbeatInterval
     {
-        get => this[nameof(IgniteClientConfiguration.HeartbeatInterval)] is string s
+        get => GetString(nameof(HeartbeatInterval)) is { } s
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultHeartbeatInterval;
-        set => this[nameof(IgniteClientConfiguration.HeartbeatInterval)] = value.ToString();
+        set => this[nameof(HeartbeatInterval)] = value.ToString();
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public TimeSpan ReconnectInterval
     {
-        get => this[nameof(ReconnectInterval)] is string s
+        get => GetString(nameof(ReconnectInterval)) is { } s
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultReconnectInterval;
         set => this[nameof(ReconnectInterval)] = value.ToString();
@@ -116,7 +116,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public bool SslEnabled
     {
-        get => this[nameof(SslEnabled)] is string s && bool.Parse(s);
+        get => GetString(nameof(SslEnabled)) is { } s && bool.Parse(s);
         set => this[nameof(SslEnabled)] = value.ToString();
     }
 
@@ -125,7 +125,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public string? Username
     {
-        get => this[nameof(Username)] as string;
+        get => GetString(nameof(Username));
         set => this[nameof(Username)] = value;
     }
 
@@ -134,7 +134,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public string? Password
     {
-        get => this[nameof(Password)] as string;
+        get => GetString(nameof(Password));
         set => this[nameof(Password)] = value;
     }
 
@@ -158,4 +158,6 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
             }
         };
     }
+
+    private string? GetString(string key) => TryGetValue(key, out var s) ? (string?)s : null;
 }
