@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -42,12 +41,12 @@ class TestCheckpointUtils {
     }
 
     /**
-     * Creates new full page ID.
+     * Creates new dirty full page ID.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      */
-    static FullPageId fullPageId(int groupId, int partitionId) {
-        return new FullPageId(pageId(partitionId, FLAG_DATA, 0), groupId);
+    static DirtyFullPageId dirtyFullPageId(int groupId, int partitionId) {
+        return new DirtyFullPageId(pageId(partitionId, FLAG_DATA, 0), groupId, 1);
     }
 }
