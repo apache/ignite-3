@@ -37,8 +37,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.calcite.sql.SqlDdl;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -776,14 +774,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     @Test
     public void alterZoneWithUnexpectedOption() {
         expectUnexpectedOption("alter zone test_zone set ABC=1", "ABC");
-    }
-
-    private CatalogCommand convert(String query) throws SqlParseException {
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        return converter.convert((SqlDdl) node, createContext());
     }
 
     private void assertThrowsWithPos(String query, String encountered, int pos) {
