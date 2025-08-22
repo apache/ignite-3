@@ -40,6 +40,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -210,7 +211,9 @@ public class CheckpointPagesWriter implements Runnable {
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
                 updateHeartbeat.run();
 
-                FullPageId pageId = checkpointDirtyPagesView.get(i);
+                // TODO: IGNITE-26233 Починить позже тут
+                DirtyFullPageId dirtyPageId = checkpointDirtyPagesView.get(i);
+                FullPageId pageId = new FullPageId(dirtyPageId.pageId(), dirtyPageId.groupId());
 
                 if (pageId.pageIdx() == 0) {
                     // Skip meta-pages, they are written by "writePartitionMeta".
