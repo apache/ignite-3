@@ -13,14 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Ignite.Sql;
+namespace Apache.Ignite.Tests.Sql;
 
-using System.Data.Common;
+using Ignite.Sql;
+using NUnit.Framework;
 
-/// <summary>
-/// Ignite database connection string builder.
-/// </summary>
-#pragma warning disable CA1010 // TODO
-public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
+public class IgniteDbConnectionStringBuilderTests
 {
+    [Test]
+    public void TestCtorParsesConnectionString([Values("Data Source", "DataSource")] string keyword)
+    {
+        var builder = new SqliteConnectionStringBuilder($"{keyword}=test.db");
+
+        Assert.AreEqual("test.db", builder.DataSource);
+    }
 }
