@@ -105,10 +105,19 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     /// </summary>
     public TimeSpan ReconnectInterval
     {
-        get => this[nameof(IgniteClientConfiguration.ReconnectInterval)] is string s
+        get => this[nameof(ReconnectInterval)] is string s
             ? TimeSpan.Parse(s, CultureInfo.InvariantCulture)
             : IgniteClientConfiguration.DefaultReconnectInterval;
-        set => this[nameof(IgniteClientConfiguration.ReconnectInterval)] = value.ToString();
+        set => this[nameof(ReconnectInterval)] = value.ToString();
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether SSL is enabled.
+    /// </summary>
+    public bool SslEnabled
+    {
+        get => this[nameof(SslEnabled)] is string s && bool.Parse(s);
+        set => this[nameof(SslEnabled)] = value.ToString();
     }
 
     /// <summary>
@@ -122,7 +131,8 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
             SocketTimeout = SocketTimeout,
             OperationTimeout = OperationTimeout,
             HeartbeatInterval = HeartbeatInterval,
-            ReconnectInterval = ReconnectInterval
+            ReconnectInterval = ReconnectInterval,
+            SslStreamFactory = SslEnabled ? new SslStreamFactory() : null,
         };
     }
 }
