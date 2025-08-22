@@ -35,17 +35,24 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for {@link SqlDateTimeParser}.
+ * Tests for {@link SqlDateTimeFormatter}.
  */
-public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
+public class SqlDateTimeFormatterSelfTest extends BaseIgniteAbstractTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2017-05-13T00:00:00.0Z"), ZoneOffset.UTC);
 
     @ParameterizedTest
     @MethodSource("timeValues")
     public void testTime(String format, String str, LocalTime value) {
-        LocalTime actual = SqlDateTimeParser.timeFormatter(format).parseTime(str);
+        LocalTime actual = SqlDateTimeFormatter.timeFormatter(format).parseTime(str);
         assertEquals(actual, value);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeValues")
+    public void testFormatTime(String format, String str, LocalTime value) {
+        String actual = SqlDateTimeFormatter.timeFormatter(format).formatTime(value);
+        assertEquals(actual, str);
     }
 
     private static Stream<Arguments> timeValues() {
@@ -60,15 +67,22 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of("SS", "43", LocalTime.of(0, 0, 43)),
                 Arguments.of("FF3", "871", LocalTime.of(0, 0, 0, 871_000_000)),
                 Arguments.of("HH:MI:SS P.M.", "03:37:43 P.M.", LocalTime.of(15, 37, 43)),
-                Arguments.of("HH P.M.", "3 P.M.", LocalTime.of(15, 0, 0))
+                Arguments.of("HH P.M.", "03 P.M.", LocalTime.of(15, 0, 0))
         );
     }
 
     @ParameterizedTest
     @MethodSource("dateValues")
-    public void testDate(String format, String str, LocalDate value) {
-        LocalDate actual = SqlDateTimeParser.dateFormatter(format).parseDate(str, CLOCK);
+    public void testParseDate(String format, String str, LocalDate value) {
+        LocalDate actual = SqlDateTimeFormatter.dateFormatter(format).parseDate(str, CLOCK);
         assertEquals(value, actual);
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateValues")
+    public void testFormatDate(String format, String str, LocalDate value) {
+        String actual = SqlDateTimeFormatter.dateFormatter(format).formatDate(value);
+        assertEquals(str, actual);
     }
 
     private static Stream<Arguments> dateValues() {
@@ -89,9 +103,23 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("timestampValues")
-    public void testTimestamp(String format, String str, LocalDateTime value) {
-        LocalDateTime actual = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(str, CLOCK);
+    public void testParseTimestamp(String format, String str, LocalDateTime value) {
+        LocalDateTime actual = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(str, CLOCK);
         assertEquals(value, actual);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampValues")
+    public void testFormatTimestamp(String format, String str, LocalDateTime value) {
+        String actual = SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(value, ZoneOffset.UTC);
+        assertEquals(str, actual);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampValues")
+    public void testFormatTimestampSupportsTz(String format, String str, LocalDateTime value) {
+        String actual = SqlDateTimeFormatter.timestampFormatter(format + " TZH:TZM").formatTimestamp(value, ZoneOffset.UTC);
+        assertEquals(str + " +00:00", actual);
     }
 
     private static Stream<Arguments> timestampValues() {
@@ -124,8 +152,8 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("timestampWithTzValues")
-    public void testTimestampWithTz(String format, String str, LocalDateTime value) {
-        LocalDateTime actual = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(str, CLOCK);
+    public void testParseTimestampWithTz(String format, String str, LocalDateTime value) {
+        LocalDateTime actual = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(str, CLOCK);
         assertEquals(value, actual);
     }
 
@@ -170,6 +198,39 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
 
                 Arguments.of("HH24:MI:SS TZH:TZM", "20:00:00 -03:00",
                         LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(23, 0, 0)))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampFormatWithTzValues")
+    public void testFormatTimestampWithTz(String format, String str, LocalDateTime value, ZoneOffset offset) {
+        String actual = SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(value, offset);
+        assertEquals(str, actual);
+    }
+
+    private static Stream<Arguments> timestampFormatWithTzValues() {
+        return Stream.of(
+                // Positive tz offset
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(0, 30)),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(3, 0)),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +05:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(5, 30)),
+
+                // Negative tz offset
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(0, -30)),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(-3, 0)),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -05:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 0, 0)), ZoneOffset.ofHoursMinutes(-5, -30))
         );
     }
 }

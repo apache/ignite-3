@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.FLOAT;
@@ -110,7 +111,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @BeforeEach
     void setUp() {
-        converter = new DdlSqlToCommandConverter(storageProfiles -> {});
+        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
     }
 
     @Test
@@ -140,7 +141,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Table without PRIMARY KEY is not supported",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
     }
 
@@ -154,7 +155,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Table without PRIMARY KEY is not supported",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
     }
 
@@ -165,7 +166,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -212,7 +213,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -242,7 +243,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThrowsSqlException(STMT_VALIDATION_ERR,
                 "Unexpected number of primary key constraints [expected at most one, but was 2",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
     }
 
@@ -252,7 +253,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -277,7 +278,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -295,7 +296,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -330,7 +331,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 error + ". [column=VAL]",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
     }
 
@@ -358,7 +359,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 error + ". [column=VAL]",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
     }
 
@@ -455,7 +456,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d UUID DEFAULT {})";
 
         String sql = format(template, "NULL");
-        CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+        CreateTableCommand cmd = (CreateTableCommand) convert((SqlDdl) parse(sql), ctx);
 
         mockCatalogSchemaAndZone("TEST_ZONE");
         CatalogTableDescriptor tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
@@ -467,7 +468,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         UUID uuid = UUID.randomUUID();
         sql = format(template, "'" + uuid + "'");
-        cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+        cmd = (CreateTableCommand) convert((SqlDdl) parse(sql), ctx);
 
         tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
         colDesc = tblDesc.columns().get(1);
@@ -479,7 +480,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         for (String value : values) {
             String sql0 = format(template, value);
             assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
-                    converter.convert((SqlDdl) parse(sql0), ctx));
+                    convert((SqlDdl) parse(sql0), ctx));
         }
     }
 
@@ -662,7 +663,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             String sql = format(template, "TIMESTAMP WITH LOCAL TIME ZONE", "'2020-01-02 01:01:01'");
 
             testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () ->
-                    converter.convert((SqlDdl) parse(sql), ctx)));
+                    convert((SqlDdl) parse(sql), ctx)));
         }
 
         return testItems.stream();
@@ -676,7 +677,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
@@ -709,7 +710,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThrowsSqlException(STMT_VALIDATION_ERR,
                 "String cannot be empty",
-                () -> converter.convert((SqlDdl) node, createContext())
+                () -> convert((SqlDdl) node, createContext())
         );
 
         SqlNode newNode = parse("CREATE TABLE t (val int) ZONE ZONE storage profile ''");
@@ -719,7 +720,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "String cannot be empty",
-                () -> converter.convert((SqlDdl) newNode, createContext())
+                () -> convert((SqlDdl) newNode, createContext())
         );
     }
 
@@ -736,7 +737,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             assertThat(node, instanceOf(SqlDdl.class));
 
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                    () -> converter.convert((SqlDdl) node, createContext()));
+                    () -> convert((SqlDdl) node, createContext()));
         }
 
         {
@@ -744,7 +745,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             assertThat(node, instanceOf(SqlDdl.class));
 
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                    () -> converter.convert((SqlDdl) node, createContext()));
+                    () -> convert((SqlDdl) node, createContext()));
         }
     }
 
@@ -761,7 +762,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             assertThat(node, instanceOf(SqlDdl.class));
 
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                    () -> converter.convert((SqlDdl) node, createContext()));
+                    () -> convert((SqlDdl) node, createContext()));
         }
 
         {
@@ -769,7 +770,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             assertThat(node, instanceOf(SqlDdl.class));
 
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                    () -> converter.convert((SqlDdl) node, createContext()));
+                    () -> convert((SqlDdl) node, createContext()));
         }
     }
 
@@ -780,7 +781,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrows(CatalogValidationException.class,
-                () -> converter.convert((SqlDdl) node, createContext()),
+                () -> convert((SqlDdl) node, createContext()),
                 "Functional defaults are not supported for non-primary key columns [col=A]"
         );
     }
@@ -791,7 +792,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         SqlNode node = parse("ALTER TABLE t ALTER COLUMN a SET DEFAULT " + func);
         assertThat(node, instanceOf(SqlDdl.class));
 
-        CatalogCommand command = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand command = convert((SqlDdl) node, createContext());
         assertInstanceOf(AlterTableAlterColumnCommand.class, command);
     }
 
@@ -808,7 +809,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                () -> converter.convert((SqlDdl) node, createContext()));
+                () -> convert((SqlDdl) node, createContext()));
     }
 
     @ParameterizedTest
@@ -824,7 +825,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                () -> converter.convert((SqlDdl) node, createContext()));
+                () -> convert((SqlDdl) node, createContext()));
     }
 
     @ParameterizedTest
@@ -840,7 +841,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                () -> converter.convert((SqlDdl) node, createContext()));
+                () -> convert((SqlDdl) node, createContext()));
     }
 
     @ParameterizedTest
@@ -856,7 +857,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrowsSqlException(STMT_VALIDATION_ERR, error,
-                () -> converter.convert((SqlDdl) node, createContext()));
+                () -> convert((SqlDdl) node, createContext()));
     }
 
     private static Set<SqlTypeName> intervalTypeNames() {
@@ -910,7 +911,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         if (acceptable) {
             testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () -> {
-                CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
+                CreateTableCommand cmd = (CreateTableCommand) convert((SqlDdl) parse(sql), ctx);
 
                 mockCatalogSchemaAndZone("TEST_ZONE");
                 CatalogTableDescriptor tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
@@ -929,7 +930,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         } else {
             testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql), () ->
                     assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
-                            converter.convert((SqlDdl) parse(sql), ctx))));
+                            convert((SqlDdl) parse(sql), ctx))));
         }
     }
 

@@ -509,7 +509,7 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
-                    clock,
+                    clockService,
                     partitionOperationsExecutor,
                     replicationConfiguration,
                     executor
@@ -1298,7 +1298,7 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock,
+                clientClockService,
                 partitionOperationsExecutor,
                 replicationConfiguration,
                 executor

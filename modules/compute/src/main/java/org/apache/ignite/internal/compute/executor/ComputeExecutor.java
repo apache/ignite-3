@@ -20,7 +20,7 @@ package org.apache.ignite.internal.compute.executor;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ExecutionOptions;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
@@ -34,7 +34,7 @@ public interface ComputeExecutor {
             ExecutionOptions options,
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeEventMetadata.Builder metadataBuilder,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder input
     );
 

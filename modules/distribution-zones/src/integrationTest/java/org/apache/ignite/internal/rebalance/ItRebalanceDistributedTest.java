@@ -1421,23 +1421,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
+            clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
+
+            ClockService clockService = new ClockServiceImpl(
+                    hybridClock,
+                    clockWaiter,
+                    () -> DEFAULT_MAX_CLOCK_SKEW_MS,
+                    skew -> {}
+            );
+
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    hybridClock,
+                    clockService,
                     threadPoolsManager.partitionOperationsExecutor(),
                     replicationConfiguration,
                     threadPoolsManager.commonScheduler()
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-            clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
-
-            ClockService clockService = new ClockServiceImpl(
-                    hybridClock,
-                    clockWaiter,
-                    () -> DEFAULT_MAX_CLOCK_SKEW_MS
-            );
 
             TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
@@ -1569,7 +1570,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     systemDistributedConfiguration,
-                    clockService
+                    clockService,
+                    metricManager
             );
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();

@@ -125,7 +125,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             boolean added = failureReplicatorsSetToPreventLogFlooding.add(peer);
 
             if (added) {
-                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+                LOG.error("Fail to check replicator connection to peer [node={}, recipientPeer={}, replicatorType={}].",
+                    this.commonOptions.getNode().getNodeId(), peer, replicatorType);
             }
 
             this.failureReplicators.put(peer, replicatorType);
@@ -151,7 +152,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
         final ThreadId rid = Replicator.start(opts, this.raftOptions);
         if (rid == null) {
-            LOG.error("Fail to start replicator to peer={}, replicatorType={}.", peer, replicatorType);
+            LOG.error("Fail to start replicator to peer [node={}, recipientPeer={}, replicatorType={}].",
+                this.commonOptions.getNode().getNodeId(), peer, replicatorType);
             this.failureReplicators.put(peer, replicatorType);
             return false;
         }
@@ -222,7 +224,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
     @Override
     public boolean stopReplicator(final PeerId peer) {
-        LOG.info("Stop replicator to {}.", peer);
+        LOG.info("Stop replicator to [node={}].", this.commonOptions.getNode().getNodeId());
         this.failureReplicators.remove(peer);
         final ThreadId rid = this.replicatorMap.remove(peer);
         if (rid == null) {
@@ -279,7 +281,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             candidate = this.replicatorMap.get(candidateId);
         }
         else {
-            LOG.info("Fail to find the next candidate.");
+            LOG.info("Fail to find the next candidate [node={}].", this.commonOptions.getNode().getNodeId());
         }
         for (final ThreadId r : this.replicatorMap.values()) {
             if (r != candidate) {
