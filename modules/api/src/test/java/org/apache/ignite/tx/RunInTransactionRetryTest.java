@@ -342,15 +342,15 @@ public class RunInTransactionRetryTest {
         }
     }
 
-    private static class FailedClosureTestException extends RuntimeException {
+    private static class FailedClosureTestException extends RuntimeException implements RetriableTransactionException {
         // No-op.
     }
 
-    private static class FailedCommitTestException extends RuntimeException {
+    private static class FailedCommitTestException extends RuntimeException implements RetriableTransactionException {
         // No-op.
     }
 
-    private static class FailedRollbackTestException extends RuntimeException {
+    private static class FailedRollbackTestException extends RuntimeException implements RetriableTransactionException {
         // No-op.
     }
 }

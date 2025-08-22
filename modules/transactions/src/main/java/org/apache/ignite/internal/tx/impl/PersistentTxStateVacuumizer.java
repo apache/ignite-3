@@ -190,8 +190,7 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class,
-                ComponentStoppingException.class
+                AwaitReplicaTimeoutException.class
         );
     }
 

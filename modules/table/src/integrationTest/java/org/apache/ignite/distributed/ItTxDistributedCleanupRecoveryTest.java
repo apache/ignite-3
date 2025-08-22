@@ -73,7 +73,7 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
             DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
             messagingService.dropMessages((s, networkMessage) -> {
                 if (networkMessage instanceof TxCleanupMessage && defaultRetryCount.getAndDecrement() > 0) {
-                    logger().info("Dropping cleanup request: {}, txId={}", networkMessage, ((TxCleanupMessage) networkMessage).txId());;
+                    logger().info("Dropping cleanup request [message={}].", networkMessage);;
 
                     return true;
                 }

@@ -24,10 +24,13 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,8 +61,8 @@ class RunInTransactionInternalImpl {
                 tx.commit();
 
                 return ret;
-            } catch (Throwable t) {
-                suppressed.add(t);
+            } catch (Exception ex) {
+                suppressed.add(ex);
 
                 try {
                     tx.rollback(); // Try rolling back on user exception.
@@ -70,15 +73,15 @@ class RunInTransactionInternalImpl {
                 long now = System.currentTimeMillis();
                 long remainingTime = initialTimeout - (now - startTimestamp);
 
-                if (remainingTime > 0) {
+                if (remainingTime > 0 && isRetriable(ex)) {
                     // Will go on retry iteration.
                     txOptions = txOptions.timeoutMillis(remainingTime);
                 } else {
                     for (Throwable e : suppressed) {
-                        addSuppressed(t, e);
+                        addSuppressed(ex, e);
                     }
 
-                    throw t;
+                    throw ex;
                 }
             }
         }
@@ -148,7 +151,7 @@ class RunInTransactionInternalImpl {
                 .thenCompose(ignored -> {
                     long remainingTime = initialTimeout - (System.currentTimeMillis() - startTimestamp);
 
-                    if (remainingTime > 0) {
+                    if (remainingTime > 0 && isRetriable(e)) {
                         TransactionOptions opt = txOptions.timeoutMillis(remainingTime);
 
                         return runInTransactionAsyncInternal(
@@ -173,5 +176,33 @@ class RunInTransactionInternalImpl {
         if (to != null && a != null && to != a && to.getSuppressed().length < MAX_SUPPRESSED) {
             to.addSuppressed(a);
         }
+    }
+
+    private static boolean isRetriable(Throwable e) {
+        return hasCause(e,
+                TimeoutException.class,
+                RetriableTransactionException.class
+        );
+    }
+
+    private static boolean hasCause(Throwable e, Class<?>... classes) {
+        Set<Throwable> processed = new HashSet<>();
+
+        Throwable cause = e;
+        while (cause != null) {
+            if (!processed.add(cause)) {
+                break;
+            }
+
+            for (Class<?> cls : classes) {
+                if (cls.isAssignableFrom(cause.getClass())) {
+                    return true;
+                }
+            }
+
+            cause = cause.getCause();
+        }
+
+        return false;
     }
 }
