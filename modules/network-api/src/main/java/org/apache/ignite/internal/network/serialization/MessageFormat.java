@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization;
 
 /**
- * Defines message format (that is, how messages are composed of fields).
+ * Defines message format, meaning how message should be read or written. 
  */
 public interface MessageFormat {
     /**
