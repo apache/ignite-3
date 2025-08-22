@@ -19,31 +19,45 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 /// <summary>
 /// Ignite database parameter collection.
 /// </summary>
-public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<IgniteDbParameter>, IList<IgniteDbParameter>
+public sealed class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<IgniteDbParameter>, IList<IgniteDbParameter>
 {
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Not exposed.")]
     private readonly List<IgniteDbParameter> _parameters = new();
 
-    protected internal IgniteDbParameterCollection()
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbParameterCollection"/> class.
+    /// </summary>
+    internal IgniteDbParameterCollection()
     {
+        // No-op.
     }
 
-    bool ICollection<IgniteDbParameter>.Remove(IgniteDbParameter item)
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <inheritdoc/>
+    /// <summary>
+    /// Gets the number of parameters in the collection.
+    /// </summary>
     public override int Count
         => _parameters.Count;
 
     /// <inheritdoc/>
     public override object SyncRoot
         => ((ICollection)_parameters).SyncRoot;
+
+    /// <summary>
+    /// Gets or sets the element at the specified index.
+    /// </summary>
+    /// <param name="index">The zero-based index of the element to get or set.</param>
+    /// <returns>The element at the specified index.</returns>
+    public new IgniteDbParameter this[int index]
+    {
+        get => _parameters[index];
+        set => _parameters[index] = value;
+    }
 
     /// <inheritdoc/>
     public override int Add(object value)
@@ -97,14 +111,6 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
         => _parameters.IndexOf((IgniteDbParameter)value);
 
     /// <inheritdoc/>
-    protected override DbParameter GetParameter(int index)
-        => this[index];
-
-    /// <inheritdoc/>
-    protected override DbParameter GetParameter(string parameterName)
-        => GetParameter(IndexOfChecked(parameterName));
-
-    /// <inheritdoc/>
     public override int IndexOf(string parameterName)
     {
         for (var index = 0; index < _parameters.Count; index++)
@@ -122,22 +128,24 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
     public override void Insert(int index, object value)
         => Insert(index, (IgniteDbParameter)value);
 
+    /// <inheritdoc/>
     public int IndexOf(IgniteDbParameter item)
-    {
-        throw new NotImplementedException();
-    }
+        => _parameters.IndexOf(item);
 
-    public virtual void Insert(int index, IgniteDbParameter value)
+    /// <inheritdoc/>
+    public void Insert(int index, IgniteDbParameter value)
         => _parameters.Insert(index, value);
 
     /// <inheritdoc/>
     public override void Remove(object value)
         => Remove((IgniteDbParameter)value);
 
-    public virtual void Remove(IgniteDbParameter value)
+    /// <inheritdoc/>
+    public bool Remove(IgniteDbParameter value)
         => _parameters.Remove(value);
 
-    /// <inheritdoc/>
+    /// <summary>Removes the item at the specified index.</summary>
+    /// <param name="index">The zero-based index of the item to remove.</param>
     public override void RemoveAt(int index)
         => _parameters.RemoveAt(index);
 
@@ -153,20 +161,22 @@ public class IgniteDbParameterCollection : DbParameterCollection, IReadOnlyList<
     protected override void SetParameter(string parameterName, DbParameter value)
         => SetParameter(IndexOfChecked(parameterName), value);
 
+    /// <inheritdoc/>
+    protected override DbParameter GetParameter(int index)
+        => this[index];
+
+    /// <inheritdoc/>
+    protected override DbParameter GetParameter(string parameterName)
+        => GetParameter(IndexOfChecked(parameterName));
+
     private int IndexOfChecked(string parameterName)
     {
         var index = IndexOf(parameterName);
         if (index == -1)
         {
-            throw new IndexOutOfRangeException($"Parameter not found: {parameterName}");
+            throw new InvalidOperationException($"Parameter not found: {parameterName}");
         }
 
         return index;
-    }
-
-    public IgniteDbParameter this[int index]
-    {
-        get => throw new NotImplementedException();
-        set => throw new NotImplementedException();
     }
 }
