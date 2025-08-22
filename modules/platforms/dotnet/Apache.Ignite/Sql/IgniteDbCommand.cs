@@ -19,18 +19,29 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using NodaTime;
 using Table;
 using Transactions;
 
+/// <summary>
+/// Ignite database command.
+/// </summary>
 public class IgniteDbCommand : DbCommand
 {
     private IgniteDbParameterCollection? _parameters;
 
+    private string _commandText = string.Empty;
+
     /// <inheritdoc />
-    public override string CommandText { get; set; }
+    [AllowNull]
+    public override string CommandText
+    {
+        get => _commandText;
+        set => _commandText = value ?? string.Empty;
+    }
 
     /// <inheritdoc />
     public override int CommandTimeout { get; set; }
@@ -45,14 +56,14 @@ public class IgniteDbCommand : DbCommand
     public override bool DesignTimeVisible { get; set; }
 
     /// <inheritdoc />
-    protected override DbConnection DbConnection { get; set; }
+    protected override DbConnection? DbConnection { get; set; }
 
     /// <inheritdoc />
     protected override DbParameterCollection DbParameterCollection =>
         _parameters ??= new IgniteDbParameterCollection();
 
     /// <inheritdoc />
-    protected override DbTransaction DbTransaction { get; set; }
+    protected override DbTransaction? DbTransaction { get; set; }
 
     /// <inheritdoc />
     public override void Cancel()
