@@ -1,17 +1,19 @@
-// Licensed to the Apache Software Foundation (ASF) under one or more
-// contributor license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright ownership.
-// The ASF licenses this file to You under the Apache License, Version 2.0
-// (the "License"); you may not use this file except in compliance with
-// the License. You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 namespace Apache.Ignite.Sql;
 
@@ -28,6 +30,8 @@ using Internal.Common;
 /// </summary>
 public sealed class IgniteDbConnection : DbConnection
 {
+    private readonly bool _ownsClient;
+
     private IIgniteClient? _igniteClient;
 
     private string _connectionString = string.Empty;
@@ -39,16 +43,19 @@ public sealed class IgniteDbConnection : DbConnection
     public IgniteDbConnection(string? connectionString)
     {
         ConnectionString = connectionString;
+        _ownsClient = true;
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbConnection"/> class.
     /// </summary>
     /// <param name="igniteClient">Ignite client.</param>
-    public IgniteDbConnection(IIgniteClient igniteClient)
+    /// <param name="ownsClient">Whether to dispose the client when the connection is disposed.</param>
+    public IgniteDbConnection(IIgniteClient igniteClient, bool ownsClient = false)
     {
         IgniteArgumentCheck.NotNull(igniteClient);
         _igniteClient = igniteClient;
+        _ownsClient = ownsClient;
     }
 
     /// <inheritdoc />
@@ -79,7 +86,7 @@ public sealed class IgniteDbConnection : DbConnection
     public override string DataSource => string.Empty;
 
     /// <inheritdoc />
-    public override string ServerVersion => "TODO"; // TODO: Set once connected - there is a ticket - IGNITE-25936
+    public override string ServerVersion => "3.0.0"; // TODO IGNITE-25936
 
     /// <summary>
     /// Gets the underlying Ignite client instance, or null if the connection is not open.
@@ -87,15 +94,17 @@ public sealed class IgniteDbConnection : DbConnection
     public IIgniteClient? Client => _igniteClient;
 
     /// <inheritdoc />
-    public override void ChangeDatabase(string databaseName)
-    {
+    public override void ChangeDatabase(string databaseName) =>
         throw new NotSupportedException("Changing database is not supported in Ignite.");
-    }
 
     /// <inheritdoc />
     public override void Close()
     {
-        _igniteClient?.Dispose();
+        if (_ownsClient)
+        {
+            _igniteClient?.Dispose();
+        }
+
         _igniteClient = null;
     }
 
