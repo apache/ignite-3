@@ -31,11 +31,11 @@ using Transactions;
 /// </summary>
 public sealed class IgniteDbCommand : DbCommand
 {
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+
     private IgniteDbParameterCollection? _parameters;
 
     private string _commandText = string.Empty;
-
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
     /// <inheritdoc />
     [AllowNull]
@@ -199,22 +199,21 @@ public sealed class IgniteDbCommand : DbCommand
 
     private ITransaction? GetIgniteTx() => IgniteDbTransaction?.IgniteTransaction;
 
-    private object[] GetArgs()
+    private object?[] GetArgs()
     {
         if (_parameters == null || _parameters.Count == 0)
         {
             return [];
         }
 
-        var arr = new object[_parameters.Count];
+        var arr = new object?[_parameters.Count];
 
         for (var i = 0; i < _parameters.Count; i++)
         {
-            // TODO: Review conversion logic for DateTime.
-            // TODO: Support NodaTime types.
             arr[i] = _parameters[i].Value switch
             {
                 DBNull => null,
+                byte u8 => (sbyte)u8,
                 ushort u16 => (short)u16,
                 uint u32 => (int)u32,
                 DateTime dt => LocalDateTime.FromDateTime(dt),
