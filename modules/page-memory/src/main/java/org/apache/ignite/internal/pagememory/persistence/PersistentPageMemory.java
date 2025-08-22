@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -28,10 +27,12 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.setPageId;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_LOCK_OFFSET;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.UNKNOWN_PARTITION_GENERATION;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirtyFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.partitionGeneration;
@@ -1185,6 +1186,7 @@ public class PersistentPageMemory implements PageMemory {
             tempBufferPointer(absPtr, tmpRelPtr);
             // info for checkpoint buffer cleaner.
             fullPageId(tmpAbsPtr, fullId);
+            partitionGeneration(tmpAbsPtr, partitionGeneration(absPtr));
 
             assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
             assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
@@ -2011,7 +2013,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 copyInBuffer(tmpAbsPtr, buf);
 
-                fullPageId(tmpAbsPtr, NULL_PAGE);
+                dirtyFullPageId(tmpAbsPtr, NULL_PAGE);
 
                 zeroMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize());
 
@@ -2157,7 +2159,7 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Get arbitrary page from cp buffer.
      */
-    public FullPageId pullPageFromCpBuffer() {
+    public DirtyFullPageId pullPageFromCpBuffer() {
         long idx = getLong(checkpointPool.lastAllocatedIdxPtr);
 
         long lastIdx = ThreadLocalRandom.current().nextLong(idx / 2, idx);
@@ -2169,7 +2171,7 @@ public class PersistentPageMemory implements PageMemory {
 
             long freePageAbsPtr = checkpointPool.absolute(relative);
 
-            FullPageId fullPageId = fullPageId(freePageAbsPtr);
+            DirtyFullPageId fullPageId = dirtyFullPageId(freePageAbsPtr);
 
             if (fullPageId.pageId() == NULL_PAGE.pageId() || fullPageId.groupId() == NULL_PAGE.groupId()) {
                 continue;

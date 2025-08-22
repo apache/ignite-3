@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
+import static org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
@@ -324,9 +325,9 @@ public class CheckpointPagesWriter implements Runnable {
 
                     updateHeartbeat.run();
 
-                    FullPageId cpPageId = pageMemory.pullPageFromCpBuffer();
+                    DirtyFullPageId cpPageId = pageMemory.pullPageFromCpBuffer();
 
-                    if (cpPageId.equals(FullPageId.NULL_PAGE)) {
+                    if (cpPageId.equals(NULL_PAGE)) {
                         break;
                     }
 

@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.UNKNOWN_PARTITION_GENERATION;
+
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.FullPageId;
 
 /** Extension for checkpoint with partition generation at the time the page becomes dirty. */
 public final class DirtyFullPageId extends FullPageId {
+    /** Null dirty full page ID. */
+    public static final DirtyFullPageId NULL_PAGE = new DirtyFullPageId(-1, -1, UNKNOWN_PARTITION_GENERATION);
+
     private final int partitionGeneration;
 
     /**
@@ -43,6 +48,7 @@ public final class DirtyFullPageId extends FullPageId {
      * @param fullPageId Full page ID.
      * @param partitionGeneration Partition generation.
      */
+    // TODO: IGNITE-26233 Скорее всего избавиться
     public DirtyFullPageId(FullPageId fullPageId, int partitionGeneration) {
         this(fullPageId.pageId(), fullPageId.groupId(), partitionGeneration);
     }
@@ -81,5 +87,11 @@ public final class DirtyFullPageId extends FullPageId {
                 .app(", groupId=").app(groupId())
                 .app(", partitionGeneration=").app(partitionGeneration)
                 .app(']').toString();
+    }
+
+    /** No doc. */
+    // TODO: IGNITE-26233 Избавиться скорее всего
+    public FullPageId toFullPageId() {
+        return new FullPageId(pageId(), groupId());
     }
 }
