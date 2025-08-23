@@ -364,9 +364,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
-        dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
-
         return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
+                .thenAccept(unused -> dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId()))
                 .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
                 .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
