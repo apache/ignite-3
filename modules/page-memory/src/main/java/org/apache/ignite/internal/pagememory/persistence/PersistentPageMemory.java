@@ -1295,6 +1295,8 @@ public class PersistentPageMemory implements PageMemory {
      *      or not.
      */
     private void setDirty(FullPageId pageId, long absPtr, boolean dirty, boolean forceAdd) {
+        boolean wasDirty = dirty(absPtr, dirty);
+
         int partGen = partitionGeneration(absPtr);
 
         assert partGen != UNKNOWN_PARTITION_GENERATION : pageId;
@@ -1302,8 +1304,6 @@ public class PersistentPageMemory implements PageMemory {
         if (dirty) {
             assert checkpointTimeoutLock.checkpointLockIsHeldByThread() : pageId;
             assert pageIndex(pageId.pageId()) != 0 : "Partition meta should only be updated via the instance of PartitionMeta: " + pageId;
-
-            boolean wasDirty = dirty(absPtr, dirty);
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
