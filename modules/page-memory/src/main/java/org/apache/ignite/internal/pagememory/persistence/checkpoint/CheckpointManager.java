@@ -262,8 +262,8 @@ public class CheckpointManager {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
     }
 
     /**
@@ -367,7 +367,7 @@ public class CheckpointManager {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int partGeneration = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
+        int partGen = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
 
         int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, checkpointedPages) + offset];
 
@@ -376,7 +376,7 @@ public class CheckpointManager {
         for (int i = 0; i < pageIndexes.length - offset; i++) {
             DirtyFullPageId dirtyFullPageId = partitionDirtyPages.get(i);
 
-            if (dirtyFullPageId.partitionGeneration() == partGeneration) {
+            if (dirtyFullPageId.partitionGeneration() == partGen) {
                 pageIndexes[size++] = dirtyFullPageId.pageIdx();
             }
         }

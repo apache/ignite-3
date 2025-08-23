@@ -180,14 +180,10 @@ class CheckpointWorkflow {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
         Set<DirtyFullPageId> dirtyMetaPageIds = dirtyPartitionsMap.computeIfAbsent(dataRegion, unused -> newKeySet());
 
-        assert dataRegion.pageMemory() instanceof PersistentPageMemory;
-
-        int partGen = ((PersistentPageMemory) dataRegion.pageMemory()).partGeneration(groupId, partitionId);
-
-        dirtyMetaPageIds.add(new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partGen));
+        dirtyMetaPageIds.add(new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration));
     }
 
     /**

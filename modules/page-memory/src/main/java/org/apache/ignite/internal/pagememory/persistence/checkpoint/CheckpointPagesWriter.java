@@ -205,7 +205,6 @@ public class CheckpointPagesWriter implements Runnable {
         checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
-            // TODO: IGNITE-26233 вот тут и накрыло меня
             if (shouldWriteMetaPage(partitionId)) {
                 writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
             }
@@ -409,12 +408,17 @@ public class CheckpointPagesWriter implements Runnable {
             return;
         }
 
+        int partGen = pageMemory.partGeneration(partitionId.getGroupId(), partitionId.getPartitionId());
+
+        if (partGen != partitionMeta.partitionGeneration()) {
+            return;
+        }
+
         PartitionMetaSnapshot partitionMetaSnapshot = partitionMeta.metaSnapshot(checkpointProgress.id());
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
-        // TODO: IGNITE-26233 вот тут возможно надо починить брат
-        FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
+        var fullPageId = new DirtyFullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId(), partGen);
 
         pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 

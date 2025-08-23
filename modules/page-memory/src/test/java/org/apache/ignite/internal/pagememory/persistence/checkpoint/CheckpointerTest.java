@@ -387,7 +387,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         PartitionMetaManager mock = mock(PartitionMetaManager.class);
 
-        FakePartitionMeta meta = new FakePartitionMeta(10);
+        FakePartitionMeta meta = new FakePartitionMeta(10, 1);
         meta.init(UUID.randomUUID());
 
         when(mock.getMeta(any())).thenReturn(meta);

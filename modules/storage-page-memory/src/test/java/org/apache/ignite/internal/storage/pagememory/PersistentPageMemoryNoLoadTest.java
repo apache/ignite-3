@@ -174,7 +174,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -241,7 +241,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
             long maxPages = pageMemory.totalPages();
 
@@ -324,7 +324,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -402,7 +402,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 .writeMetaToBuffer(any(GroupPartitionId.class), any(PartitionMetaSnapshot.class), any(ByteBuffer.class));
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -527,7 +527,8 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     private static void initGroupFilePageStores(
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
-            CheckpointManager checkpointManager
+            CheckpointManager checkpointManager,
+            PersistentPageMemory pageMemory
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
 
@@ -551,7 +552,8 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
                         filePageStore,
-                        buffer.rewind()
+                        buffer.rewind(),
+                        pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
                 );
 
                 filePageStore.setPageAllocationListener(pageIdx -> {

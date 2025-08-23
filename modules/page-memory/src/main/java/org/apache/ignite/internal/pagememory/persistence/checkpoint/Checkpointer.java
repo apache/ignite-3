@@ -321,8 +321,8 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        checkpointWorkflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        checkpointWorkflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
     }
 
     /**

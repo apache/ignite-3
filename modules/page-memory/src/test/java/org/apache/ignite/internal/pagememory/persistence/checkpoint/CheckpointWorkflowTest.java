@@ -543,7 +543,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         var metaPageId = new DirtyFullPageId(partitionMetaPageId(partitionId), groupId, partitionGeneration);
 
         when(pageMemory.partGeneration(anyInt(), anyInt())).thenReturn(partitionGeneration);
-        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
                 coarseCurrentTimeMillis(),
@@ -589,7 +589,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         when(pageMemory.beginCheckpoint(any())).thenReturn(List.of(dataPageId));
         when(pageMemory.partGeneration(anyInt(), anyInt())).thenReturn(partitionGeneration);
 
-        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
 
         Checkpoint checkpoint = workflow.markCheckpointBegin(
                 coarseCurrentTimeMillis(),
