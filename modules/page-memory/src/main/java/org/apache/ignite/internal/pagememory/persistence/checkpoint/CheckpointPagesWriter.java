@@ -205,6 +205,7 @@ public class CheckpointPagesWriter implements Runnable {
         checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
+            // TODO: IGNITE-26233 вот тут и накрыло меня
             if (shouldWriteMetaPage(partitionId)) {
                 writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
             }
