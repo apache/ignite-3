@@ -35,7 +35,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmark for a single upsert operation via KV API with a possibility to disable updates via RAFT and to storage.
+ * Benchmark to compare performance of {@link VersatileReadWriteLock} with its derivatives.
  */
 @State(Scope.Benchmark)
 @Fork(1)
