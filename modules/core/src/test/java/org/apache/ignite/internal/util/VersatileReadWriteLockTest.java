@@ -375,7 +375,16 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfException() {
+    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfExceptionInSyncPart() {
+        assertThat(lock.inReadLockAsync(() -> {
+            throw new RuntimeException("Oops");
+        }), willThrow(Exception.class));
+
+        assertThatNoReadLockIsHeld();
+    }
+
+    @Test
+    void inReadLockAsyncReleasesReadLockInTheEndInCaseOfExceptionInAsyncPart() {
         assertThat(lock.inReadLockAsync(() -> failedFuture(new Exception("Oops"))), willThrow(Exception.class));
 
         assertThatNoReadLockIsHeld();
@@ -494,7 +503,16 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfException() {
+    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfExceptionInSyncPart() {
+        assertThat(lock.inWriteLockAsync(() -> {
+            throw new RuntimeException("Oops");
+        }), willThrow(Exception.class));
+
+        assertThatNoWriteLockIsHeld();
+    }
+
+    @Test
+    void inWriteLockAsyncReleasesWriteLockInTheEndInCaseOfExceptionInAsyncPart() {
         assertThat(lock.inWriteLockAsync(() -> failedFuture(new Exception("Oops"))), willThrow(Exception.class));
 
         assertThatNoWriteLockIsHeld();
