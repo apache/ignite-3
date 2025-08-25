@@ -31,6 +31,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
@@ -118,6 +120,12 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0], DirectTxMode.SUPPORTED);
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
+        } else if ("SELECT ALLOWED QUERY TYPES".equals(qry)) {
+            paMeta = null;
+            String row = Stream.concat(properties.allowedQueryTypes().stream().map(SqlQueryType::name).sorted(),
+                    properties.allowMultiStatement() ? Stream.of("MULTISTATEMENT") : Stream.empty()).collect(Collectors.joining(", "));
+            rows.add(getRow(row));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.STRING));
         } else {
             paMeta = null;
             rows.add(getRow(1));

@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Per-connection resource registry.
@@ -138,6 +139,11 @@ public class ClientResourceRegistry {
         if (ex != null) {
             throw ex;
         }
+    }
+
+    @TestOnly
+    public int size() {
+        return res.size();
     }
 
     /**
