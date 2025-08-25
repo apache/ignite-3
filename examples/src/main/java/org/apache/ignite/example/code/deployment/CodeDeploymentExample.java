@@ -53,7 +53,9 @@ public class CodeDeploymentExample {
 
             JobTarget target = JobTarget.anyNode(client.cluster().nodes());
                 System.out.println("\nExecuting compute job'" + "'...");
+
                 String result = client.compute().execute(target, job, "Hello from job");
+
                 System.out.println("\n=== Result ===\n" + result);
         }
     }
