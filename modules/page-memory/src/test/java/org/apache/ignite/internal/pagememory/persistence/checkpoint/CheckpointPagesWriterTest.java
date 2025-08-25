@@ -277,6 +277,9 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
                 = checkpointDirtyPages.toDirtyPartitionQueue();
 
+        PartitionMeta partitionMeta = mock(PartitionMeta.class);
+        when(partitionMeta.partitionGeneration()).thenReturn(1);
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
                 dirtyPartitionQueue,
@@ -288,7 +291,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 checkpointProgress,
                 createDirtyPageWriter(null),
                 ioRegistry,
-                createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
+                createPartitionMetaManager(Map.of(groupPartId, partitionMeta)),
                 () -> checkpointWritePageCount.get() > 0
         );
 

@@ -205,6 +205,8 @@ public class CheckpointPagesWriter implements Runnable {
         checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
+            addUpdatePartitionCounterIfAbsent(partitionId);
+
             boolean isMetaWritten = false;
 
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
@@ -212,7 +214,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                 DirtyFullPageId pageId = checkpointDirtyPagesView.get(i);
 
-                if (!isMetaWritten && isPartGenerationMatchWithMeta(pageId, partitionId) && shouldWriteMetaPage(partitionId)) {
+                if (!isMetaWritten && isPartGenerationMatchWithMeta(pageId, partitionId)) {
                     writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
 
                     isMetaWritten = true;
@@ -333,9 +335,7 @@ public class CheckpointPagesWriter implements Runnable {
                     checkpointProgress.blockPartitionDestruction(partitionId);
 
                     try {
-                        if (isPartGenerationMatchWithMeta(cpPageId, partitionId) && shouldWriteMetaPage(partitionId)) {
-                            writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
-                        }
+                        addUpdatePartitionCounterIfAbsent(partitionId);
 
                         pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, true);
                     } finally {
@@ -346,15 +346,12 @@ public class CheckpointPagesWriter implements Runnable {
         }
     }
 
-    /**
-     * Returns {@code true} if checkpointer should write meta page of partition. Guaranteed to return {@code true} exactly once for every
-     * passed partition ID.
-     */
-    private boolean shouldWriteMetaPage(GroupPartitionId partitionId) {
+    private void addUpdatePartitionCounterIfAbsent(GroupPartitionId partitionId) {
         // We deliberately avoid "computeIfAbsent" here for the sake of performance.
         // For the overwhelming amount of calls "partitionId" should already be in the set.
-        return !updatedPartitions.containsKey(partitionId)
-                && null == updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+        if (!updatedPartitions.containsKey(partitionId)) {
+            updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+        }
     }
 
     private boolean isPartGenerationMatchWithMeta(DirtyFullPageId pageId, GroupPartitionId partitionId) {
@@ -397,7 +394,13 @@ public class CheckpointPagesWriter implements Runnable {
 
             pageWriter.write(pageMemory, fullPageId, buf);
 
-            updatedPartitions.get(GroupPartitionId.convert(fullPageId)).increment();
+            LongAdder longAdder = updatedPartitions.get(GroupPartitionId.convert(fullPageId));
+
+            if (longAdder == null) {
+                System.out.println(1);
+            } else {
+                longAdder.increment();
+            }
         };
     }
 
