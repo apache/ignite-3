@@ -32,15 +32,15 @@ import java.util.List;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.serialization.MessageFormat;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 
 /**
- * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
+ * An encoder for the outbound messages that uses the provided {@link MessageFormat}.
  */
 public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Handler name. */
@@ -53,6 +53,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Message writer channel attribute key. */
     private static final AttributeKey<MessageWriter> WRITER_KEY = AttributeKey.valueOf("WRITER");
 
+    private final MessageFormat messageFormat;
+
     /** Serialization registry. */
     private final PerSessionSerializationService serializationService;
 
@@ -61,7 +63,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
      *
      * @param serializationService Serialization service.
      */
-    public OutboundEncoder(PerSessionSerializationService serializationService) {
+    public OutboundEncoder(MessageFormat messageFormat, PerSessionSerializationService serializationService) {
+        this.messageFormat = messageFormat;
         this.serializationService = serializationService;
     }
 
@@ -71,7 +74,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         MessageWriter writer = writerAttr.get();
 
         if (writer == null) {
-            writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            writer = messageFormat.writer(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
             writerAttr.set(writer);
         }

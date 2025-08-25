@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.replacement;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.OUTDATED_REL_PTR;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -80,12 +79,12 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
             relPtr = loadedPages.get(
                     fullId.groupId(),
                     fullId.effectivePageId(),
-                    seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId())),
+                    seg.partGeneration(fullId.groupId(), fullId.partitionId()),
                     INVALID_REL_PTR,
                     OUTDATED_REL_PTR
             );
 
-            assert relPtr != INVALID_REL_PTR;
+            assert relPtr != INVALID_REL_PTR : fullId;
 
             if (relPtr == OUTDATED_REL_PTR) {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);

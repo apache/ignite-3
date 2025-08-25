@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.assertValueOnSpecificNode;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.pendingPartitionAssignmentsKey;
@@ -59,6 +60,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +77,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -105,6 +108,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -116,6 +121,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartition
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -166,6 +172,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     /** ID of the table with name {@link #TABLE_NAME} in zone {@link #zoneId}. */
     private int tableId;
 
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("id", NativeTypes.INT32, false)},
+            new Column[]{
+                    new Column("val", NativeTypes.INT32, false),
+            }
+    );
+
     @Override
     protected int initialNodes() {
         return INITIAL_NODES;
@@ -187,9 +201,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
 
-        IntStream.range(INITIAL_NODES, zoneParams.nodes()).forEach(i -> cluster.startNode(i));
-        // TODO: IGNITE-22818 Fails with "Race operations took too long"
-        // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
+        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
                         + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
@@ -1080,7 +1092,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
-        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phaze target instead of
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phase target instead of
         // expected within test leaderName = findLeader(1, partId);
 
         // Unblock raft.
@@ -1127,7 +1139,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
-    void testThoPhaseResetEqualLogIndex() throws Exception {
+    void testTwoPhaseResetEqualLogIndex() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -1188,6 +1200,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         errors = insertValues(table, partId, 10);
         assertThat(errors, is(empty()));
 
+        assertInsertedValuesOnSpecificNodes(table.name(), followerNodes, partId, 10);
+
         // Disable scale down.
         executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
@@ -1223,7 +1237,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
-        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phaze target instead of
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phase target instead of
         // expected within test leaderName = findLeader(1, partId);
 
         // Unblock raft.
@@ -2161,5 +2175,33 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int nodes() default INITIAL_NODES;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
+    }
+
+    private void assertInsertedValuesOnSpecificNodes(
+            String tableName,
+            Collection<String> nodesNames,
+            int partitionId,
+            int offset
+    ) throws Exception {
+        Set<IgniteImpl> nodes = cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(node -> nodesNames.contains(node.name()))
+                .collect(Collectors.toSet());;
+
+        for (IgniteImpl node : nodes) {
+            Table table = node.tables().table(tableName);
+
+            for (int i = 0, created = 0; created < ENTRIES; i++) {
+                Tuple key = Tuple.create(of("id", i));
+                if ((unwrapTableImpl(table)).partitionId(key) != partitionId) {
+                    continue;
+                }
+
+                //noinspection AssignmentToForLoopParameter
+                created++;
+
+                assertValueOnSpecificNode(tableName, node, i, i + offset, SCHEMA);
+            }
+        }
     }
 }
