@@ -35,9 +35,7 @@ public class FailureContext {
     /** Message describing the failure. */
     private final String message;
 
-    /**
-     * Id of the failure context.
-     */
+    /** Unique identifier of this failure context. */
     private final UUID id = UUID.randomUUID();
 
     /**

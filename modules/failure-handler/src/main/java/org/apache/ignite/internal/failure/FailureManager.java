@@ -26,7 +26,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -201,7 +200,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             reserveBuf = null;
         }
 
-        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type(), failureCtx.id())) {
+        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx)) {
             String ctxId = format(" [failureCtxId={}]", failureCtx.id());
 
             ThreadUtils.dumpThreads(LOG, ctxId, !handler.ignoredFailureTypes().contains(failureCtx.type()));
@@ -319,11 +318,11 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * This method should be called under synchronization, see {@link #process(FailureContext, FailureHandler)},
      * because it can modify throttling timeout for the given failure type {@link #threadDumpPerFailureTypeTs}.
      *
-     * @param type Failure type.
-     * @param failureCtxId Failure context id.
+     * @param failureContext Failure context.
      * @return {@code true} if thread dump generation should be throttled for given failure type.
      */
-    private boolean throttleThreadDump(FailureType type, UUID failureCtxId) {
+    private boolean throttleThreadDump(FailureContext failureContext) {
+        FailureType type = failureContext.type();
         Map<FailureType, Long> dumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
         long dumpThrottlingTimeout = dumpThreadsThrottlingTimeout;
 
@@ -345,7 +344,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.info("Thread dump is hidden due to throttling settings. "
                     + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps "
                     + "[failureCtxId={}].",
-                    failureCtxId
+                    failureContext.id()
             );
         }
 
