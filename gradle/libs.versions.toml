@@ -99,7 +99,7 @@ cytodynamics = "0.2.0"
 pmdTool = "7.13.0"
 # NOTE: do not update checlstyle to 11.x.x+, because newer versions are not compatible with Java 11.
 checkstyleTool = "10.26.1"
-spotbugsTool = "4.8.3"
+spotbugsTool = "4.9.4"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
