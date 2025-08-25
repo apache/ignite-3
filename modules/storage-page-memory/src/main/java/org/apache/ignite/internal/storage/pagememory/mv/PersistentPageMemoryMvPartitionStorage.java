@@ -274,7 +274,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         closure.update(lastCheckpointId, meta);
 
-        checkpointManager.markPartitionAsDirty(tableStorage.dataRegion(), tableStorage.getTableId(), partitionId);
+        checkpointManager.markPartitionAsDirty(
+                tableStorage.dataRegion(),
+                tableStorage.getTableId(),
+                partitionId,
+                meta.partitionGeneration()
+        );
     }
 
     @Override

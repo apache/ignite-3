@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -50,10 +51,10 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -150,6 +151,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
+        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
+
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1, 3, 5)),
                 createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 6, 7, 9))
@@ -176,6 +180,10 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory2 = mock(PersistentPageMemory.class);
+
+        when(pageMemory0.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory1.partGeneration(anyInt(), anyInt())).thenReturn(1);
+        when(pageMemory2.partGeneration(anyInt(), anyInt())).thenReturn(1);
 
         var dirtyPages = new CheckpointDirtyPages(List.of(
                 createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1, 3, 5)),
@@ -225,9 +233,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         when(filePageStore.isMarkedToDestroy()).then(InvocationOnMock::callRealMethod);
 
         // Will be written to delta file, as file page store already has 2 pages.
-        FullPageId dirtyPageId = new FullPageId(pageId(0, (byte) 0, 1), 0);
+        var dirtyPageId = new DirtyFullPageId(pageId(0, (byte) 0, 1), 0, 1);
         // Will be written to main file, as it is newly allocated.
-        FullPageId dirtyPageId2 = new FullPageId(pageId(0, (byte) 0, 2), 0);
+        var dirtyPageId2 = new DirtyFullPageId(pageId(0, (byte) 0, 2), 0, 1);
 
         when(filePageStoreManager.getStore(eq(new GroupPartitionId(dirtyPageId.groupId(), dirtyPageId.partitionId()))))
                 .then(answer -> filePageStoreRef.get());
@@ -268,11 +276,11 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         verify(filePageStore, (times(1))).write(eq(dirtyPageId2.pageId()), eq(pageBuf));
     }
 
-    private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {
+    private static DirtyFullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {
         Arrays.sort(pageIndex);
 
         return IntStream.of(pageIndex)
-                .mapToObj(pageIdx -> new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId))
-                .toArray(FullPageId[]::new);
+                .mapToObj(pageIdx -> new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1))
+                .toArray(DirtyFullPageId[]::new);
     }
 }

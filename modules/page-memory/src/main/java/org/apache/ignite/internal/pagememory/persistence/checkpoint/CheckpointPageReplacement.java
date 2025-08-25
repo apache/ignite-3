@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class CheckpointPageReplacement {
     /** IDs of pages for which page replacement is in progress. */
-    private final Set<FullPageId> pageIds = ConcurrentHashMap.newKeySet();
+    private final Set<DirtyFullPageId> pageIds = ConcurrentHashMap.newKeySet();
 
     private final CompletableFuture<Void> stopBlockingFuture = new CompletableFuture<>();
 
@@ -61,10 +61,10 @@ class CheckpointPageReplacement {
      * dirty pages at the checkpoint should be complete and no new page replacements should be started.</p>
      *
      * @param pageId Page ID for which page replacement will begin.
-     * @see #unblock(FullPageId, Throwable)
+     * @see #unblock
      * @see #stopBlocking()
      */
-    void block(FullPageId pageId) {
+    void block(DirtyFullPageId pageId) {
         boolean enterBusy = busyLock.enterBusy();
 
         assert enterBusy : "Method should not be invoked after the fsync phase has started for any page: " + pageId;
@@ -93,10 +93,10 @@ class CheckpointPageReplacement {
      *
      * @param pageId Page ID for which the page replacement has ended.
      * @param error Error on page replacement, {@code null} if missing.
-     * @see #block(FullPageId)
+     * @see #block
      * @see #stopBlocking()
      */
-    void unblock(FullPageId pageId, @Nullable Throwable error) {
+    void unblock(DirtyFullPageId pageId, @Nullable Throwable error) {
         boolean removed = pageIds.remove(pageId);
 
         assert removed : "Replacement for the page either did not start or ended: " + pageId;
@@ -121,8 +121,8 @@ class CheckpointPageReplacement {
      *
      * @return Future that will be completed successfully if all {@link #block} are completed before the current method is invoked, either
      *      if there were none, or with an error from the first {@link #unblock}.
-     * @see #block(FullPageId)
-     * @see #unblock(FullPageId, Throwable)
+     * @see #block
+     * @see #unblock
      */
     CompletableFuture<Void> stopBlocking() {
         if (stopGuard.compareAndSet(false, true)) {

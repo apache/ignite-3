@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -260,8 +262,8 @@ public class CheckpointManager {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
     }
 
     /**
@@ -365,10 +367,22 @@ public class CheckpointManager {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
+        int partGen = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
+
         int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, checkpointedPages) + offset];
 
+        int size = offset;
+
         for (int i = 0; i < pageIndexes.length - offset; i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+            DirtyFullPageId dirtyFullPageId = partitionDirtyPages.get(i);
+
+            if (dirtyFullPageId.partitionGeneration() == partGen) {
+                pageIndexes[size++] = dirtyFullPageId.pageIdx();
+            }
+        }
+
+        if (size < pageIndexes.length) {
+            pageIndexes = Arrays.copyOf(pageIndexes, size);
         }
 
         return pageIndexes;

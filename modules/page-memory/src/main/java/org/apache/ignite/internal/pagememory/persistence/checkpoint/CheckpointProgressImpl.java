@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -378,10 +378,10 @@ public class CheckpointProgressImpl implements CheckpointProgress {
      * the fsync phase, write dirty pages at the checkpoint should be complete and no new page replacements should be started.</p>
      *
      * @param pageId Page ID for which page replacement is expected to begin.
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #unblockFsyncOnPageReplacement
      * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    void blockFsyncOnPageReplacement(FullPageId pageId) {
+    void blockFsyncOnPageReplacement(DirtyFullPageId pageId) {
         checkpointPageReplacement.block(pageId);
     }
 
@@ -401,10 +401,10 @@ public class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param pageId Page ID for which the page replacement has ended.
      * @param error Error on page replacement, {@code null} if missing.
-     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #blockFsyncOnPageReplacement
      * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+    void unblockFsyncOnPageReplacement(DirtyFullPageId pageId, @Nullable Throwable error) {
         checkpointPageReplacement.unblock(pageId, error);
     }
 
@@ -415,8 +415,8 @@ public class CheckpointProgressImpl implements CheckpointProgress {
      * <p>Must be invoked before the start of the fsync phase at the checkpoint and wait for the future to complete in order to safely
      * perform the phase.</p>
      *
-     * @see #blockFsyncOnPageReplacement(FullPageId)
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #blockFsyncOnPageReplacement
+     * @see #unblockFsyncOnPageReplacement
      */
     CompletableFuture<Void> getUnblockFsyncOnPageReplacementFuture() {
         return checkpointPageReplacement.stopBlocking();

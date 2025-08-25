@@ -360,7 +360,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                         null,
                         groupPartitionId,
                         filePageStore,
-                        buffer.rewind()
+                        buffer.rewind(),
+                        pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
                 );
 
                 filePageStore.pages(partitionMeta.pageCount());

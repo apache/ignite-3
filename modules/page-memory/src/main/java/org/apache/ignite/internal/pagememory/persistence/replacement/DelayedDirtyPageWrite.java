@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -56,7 +56,7 @@ public class DelayedDirtyPageWrite {
     private final DelayedPageReplacementTracker tracker;
 
     /** Full page id to be written on {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
-    private @Nullable FullPageId fullPageId;
+    private @Nullable DirtyFullPageId fullPageId;
 
     /** Page memory to be used in {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
     private @Nullable PersistentPageMemory pageMemory;
@@ -98,7 +98,7 @@ public class DelayedDirtyPageWrite {
      */
     public void copyPageToTemporaryBuffer(
             PersistentPageMemory pageMemory,
-            FullPageId pageId,
+            DirtyFullPageId pageId,
             ByteBuffer originPageBuf,
             CheckpointPages checkpointPages
     ) {
@@ -122,7 +122,7 @@ public class DelayedDirtyPageWrite {
      * Flushes a previously copied page to disk if it was copied.
      *
      * @throws IgniteInternalCheckedException If write failed.
-     * @see #copyPageToTemporaryBuffer(PersistentPageMemory, FullPageId, ByteBuffer, CheckpointPages)
+     * @see #copyPageToTemporaryBuffer
      */
     public void flushCopiedPageIfExists() throws IgniteInternalCheckedException {
         if (fullPageId == null) {
