@@ -24,6 +24,7 @@ import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.IAppendQueue;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.SharedAppendQueue;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -269,7 +270,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** */
     private List<Stripe> logStripes;
 
-    private IAppendQueue appendQueue;
+    private SharedAppendQueue appendQueue;
 
     /**
      * Apply task in blocking or non-blocking mode, ApplyTaskMode.NonBlocking by default.
@@ -747,11 +748,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return this.logStripes;
     }
 
-    public IAppendQueue getAppendQueue() {
+    public SharedAppendQueue getAppendQueue() {
         return appendQueue;
     }
 
-    public void setAppendQueue(IAppendQueue appendQueue) {
+    public void setAppendQueue(SharedAppendQueue appendQueue) {
         this.appendQueue = appendQueue;
     }
 

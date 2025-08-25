@@ -18,11 +18,18 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventSourceType;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
@@ -35,7 +42,7 @@ import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 public class SharedLogManagerImpl extends LogManagerImpl {
     private static final IgniteLogger LOG = Loggers.forClass(SharedLogManagerImpl.class);
 
-    private IAppendQueue queue;
+    private SharedAppendQueue queue;
 
     /** Log storage instance. */
     private RocksDbSharedLogStorage logStorage;
@@ -52,44 +59,118 @@ public class SharedLogManagerImpl extends LogManagerImpl {
         return state;
     }
 
-    public static class SharedAppendQueue implements IAppendQueue {
-        private final ConcurrentLinkedQueue<IgniteBiTuple<RocksDbSharedLogStorage, StableClosure>> queue = new ConcurrentLinkedQueue<>();
-
-        private volatile boolean broken = false;
-
+    public static class SharedAppendQueue extends AbstractSharedAppendQueue<IgniteBiTuple<RocksDbSharedLogStorage, StableClosure>> {
         @Override
-        public void append(RocksDbSharedLogStorage logStorage, StableClosure done) {
-            queue.add(new IgniteBiTuple<>(logStorage, done));
-        }
-
-        @Override
-        public synchronized boolean flush() {
-            if (queue.isEmpty() || broken) {
-                // Queue will be empty if called not from flushing stripe.
-                return broken;
-            }
+        protected final void doFlush(Queue<IgniteBiTuple<RocksDbSharedLogStorage, StableClosure>> queue0, CompletableFuture<Void> fut) {
+            boolean valid = true;
 
             while (true) {
-                IgniteBiTuple<RocksDbSharedLogStorage, StableClosure> tuple = queue.poll();
+                IgniteBiTuple<RocksDbSharedLogStorage, StableClosure> tuple = queue0.poll();
                 RocksDbSharedLogStorage storage = tuple.get1();
                 StableClosure clo = tuple.get2();
 
                 // It doesn't throw. TODO fragile.
-                broken = !storage.appendEntriesToBatch(clo.getEntries());
-                clo.getEntries().clear();
+                if (valid) {
+                    valid = storage.appendEntriesToBatch(clo.getEntries());
+                }
 
-                // Commit batch on last entry.
-                if (queue.isEmpty()) {
-                    // TODO errors.
-                    storage.commitWriteBatch();
-                    return broken;
+                if (queue0.isEmpty()) {
+                    if (!valid) {
+                        fut.completeExceptionally(new Exception("Flush failed"));
+                    } else {
+                        valid = storage.commitWriteBatch2();
+                        fut.complete(null);
+                    }
+                    return;
                 }
             }
         }
     }
 
+    public abstract static class AbstractSharedAppendQueue<T> implements IAppendQueue<T> {
+        // TODO we can use another structure to avoid contention on queue tail.
+        private volatile ConcurrentLinkedQueue<T> queue = new ConcurrentLinkedQueue<>();
+
+        private final AtomicReference<FlushInfo> flushFut =
+                new AtomicReference<>(new FlushInfo(0, CompletableFutures.nullCompletedFuture(), CompletableFutures.nullCompletedFuture()));
+
+        // TODO striped lock.
+        private final IgniteStripedReadWriteLock lock = new IgniteStripedReadWriteLock();
+
+        @Override
+        public void append(T entry) {
+            // Append is called from concurrent threads.
+            lock.readLock().lock();
+
+            try {
+                queue.add(entry);
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        static class FlushInfo {
+            private final CompletableFuture<Void> waitFut;
+            private final long generation;
+            private final CompletableFuture<Void> flushFut;
+
+            public FlushInfo(long generation, CompletableFuture<Void> parentFut, CompletableFuture<Void> flushFut) {
+                this.generation = generation;
+                this.flushFut = flushFut;
+                this.waitFut = CompletableFuture.allOf(parentFut, flushFut);
+            }
+        }
+
+        @Override
+        public CompletableFuture<Void> flushAsync() {
+            // Flush is called only if a called has something to flush.
+            FlushInfo info0 = flushFut.get();
+            FlushInfo info1 = new FlushInfo(info0.generation + 1, info0.waitFut, new CompletableFuture<>());
+
+            boolean res = flushFut.compareAndSet(info0, info1);
+
+            if (res) {
+                assert info0.generation + 1 == info1.generation : "Failed ordering";
+
+                ConcurrentLinkedQueue<T> queue0;
+
+                // Atomically replace queue if choosen as flush coordinator.
+                lock.writeLock().lock();
+
+                try {
+                    FlushInfo tmp = flushFut.get();
+                    // Another thread may increment generation.
+                    if (tmp.generation > info1.generation) { // TODO FIXME if many times ?
+                        return tmp.waitFut; // It's ok to wait for later generation.
+                    } else {
+                        assert tmp.generation == info1.generation : "Failed ordering";
+                    }
+
+                    queue0 = queue;
+
+                    queue = new ConcurrentLinkedQueue<>(); // TODO FIXME GC pressure ?
+                } finally {
+                    lock.writeLock().unlock();
+                }
+
+                ForkJoinPool.commonPool().execute(() -> doFlush(queue0, info1.flushFut));
+                //doFlush(queue0, info1.flushFut);
+
+                return info1.waitFut;
+            } else {
+                // Re-read
+                FlushInfo info2 = flushFut.get();
+                assert info2.generation >= info0.generation : "Failed ordering"; // TODO
+
+                // Can wait on current generation because it implies older generations.
+                return info2.waitFut;
+            }
+        }
+
+        protected abstract void doFlush(Queue<T> queue0, CompletableFuture<Void> fut);
+    }
+
     class SharedAppender implements IAppendBatcher {
-        private LogId logId;
         private final List<StableClosure> closures = new ArrayList<>();
 
         public SharedAppender(List<StableClosure> storages, int cap, LogId lastId) {
@@ -99,45 +180,53 @@ public class SharedLogManagerImpl extends LogManagerImpl {
         @Override
         public void append(StableClosure done) {
             // Add to shared queue.
-            queue.append(logStorage, done);
-            // Update local state.
-            logId = done.getEntries().get(done.getEntries().size() - 1).getId();
+            queue.append(new IgniteBiTuple<>(logStorage, done));
             closures.add(done);
         }
 
         @Override
         public LogId flush() {
-            if (SharedLogManagerImpl.this.hasError) {
-                Status st = new Status(RaftError.EIO, "Corrupted LogStorage");
-                for (StableClosure closure : closures) {
-                    closure.run(st);
-                }
-
-                closures.clear();
-                return logId;
+            if (closures.isEmpty()) {
+                return null;
             }
 
-            if (queue.flush()) {
-                reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
-            }
-
-            Status st;
-            if (SharedLogManagerImpl.this.hasError) {
-                // TODO dump corrupted info.
-                st = new Status(RaftError.EIO, "Corrupted LogStorage");
-            }
-            else {
-                st = Status.OK();
-            }
+            queue.flushAsync().join(); // TODO handle errors
 
             for (StableClosure closure : closures) {
-                closure.run(st);
+                closure.run(Status.OK()); // TODO handle errors.
+                closure.getEntries().clear();
             }
 
+            StableClosure clo = closures.get(closures.size() - 1);
             closures.clear();
+            return clo.getEntries().get(clo.getEntries().size() - 1).getId();
+        }
 
-            // In case of error do not adjust disk id.
-            return st.isOk() ? logId : null;
+        @Override
+        public void flushAsync() {
+            assert !closures.isEmpty(); // Async flush never called with empty queue.
+
+            var clos = new ArrayList<>(closures);
+            closures.clear(); // New closures will be accumulated while async flush is in progress.
+
+            var fut = queue.flushAsync();
+            fut.whenComplete((r, e) -> {
+                if (e != null) {
+                    reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
+                }
+
+                for (StableClosure clo : clos) {
+                    diskQueue.publishEvent((event, sequence) -> {
+                        event.reset();
+
+                        event.setSrcType(DisruptorEventSourceType.LOG);
+                        event.setNodeId(SharedLogManagerImpl.this.nodeId);
+                        event.setEventType(EventType.OTHER);
+                        event.setFlush(Boolean.TRUE);
+                        event.setDone(clo);
+                    });
+                }
+            });
         }
     }
 
@@ -146,13 +235,9 @@ public class SharedLogManagerImpl extends LogManagerImpl {
         return new SharedAppender(storages, cap, diskId);
     }
 
-    public interface IAppendQueue {
-        void append(RocksDbSharedLogStorage sharedLogManager, StableClosure done);
+    public interface IAppendQueue<T> {
+        void append(T entry);
 
-        /**
-         *
-         * @return {@code True} if flush was unsuccessful.
-         */
-        boolean flush();
+        CompletableFuture<Void> flushAsync();
     }
 }

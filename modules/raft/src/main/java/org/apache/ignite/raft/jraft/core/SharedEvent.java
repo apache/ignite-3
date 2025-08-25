@@ -20,6 +20,7 @@ public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAnd
     Status status;
     LeaderChangeContext leaderChangeCtx;
     Closure done;
+    Boolean flush;
 
     LogEntry entry;
     long expectedTerm;
@@ -128,6 +129,16 @@ public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAnd
     }
 
     @Override
+    public Boolean getFlush() {
+        return flush;
+    }
+
+    @Override
+    public void setFlush(Boolean flush) {
+        this.flush = flush;
+    }
+
+    @Override
     public void reset() {
         super.reset();
 
@@ -142,6 +153,7 @@ public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAnd
         this.status = null;
         this.leaderChangeCtx = null;
         this.done = null;
+        this.flush = null;
 
         this.done = null;
         this.type = null;
@@ -156,6 +168,7 @@ public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAnd
                 ", status=" + status +
                 ", leaderChangeCtx=" + leaderChangeCtx +
                 ", done=" + done +
+                ", flush=" + flush +
                 ", entry=" + entry +
                 ", expectedTerm=" + expectedTerm +
                 ", shutdownLatch=" + shutdownLatch +

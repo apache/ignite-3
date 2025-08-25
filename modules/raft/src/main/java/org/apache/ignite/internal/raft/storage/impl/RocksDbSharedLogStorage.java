@@ -541,6 +541,28 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         }
     }
 
+    boolean commitWriteBatch2() {
+        WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
+
+        if (writeBatch == null) {
+            return true;
+        }
+
+        try {
+            if (writeBatch.count() > 0) {
+                db.write(this.writeOptions, writeBatch);
+            }
+        } catch (RocksDBException e) {
+            LOG.error("Execute batch failed with rocksdb exception.", e);
+
+            return false;
+        } finally {
+            logStorageFactory.clearThreadLocalWriteBatch(writeBatch);
+        }
+
+        return true;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean truncateSuffix(long lastIndexKept) {

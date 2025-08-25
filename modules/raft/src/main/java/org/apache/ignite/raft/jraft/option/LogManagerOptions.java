@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.IAppendQueue;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl.SharedAppendQueue;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Node;
@@ -42,13 +42,13 @@ public class LogManagerOptions {
     private LogEntryCodecFactory logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
     private StripedDisruptor<LogManagerImpl.IStableClosureEvent> logManagerDisruptor;
     private List<Stripe> logStripes;
-    private IAppendQueue appendQueue;
+    private SharedAppendQueue appendQueue;
 
-    public IAppendQueue getAppendQueue() {
+    public SharedAppendQueue getAppendQueue() {
         return appendQueue;
     }
 
-    public void setAppendQueue(IAppendQueue appendQueue) {
+    public void setAppendQueue(SharedAppendQueue appendQueue) {
         this.appendQueue = appendQueue;
     }
 

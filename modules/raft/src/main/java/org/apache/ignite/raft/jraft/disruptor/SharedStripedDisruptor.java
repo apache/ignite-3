@@ -32,6 +32,7 @@ import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
 import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,6 +117,7 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
         }
 
         private void consumeBatch(long sequence) throws Exception {
+            // TODO FIXME can group together events of the same type ???
             for (Entry<NodeId, List<T>> entry : sharedEventCache.entrySet()) {
                 List<T> cached = entry.getValue();
                 for (int i = 0; i < cached.size(); i++) {
@@ -128,7 +130,14 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
 
                         // Batch events of same class.
                         if (next.getSrcType() == t.getSrcType()) {
-                            endB = false;
+                            // Don't batch together append and flush log events.
+                            if (next.getSrcType() == DisruptorEventSourceType.LOG) {
+                                IStableClosureEvent evt0 = (IStableClosureEvent) next;
+                                IStableClosureEvent evt1 = (IStableClosureEvent) t;
+                                endB = evt0.getFlush() != evt1.getFlush();
+                            } else {
+                                endB = false;
+                            }
                         }
                     }
 

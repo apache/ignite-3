@@ -29,8 +29,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.internal.raft.storage.TermCache;
+import org.apache.ignite.internal.raft.storage.impl.SharedLogManagerImpl;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -70,7 +71,7 @@ public class LogManagerImpl implements LogManager {
     private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
     /** Raft node id. */
-    private NodeId nodeId;
+    protected NodeId nodeId;
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;
@@ -90,12 +91,13 @@ public class LogManagerImpl implements LogManager {
     private volatile LogId lastSnapshotId = new LogId(0, 0);
     private final Map<Long, WaitMeta> waitMap = new HashMap<>();
     private StripedDisruptor<IStableClosureEvent> disruptor;
-    private RingBuffer<IStableClosureEvent> diskQueue;
+    protected RingBuffer<IStableClosureEvent> diskQueue;
     private RaftOptions raftOptions;
     private volatile CountDownLatch shutDownLatch;
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastLogIndexListener> lastLogIndexListeners = new CopyOnWriteArrayList<>();
     private NodeOptions nodeOptions;
+    private final boolean sharedMode = this instanceof SharedLogManagerImpl;
 
     public enum EventType {
         OTHER, // other event type.
@@ -111,11 +113,14 @@ public class LogManagerImpl implements LogManager {
         public void setDone(Closure done);
         public EventType getEventType();
         public void setEventType(EventType type);
+        public void setFlush(Boolean flush);
+        public Boolean getFlush();
     }
 
     public static class StableClosureEvent extends NodeIdAware implements IStableClosureEvent {
         Closure done;
         EventType type;
+        Boolean flush;
 
         @Override public Closure getDone() {
             return done;
@@ -129,6 +134,12 @@ public class LogManagerImpl implements LogManager {
         @Override public void setEventType(EventType type) {
             this.type = type;
         }
+        @Override public Boolean getFlush() {
+            return flush;
+        }
+        @Override public void setFlush(Boolean flush) {
+            this.flush = flush;
+        }
 
         @Override
         public void reset() {
@@ -136,6 +147,7 @@ public class LogManagerImpl implements LogManager {
 
             this.done = null;
             this.type = null;
+            this.flush = null;
         }
 
         @Override
@@ -143,6 +155,7 @@ public class LogManagerImpl implements LogManager {
             return "StableClosureEvent{" +
                     "done=" + done +
                     ", type=" + type +
+                    ", flush=" + flush +
                     ", super=" + super.toString() +
                     '}';
         }
@@ -474,6 +487,8 @@ public class LogManagerImpl implements LogManager {
         void append(StableClosure done);
 
         LogId flush();
+
+        default void flushAsync() {}
     }
 
     protected class AppendBatcher implements IAppendBatcher {
@@ -547,6 +562,29 @@ public class LogManagerImpl implements LogManager {
         @Override
         public void onEvent(final IStableClosureEvent event, final long sequence, final boolean endOfBatch)
             throws Exception {
+            if (event.getFlush() != null) { // This event entries are flushed to disk.
+                // TODO account endOfBatch ?
+                StableClosure done = (StableClosure) event.getDone();
+                Status st = null;
+                try {
+                    if (LogManagerImpl.this.hasError) {
+                        st = new Status(RaftError.EIO, "Corrupted LogStorage");
+                    }
+                    else {
+                        st = Status.OK();
+                    }
+                    done.run(st);
+                }
+                catch (Throwable t) {
+                    LOG.error("Fail to run closure with status: {}.", t, st);
+                }
+                lastId = done.getEntries().get(done.getEntries().size() - 1).getId();
+                setDiskId(lastId);
+                done.getEntries().clear();
+
+                return;
+            }
+
             if (event.getEventType() == EventType.SHUTDOWN) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
@@ -557,10 +595,14 @@ public class LogManagerImpl implements LogManager {
             final StableClosure done = (StableClosure) event.getDone();
             final EventType eventType = event.getEventType();
 
-            event.reset();
+            event.reset(); // TODO: do we need this ??
 
             if (done.getEntries() != null && !done.getEntries().isEmpty()) {
                 this.ab.append(done);
+
+                if (endOfBatch && sharedMode) {
+                    this.ab.flushAsync();
+                }
             }
             else {
                 this.lastId = this.ab.flush();
@@ -569,7 +611,7 @@ public class LogManagerImpl implements LogManager {
                 boolean ret = true;
                 switch (eventType) {
                     case LAST_LOG_ID:
-                        ((LastLogIdClosure) done).setLastLogId(this.lastId.copy());
+                        ((LastLogIdClosure) done).setLastLogId(this.lastId.copy()); // TODO FIXME NPE is possible.
                         break;
                     case TRUNCATE_PREFIX:
                         long startMs = Utils.monotonicMs();
@@ -625,12 +667,11 @@ public class LogManagerImpl implements LogManager {
                 }
             }
 
-            if (endOfBatch) {
+            if (endOfBatch && !sharedMode) {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
             }
         }
-
     }
 
     protected void reportError(final int code, final String fmt, final Object... args) {
