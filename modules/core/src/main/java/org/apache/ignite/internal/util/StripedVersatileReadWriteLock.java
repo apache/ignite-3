@@ -138,11 +138,9 @@ public class StripedVersatileReadWriteLock {
      * Acquires the write lock waiting, if needed. The thread will block until all other read and write locks are released.
      */
     public void writeLock() {
-        int i = 0;
-
         // Locks must be acquired in order to avoid deadlocks.
-        for (; i < locks.length; i++) {
-            locks[i].writeLock();
+        for (VersatileReadWriteLock lock : locks) {
+            lock.writeLock();
         }
     }
 
