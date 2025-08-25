@@ -191,17 +191,11 @@ public class StripedVersatileReadWriteLock {
      * @return Action result.
      */
     public <T> CompletableFuture<T> inReadLockAsync(Supplier<? extends CompletableFuture<T>> action) {
-        return readLockAsync()
-                .thenCompose(index -> {
-                    return nullCompletedFuture()
-                            .thenCompose(unused -> action.get())
-                            .whenComplete((res, ex) -> readUnlock(index));
-                });
-    }
-
-    private CompletableFuture<Integer> readLockAsync() {
         int index = currentIndex();
-        return locks[index].readLockAsync().thenApply(unused -> index);
+
+        return locks[index].readLockAsync()
+                .thenCompose(unused -> action.get())
+                .whenComplete((res, ex) -> readUnlock(index));
     }
 
     /**
