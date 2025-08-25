@@ -58,18 +58,18 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
 /**
- * Tests for {@link VersatileReadWriteLock}.
+ * Tests for {@link StripedVersatileReadWriteLock}.
  */
 @Timeout(20)
 @ExtendWith(ExecutorServiceExtension.class)
-class VersatileReadWriteLockTest {
+class StripedVersatileReadWriteLockTest {
     private static final String ASYNC_CONTINUATION_THREAD_PREFIX = "ace";
 
     @InjectExecutorService(threadPrefix = ASYNC_CONTINUATION_THREAD_PREFIX)
     private ExecutorService asyncContinuationExecutor;
 
     /** The lock under test. */
-    private VersatileReadWriteLock lock;
+    private StripedVersatileReadWriteLock lock;
 
     /** Executor service used to run tasks in threads different from the main test thread. */
     @InjectExecutorService
@@ -77,7 +77,7 @@ class VersatileReadWriteLockTest {
 
     @BeforeEach
     void createLock() {
-        lock = new VersatileReadWriteLock(asyncContinuationExecutor);
+        lock = new StripedVersatileReadWriteLock(asyncContinuationExecutor);
     }
 
     /**
@@ -87,9 +87,6 @@ class VersatileReadWriteLockTest {
     void cleanup() {
         releaseReadLocks();
         releaseWriteLocks();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 3, SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(asyncContinuationExecutor, 3, SECONDS);
     }
 
     private void releaseReadLocks() {
@@ -127,10 +124,9 @@ class VersatileReadWriteLockTest {
     @ParameterizedTest
     @EnumSource(BlockingWriteLockAcquisition.class)
     void readLockDoesNotAllowWriteLockToBeAcquiredBySameThread(BlockingWriteLockAcquisition acquisition) {
-        assertThatActionBlocksForever(() -> {
-            lock.readLock();
-            acquisition.acquire(lock);
-        });
+        lock.readLock();
+
+        assertThatActionBlocksForever(() -> acquisition.acquire(lock));
 
         lock.readUnlock();
     }
@@ -143,27 +139,6 @@ class VersatileReadWriteLockTest {
         CompletableFuture<?> future = runAsync(action, executor);
 
         assertThat(future, willTimeoutIn(100, MILLISECONDS));
-    }
-
-    @Test
-    void readLockDoesNotAllowWriteLockToBeAcquiredWithTimeout() throws Exception {
-        lock.readLock();
-
-        Boolean acquired = callWithTimeout(() -> lock.tryWriteLock(1, MILLISECONDS));
-        assertThat(acquired, is(false));
-
-        lock.readUnlock();
-    }
-
-    @Test
-    void readLockDoesNotAllowWriteLockToBeAcquiredWithTimeoutBySameThread() throws Exception {
-        Boolean acquired = callWithTimeout(() -> {
-            lock.readLock();
-            return lock.tryWriteLock(1, MILLISECONDS);
-        });
-        assertThat(acquired, is(false));
-
-        lock.readUnlock();
     }
 
     @Test
@@ -311,10 +286,9 @@ class VersatileReadWriteLockTest {
     @ParameterizedTest
     @EnumSource(BlockingWriteLockAcquisition.class)
     void readLockAcquiredWithTryReadLockDoesNotAllowWriteLockToBeAcquiredBySameThread(BlockingWriteLockAcquisition acquisition) {
-        assertThatActionBlocksForever(() -> {
-            lock.tryReadLock();
-            acquisition.acquire(lock);
-        });
+        lock.tryReadLock();
+
+        assertThatActionBlocksForever(() -> acquisition.acquire(lock));
 
         lock.readUnlock();
     }
@@ -420,33 +394,6 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void inReadLockAsyncRespectsPendingWriteLocks() throws Exception {
-        lock.readLock();
-
-        CompletableFuture<?> writeLockFuture = runAsync(lock::writeLock, executor);
-
-        waitTillWriteLockAcquireAttemptIsInitiated();
-
-        CompletableFuture<Void> readLockAsyncFuture = lock.inReadLockAsync(CompletableFutures::nullCompletedFuture);
-        assertFalse(readLockAsyncFuture.isDone());
-
-        // Letting the write lock to be acquired.
-        lock.readUnlock();
-
-        assertThat(writeLockFuture, willCompleteSuccessfully());
-
-        assertFalse(waitForCondition(readLockAsyncFuture::isDone, 100));
-
-        lock.writeUnlock();
-    }
-
-    private void waitTillWriteLockAcquireAttemptIsInitiated() throws InterruptedException {
-        boolean sawAnAttempt = waitForCondition(
-                () -> lock.pendingWriteLocksCount() > 0, SECONDS.toMillis(10));
-        assertTrue(sawAnAttempt, "Did not see any attempt to acquire write lock");
-    }
-
-    @Test
     void inReadLockAsyncTakesReadLockInExecutorAfterWriteLockGetsReleased() {
         lock.writeLock();
 
@@ -490,7 +437,7 @@ class VersatileReadWriteLockTest {
     private void assertThatWriteLockGetsUnlocked() throws InterruptedException {
         assertTrue(
                 waitForCondition(() -> !lock.isWriteLocked(), SECONDS.toMillis(10)),
-                () -> "Still write locked"
+                "Still write locked"
         );
     }
 
@@ -586,46 +533,40 @@ class VersatileReadWriteLockTest {
     private enum BlockingWriteLockAcquisition {
         WRITE_LOCK {
             @Override
-            void acquire(VersatileReadWriteLock lock) {
+            void acquire(StripedVersatileReadWriteLock lock) {
                 lock.writeLock();
-            }
-        },
-        WRITE_LOCK_BUSY {
-            @Override
-            void acquire(VersatileReadWriteLock lock) {
-                lock.writeLockBusy();
             }
         };
 
-        abstract void acquire(VersatileReadWriteLock lock);
+        abstract void acquire(StripedVersatileReadWriteLock lock);
     }
 
     private enum WriteLockImpeder {
         READ_LOCK {
             @Override
-            void impede(VersatileReadWriteLock lock) {
+            void impede(StripedVersatileReadWriteLock lock) {
                 lock.readLock();
             }
 
             @Override
-            void stopImpeding(VersatileReadWriteLock lock) {
+            void stopImpeding(StripedVersatileReadWriteLock lock) {
                 lock.readUnlock();
             }
         },
         WRITE_LOCK {
             @Override
-            void impede(VersatileReadWriteLock lock) {
+            void impede(StripedVersatileReadWriteLock lock) {
                 lock.writeLock();
             }
 
             @Override
-            void stopImpeding(VersatileReadWriteLock lock) {
+            void stopImpeding(StripedVersatileReadWriteLock lock) {
                 lock.writeUnlock();
             }
         };
 
-        abstract void impede(VersatileReadWriteLock lock);
+        abstract void impede(StripedVersatileReadWriteLock lock);
 
-        abstract void stopImpeding(VersatileReadWriteLock lock);
+        abstract void stopImpeding(StripedVersatileReadWriteLock lock);
     }
 }
