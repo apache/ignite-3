@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -52,7 +52,7 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
         );
 
         if (missedStorageProfileNames.isEmpty()) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return logicalTopologyService.logicalTopologyOnLeader()
