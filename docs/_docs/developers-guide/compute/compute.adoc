@@ -624,9 +624,9 @@ tab:.NET[]
 var cts = new CancellationTokenSource();
 CancellationToken cancelToken = cts.Token;
 
-IJobExecution<string> execution = await client.Compute.SubmitAsync(
+var execution = client.Compute.ExecuteAsync(
 JobTarget.AnyNode(await client.GetClusterNodesAsync()),
-JobDescriptor.Of(new NodeNameJob()),
+new JobDescriptor(typeof(NodeNameJob)),
 cancelToken);
 
 cts.Cancel();
