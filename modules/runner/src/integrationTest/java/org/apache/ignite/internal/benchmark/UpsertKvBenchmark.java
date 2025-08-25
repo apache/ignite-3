@@ -50,7 +50,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(32)
+@Threads(64)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -66,7 +66,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"32"})
+    @Param({"16"})
     private int partitionCount;
 
     @Param({"0"})
@@ -89,7 +89,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
+        //System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
         super.nodeSetUp();
@@ -168,7 +168,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + UpsertKvBenchmark.class.getSimpleName() + ".*")
-                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                .jvmArgsAppend("-Djmh.executor=VIRTUAL")
                 // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
                 .build();
 
