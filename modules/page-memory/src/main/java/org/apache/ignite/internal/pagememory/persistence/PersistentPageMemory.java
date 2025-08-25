@@ -2106,6 +2106,10 @@ public class PersistentPageMemory implements PageMemory {
             if (relPtr != OUTDATED_REL_PTR) {
                 absPtr = seg.absolute(relPtr);
 
+                if (fullId.partitionGeneration() != partitionGeneration(absPtr)) {
+                    return;
+                }
+
                 // Pin the page until page will not be copied. This helpful to prevent page replacement of this page.
                 if (tempBufferPointer(absPtr) == INVALID_REL_PTR) {
                     PageHeader.acquirePage(absPtr);

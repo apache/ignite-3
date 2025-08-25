@@ -205,18 +205,17 @@ public class CheckpointPagesWriter implements Runnable {
         checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
-            if (shouldWriteMetaPage(partitionId)) {
-                writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
-            }
+            boolean isMetaWritten = false;
 
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
                 updateHeartbeat.run();
 
                 DirtyFullPageId pageId = checkpointDirtyPagesView.get(i);
 
-                if (pageId.pageIdx() == 0) {
-                    // Skip meta-pages, they are written by "writePartitionMeta".
-                    continue;
+                if (!isMetaWritten && isPartGenerationMatchWithMeta(pageId, partitionId) && shouldWriteMetaPage(partitionId)) {
+                    writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+
+                    isMetaWritten = true;
                 }
 
                 writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
@@ -334,7 +333,7 @@ public class CheckpointPagesWriter implements Runnable {
                     checkpointProgress.blockPartitionDestruction(partitionId);
 
                     try {
-                        if (shouldWriteMetaPage(partitionId)) {
+                        if (isPartGenerationMatchWithMeta(cpPageId, partitionId) && shouldWriteMetaPage(partitionId)) {
                             writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
                         }
 
@@ -356,6 +355,12 @@ public class CheckpointPagesWriter implements Runnable {
         // For the overwhelming amount of calls "partitionId" should already be in the set.
         return !updatedPartitions.containsKey(partitionId)
                 && null == updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+    }
+
+    private boolean isPartGenerationMatchWithMeta(DirtyFullPageId pageId, GroupPartitionId partitionId) {
+        PartitionMeta partitionMeta = partitionMetaManager.getMeta(partitionId);
+
+        return partitionMeta != null && partitionMeta.partitionGeneration() == pageId.partitionGeneration();
     }
 
     /**
@@ -408,20 +413,15 @@ public class CheckpointPagesWriter implements Runnable {
             return;
         }
 
-        // TODO: IGNITE-26233 Вот тут появляется ошибка, на момент сортировки мы отбрасываем эту мету страницу,
-        // но тут мы снова на нее натыкаемся и поскольку поколение будет актуальным то попробуем записать ее
-        // надо починить
-        int partGen = pageMemory.partGeneration(partitionId.getGroupId(), partitionId.getPartitionId());
-
-        if (partGen != partitionMeta.partitionGeneration()) {
-            return;
-        }
-
         PartitionMetaSnapshot partitionMetaSnapshot = partitionMeta.metaSnapshot(checkpointProgress.id());
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
-        var fullPageId = new DirtyFullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId(), partGen);
+        var fullPageId = new DirtyFullPageId(
+                partitionMetaPageId(partitionId.getPartitionId()),
+                partitionId.getGroupId(),
+                partitionMeta.partitionGeneration()
+        );
 
         pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 
