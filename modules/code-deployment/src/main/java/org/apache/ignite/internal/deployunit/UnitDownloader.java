@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.Collection;
 import java.util.List;
@@ -87,7 +88,22 @@ class UnitDownloader {
      * @param nodes Nodes where the unit is deployed.
      */
     CompletableFuture<Boolean> downloadUnit(String id, Version version, Collection<String> nodes) {
-        return tracker.track(id, version, () -> messaging.downloadUnitContent(id, version, nodes)
+        // Get the status again inside the tracker. There could be a race when another thread just completed the download, updated the
+        // status to DEPLOYED and stopped tracking. In this case the tracked job will be started, but now we have outdated status and
+        // we call downloadUnitContent again. When it completes and unit is deployed again, updating node status returns false since it's
+        // already DEPLOYED from another thread. Subsequently IgniteDeployment.onDemandDeploy returns false and the job fails.
+        return tracker.track(id, version, () -> deploymentUnitStore.getNodeStatus(nodeName, id, version)
+                .thenCompose(status -> {
+                    if (status.status() == DEPLOYED) {
+                        return trueCompletedFuture();
+                    }
+                    return downloadUnitContent(id, version, nodes);
+                })
+        );
+    }
+
+    private CompletableFuture<Boolean> downloadUnitContent(String id, Version version, Collection<String> nodes) {
+        return messaging.downloadUnitContent(id, version, nodes)
                 .thenCompose(content -> {
                     DeploymentUnit unit = toDeploymentUnit(content);
                     return deployer.deploy(id, version, unit)
@@ -104,7 +120,6 @@ class UnitDownloader {
                         return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
                     }
                     return falseCompletedFuture();
-                })
-        );
+                });
     }
 }
