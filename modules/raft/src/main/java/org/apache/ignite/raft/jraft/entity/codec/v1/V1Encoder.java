@@ -118,7 +118,7 @@ public final class V1Encoder implements LogEntryEncoder {
 
         // Includes "ENTRY_TYPE_DATA" and "ENTRY_TYPE_NO_OP".
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
-            GridUnsafe.copyHeapOffheap(data.array(), data.position() + GridUnsafe.BYTE_ARR_OFF, addr, data.remaining());
+            GridUnsafe.copyHeapOffheap(data.array(), data.position() + data.arrayOffset() + GridUnsafe.BYTE_ARR_OFF, addr, data.remaining());
         }
     }
 
@@ -161,7 +161,7 @@ public final class V1Encoder implements LogEntryEncoder {
         }
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
-            System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
+            System.arraycopy(data.array(), data.position() + data.arrayOffset(), content, pos, data.remaining());
         }
 
         return content;
