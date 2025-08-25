@@ -42,16 +42,16 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -61,20 +61,24 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
  * Tests for {@link StripedVersatileReadWriteLock}.
  */
 @Timeout(20)
+@ExtendWith(ExecutorServiceExtension.class)
 class StripedVersatileReadWriteLockTest {
-    private static final IgniteLogger LOG = Loggers.forClass(StripedVersatileReadWriteLockTest.class);
-
     private static final String ASYNC_CONTINUATION_THREAD_PREFIX = "ace";
 
-    private final ExecutorService asyncContinuationExecutor = Executors.newCachedThreadPool(
-            IgniteThreadFactory.createWithFixedPrefix(ASYNC_CONTINUATION_THREAD_PREFIX, false, LOG)
-    );
+    @InjectExecutorService(threadPrefix = ASYNC_CONTINUATION_THREAD_PREFIX)
+    private ExecutorService asyncContinuationExecutor;
 
     /** The lock under test. */
-    private final StripedVersatileReadWriteLock lock = new StripedVersatileReadWriteLock(asyncContinuationExecutor);
+    private StripedVersatileReadWriteLock lock;
 
     /** Executor service used to run tasks in threads different from the main test thread. */
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    @InjectExecutorService
+    private ExecutorService executor;
+
+    @BeforeEach
+    void createLock() {
+        lock = new StripedVersatileReadWriteLock(asyncContinuationExecutor);
+    }
 
     /**
      * Cleans up after a test.
@@ -83,9 +87,6 @@ class StripedVersatileReadWriteLockTest {
     void cleanup() {
         releaseReadLocks();
         releaseWriteLocks();
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 3, SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(asyncContinuationExecutor, 3, SECONDS);
     }
 
     private void releaseReadLocks() {
