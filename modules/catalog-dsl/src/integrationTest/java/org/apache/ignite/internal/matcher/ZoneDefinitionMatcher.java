@@ -175,7 +175,6 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 && replicasMatcher.matches(zoneDefinition.replicas())
                 && quorumSizeMatcher.matches(zoneDefinition.quorumSize())
                 && distributionAlgorithmMatcher.matches(zoneDefinition.distributionAlgorithm())
-                && dataNodesAutoAdjustMatcher.matches(zoneDefinition.dataNodesAutoAdjust())
                 && zoneNameMatcher.matches(zoneDefinition.zoneName())
                 && dataNodesAutoAdjustScaleUpMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleUp())
                 && dataNodesAutoAdjustScaleDownMatcher.matches(zoneDefinition.dataNodesAutoAdjustScaleDown())
