@@ -544,6 +544,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.ANY_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.SINGLE_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.FILTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.GROUPING);
 
         definedOperatorsBuilder.add(EVERY);
         definedOperatorsBuilder.add(SOME);
