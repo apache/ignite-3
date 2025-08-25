@@ -1229,7 +1229,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private void validateAggregateFunction(SqlCall call, SqlAggFunction aggFunction) {
-        if (!SqlKind.AGGREGATE.contains(aggFunction.kind)) {
+        if (!aggFunction.isAggregator()) {
             throw newValidationError(call,
                     IgniteResource.INSTANCE.unsupportedAggregationFunction(aggFunction.getName()));
         }
@@ -1246,6 +1246,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             case MIN:
             case MAX:
             case ANY_VALUE:
+            case GROUPING:
 
                 return;
             default:
