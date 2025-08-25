@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.events;
+package org.apache.ignite.internal.compute;
 
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.apache.ignite.internal.compute.events.EventMatcher.thinClientJobEvent;
 
 import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.EventMatcher;
 import org.apache.ignite.internal.compute.utils.Clients;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
-import org.junit.jupiter.api.AfterAll;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 
-class ItThinClientComputeEventsTest extends ItComputeEventsTest {
+class ItFailoverCandidateNotFoundThinClientTest extends ItFailoverCandidateNotFoundTest {
     private final Clients clients = new Clients();
 
-    @AfterAll
+    @AfterEach
     void cleanup() {
         clients.cleanup();
     }
@@ -41,9 +42,7 @@ class ItThinClientComputeEventsTest extends ItComputeEventsTest {
     }
 
     @Override
-    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, UUID jobId, String jobClassName, String targetNode) {
-        return super.jobEvent(eventType, jobType, jobId, jobClassName, targetNode)
-                .withUsername(is("unknown"))
-                .withClientAddress(notNullValue(String.class));
+    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, @Nullable UUID jobId, String jobClassName, String targetNode) {
+        return thinClientJobEvent(eventType, jobType, jobId, jobClassName, targetNode, node(0).name());
     }
 }

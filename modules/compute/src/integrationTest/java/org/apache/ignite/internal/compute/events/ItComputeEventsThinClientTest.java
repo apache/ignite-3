@@ -15,23 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.events;
 
-import org.apache.ignite.Ignite;
+import static org.apache.ignite.internal.compute.events.EventMatcher.thinClientJobEvent;
+
+import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.utils.Clients;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
 
-class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
+class ItComputeEventsThinClientTest extends ItComputeEventsTest {
     private final Clients clients = new Clients();
 
-    @AfterEach
+    @AfterAll
     void cleanup() {
         clients.cleanup();
     }
 
     @Override
-    protected IgniteCompute compute(Ignite entryNode) {
-        return clients.compute(entryNode);
+    protected IgniteCompute compute() {
+        return clients.compute(node(0));
+    }
+
+    @Override
+    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, @Nullable UUID jobId, String jobClassName, String targetNode) {
+        return thinClientJobEvent(eventType, jobType, jobId, jobClassName, targetNode, node(0).name());
     }
 }

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.compute.task.DelegatingTaskExecution;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -88,6 +89,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     private final ComputeExecutor executor;
 
+    private final EventLog eventLog;
+
     private final ComputeMessaging messaging;
 
     private final ExecutionManager executionManager;
@@ -106,12 +109,14 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             LogicalTopologyService logicalTopologyService,
             JobContextManager jobContextManager,
             ComputeExecutor executor,
-            ComputeConfiguration computeConfiguration
+            ComputeConfiguration computeConfiguration,
+            EventLog eventLog
     ) {
         this.topologyService = topologyService;
         this.logicalTopologyService = logicalTopologyService;
         this.jobContextManager = jobContextManager;
         this.executor = executor;
+        this.eventLog = eventLog;
         executionManager = new ExecutionManager(computeConfiguration, topologyService);
         messaging = new ComputeMessaging(executionManager, messagingService, topologyService);
         failoverExecutor = Executors.newSingleThreadExecutor(
@@ -263,7 +268,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken
     ) {
         return ComputeJobFailover.failSafeExecute(
-                        this, logicalTopologyService, topologyService, failoverExecutor,
+                        this, logicalTopologyService, topologyService, failoverExecutor, eventLog,
                         remoteNode, nextWorkerSelector, options, units, jobClassName, metadataBuilder, arg
                 )
                 .thenApply(execution -> {

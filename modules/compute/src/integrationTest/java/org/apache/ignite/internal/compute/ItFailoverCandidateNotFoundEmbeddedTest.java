@@ -15,13 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.events;
+package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.events.EventMatcher.embeddedJobEvent;
+
+import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.EventMatcher;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.jetbrains.annotations.Nullable;
 
-class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
+class ItFailoverCandidateNotFoundEmbeddedTest extends ItFailoverCandidateNotFoundTest {
     @Override
-    protected IgniteCompute compute() {
+    IgniteCompute compute() {
         return node(0).compute();
+    }
+
+    @Override
+    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, @Nullable UUID jobId, String jobClassName, String targetNode) {
+        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, node(0).name());
     }
 }
