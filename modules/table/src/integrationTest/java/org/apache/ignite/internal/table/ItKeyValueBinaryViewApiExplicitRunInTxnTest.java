@@ -22,6 +22,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -54,7 +55,7 @@ public class ItKeyValueBinaryViewApiExplicitRunInTxnTest extends ItKeyValueBinar
     private static class TxTestCase extends TestCase {
         @Override
         protected Executable wrap(Consumer<Transaction> run) {
-            return () -> ignite.transactions().runInTransaction(run);
+            return () -> ignite.transactions().runInTransaction(run, new TransactionOptions().timeoutMillis(1));
         }
 
         TxTestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view, TestTableDefinition tableDefinition, Ignite ignite) {

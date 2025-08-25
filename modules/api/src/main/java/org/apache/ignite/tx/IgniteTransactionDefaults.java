@@ -15,22 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.tx.RetriableTransactionException;
+package org.apache.ignite.tx;
 
 /**
- * This exception is thrown when a lock cannot be acquired, released or downgraded.
+ * Utility class containing transaction default constants.
  */
-public class LockException extends TransactionInternalCheckedException implements RetriableTransactionException {
+public class IgniteTransactionDefaults {
     /**
-     * Creates a new instance of LockException with the given message.
-     *
-     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
-     * @param msg The detail message.
+     * Default transaction timeout.
      */
-    public LockException(int code, String msg) {
-        super(code, msg);
-    }
+    public static final long DEFAULT_RW_TX_TIMEOUT_SECONDS = 30;
 }

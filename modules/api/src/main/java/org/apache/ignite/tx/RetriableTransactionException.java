@@ -15,22 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
-
-import org.apache.ignite.tx.RetriableTransactionException;
+package org.apache.ignite.tx;
 
 /**
- * This exception is thrown when a lock cannot be acquired, released or downgraded.
+ * This is the marker interface for exceptions that can be retried if happened in {@link IgniteTransactions#runInTransaction} and
+ * {@link IgniteTransactions#runInTransactionAsync}.
  */
-public class LockException extends TransactionInternalCheckedException implements RetriableTransactionException {
-    /**
-     * Creates a new instance of LockException with the given message.
-     *
-     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
-     * @param msg The detail message.
-     */
-    public LockException(int code, String msg) {
-        super(code, msg);
-    }
+public interface RetriableTransactionException {
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -76,6 +77,10 @@ public class InternalTxOptions {
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
 
+        /**
+         * This is NOT actually used as the default timeout, see defaults for {@link TransactionConfigurationSchema#readOnlyTimeoutMillis}
+         * and {@link TransactionConfigurationSchema#readWriteTimeoutMillis} which are actually used if tx timeout is 0.
+         */
         private long timeoutMillis = 0;
 
         @Nullable
