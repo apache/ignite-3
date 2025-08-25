@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.configuration.compatibility.Configurati
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
@@ -41,13 +42,19 @@ public class GenerateConfigurationSnapshot {
      * Generates a snapshot of the current configuration metadata and saves it to a file.
      */
     public static void main(String[] args) throws IOException {
+        LOG.info("Passed arguments are ", Arrays.toString(args));
         List<ConfigNode> configNodes = loadCurrentConfiguration();
 
         ConfigShuttle shuttle = node -> LOG.info(node.toString());
         LOG.info("DUMP TREE:");
         configNodes.forEach(c -> c.accept(shuttle));
 
-        ConfigurationSnapshotManager.saveSnapshotToFile(configNodes, DEFAULT_SNAPSHOT_FILE);
+        Path outputPath = DEFAULT_SNAPSHOT_FILE;
+        if (args.length > 0) {
+            outputPath = Path.of(args[0]);
+        }
+
+        ConfigurationSnapshotManager.saveSnapshotToFile(configNodes, outputPath);
 
         LOG.info("Snapshot saved to: " + DEFAULT_SNAPSHOT_FILE.toAbsolutePath());
     }

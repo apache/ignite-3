@@ -330,7 +330,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+        return ddlConverter.convert((SqlDdl) sqlNode, ctx).thenApply(command -> new DdlPlan(nextPlanId(), command));
     }
 
     private CompletableFuture<QueryPlan> prepareKill(ParsedResult parsedResult) {

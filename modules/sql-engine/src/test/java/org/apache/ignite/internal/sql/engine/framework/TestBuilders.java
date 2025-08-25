@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
@@ -745,9 +746,17 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT, PLAN_EXPIRATION_SECONDS,
-                    new NoOpMetricManager(), schemaManager);
+            var prepareService = new PrepareServiceImpl(
+                    clusterName,
+                    0,
+                    CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null)),
+                    planningTimeout,
+                    PLANNING_THREAD_COUNT,
+                    PLAN_EXPIRATION_SECONDS,
+                    new NoOpMetricManager(),
+                    schemaManager
+            );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -1811,7 +1820,7 @@ public class TestBuilders {
                         .collect(Collectors.toList());
             }
 
-            return CompletableFuture.completedFuture(assignments);
+            return completedFuture(assignments);
         }
 
         @Override
@@ -1960,7 +1969,7 @@ public class TestBuilders {
 
         @Override
         public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
-            return CompletableFuture.completedFuture(false);
+            return completedFuture(false);
         }
 
         @Override
