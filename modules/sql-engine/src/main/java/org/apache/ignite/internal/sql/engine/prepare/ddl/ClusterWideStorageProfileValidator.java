@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -25,7 +27,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -51,7 +52,7 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
         );
 
         if (missedStorageProfileNames.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         }
 
         return logicalTopologyService.logicalTopologyOnLeader()
@@ -61,14 +62,14 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
                     )).handle((missedProfileNames, e) -> {
                         if (e != null) {
                             String msg = format(
-                                    "Storage profiles {} doesn't exist in local topology snapshot with profiles [{}], "
+                                    "Storage profiles {} don't exist in local topology snapshot with profiles [{}], "
                                             + "and distributed refresh failed.",
                                     missedStorageProfileNames,
                                     localLogicalTopologySnapshot
                                             .nodes()
                                             .stream()
                                             .map(LogicalNode::storageProfiles)
-                                            .collect(Collectors.toSet())
+                                            .collect(toSet())
                             );
 
                             throw new SqlException(INTERNAL_ERR, msg, e);
