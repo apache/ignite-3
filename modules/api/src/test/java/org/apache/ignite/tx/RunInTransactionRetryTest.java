@@ -81,13 +81,17 @@ public class RunInTransactionRetryTest {
         } else {
             // closureFailureType is always SYNC in sync mode (closure shouldn't return future).
             testClosure = () -> igniteTransactions.runInTransaction(
-                    (Function<Transaction, CompletableFuture<Integer>>) tx -> closureCall(tx, closureFailures, ClosureFailureType.SYNC),
+                    (Function<Transaction, CompletableFuture<Integer>>) tx ->
+                            closureCall(tx, closureFailures, ClosureFailureType.SYNC_FAIL),
                     withShortTimeout()
             );
         }
 
         boolean requiresEventualSuccess = closureFailureCount < Integer.MAX_VALUE
-                && commitFailureCount < Integer.MAX_VALUE;
+                // Commit failure can't be retried.
+                && commitFailureCount == 0
+                // Rollbacks should be retried until success or timeout, so the rollback must succeed before closure retry.
+                && (closureFailureCount == 0 || rollbackFailureCount < Integer.MAX_VALUE);
 
         boolean syncFail = false;
         Exception ex = null;
@@ -115,18 +119,25 @@ public class RunInTransactionRetryTest {
         if (requiresEventualSuccess) {
             assertEquals(42, future.join());
         } else {
-            // Had to retry until timed out.
-            checkTimeout();
+            if (closureFailureCount == Integer.MAX_VALUE) {
+                // Had to retry until timed out.
+                checkTimeout();
+            }
 
             assertNotNull(ex);
 
             if (!async) {
                 assertTrue(syncFail);
 
-                if (commitFailureCount <= closureFailureCount) {
-                    assertThat(ex, instanceOf(FailedClosureTestException.class));
+                if (commitFailureCount > 0) {
+                    if (closureFailureCount == Integer.MAX_VALUE || closureFailureCount > 0 && rollbackFailureCount == Integer.MAX_VALUE) {
+                        // Closure exception should be rethrown.
+                        assertThat(ex, instanceOf(FailedClosureTestException.class));
+                    } else {
+                        assertThat(ex, instanceOf(FailedCommitTestException.class));
+                    }
                 } else {
-                    assertThat(ex, instanceOf(FailedCommitTestException.class));
+                    assertThat(ex, instanceOf(FailedClosureTestException.class));
                 }
             } else {
                 assertFalse(syncFail);
@@ -148,7 +159,7 @@ public class RunInTransactionRetryTest {
                 .argumentsForNextParameter(0, 5, 10, Integer.MAX_VALUE)
                 .argumentsForNextParameter(0, 5, 10, Integer.MAX_VALUE)
                 .argumentsForNextParameter(0, 5, 10, Integer.MAX_VALUE)
-                .argumentsForNextParameter(ClosureFailureType.SYNC, ClosureFailureType.FUTURE);
+                .argumentsForNextParameter(ClosureFailureType.SYNC_FAIL, ClosureFailureType.FUTURE_FAIL);
     }
 
     @Test
@@ -218,9 +229,9 @@ public class RunInTransactionRetryTest {
         if (closureFailures.get() > 0) {
             closureFailures.decrementAndGet();
 
-            if (closureFailureType == ClosureFailureType.SYNC) {
+            if (closureFailureType == ClosureFailureType.SYNC_FAIL) {
                 throw new FailedClosureTestException();
-            } else if (closureFailureType == ClosureFailureType.FUTURE) {
+            } else if (closureFailureType == ClosureFailureType.FUTURE_FAIL) {
                 return failedFuture(new FailedClosureTestException());
             } else {
                 throw new AssertionError("unknown failure type");
@@ -248,10 +259,10 @@ public class RunInTransactionRetryTest {
      */
     private enum ClosureFailureType {
         /** Closure throws exception. */
-        SYNC,
+        SYNC_FAIL,
 
         /** Closure returns failed future. */
-        FUTURE
+        FUTURE_FAIL
     }
 
     private static class MockIgniteTransactions implements IgniteTransactions {

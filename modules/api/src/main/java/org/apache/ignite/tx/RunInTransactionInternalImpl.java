@@ -52,36 +52,80 @@ class RunInTransactionInternalImpl {
 
         List<Throwable> suppressed = new ArrayList<>();
 
+        Transaction tx;
+        T ret;
+
         while (true) {
-            Transaction tx = igniteTransactions.begin(txOptions);
+            tx = igniteTransactions.begin(txOptions);
 
             try {
-                T ret = clo.apply(tx);
+                ret = clo.apply(tx);
 
-                tx.commit();
-
-                return ret;
+                break;
             } catch (Exception ex) {
-                suppressed.add(ex);
+                addSuppressedToList(suppressed, ex);
 
-                try {
-                    tx.rollback(); // Try rolling back on user exception.
-                } catch (Exception e) {
-                    suppressed.add(e);
-                }
-
-                long now = System.currentTimeMillis();
-                long remainingTime = initialTimeout - (now - startTimestamp);
+                long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);
 
                 if (remainingTime > 0 && isRetriable(ex)) {
-                    // Will go on retry iteration.
-                    txOptions = txOptions.timeoutMillis(remainingTime);
+                    // Rollback on user exception, should be retried until success or timeout to ensure the lock release
+                    // before the next attempt.
+                    rollbackWithRetry(tx, ex, startTimestamp, initialTimeout, suppressed);
+
+                    long remaining = calcRemainingTime(initialTimeout, startTimestamp);
+
+                    if (remaining > 0) {
+                        // Will go on retry iteration.
+                        txOptions = txOptions.timeoutMillis(remainingTime);
+                    } else {
+                        throwExceptionWithSuppressed(ex, suppressed);
+                    }
                 } else {
-                    for (Throwable e : suppressed) {
-                        addSuppressed(ex, e);
+                    try {
+                        // No retries here, rely on the durable finish.
+                        tx.rollback();
+                    } catch (Exception e) {
+                        addSuppressedToList(suppressed, e);
                     }
 
-                    throw ex;
+                    throwExceptionWithSuppressed(ex, suppressed);
+                }
+            }
+        }
+
+        try {
+            tx.commit();
+        } catch (Exception e) {
+            try {
+                // Try to rollback tx in case if it's not finished. Retry is not needed here due to the durable finish.
+                tx.rollback();
+            } catch (Exception re) {
+                e.addSuppressed(re);
+            }
+
+            throw e;
+        }
+
+        return ret;
+    }
+
+    private static void rollbackWithRetry(
+            Transaction tx,
+            Exception closureException,
+            long startTimestamp,
+            long initialTimeout,
+            List<Throwable> suppressed
+    ) {
+        while (true) {
+            try {
+                tx.rollback();
+
+                break;
+            } catch (Exception re) {
+                addSuppressedToList(suppressed, re);
+
+                if (calcRemainingTime(initialTimeout, startTimestamp) <= 0) {
+                    throwExceptionWithSuppressed(closureException, suppressed);
                 }
             }
         }
@@ -103,34 +147,51 @@ class RunInTransactionInternalImpl {
 
         List<Throwable> sup = suppressed == null ? synchronizedList(new ArrayList<>()) : suppressed;
 
-        return igniteTransactions.beginAsync(txOptions).thenCompose(tx -> {
-            try {
-                return clo.apply(tx)
-                        .thenCompose(
-                                val -> tx.commitAsync()
-                                        .thenApply(ignored -> val)
-                        )
-                        .handle((res, e) -> {
-                            if (e != null) {
-                                return handleClosureException(
-                                        igniteTransactions,
-                                        tx,
-                                        clo,
-                                        txOptions,
-                                        startTimestamp,
-                                        initialTimeout,
-                                        sup,
-                                        e
-                                );
-                            } else {
-                                return completedFuture(res);
-                            }
-                        })
-                        .thenCompose(identity());
-            } catch (Exception e) {
-                return handleClosureException(igniteTransactions, tx, clo, txOptions, startTimestamp, initialTimeout, sup, e);
-            }
-        });
+        return igniteTransactions
+                .beginAsync(txOptions)
+                // User closure with retries.
+                .thenCompose(tx -> {
+                    try {
+                        return clo.apply(tx)
+                                .handle((res, e) -> {
+                                    if (e != null) {
+                                        return handleClosureException(
+                                                igniteTransactions,
+                                                tx,
+                                                clo,
+                                                txOptions,
+                                                startTimestamp,
+                                                initialTimeout,
+                                                sup,
+                                                e
+                                        );
+                                    } else {
+                                        return completedFuture(res);
+                                    }
+                                })
+                                .thenCompose(identity())
+                                .thenApply(res -> new TxWithVal<>(tx, res));
+                    } catch (Exception e) {
+                        return handleClosureException(igniteTransactions, tx, clo, txOptions, startTimestamp, initialTimeout, sup, e)
+                                .thenApply(res -> new TxWithVal<>(tx, res));
+                    }
+                })
+                // Transaction commit with rollback on failure, without retries.
+                // Transaction rollback on closure failure is implemented in closure retry logic.
+                .thenCompose(txWithVal ->
+                        txWithVal.tx.commitAsync()
+                                .handle((ignored, e) -> {
+                                    if (e == null) {
+                                        return completedFuture(null);
+                                    } else {
+                                        return txWithVal.tx.rollbackAsync()
+                                                // Rethrow commit exception.
+                                                .handle((ign, re) -> sneakyThrow(e));
+                                    }
+                                })
+                                .thenCompose(fut -> fut)
+                                .thenApply(ignored -> txWithVal.val)
+                );
     }
 
     private static <T> CompletableFuture<T> handleClosureException(
@@ -143,39 +204,105 @@ class RunInTransactionInternalImpl {
             List<Throwable> suppressed,
             Throwable e
     ) {
-        return currentTx.rollbackAsync()
-                .exceptionally(e0 -> {
-                    suppressed.add(e0);
-                    return null;
-                })
-                .thenCompose(ignored -> {
-                    long remainingTime = initialTimeout - (System.currentTimeMillis() - startTimestamp);
+        addSuppressedToList(suppressed, e);
 
-                    if (remainingTime > 0 && isRetriable(e)) {
-                        TransactionOptions opt = txOptions.timeoutMillis(remainingTime);
+        long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);
 
-                        return runInTransactionAsyncInternal(
-                                igniteTransactions,
-                                clo,
-                                opt,
-                                startTimestamp,
-                                initialTimeout,
-                                suppressed
-                        );
-                    } else {
-                        for (Throwable t : suppressed) {
-                            addSuppressed(e, t);
+        if (remainingTime > 0 && isRetriable(e)) {
+            // Rollback on user exception, should be retried until success or timeout to ensure the lock release
+            // before the next attempt.
+            return rollbackWithRetryAsync(currentTx, startTimestamp, initialTimeout, suppressed, e)
+                    .thenCompose(ignored -> {
+                        long remaining = calcRemainingTime(initialTimeout, startTimestamp);
+
+                        if (remaining > 0) {
+                            TransactionOptions opt = txOptions.timeoutMillis(remaining);
+
+                            return runInTransactionAsyncInternal(
+                                    igniteTransactions,
+                                    clo,
+                                    opt,
+                                    startTimestamp,
+                                    initialTimeout,
+                                    suppressed
+                            );
+                        } else {
+                            return throwExceptionWithSuppressedAsync(e, suppressed)
+                                    .thenApply(ign -> null);
                         }
+                    });
+        } else {
+            // No retries here, rely on the durable finish.
+            return currentTx.rollbackAsync()
+                    .exceptionally(re -> {
+                        addSuppressedToList(suppressed, re);
 
-                        return failedFuture(e);
+                        return null;
+                    })
+                    .thenCompose(ignored -> throwExceptionWithSuppressedAsync(e, suppressed))
+                    // Never executed.
+                    .thenApply(ignored -> null);
+        }
+    }
+
+    private static CompletableFuture<Void> rollbackWithRetryAsync(
+            Transaction tx,
+            long startTimestamp,
+            long initialTimeout,
+            List<Throwable> suppressed,
+            Throwable e
+    ) {
+        return tx.rollbackAsync()
+                .handle((ignored, re) -> {
+                    CompletableFuture<Void> fut;
+
+                    if (re == null) {
+                        fut = completedFuture(null);
+                    } else {
+                        addSuppressedToList(suppressed, re);
+
+                        if (calcRemainingTime(initialTimeout, startTimestamp) <= 0) {
+                            for (Throwable s : suppressed) {
+                                addSuppressed(e, s);
+                            }
+
+                            fut = failedFuture(e);
+                        } else {
+                            fut = rollbackWithRetryAsync(tx, startTimestamp, initialTimeout, suppressed, e);
+                        }
                     }
-                });
+
+                    return fut;
+                })
+                .thenCompose(identity());
+    }
+
+    private static void addSuppressedToList(List<Throwable> to, Throwable a) {
+        if (to.size() < MAX_SUPPRESSED) {
+            to.add(a);
+        }
     }
 
     private static void addSuppressed(Throwable to, Throwable a) {
         if (to != null && a != null && to != a && to.getSuppressed().length < MAX_SUPPRESSED) {
             to.addSuppressed(a);
         }
+    }
+
+    private static void throwExceptionWithSuppressed(Throwable e, List<Throwable> suppressed) {
+        for (Throwable t : suppressed) {
+            addSuppressed(e, t);
+        }
+
+        sneakyThrow(e);
+    }
+
+    private static CompletableFuture<Void> throwExceptionWithSuppressedAsync(Throwable e, List<Throwable> suppressed) {
+        for (Throwable t : suppressed) {
+            addSuppressed(e, t);
+        }
+
+        return failedFuture(e);
     }
 
     private static boolean isRetriable(Throwable e) {
@@ -204,5 +331,25 @@ class RunInTransactionInternalImpl {
         }
 
         return false;
+    }
+
+    private static long calcRemainingTime(long initialTimeout, long startTimestamp) {
+        long now = System.currentTimeMillis();
+        long remainingTime = initialTimeout - (now - startTimestamp);
+        return remainingTime;
+    }
+
+    private static <E extends Throwable> E sneakyThrow(Throwable e) throws E {
+        throw (E) e;
+    }
+
+    private static class TxWithVal<T> {
+        private final Transaction tx;
+        private final T val;
+
+        private TxWithVal(Transaction tx, T val) {
+            this.tx = tx;
+            this.val = val;
+        }
     }
 }
