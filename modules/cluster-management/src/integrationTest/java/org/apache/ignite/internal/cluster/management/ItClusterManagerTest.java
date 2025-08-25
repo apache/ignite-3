@@ -588,7 +588,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(
                 secondNode.startFuture(),
-                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
+                willThrow(JoinDeniedException.class, "Cluster tags do not match")
         );
     }
 

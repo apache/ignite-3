@@ -225,7 +225,7 @@ public class ClusterInitializer {
                                             e = e.getCause();
                                         }
 
-                                        LOG.info("Initialization failed [reason={}]", e, e.getMessage());
+                                        LOG.warn("Initialization failed [reason={}]", e.getMessage());
 
                                         if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
                                             return CompletableFuture.<Void>failedFuture(e);

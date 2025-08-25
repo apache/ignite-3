@@ -642,7 +642,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 } else {
                                     Throwable finalEx = unwrapCause(e);
 
-                                    LOG.warn("Error when initializing the CMG", finalEx);
+                                    LOG.warn("Error when initializing the CMG", finalEx.getMessage());
 
                                     response = initErrorMessage(finalEx);
                                 }
