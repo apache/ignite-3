@@ -271,6 +271,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.EVERY);
         ops.add(SqlStdOperatorTable.SOME);
 
+        ops.add(SqlStdOperatorTable.GROUPING);
         ops.internal(SqlInternalOperators.LITERAL_AGG);
 
         return ops;

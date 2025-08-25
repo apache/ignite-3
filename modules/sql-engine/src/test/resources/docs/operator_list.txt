@@ -378,6 +378,9 @@ EVERY(<boolean>)
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
 
+GROUPING(...)
+#c19a178a82716bcc5f313ca5259637dd60c8ba0e
+
 [internal]
 LITERAL_AGG()
 #6d021f1dd7329dc18c22767552769bc90f27b7ac
