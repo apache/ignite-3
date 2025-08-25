@@ -58,6 +58,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -118,13 +119,16 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
+        PartitionMetaManager mockParititonMetaManager = mock(PartitionMetaManager.class);
+
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                createCheckpointPagesWriterFactory(mockParititonMetaManager),
                 mock(FilePageStoreManager.class),
+                mockParititonMetaManager,
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -159,6 +163,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -264,6 +269,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -294,6 +300,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -378,6 +385,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         LogSyncer mockLogSyncer = mock(LogSyncer.class);
 
+        PartitionMetaManager mock = mock(PartitionMetaManager.class);
+
+        FakePartitionMeta meta = new FakePartitionMeta(10);
+        meta.init(UUID.randomUUID());
+
+        when(mock.getMeta(any())).thenReturn(meta);
+
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
                 null,
@@ -385,6 +399,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
+                mock,
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
@@ -416,6 +431,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
                 createFilePageStoreManager(Map.of()),
+                mock(PartitionMetaManager.class),
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
@@ -442,6 +458,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -483,6 +500,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,

@@ -80,6 +80,11 @@ public class FakePartitionMeta extends PartitionMeta {
         public @Nullable UUID checkpointId() {
             return checkpointId;
         }
+
+        @Override
+        public int pageCount() {
+            return pageCount;
+        }
     }
 
     /**

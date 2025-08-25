@@ -22,7 +22,6 @@ import static org.apache.ignite.configuration.notifications.ConfigurationListene
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -69,11 +68,15 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
     @Override
     public void stop() {
         cfg.sinks().stopListen(listener);
+
+        clearCache();
     }
 
     private void updateCache(@Nullable NamedListView<SinkView> newListValue) {
         Map<String, Sink<?>> newCache = new HashMap<>();
         Map<String, Set<Sink<?>>> newCacheByChannel = new HashMap<>();
+
+        clearCache();
 
         if (newListValue != null) {
             for (SinkView sinkView : newListValue) {
@@ -83,13 +86,11 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
             }
         }
 
-        for (Entry<String, Sink<?>> entry : cache.entrySet()) {
-            if (!newCache.containsKey(entry.getKey())) {
-                entry.getValue().stop();
-            }
-        }
-
         cache = newCache;
         cacheByChannel = newCacheByChannel;
+    }
+
+    private void clearCache() {
+        cache.values().forEach(Sink::stop);
     }
 }

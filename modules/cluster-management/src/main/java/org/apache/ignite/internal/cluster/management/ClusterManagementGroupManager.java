@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -131,6 +133,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     /** Lock for the {@code raftService} field. */
     private final Object raftServiceLock = new Object();
+
+    /** Current updateLearners operation to ensure linearization of updates. */
+    private CompletableFuture<Void> currentUpdateLearners = nullCompletedFuture();
+
+    /** Lock for linearizing updateLearners operations. */
+    private final Object updateLearnersLock = new Object();
 
     /**
      * Future that resolves after the node has been validated on the CMG leader.
@@ -184,6 +192,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final NodeProperties nodeProperties;
 
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -200,6 +210,43 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
             NodeProperties nodeProperties
+    ) {
+        this(
+                vault,
+                clusterResetStorage,
+                clusterService,
+                clusterInitializer,
+                raftManager,
+                clusterStateStorageMgr,
+                logicalTopology,
+                validationManager,
+                nodeAttributes,
+                failureProcessor,
+                clusterIdStore,
+                raftGroupOptionsConfigurer,
+                metricManager,
+                nodeProperties,
+                config -> {}
+        );
+    }
+
+    /** Constructor. */
+    public ClusterManagementGroupManager(
+            VaultManager vault,
+            ClusterResetStorage clusterResetStorage,
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            RaftManager raftManager,
+            ClusterStateStorageManager clusterStateStorageMgr,
+            LogicalTopology logicalTopology,
+            ValidationManager validationManager,
+            NodeAttributes nodeAttributes,
+            FailureProcessor failureProcessor,
+            ClusterIdStore clusterIdStore,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            MetricManager metricManager,
+            NodeProperties nodeProperties,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.clusterResetStorage = clusterResetStorage;
         this.clusterService = clusterService;
@@ -235,6 +282,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
 
         this.nodeProperties = nodeProperties;
+        this.onConfigurationCommittedListener = onConfigurationCommittedListener;
     }
 
     private CmgMessageHandler createMessageHandler() {
@@ -323,7 +371,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this(
                 vault,
@@ -339,7 +388,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 clusterIdStore,
                 raftGroupOptionsConfigurer,
                 metricManager,
-                nodeProperties
+                nodeProperties,
+                onConfigurationCommittedListener
         );
     }
 
@@ -568,6 +618,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 NetworkMessage response = initErrorMessage(finalEx);
 
                                 clusterService.messagingService().respond(sender, response, correlationId);
+                            } else {
+                                LOG.info("CMG Raft service started successfully.");
                             }
                         }));
             } else {
@@ -614,6 +666,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * otherwise an InitErrorMessage is sent.
      */
     private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
+        LOG.info("CmgPrepareInitMessage message received [sender={}, colocationEnabled={}]", sender.name(),
+                msg.initInitiatorColocationEnabled());
+
         NetworkMessage response;
         if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
             String colocationEnabledMismatchResponseMessage = IgniteStringFormatter.format(
@@ -682,7 +737,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
 
                 updateLogicalTopology(service)
-                        .thenCompose(v -> inBusyLock(() -> service.updateLearners(term)))
+                        .thenCompose(v -> inBusyLock(() -> updateLearnersSerially(service, term, false)))
                         .thenAccept(v -> inBusyLock(() -> {
                             // Register a listener to send ClusterState messages to new nodes.
                             TopologyService topologyService = clusterService.topologyService();
@@ -922,6 +977,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
             assert serverPeer != null;
 
+            LOG.info("Starting CMG Raft service [isLearner={}, nodeNames={}, serverPeer={}]", isLearner, nodeNames, serverPeer);
+
             RaftGroupService service = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                     raftNodeId(serverPeer),
                     raftConfiguration,
@@ -931,7 +988,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             validationManager,
                             this::onLogicalTopologyChanged,
                             clusterIdStore,
-                            failureProcessor
+                            failureProcessor,
+                            onConfigurationCommittedListener
                     ),
                     this::onElectedAsLeader,
                     null,
@@ -950,23 +1008,49 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         return new RaftNodeId(CmgGroupId.INSTANCE, serverPeer);
     }
 
+    /**
+     * Serializes calls to updateLearners to prevent race conditions between multiple topology changes
+     * and leader election callbacks.
+     *
+     * @param service CMG Raft service.
+     * @param term RAFT term.
+     * @param checkLeadership Whether to check leadership before updating learners.
+     */
+    private CompletableFuture<Void> updateLearnersSerially(CmgRaftService service, long term, boolean checkLeadership) {
+        synchronized (updateLearnersLock) {
+            currentUpdateLearners = currentUpdateLearners
+                    .thenCompose(v -> {
+                        if (checkLeadership) {
+                            return service.isCurrentNodeLeader().thenCompose(isLeader -> {
+                                if (!isLeader) {
+                                    return nullCompletedFuture();
+                                }
+                                return service.updateLearners(term);
+                            });
+                        } else {
+                            return service.updateLearners(term);
+                        }
+                    })
+                    .exceptionally(e -> {
+                        LOG.warn("Failed to update learners for term {}", e, term);
+
+                        return null;
+                    });
+            return currentUpdateLearners;
+        }
+    }
+
     private void onLogicalTopologyChanged(long term) {
         // We don't do it under lock to avoid deadlocks during node restart.
-
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
         // If the future is not here yet, this means we are still starting, so learners will be updated after start
         // (if we happen to become a leader).
-
-        if (serviceFuture != null) {
-            serviceFuture.thenCompose(service -> service.isCurrentNodeLeader().thenCompose(isLeader -> {
-                if (!isLeader) {
-                    return nullCompletedFuture();
-                }
-
-                return service.updateLearners(term);
-            }));
+        if (serviceFuture == null) {
+            return;
         }
+
+        serviceFuture.thenCompose(service -> updateLearnersSerially(service, term, true));
     }
 
     /**
@@ -1186,6 +1270,23 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         try {
             return raftServiceAfterJoin()
                     .thenCompose(CmgRaftService::majority);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that, when complete, resolves into a list of learner node names in the CMG.
+     */
+    @TestOnly
+    public CompletableFuture<Set<String>> learnerNodes() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(CmgRaftService::learners);
         } finally {
             busyLock.leaveBusy();
         }
