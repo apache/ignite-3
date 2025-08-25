@@ -47,4 +47,9 @@ public interface QueryBatchMessage extends TimestampAware, ExecutionContextAware
      * Get rows.
      */
     List<BinaryTupleMessage> rows();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

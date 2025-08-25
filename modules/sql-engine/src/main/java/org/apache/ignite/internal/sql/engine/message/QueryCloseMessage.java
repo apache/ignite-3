@@ -37,4 +37,9 @@ public interface QueryCloseMessage extends NetworkMessage, Serializable {
      * Get execution token.
      */
     int executionToken();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

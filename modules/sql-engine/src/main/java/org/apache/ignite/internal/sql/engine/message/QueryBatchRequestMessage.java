@@ -36,4 +36,9 @@ public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
     /** Returns a state that has should be propagated to the target fragment. */
     @Marshallable
     @Nullable SharedState sharedState();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }
