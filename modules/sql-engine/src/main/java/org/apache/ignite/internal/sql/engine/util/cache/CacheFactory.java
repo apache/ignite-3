@@ -45,7 +45,7 @@ public interface CacheFactory {
     <K, V> Cache<K, V> create(int size, StatsCounter statCounter);
 
     /**
-     * Creates a cache of the required size and controls whether statistics should be collected.
+     * Creates a cache of the required size, controls whether statistics should be collected, and specifies entry expiration time.
      *
      * @param size Desired size of the cache.
      * @param statCounter Cache statistic accumulator.
