@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.ddl;
-
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
+package org.apache.ignite.internal.network.serialization;
 
 /**
- * Common validator for storage profile names.
+ * Defines message format, meaning how message should be read or written. 
  */
-@FunctionalInterface
-public interface StorageProfileValidator {
+public interface MessageFormat {
+    /**
+     * Creates a new message writer.
+     *
+     * @param serializationRegistry Registry to use.
+     * @param protoVer Binary protocol version to use for serialization.
+     */
+    MessageWriter writer(MessageSerializationRegistry serializationRegistry, byte protoVer);
 
     /**
-     * Checks that provided storage profile names are existing and valid.
+     * Creates a new message reader.
      *
-     * @param storageProfiles Storage profile names to check.
+     * @param serializationRegistry Registry to use.
+     * @param protoVer Binary protocol version to use for deserialization.
      */
-    CompletableFuture<Void> validate(Collection<String> storageProfiles);
+    MessageReader reader(MessageSerializationRegistry serializationRegistry, byte protoVer);
 }

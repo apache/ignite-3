@@ -3007,6 +3007,12 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    private @Nullable String getLeaderConsistentId(){
+        PeerId leaderId = getLeaderId();
+
+        return leaderId == null ? null : leaderId.getConsistentId();
+    }
+
     @Override
     public String getGroupId() {
         return this.groupId;
@@ -3505,7 +3511,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new NotLeaderException();
+                throw new NotLeaderException(getLeaderConsistentId());
             }
             return this.conf.getConf().listPeers();
         }
@@ -3519,7 +3525,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new NotLeaderException();
+                throw new NotLeaderException(getLeaderConsistentId());
             }
             return getAliveNodes(this.conf.getConf().getPeers(), Utils.monotonicMs());
         }
@@ -3533,7 +3539,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new NotLeaderException();
+                throw new NotLeaderException(getLeaderConsistentId());
             }
             return this.conf.getConf().listLearners();
         }
@@ -3547,7 +3553,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new NotLeaderException();
+                throw new NotLeaderException(getLeaderConsistentId());
             }
             return getAliveNodes(this.conf.getConf().getLearners(), Utils.monotonicMs());
         }

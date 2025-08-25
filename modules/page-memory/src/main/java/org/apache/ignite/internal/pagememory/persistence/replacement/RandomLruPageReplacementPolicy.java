@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.replacement;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -105,7 +104,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 assert fullId.equals(nearest.fullId()) : "Invalid page mapping [tableId=" + nearest.fullId()
                         + ", actual=" + fullId + ", nearest=" + nearest;
 
-                boolean outdated = partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()));
+                boolean outdated = partGen < seg.partGeneration(fullId.groupId(), fullId.partitionId());
 
                 if (outdated) {
                     return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
@@ -222,7 +221,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             FullPageId fullId = fullPageId(absPageAddr);
 
-            if (partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()))) {
+            if (partGen < seg.partGeneration(fullId.groupId(), fullId.partitionId())) {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
             }
 
