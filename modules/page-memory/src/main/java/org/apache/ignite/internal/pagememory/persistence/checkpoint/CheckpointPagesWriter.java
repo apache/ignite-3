@@ -408,6 +408,9 @@ public class CheckpointPagesWriter implements Runnable {
             return;
         }
 
+        // TODO: IGNITE-26233 Вот тут появляется ошибка, на момент сортировки мы отбрасываем эту мету страницу,
+        // но тут мы снова на нее натыкаемся и поскольку поколение будет актуальным то попробуем записать ее
+        // надо починить
         int partGen = pageMemory.partGeneration(partitionId.getGroupId(), partitionId.getPartitionId());
 
         if (partGen != partitionMeta.partitionGeneration()) {
