@@ -32,7 +32,9 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -275,7 +277,11 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         features,
                                         randomExtensions(),
                                         unused -> null,
-                                        bootstrapFactory.handshakeEventLoopSwitcher()
+                                        bootstrapFactory.handshakeEventLoopSwitcher(),
+                                        () -> {
+                                            List<UUID> idHistory = clusterInfo.idHistory();
+                                            return idHistory.get(idHistory.size() - 1);
+                                        }
                                 )
                         );
                     }

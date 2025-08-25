@@ -1296,7 +1296,8 @@ public class IgniteImpl implements Ignite {
                 clientConnectorConfiguration,
                 lowWatermark,
                 nodeProperties,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                clusterIdService
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
@@ -1313,7 +1314,7 @@ public class IgniteImpl implements Ignite {
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
-        publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService()));
+        publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService(), clusterIdService));
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {
