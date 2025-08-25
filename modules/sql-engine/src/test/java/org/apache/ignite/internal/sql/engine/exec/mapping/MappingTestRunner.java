@@ -46,11 +46,15 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.prepare.RelWithSources;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -174,8 +178,24 @@ final class MappingTestRunner {
             }
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
-            MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata, schema.catalogVersion(), null);
+
+            RelWithSources relWithSources = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+            rel = relWithSources.root();
+
+            PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor().go(rel);
+
+            MultiStepPlan multiStepPlan = new MultiStepPlan(
+                    new PlanId(UUID.randomUUID(), 1),
+                    sqlQueryType, 
+                    rel,
+                    resultSetMetadata,
+                    parameterMetadata, 
+                    schema.catalogVersion(),
+                    relWithSources.sources().size(),
+                    null, 
+                    null, 
+                    partitionPruningMetadata
+            );
 
             String actualText =
                     produceMapping(testDef.nodeName, executionDistributionProvider, snapshot, multiStepPlan, testDef.primaryRead);
@@ -308,8 +328,8 @@ final class MappingTestRunner {
     private static void appendTestCaseStr(int idx, StringBuilder testCaseStr, TestCaseDef testCaseDef, String result) {
         // Write description or a blank line (if this is not the first test case).
         if (testCaseDef.description != null) {
-            testCaseStr.append(testCaseDef.description);
-            testCaseStr.append(System.lineSeparator());
+            testCaseStr.append(testCaseDef.description)
+                    .append(System.lineSeparator());
         } else if (idx > 0) {
             testCaseStr.append(System.lineSeparator());
         }

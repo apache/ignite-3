@@ -84,7 +84,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -366,7 +366,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void executorChooserChoosesHandlingThread() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+        ExecutorService executor = Executors.newSingleThreadExecutor(IgniteThreadFactory.create("test", "custom-pool", log));
 
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
@@ -391,7 +391,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void multipleHandlersChooseExecutors() throws Exception {
-        ExecutorService customExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+        ExecutorService customExecutor = Executors.newSingleThreadExecutor(IgniteThreadFactory.create("test", "custom-pool", log));
 
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
@@ -509,7 +509,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     void sendByClusterNodeFailsIfActualNodeIdIsDifferent(SendByClusterNodeOperation operation) throws Exception {
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+                Services unused = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
             ClusterNode receiverWithAnotherId = copyWithDifferentId();
 
@@ -664,7 +664,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         localNode,
                         connectionId,
                         recoveryDescriptorProvider,
-                        bootstrapFactory,
+                        bootstrapFactory.handshakeEventLoopSwitcher(),
                         staleIdDetector,
                         clusterIdSupplier,
                         channel -> {},

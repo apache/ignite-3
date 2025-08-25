@@ -458,7 +458,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals(BALANCE_1 - DELTA, view.get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, view.get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, clientTxManager().finished());
+        assertEquals(3, clientTxManager().finished());
         assertEquals(0, clientTxManager().pending());
     }
 
@@ -483,7 +483,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, clientTxManager().finished());
+        assertEquals(3, clientTxManager().finished());
         assertEquals(0, clientTxManager().pending());
     }
 

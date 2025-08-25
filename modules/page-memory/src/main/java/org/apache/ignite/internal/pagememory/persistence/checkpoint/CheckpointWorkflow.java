@@ -58,7 +58,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -134,7 +134,7 @@ class CheckpointWorkflow {
                 pool -> {
                     ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
 
-                    worker.setName(NamedThreadFactory.threadPrefix(igniteInstanceName, "checkpoint-pages-sorter") + worker.getPoolIndex());
+                    worker.setName(IgniteThread.threadPrefix(igniteInstanceName, "checkpoint-pages-sorter") + worker.getPoolIndex());
 
                     return worker;
                 },
@@ -145,8 +145,12 @@ class CheckpointWorkflow {
         if (checkpointThreads > 1) {
             callbackListenerThreadPool = Executors.newFixedThreadPool(
                     checkpointThreads,
-                    // TODO IGNITE-25590 Add node name.
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
+                    IgniteCheckpointThreadFactory.create(
+                            igniteInstanceName,
+                            CHECKPOINT_RUNNER_THREAD_PREFIX + "-callback-listener",
+                            false,
+                            LOG
+                    )
             );
         } else {
             callbackListenerThreadPool = null;

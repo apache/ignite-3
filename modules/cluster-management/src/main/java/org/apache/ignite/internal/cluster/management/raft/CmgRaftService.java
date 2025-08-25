@@ -282,6 +282,21 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
+     * Returns a known set of consistent IDs of the learners nodes of the CMG.
+     */
+    public CompletableFuture<Set<String>> learners() {
+        List<Peer> currentLearners = raftService.learners();
+
+        if (currentLearners == null) {
+            return raftService.refreshMembers(true).thenCompose(v -> learners());
+        }
+
+        return completedFuture(currentLearners.stream()
+                .map(Peer::consistentId)
+                .collect(toSet()));
+    }
+
+    /**
      * Issues {@code changePeersAndLearnersAsync} request with same peers; learners are recalculated based on the current peers (which is
      * same as CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
      *

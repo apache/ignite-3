@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="builder">Builder.</param>
         /// <param name="noValueSet">No-value bit set.</param>
-        public static void AppendNoValue(this ref BinaryTupleBuilder builder, Span<byte> noValueSet)
+        public static void AppendNoValue(this ref BinaryTupleBuilder builder, scoped Span<byte> noValueSet)
         {
             noValueSet.SetBit(builder.ElementIndex);
             builder.AppendNull();

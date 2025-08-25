@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.core.exception;
 
-
 /** Exception thrown when unit with the same ID and version already exists. */
 public class UnitAlreadyExistsException extends RuntimeException {
     private static final long serialVersionUID = 6686070697496211036L;

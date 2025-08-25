@@ -64,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -221,7 +222,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 resourcesRegistry,
                 transactionInflights,
                 new TestLowWatermark(),
-                commonExecutor
+                commonExecutor,
+                new NoOpMetricManager()
         ) {
             @Override
             public CompletableFuture<Void> finish(

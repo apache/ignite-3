@@ -69,7 +69,6 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -498,7 +497,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
+        ThreadFactory thrFactory = IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -615,9 +614,7 @@ public final class IgniteTestUtils {
     public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
         List<Callable<?>> calls = Collections.nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runMultiThreaded(calls, threadFactory);
+        return runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG));
     }
 
     /**
@@ -647,9 +644,7 @@ public final class IgniteTestUtils {
     public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runAsync(() -> runMultiThreaded(calls, threadFactory));
+        return runAsync(() -> runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG)));
     }
 
     /**
@@ -919,18 +914,20 @@ public final class IgniteTestUtils {
                 thread.interrupt();
             }
 
-            fail("Race operations took too long.");
+            throw createAssertionError("Race operations took too long.", e, throwables);
         }
 
         if (!throwables.isEmpty()) {
-            AssertionError assertionError = new AssertionError("One or several threads have failed.");
-
-            for (Throwable throwable : throwables) {
-                assertionError.addSuppressed(throwable);
-            }
-
-            throw assertionError;
+            throw createAssertionError("One or several threads have failed.", null, throwables);
         }
+    }
+
+    private static AssertionError createAssertionError(String errorMessage, @Nullable Throwable cause, Collection<Throwable> suppressed) {
+        var error = new AssertionError(errorMessage, cause);
+
+        suppressed.forEach(error::addSuppressed);
+
+        return error;
     }
 
     /**

@@ -20,7 +20,9 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
@@ -70,7 +73,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param dataRegion Data region for the table.
      * @param failureProcessor Failure processor.
      */
-    PersistentPageMemoryTableStorage(
+    public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
@@ -104,6 +107,12 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     protected void finishDestruction() {
         dataRegion.pageMemory().onGroupDestroyed(getTableId());
+
+        try {
+            dataRegion.filePageStoreManager().destroyGroupIfExists(getTableId());
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Could not destroy table directory", e);
+        }
     }
 
     @Override

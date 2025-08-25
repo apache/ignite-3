@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.temporal.ChronoUnit;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
@@ -72,6 +72,7 @@ import org.junit.jupiter.api.Test;
  * Tests for test execution runtime used in benchmarking.
  */
 public class TestClusterTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_SIZE = 10_000;
 
     private final ScannableTable table = new ScannableTable() {
         @Override
@@ -79,13 +80,12 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns
+                int @Nullable [] requiredColumns
         ) {
-
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
                             DataProvider.fromRow(
-                                    new Object[]{42, UUID.randomUUID().toString()}, 3_333
+                                    new Object[]{42, UUID.randomUUID().toString()}, TABLE_SIZE / CatalogUtils.DEFAULT_PARTITION_COUNT
                             )
                     ), rowFactory::create
             );
@@ -94,7 +94,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                @Nullable BitSet requiredColumns) {
+
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -107,7 +108,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -120,7 +122,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                RowFactory<RowT> rowFactory, RowT key,
+                int @Nullable [] requiredColumns) {
             return CompletableFuture.completedFuture(rowFactory.create());
         }
 
@@ -187,7 +190,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertInstanceOf(MultiStepPlan.class, plan);
         assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).getRel()));
 
-        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
     }
@@ -206,7 +209,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
@@ -224,7 +227,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
@@ -241,7 +244,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = gatewayNode.prepare(query);
 
-        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(TABLE_SIZE)).items()) {
             assertNotNull(row);
         }
 
@@ -319,7 +322,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         AsyncCursor<InternalSqlRow> cur = initiator.executeQuery("SELECT * FROM t1");
 
-        await(cur.requestNextAsync(10_000));
+        await(cur.requestNextAsync(TABLE_SIZE));
 
         assertEquals(otherNodeClock.now().getPhysical(), initiatorClock.now().getPhysical());
 
@@ -342,7 +345,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         BatchedResult<InternalSqlRow> results = await(
                 gatewayNode.executeQuery("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2")
-                        .requestNextAsync(10_000)
+                        .requestNextAsync(TABLE_SIZE)
         );
         List<List<Object>> rows = convertSqlRows(results.items());
 
@@ -369,7 +372,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         BatchedResult<InternalSqlRow> results = await(
                 gatewayNode.executeQuery("SELECT 'hello', COUNT(*) FROM t1")
-                        .requestNextAsync(10_000)
+                        .requestNextAsync(TABLE_SIZE)
         );
 
         List<List<Object>> rows = convertSqlRows(results.items());

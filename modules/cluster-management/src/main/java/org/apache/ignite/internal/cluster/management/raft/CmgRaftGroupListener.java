@@ -56,6 +56,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -87,6 +88,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
+
     /**
      * Creates a new instance.
      *
@@ -103,7 +106,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             ValidationManager validationManager,
             LongConsumer onLogicalTopologyChanged,
             ClusterIdStore clusterIdStore,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
@@ -111,6 +115,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.clusterIdStore = clusterIdStore;
         this.failureProcessor = failureProcessor;
+        this.onConfigurationCommittedListener = onConfigurationCommittedListener;
+    }
+
+    @Override
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
+        onConfigurationCommittedListener.accept(config);
     }
 
     @Override

@@ -184,7 +184,6 @@ class SearchBoundsImplementor {
         curUpper.set(fieldIdx, null);
     }
 
-
     private static class RangeConditionImpl<RowT> implements RangeCondition<RowT> {
         private final ExecutionContext<RowT> context;
 
@@ -264,7 +263,6 @@ class SearchBoundsImplementor {
         private final @Nullable SqlComparator<RowT> comparator;
 
         private List<RangeCondition<RowT>> ranges;
-
 
         private boolean sorted;
 

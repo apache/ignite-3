@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
@@ -47,7 +48,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
@@ -122,7 +123,7 @@ public class Compactor extends IgniteWorker {
                     30,
                     SECONDS,
                     new LinkedBlockingQueue<>(),
-                    NamedThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
+                    IgniteThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
             );
             threadPoolExecutor.allowCoreThreadTimeOut(true);
         } else {
@@ -287,15 +288,15 @@ public class Compactor extends IgniteWorker {
             tracker.onCompactionEnd();
 
             if (LOG.isInfoEnabled()) {
-                float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
-                float avgWriteSpeedInBytes = ((long) pageSize * tracker.dataPagesWritten()) / totalDurationInSeconds;
+                long totalWriteBytes = (long) pageSize * tracker.dataPagesWritten();
+                long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
 
                 LOG.info(
                         "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
                         compactionId,
                         tracker.dataPagesWritten(),
                         tracker.totalDuration(MILLISECONDS),
-                        WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                        WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                 );
             }
         }

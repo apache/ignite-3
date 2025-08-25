@@ -114,13 +114,19 @@ import org.locationtech.jts.geom.Geometry;
  * 5. Casts:
  *      Cast String to Time use own implementation IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE
  *      Cast String to Timestamp use own implementation IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ *      Cast TIME to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIME).
+ *      Cast DATE to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_DATE).
+ *      Cast TIMESTAMP to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIMESTAMP).
+ *      Cast TIMESTAMP LTZ to VARCHAR with format is updated to use our implementation 
+ *      (see IgniteMethod.FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  *      Added support cast to decimal, see ConverterUtils.convertToDecimal
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
  *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
- *      Cast VARCHAR to TIME is updated to use our implementation (see IgniteMethod.TIME_STRING_TO_TIME).
- *      Cast VARCHAR to DATE is updated to use our implementation (see IgniteMethod.DATE_STRING_TO_DATE).
- *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ *      Cast VARCHAR with format to TIME is updated to use our implementation (see IgniteMethod.TIME_STRING_TO_TIME).
+ *      Cast VARCHAR with format to DATE is updated to use our implementation (see IgniteMethod.DATE_STRING_TO_DATE).
+ *      Cast TIMESTAMP with format to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, 
+ *      see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  *      Cast between TIME, TIMESTAMP amd TIMESTAMP_LTZ takes precision into account (see {@link IgniteMethod#ADJUST_TIMESTAMP_MILLIS}).
  * 6. Translate literals changes:
@@ -488,21 +494,13 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       case DATE:
         return RexImpTable.optimize2(operand, Expressions.isConstantNull(format)
             ? Expressions.call(BuiltInMethod.UNIX_DATE_TO_STRING.method, operand)
-            : Expressions.call(
-                Expressions.new_(
-                    BuiltInMethod.FORMAT_DATE.method.getDeclaringClass()),
-                BuiltInMethod.FORMAT_DATE.method, format, operand));
+            : Expressions.call(IgniteMethod.FORMAT_DATE.method(), format, operand));
 
       case TIME:
-        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format)
-            ? Expressions.call(
-                IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE.method(),
-                operand,
-                Expressions.constant(sourceType.getPrecision()))
-            : Expressions.call(
-                Expressions.new_(
-                    BuiltInMethod.FORMAT_TIME.method.getDeclaringClass()),
-                BuiltInMethod.FORMAT_TIME.method, format, operand));
+        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format) 
+                ? Expressions.call(IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE.method(), 
+                operand, constant(sourceType.getPrecision())) 
+                : Expressions.call(IgniteMethod.FORMAT_TIME.method(), format, operand));
 
       case TIME_WITH_LOCAL_TIME_ZONE:
         return RexImpTable.optimize2(operand, Expressions.isConstantNull(format)
@@ -514,24 +512,17 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 BuiltInMethod.FORMAT_TIME.method, format, operand));
 
       case TIMESTAMP:
-        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format)
-            ? Expressions.call(
-                IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
-            operand,
-                Expressions.constant(sourceType.getPrecision()))
-            : Expressions.call(
-                Expressions.new_(
-                    BuiltInMethod.FORMAT_TIMESTAMP.method.getDeclaringClass()),
-                BuiltInMethod.FORMAT_TIMESTAMP.method, format, operand));
+        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format) 
+                ? Expressions.call(IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(), 
+                operand, constant(sourceType.getPrecision())) 
+                : Expressions.call(IgniteMethod.FORMAT_TIMESTAMP.method(), format, operand));
 
       case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format)
-            ? Expressions.call(BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_STRING.method,
-            operand, Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
-            : Expressions.call(
-                Expressions.new_(
-                    BuiltInMethod.FORMAT_TIMESTAMP.method.getDeclaringClass()),
-                BuiltInMethod.FORMAT_TIMESTAMP.method, format, operand));
+        Expression getTimeZone = Expressions.call(BuiltInMethod.TIME_ZONE.method, root);
+          
+        return RexImpTable.optimize2(operand, Expressions.isConstantNull(format) 
+                ? Expressions.call(BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_STRING.method, operand, getTimeZone)
+                : Expressions.call(IgniteMethod.FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), format, operand, getTimeZone));
 
       case INTERVAL_YEAR:
       case INTERVAL_YEAR_MONTH:
@@ -1044,8 +1035,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimestampMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
-            || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
         return Expressions.call(
                 IgniteMethod.ADJUST_TIMESTAMP_MILLIS.method(),
@@ -1059,8 +1048,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimeMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
-            || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
           return Expressions.call(
                   IgniteMethod.ADJUST_TIME_MILLIS.method(),

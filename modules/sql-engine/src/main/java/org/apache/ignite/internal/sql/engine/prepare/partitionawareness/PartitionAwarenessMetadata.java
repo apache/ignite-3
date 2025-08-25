@@ -49,17 +49,26 @@ public final class PartitionAwarenessMetadata {
 
     private final int[] hash;
 
+    private final DirectTxMode directTxMode;
+
     /**
      * Constructor.
      *
      * @param tableId Table Id.
      * @param indexes Mapping between positions in colocation key and dynamic parameters.
      * @param hash Array of computed hashes.
+     * @param directTxMode The level of support for direct transaction.
      */
-    public PartitionAwarenessMetadata(int tableId, int[] indexes, int[] hash) {
+    public PartitionAwarenessMetadata(
+            int tableId,
+            int[] indexes,
+            int[] hash,
+            DirectTxMode directTxMode
+    ) {
         this.tableId = tableId;
         this.indexes = indexes;
         this.hash = hash;
+        this.directTxMode = directTxMode;
     }
 
     /** Return table id. */
@@ -91,12 +100,18 @@ public final class PartitionAwarenessMetadata {
         return hash;
     }
 
+    /** Returns the level of support for direct transaction. */
+    public DirectTxMode directTxMode() {
+        return directTxMode;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(PartitionAwarenessMetadata.class, this,
                 "indexes", Arrays.toString(indexes),
-                "hash", Arrays.toString(hash)
+                "hash", Arrays.toString(hash),
+                "directTxMode", directTxMode
         );
     }
 }

@@ -77,6 +77,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -191,7 +192,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 resourceRegistry,
                 transactionInflights,
                 lowWatermark,
-                commonScheduler
+                commonScheduler,
+                new TestMetricManager()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -242,12 +244,26 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ReplicationGroupId partitionIdForEnlistment = targetReplicationGroupId(1, 0);
 
+        tx.assignCommitPartition(partitionIdForEnlistment);
         tx.enlist(partitionIdForEnlistment, 10, REMOTE_NODE.name(), 1L);
 
         PendingTxPartitionEnlistment actual = tx.enlistedPartition(partitionIdForEnlistment);
         assertEquals(REMOTE_NODE.name(), actual.primaryNodeConsistentId());
         assertEquals(1L, actual.consistencyToken());
         assertEquals(Set.of(10), actual.tableIds());
+
+        // Avoid NPE on finish.
+        var meta = mock(ReplicaMeta.class);
+        when(meta.getStartTime()).thenReturn(clock.current());
+        when(meta.getExpirationTime()).thenReturn(clock.current());
+        when(meta.getLeaseholder()).thenReturn("test");
+        when(meta.getLeaseholderId()).thenReturn(randomUUID());
+
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(meta));
+
+        HybridTimestamp commitTimestamp = clockService.now();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
     }
 
     // TODO: IGNITE-22522 - inline this after switching to ZonePartitionId.

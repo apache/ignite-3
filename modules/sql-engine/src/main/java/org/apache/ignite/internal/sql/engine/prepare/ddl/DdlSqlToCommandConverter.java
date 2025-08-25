@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
@@ -52,6 +54,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -103,7 +106,6 @@ import org.apache.ignite.internal.catalog.commands.DeferredDefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
-import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
@@ -138,6 +140,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -162,10 +165,15 @@ public class DdlSqlToCommandConverter {
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
 
+    /** Storage profiles validator. */
+    private final StorageProfileValidator storageProfileValidator;
+
     /**
      * Constructor.
+     *
+     * @param storageProfileValidator Storage profile names validator.
      */
-    public DdlSqlToCommandConverter() {
+    public DdlSqlToCommandConverter(StorageProfileValidator storageProfileValidator) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
@@ -206,6 +214,8 @@ public class DdlSqlToCommandConverter {
         ));
 
         alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
+
+        this.storageProfileValidator = storageProfileValidator;
     }
 
     /**
@@ -230,7 +240,7 @@ public class DdlSqlToCommandConverter {
      * @param ctx Planning context.
      * @return Catalog command.
      */
-    public CatalogCommand convert(SqlDdl ddlNode, PlanningContext ctx) {
+    public CompletableFuture<CatalogCommand> convert(SqlDdl ddlNode, PlanningContext ctx) {
         if (ddlNode instanceof IgniteSqlCreateTable) {
             return convertCreateTable((IgniteSqlCreateTable) ddlNode, ctx);
         }
@@ -292,25 +302,25 @@ public class DdlSqlToCommandConverter {
                 + "querySql=\"" + ctx.query() + "\"]");
     }
 
-    private CatalogCommand convertCreateSchema(IgniteSqlCreateSchema ddlNode, PlanningContext ctx) {
-        return CreateSchemaCommand.builder()
+    private CompletableFuture<CatalogCommand> convertCreateSchema(IgniteSqlCreateSchema ddlNode, PlanningContext ctx) {
+        return completedFuture(CreateSchemaCommand.builder()
                 .name(deriveObjectName(ddlNode.name(), ctx, "schemaName"))
                 .ifNotExists(ddlNode.ifNotExists())
-                .build();
+                .build());
     }
 
-    private CatalogCommand convertDropSchema(IgniteSqlDropSchema ddlNode, PlanningContext ctx) {
-        return DropSchemaCommand.builder()
+    private CompletableFuture<CatalogCommand> convertDropSchema(IgniteSqlDropSchema ddlNode, PlanningContext ctx) {
+        return completedFuture(DropSchemaCommand.builder()
                 .name(deriveObjectName(ddlNode.name(), ctx, "schemaName"))
                 .ifExists(ddlNode.ifExists())
                 .cascade(ddlNode.behavior() == IgniteSqlDropSchemaBehavior.CASCADE)
-                .build();
+                .build());
     }
 
     /**
      * Converts the given '{@code CREATE TABLE}' AST to the {@link CreateTableCommand} catalog command.
      */
-    private CatalogCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommandBuilder tblBuilder = CreateTableCommand.builder();
 
         List<IgniteSqlPrimaryKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
@@ -417,7 +427,7 @@ public class DdlSqlToCommandConverter {
 
         String zone = createTblNode.zone() == null ? null : createTblNode.zone().getSimple();
 
-        return tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
+        CatalogCommand command = tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
                 .tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"))
                 .columns(columns)
                 .primaryKey(primaryKey)
@@ -426,6 +436,8 @@ public class DdlSqlToCommandConverter {
                 .storageProfile(storageProfile)
                 .ifTableExists(createTblNode.ifNotExists())
                 .build();
+
+        return completedFuture(command);
     }
 
     private static ColumnParams convertColumnDeclaration(SqlColumnDeclaration col, IgnitePlanner planner, boolean nullable) {
@@ -483,7 +495,7 @@ public class DdlSqlToCommandConverter {
     /**
      * Converts the given `{@code ALTER TABLE ... ADD COLUMN}` AST into the {@link IgniteSqlAlterTableAddColumn} catalog command.
      */
-    private CatalogCommand convertAlterTableAdd(IgniteSqlAlterTableAddColumn alterTblNode, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertAlterTableAdd(IgniteSqlAlterTableAddColumn alterTblNode, PlanningContext ctx) {
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
 
         builder.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
@@ -508,13 +520,13 @@ public class DdlSqlToCommandConverter {
 
         builder.columns(columns);
 
-        return builder.build();
+        return completedFuture(builder.build());
     }
 
     /**
      * Converts the given `{@code ALTER TABLE ... ALTER COLUMN}` AST into the {@link AlterTableAlterColumnCommand} catalog command.
      */
-    private CatalogCommand convertAlterColumn(IgniteSqlAlterColumn alterColumnNode, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertAlterColumn(IgniteSqlAlterColumn alterColumnNode, PlanningContext ctx) {
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
 
         builder.schemaName(deriveSchemaName(alterColumnNode.name(), ctx));
@@ -560,7 +572,7 @@ public class DdlSqlToCommandConverter {
             builder.deferredDefaultValue(deferredDfltFunc);
         }
 
-        return builder.build();
+        return completedFuture(builder.build());
     }
 
     private static DeferredDefaultValue convertDefaultExpression(
@@ -590,7 +602,7 @@ public class DdlSqlToCommandConverter {
     /**
      * Converts the given '{@code ALTER TABLE ... DROP COLUMN}' AST to the {@link AlterTableDropColumnCommand} catalog command.
      */
-    private CatalogCommand convertAlterTableDrop(IgniteSqlAlterTableDropColumn alterTblNode, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertAlterTableDrop(IgniteSqlAlterTableDropColumn alterTblNode, PlanningContext ctx) {
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder();
 
         builder.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
@@ -602,25 +614,24 @@ public class DdlSqlToCommandConverter {
 
         builder.columns(cols);
 
-        return builder.build();
+        return completedFuture(builder.build());
     }
 
     /**
      * Converts the given '{@code DROP TABLE}' AST to the {@link DropTableCommand} catalog command.
      */
-    private CatalogCommand convertDropTable(IgniteSqlDropTable dropTblNode, PlanningContext ctx) {
-        DropTableCommandBuilder builder = DropTableCommand.builder();
-
-        return builder.schemaName(deriveSchemaName(dropTblNode.name(), ctx))
+    private CompletableFuture<CatalogCommand> convertDropTable(IgniteSqlDropTable dropTblNode, PlanningContext ctx) {
+        return completedFuture(DropTableCommand.builder()
+                .schemaName(deriveSchemaName(dropTblNode.name(), ctx))
                 .tableName(deriveObjectName(dropTblNode.name(), ctx, "tableName"))
                 .ifTableExists(dropTblNode.ifExists)
-                .build();
+                .build());
     }
 
     /**
      * Converts '{@code CREATE INDEX}' AST to the appropriate catalog command.
      */
-    private CatalogCommand convertAddIndex(IgniteSqlCreateIndex sqlCmd, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertAddIndex(IgniteSqlCreateIndex sqlCmd, PlanningContext ctx) {
         boolean sortedIndex = sqlCmd.type() == IgniteSqlIndexType.SORTED || sqlCmd.type() == IgniteSqlIndexType.IMPLICIT_SORTED;
         SqlNodeList columnList = sqlCmd.columnList();
         List<String> columns = new ArrayList<>(columnList.size());
@@ -628,8 +639,10 @@ public class DdlSqlToCommandConverter {
 
         parseColumnList(columnList, columns, collations, sortedIndex);
 
+        CatalogCommand command;
+
         if (sortedIndex) {
-            return CreateSortedIndexCommand.builder()
+            command = CreateSortedIndexCommand.builder()
                     .schemaName(deriveSchemaName(sqlCmd.tableName(), ctx))
                     .tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"))
                     .ifNotExists(sqlCmd.ifNotExists())
@@ -638,7 +651,7 @@ public class DdlSqlToCommandConverter {
                     .collations(collations)
                     .build();
         } else {
-            return CreateHashIndexCommand.builder()
+            command = CreateHashIndexCommand.builder()
                     .schemaName(deriveSchemaName(sqlCmd.tableName(), ctx))
                     .tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"))
                     .ifNotExists(sqlCmd.ifNotExists())
@@ -646,6 +659,8 @@ public class DdlSqlToCommandConverter {
                     .columns(columns)
                     .build();
         }
+
+        return completedFuture(command);
     }
 
     private static void parseColumnList(
@@ -689,21 +704,23 @@ public class DdlSqlToCommandConverter {
     /**
      * Converts '{@code DROP INDEX}' AST to the appropriate catalog command.
      */
-    private CatalogCommand convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
         String schemaName = deriveSchemaName(sqlCmd.indexName(), ctx);
         String indexName = deriveObjectName(sqlCmd.indexName(), ctx, "index name");
 
-        return DropIndexCommand.builder()
+        CatalogCommand command = DropIndexCommand.builder()
                 .schemaName(schemaName)
                 .indexName(indexName)
                 .ifExists(sqlCmd.ifExists())
                 .build();
+
+        return completedFuture(command);
     }
 
     /**
      * Converts the given '{@code CREATE ZONE}' AST to the {@link CreateZoneCommand} catalog command.
      */
-    private CatalogCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         if (createZoneNode.storageProfiles().isEmpty()) {
             throw new SqlException(STMT_VALIDATION_ERR, "STORAGE PROFILES can not be empty");
         }
@@ -723,15 +740,24 @@ public class DdlSqlToCommandConverter {
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
 
-        builder.storageProfilesParams(profiles);
+        Set<String> storageProfileNames = new HashSet<>(profiles.size());
 
-        return builder.build();
+        for (StorageProfileParams profile : profiles) {
+            storageProfileNames.add(profile.storageProfile());
+        }
+
+        return storageProfileValidator.validate(storageProfileNames)
+                .thenApply(unused -> {
+                    builder.storageProfilesParams(profiles);
+
+                    return builder.build();
+                });
     }
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
      */
-    private CatalogCommand convertAlterZoneSet(IgniteSqlAlterZoneSet alterZoneSet, PlanningContext ctx) {
+    private CompletableFuture<CatalogCommand> convertAlterZoneSet(IgniteSqlAlterZoneSet alterZoneSet, PlanningContext ctx) {
         AlterZoneCommandBuilder builder = AlterZoneCommand.builder();
 
         builder.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
@@ -745,38 +771,41 @@ public class DdlSqlToCommandConverter {
             updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder);
         }
 
-        return builder.build();
+        return completedFuture(builder.build());
     }
 
     /**
      * Converts the given '{@code ALTER ZONE ... SET DEFAULT}' AST node to the {@link AlterZoneSetDefaultCommand} catalog command.
      */
-    private CatalogCommand convertAlterZoneSetDefault(IgniteSqlAlterZoneSetDefault alterZoneSetDefault, PlanningContext ctx) {
-        return AlterZoneSetDefaultCommand.builder()
+    private CompletableFuture<CatalogCommand> convertAlterZoneSetDefault(
+            IgniteSqlAlterZoneSetDefault alterZoneSetDefault,
+            PlanningContext ctx
+    ) {
+        return completedFuture(AlterZoneSetDefaultCommand.builder()
                 .zoneName(deriveObjectName(alterZoneSetDefault.name(), ctx, "zoneName"))
                 .ifExists(alterZoneSetDefault.ifExists())
-                .build();
+                .build());
     }
 
     /**
      * Converts the given '{@code ALTER ZONE ... RENAME TO}' AST node to the {@link RenameZoneCommand} catalog command.
      */
-    private CatalogCommand convertAlterZoneRename(IgniteSqlAlterZoneRenameTo alterZoneRename, PlanningContext ctx) {
-        return RenameZoneCommand.builder()
+    private CompletableFuture<CatalogCommand> convertAlterZoneRename(IgniteSqlAlterZoneRenameTo alterZoneRename, PlanningContext ctx) {
+        return completedFuture(RenameZoneCommand.builder()
                 .zoneName(deriveObjectName(alterZoneRename.name(), ctx, "zoneName"))
                 .newZoneName(alterZoneRename.newName().getSimple())
                 .ifExists(alterZoneRename.ifExists())
-                .build();
+                .build());
     }
 
     /**
      * Converts the given '{@code DROP ZONE}' AST to the {@link DropZoneCommand} catalog command.
      */
-    private CatalogCommand convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
-        return DropZoneCommand.builder()
+    private CompletableFuture<CatalogCommand> convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
+        return completedFuture(DropZoneCommand.builder()
                 .zoneName(deriveObjectName(dropZoneNode.name(), ctx, "zoneName"))
                 .ifExists(dropZoneNode.ifExists())
-                .build();
+                .build());
     }
 
     /** Derives a schema name from the compound identifier. */
@@ -842,6 +871,24 @@ public class DdlSqlToCommandConverter {
 
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();
+
+        if (zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_UP || zoneOption == DATA_NODES_AUTO_ADJUST_SCALE_DOWN) {
+            if (literal.getTypeName() == SqlTypeName.SYMBOL) {
+                IgniteSqlZoneOptionMode zoneOptionMode = literal.symbolValue(IgniteSqlZoneOptionMode.class);
+
+                if (zoneOptionMode != IgniteSqlZoneOptionMode.SCALE_OFF) {
+                    throw new SqlException(STMT_VALIDATION_ERR, format(
+                            "Unexpected value of zone auto adjust scale [expected OFF, was {}; query=\"{}\"",
+                            zoneOptionMode, ctx.query()
+                    ));
+                }
+
+                // Directly set the option value and return
+                zoneOptionInfo.setter.accept(target, Commons.cast(INFINITE_TIMER_VALUE));
+
+                return;
+            }
+        }
 
         if (zoneOption == REPLICAS) {
             if (literal.getTypeName() == SqlTypeName.SYMBOL) {
@@ -1039,11 +1086,14 @@ public class DdlSqlToCommandConverter {
                     return fromInternal(val, ColumnType.TIME);
                 }
                 case DATETIME: {
-                    literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    String sourceValue = literal.getValueAs(String.class);
+                    literal = SqlParserUtil.parseTimestampLiteral(sourceValue, literal.getParserPosition());
                     var tsString = literal.getValueAs(TimestampString.class);
                     long ts = tsString.getMillisSinceEpoch();
 
-                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL
+                            || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL
+                            || IgniteSqlDateTimeUtils.isYearOutOfRange(sourceValue)) {
                         throw new SqlException(STMT_VALIDATION_ERR, "TIMESTAMP out of range.");
                     }
 

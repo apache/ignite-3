@@ -873,6 +873,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         var failureProcessor = new NoOpFailureManager();
 
         var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                NODE_NAME,
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,

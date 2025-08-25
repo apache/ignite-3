@@ -153,8 +153,20 @@ public class NodeUtils {
         return preferablePrimary[0];
     }
 
-    private static void stopLeaseProlongation(Collection<IgniteImpl> nodes, IgniteImpl leaseholderNode, ReplicationGroupId groupId,
-            String preferablePrimary) {
+    /**
+     * Stops lease prolongation for the given replication group.
+     *
+     * @param nodes Cluster nodes.
+     * @param leaseholderNode Current Lease holder.
+     * @param groupId Replication group id.
+     * @param preferablePrimary Preferable primary.
+     */
+    public static void stopLeaseProlongation(
+            Collection<IgniteImpl> nodes,
+            IgniteImpl leaseholderNode,
+            ReplicationGroupId groupId,
+            @Nullable String preferablePrimary
+    ) {
         StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                 .groupId(groupId)
                 .redirectProposal(preferablePrimary)
@@ -165,7 +177,14 @@ public class NodeUtils {
         );
     }
 
-    private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
+    /**
+     * Returns a replica meta information for the given replication group.
+     *
+     * @param node Ignite node to be used for getting a meta.
+     * @param groupId Replication group id.
+     * @return Replica meta.
+     */
+    public static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
         CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplica(
                 groupId,
                 node.clock().now(),

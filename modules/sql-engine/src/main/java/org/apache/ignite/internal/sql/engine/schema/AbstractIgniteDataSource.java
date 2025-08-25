@@ -31,11 +31,10 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
-
 
 /**
  * Base implementation of {@link IgniteDataSource}.
@@ -90,13 +89,7 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
+    public RelDataType getRowType(RelDataTypeFactory typeFactory, @Nullable ImmutableIntList requiredColumns) {
         return desc.rowType((IgniteTypeFactory) typeFactory, requiredColumns);
     }
 

@@ -57,7 +57,7 @@ import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -185,7 +185,7 @@ public class Loza implements RaftManager {
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
-                NamedThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
+                IgniteThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
         );
     }
 
@@ -421,7 +421,7 @@ public class Loza implements RaftManager {
             RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
             raftGroupOptionsConfigurer.configure(groupOptions);
 
-            raftServer.destroyRaftNodeStorages(nodeId, groupOptions);
+            raftServer.destroyRaftNodeStoragesDurably(nodeId, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -429,6 +429,8 @@ public class Loza implements RaftManager {
 
     /**
      * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * <p>No durability guarantees are provided. If a node crashes, the storage may come to life.
      *
      * @param nodeId ID of the Raft node.
      * @param raftGroupOptions Group options.
@@ -441,6 +443,43 @@ public class Loza implements RaftManager {
 
         try {
             raftServer.destroyRaftNodeStorages(nodeId, raftGroupOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * <p>Destruction is durable: that is, if this method returns and after that the node crashes, after it starts up, the storage
+     * will not be there.
+     *
+     * @param nodeId ID of the Raft node.
+     * @param raftGroupOptions Group options.
+     * @throws NodeStoppingException If the node is already being stopped.
+     */
+    public void destroyRaftNodeStoragesDurably(RaftNodeId nodeId, RaftGroupOptions raftGroupOptions) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            raftServer.destroyRaftNodeStoragesDurably(nodeId, raftGroupOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns Raft node IDs for which any storage (log storage or Raft meta storage) is present on disk.
+     */
+    public Set<StoredRaftNodeId> raftNodeIdsOnDisk() throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return raftServer.raftNodeIdsOnDisk();
         } finally {
             busyLock.leaveBusy();
         }

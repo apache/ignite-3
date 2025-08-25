@@ -169,6 +169,27 @@ public enum IgniteMethod {
             "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
 
     /**
+     * SQL CAST({@code TIME} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIME(IgniteSqlFunctions.class, "formatTime", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code DATE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_DATE(IgniteSqlFunctions.class, "formatDate", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP(IgniteSqlFunctions.class, "formatTimestamp", String.class, Long.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP WITH LOCAL TIME ZONE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class, "formatTimestampWithLocalTimeZone",
+            String.class, Long.class, TimeZone.class),
+
+    /**
      * Returns the timestamp value truncated to the specified fraction of a second.
      * See {@link IgniteSqlDateTimeUtils#adjustTimestampMillis(Long, int)}.
      */

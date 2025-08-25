@@ -18,35 +18,26 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
@@ -76,10 +67,8 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
         // This test is rather fragile because it's time dependent. The test uses one second as tx timeout and assumes that it's enough
         // for an initial operation to find the primary replica, which might not be the case in case of concurrent interleaving rebalance.
-        // Not related to colocation. awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
-        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone,
-        // that's why given method isn't located in a utility class.
-        awaitAssignmentsStabilization(cluster.node(0));
+        // Not related to colocation.
+        awaitAssignmentsStabilization(cluster.node(0), TABLE_NAME);
 
         return ignite().tables().table(TABLE_NAME);
     }
@@ -123,6 +112,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25918")
     void timeoutExceptionHasCorrectCause() throws InterruptedException {
         Table table = createTestTable();
 
@@ -157,32 +147,5 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
     private static void doPutOn(Table table, Transaction tx) {
         table.keyValueView(Integer.class, String.class).put(tx, 1, "one");
-    }
-
-    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
-
-        HybridTimestamp timestamp = igniteImpl.clock().now();
-
-        assertTrue(waitForCondition(() -> {
-            int totalPartitionSize = 0;
-
-            // Within given test, default zone is used.
-            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
-                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        colocationEnabled()
-                                ? new ZonePartitionId(tableOrZoneId, p)
-                                : new TablePartitionId(tableOrZoneId, p),
-                        timestamp);
-
-                assertThat(assignmentsFuture, willCompleteSuccessfully());
-
-                totalPartitionSize += assignmentsFuture.join().nodes().size();
-            }
-
-            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
-        }, 10_000));
     }
 }

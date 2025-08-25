@@ -37,17 +37,17 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,7 +56,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -113,12 +113,15 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -182,21 +185,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Prevents double stopping of the tracker. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /**
-     * Total number of started transaction.
-     * TODO: IGNITE-21440 Implement transaction metrics.
-     */
-    private final LongAdder startedTxs = new LongAdder();
-
-    /**
-     * Total number of finished transaction.
-     * TODO: IGNITE-21440 Implement transaction metrics.
-     */
-    private final LongAdder finishedTxs = new LongAdder();
-
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
@@ -247,6 +235,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private volatile int lockRetryCount = 0;
 
+    private final MetricManager metricsManager;
+
+    private final TransactionMetricsSource txMetrics;
+
+    private volatile boolean isStopping;
+
+    private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
+
     /**
      * Test-only constructor.
      *
@@ -263,6 +259,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
+     * @param metricManager Metric manager.
      */
     @TestOnly
     public TxManagerImpl(
@@ -279,7 +276,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            MetricManager metricManager
     ) {
         this(
                 clusterService.nodeName(),
@@ -300,7 +298,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                metricManager
         );
     }
 
@@ -322,6 +321,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
+     * @param metricManager Metric manager.
      */
     public TxManagerImpl(
             String nodeName,
@@ -342,7 +342,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            MetricManager metricManager
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -363,6 +364,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
         this.nodeProperties = nodeProperties;
+        this.metricsManager = metricManager;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -396,24 +398,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         txCleanupRequestSender =
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
+
+        txMetrics = new TransactionMetricsSource(clockService);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
             Consumer<ReplicationGroupId> action
     ) {
-        return inBusyLock(busyLock, () -> {
-            assertReplicationGroupType(eventParameters.groupId());
+        assertReplicationGroupType(eventParameters.groupId());
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
-            if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
-                return falseCompletedFuture();
-            }
-
-            action.accept(eventParameters.groupId());
-
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove check for TablePartitionId.
+        if (!(eventParameters.groupId() instanceof TablePartitionId) && !(eventParameters.groupId() instanceof ZonePartitionId)) {
             return falseCompletedFuture();
-        });
+        }
+
+        action.accept(eventParameters.groupId());
+
+        return falseCompletedFuture();
     }
 
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
@@ -432,42 +434,33 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
+        if (readOnly) {
+            return new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
+        }
+
+        HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
+        var tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, true, InternalTxOptions.defaults());
+
+        txStateVolatileStorage.initialize(tx);
+        txMetrics.onTransactionStarted();
+
+        return tx;
     }
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
-        return begin(timestampTracker, false, readOnly, txOptions);
-    }
-
-    private InternalTransaction begin(
-            HybridTimestampTracker timestampTracker,
-            boolean implicit,
-            boolean readOnly,
-            InternalTxOptions options
-    ) {
-        return inBusyLock(busyLock, () -> beginBusy(timestampTracker, implicit, readOnly, options));
-    }
-
-    private InternalTransaction beginBusy(
-            HybridTimestampTracker timestampTracker,
-            boolean implicit,
-            boolean readOnly,
-            InternalTxOptions options
-    ) {
-        startedTxs.add(1);
-
         InternalTransaction tx;
 
         if (readOnly) {
-            HybridTimestamp beginTimestamp = clockService.now();
-            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, implicit, options);
+            HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
+            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txOptions);
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
+            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, false, txOptions);
         }
 
         txStateVolatileStorage.initialize(tx);
+        txMetrics.onTransactionStarted();
 
         return tx;
     }
@@ -495,10 +488,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
-        boolean scheduleExpiration = !implicit;
-
-        if (scheduleExpiration) {
+        if (!implicit) {
             transactionExpirationRegistry.register(transaction);
+
+            if (isStopping) {
+                transaction.fail(new TransactionException(Common.NODE_STOPPING_ERR,
+                        "Failed to finish the transaction because a node is stopping: [txId=" + txId + ']'));
+            }
         }
 
         return transaction;
@@ -511,7 +507,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
             HybridTimestampTracker timestampTracker,
             HybridTimestamp beginTimestamp,
-            boolean implicit,
             InternalTxOptions options
     ) {
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
@@ -530,7 +525,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (!lockAcquired) {
             throw new IgniteInternalException(
                     TX_READ_ONLY_TOO_OLD_ERR,
-                    "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                    "Attempted to read data below the garbage collection watermark: [readTimestamp={}, gcTimestamp={}]",
                     readTimestamp,
                     lowWatermark.getLowWatermark());
         }
@@ -541,25 +536,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
+                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture
             );
 
-            // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
-            // no need to register them.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
-            boolean scheduleExpiration = !implicit;
-
-            if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction);
-            }
+            transactionExpirationRegistry.register(transaction);
 
             txFuture.whenComplete((unused, throwable) -> {
                 lowWatermark.unlock(txId);
 
-                // We only register explicit transactions, so we only unregister them as well.
-                if (scheduleExpiration) {
-                    transactionExpirationRegistry.unregister(transaction);
-                }
+                transactionExpirationRegistry.unregister(transaction);
             });
 
             return transaction;
@@ -576,9 +561,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
-        return beginTx.subtractPhysicalTime(
-                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis()
-        );
+        return beginTx.subtractPhysicalTime(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis());
     }
 
     @Override
@@ -598,11 +581,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            @Nullable HybridTimestamp ts,
+            boolean commit,
+            boolean timeoutExceeded
     ) {
         TxState finalState;
-
-        finishedTxs.add(1);
 
         if (commit) {
             assert ts != null : "RW transaction commit timestamp cannot be null.";
@@ -623,6 +608,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         old == null ? null : old.tx(),
                         timeoutExceeded
                 ));
+
+        txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
 
         decrementRwTxCount(txId);
     }
@@ -649,8 +636,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             assertReplicationGroupType(replicationGroupId);
         }
 
-        finishedTxs.add(1);
-
         assert enlistedGroups != null;
 
         if (enlistedGroups.isEmpty()) {
@@ -663,6 +648,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     old == null ? null : old.tx(),
                     timeout
             ));
+
+            txMetrics.onReadWriteTransactionFinished(txId, commitIntent);
 
             decrementRwTxCount(txId);
 
@@ -688,7 +675,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         // Means we failed to CAS the state, someone else did it.
         if (finishingStateMeta != stateMeta) {
-            // If the state is FINISHING then someone else hase in in the middle of finishing this tx.
+            // If the state is FINISHING then someone else is in the middle of finishing this tx.
             if (stateMeta.txState() == FINISHING) {
                 return ((TxStateMetaFinishing) stateMeta).txFinishFuture()
                         .thenCompose(meta -> checkTxOutcome(commitIntent, txId, meta));
@@ -710,11 +697,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         txId,
                         finishingStateMeta.txFinishFuture()
                 )
-        ).thenAccept(unused -> {
+        ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
+                txMetrics.onReadWriteTransactionFinished(txId, commitIntent && throwable == null);
+
                 decrementRwTxCount(txId);
             }
-        }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
+
+            transactionInflights.removeTxContext(txId);
+        });
     }
 
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
@@ -770,6 +761,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 .thenCompose(r -> verificationFuture);
     }
 
+    private <T> CompletableFuture<T> trackFuture(CompletableFuture<T> fut) {
+        if (fut.isDone()) {
+            return fut;
+        }
+
+        if (isStopping) {
+            // Track finish future.
+            stopFuts.add(fut);
+        }
+
+        return fut;
+    }
+
     /**
      * Durable finish request.
      */
@@ -782,7 +786,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
+        return trackFuture(placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
                         sendFinishRequest(
                                 observableTimestampTracker,
@@ -914,12 +918,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public int finished() {
-        return finishedTxs.intValue();
+        return (int) txMetrics.finishedTransactions();
     }
 
     @Override
     public int pending() {
-        return startedTxs.intValue() - finishedTxs.intValue();
+        return (int) txMetrics.activeTransactions();
     }
 
     @Override
@@ -983,46 +987,47 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        return inBusyLockAsync(busyLock, () -> {
-            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(DEFAULT_TX_ID_COMPARATOR, DEFAULT_LOCK_TIMEOUT);
+        var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(DEFAULT_TX_ID_COMPARATOR, DEFAULT_LOCK_TIMEOUT);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23539
-            lockManager.start(deadlockPreventionPolicy);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23539
+        lockManager.start(deadlockPreventionPolicy);
 
-            localNodeId = topologyService.localMember().id();
+        localNodeId = topologyService.localMember().id();
 
-            messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
-                    replicaService,
-                    topologyService.localMember(),
-                    clockService,
-                    placementDriver,
-                    failureProcessor
-            );
+        persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
+                replicaService,
+                topologyService.localMember(),
+                clockService,
+                placementDriver,
+                failureProcessor
+        );
 
-            txStateVolatileStorage.start();
+        txStateVolatileStorage.start();
 
-            txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
+        txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 
-            orphanDetector.start(txStateVolatileStorage,
-                    () -> longProperty(systemCfg, ABANDONED_CHECK_TS_PROP, ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE));
+        orphanDetector.start(txStateVolatileStorage,
+                () -> longProperty(systemCfg, ABANDONED_CHECK_TS_PROP, ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE));
 
-            txCleanupRequestSender.start();
+        txCleanupRequestSender.start();
 
-            txCleanupRequestHandler.start();
+        txCleanupRequestHandler.start();
 
-            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
 
-            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
-                    EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
+        transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
+                EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
 
-            lockRetryCount = toIntExact(longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE));
+        lockRetryCount = toIntExact(longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE));
 
-            return nullCompletedFuture();
-        });
+        metricsManager.registerSource(txMetrics);
+        metricsManager.enable(txMetrics);
+
+        return nullCompletedFuture();
     }
 
     private void expireTransactionsUpToNow() {
@@ -1038,6 +1043,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public void beforeNodeStop() {
+        isStopping = true;
         orphanDetector.stop();
     }
 
@@ -1047,26 +1053,39 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return nullCompletedFuture();
         }
 
-        busyLock.block();
+        // Wait all pending finish futures.
+        List<CompletableFuture<?>> toWait = new ArrayList<>();
 
-        txStateVolatileStorage.stop();
-
-        txCleanupRequestHandler.stop();
-
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
-
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
-
-        ScheduledFuture<?> expirationJobFuture = transactionExpirationJobFuture;
-        if (expirationJobFuture != null) {
-            expirationJobFuture.cancel(false);
+        for (CompletableFuture<?> stopFut : stopFuts) {
+            if (!stopFut.isDone()) {
+                toWait.add(stopFut);
+            }
         }
 
-        transactionExpirationRegistry.abortAllRegistered();
+        stopFuts.clear();
 
-        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+        LOG.debug("Waiting for tx finish futures on shutdown [cnt=" + toWait.size() + ']');
 
-        return nullCompletedFuture();
+        return CompletableFutures.allOf(toWait).handle((r, e) -> {
+            txStateVolatileStorage.stop();
+
+            txCleanupRequestHandler.stop();
+
+            placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+            placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
+
+            ScheduledFuture<?> expirationJobFuture = transactionExpirationJobFuture;
+            if (expirationJobFuture != null) {
+                expirationJobFuture.cancel(false);
+            }
+
+            transactionExpirationRegistry.abortAllRegistered();
+
+            shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+
+            return null;
+        });
     }
 
     @Override
@@ -1109,7 +1128,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> vacuum() {
+    public CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics) {
         if (persistentTxStateVacuumizer == null) {
             return nullCompletedFuture(); // Not started yet.
         }
@@ -1119,7 +1138,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return txStateVolatileStorage.vacuum(
                 vacuumObservationTimestamp,
                 longProperty(systemCfg, RESOURCE_TTL_PROP, RESOURCE_TTL_PROP_DEFAULT_VALUE),
-                persistentTxStateVacuumizer::vacuumPersistentTxStates);
+                persistentTxStateVacuumizer::vacuumPersistentTxStates,
+                resourceVacuumMetrics
+        );
     }
 
     @Override
@@ -1148,10 +1169,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
-        finishedTxs.add(1);
-
+    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
         UUID txId = txIdAndTimestamp.getTxId();
+
+        txMetrics.onReadOnlyTransactionFinished(txId, commitIntent);
 
         transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
     }

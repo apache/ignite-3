@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -171,7 +172,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentMatchers;
 
 /**
- * Test class to verify {@link ExecutionServiceImplTest}.
+ * Test class to verify {@link ExecutionServiceImpl}.
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
@@ -241,7 +242,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -556,7 +557,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                         // We need to block only root fragment execution, otherwise due to asynchronous fragments processing fragments with
                         // different fragmentId can be processed before root (fragmentId=0) and block pool threads for
                         // further processing jobs.
-                        if (msg instanceof QueryStartResponseImpl && ((QueryStartResponseImpl) msg).fragmentId() == 0) {
+                        if (msg instanceof QueryStartResponseImpl && ((QueryStartResponseImpl) msg).fragmentId() == 1) {
                             startResponse.countDown();
                             nodeFailedLatch.await();
                         }
@@ -798,22 +799,22 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "  Root node state: opened" + nl
                 + nl
                 + "  Fragments awaiting init completion:" + nl
-                + "    id=0, node=node_1" + nl
                 + "    id=1, node=node_1" + nl
-                + "    id=1, node=node_2" + nl
-                + "    id=1, node=node_3" + nl
+                + "    id=2, node=node_1" + nl
+                + "    id=2, node=node_2" + nl
+                + "    id=2, node=node_3" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=0, state=opened, canceled=false, class=Inbox (root)" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + "    id=1, state=opened, canceled=false, class=Inbox (root)" + nl
+                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
                 + nl
-                + "  Fragment#0 tree:" + nl
+                + "  Fragment#1 tree:" + nl
                 + "    class=Inbox, requested=512" + nl
                 + "      class=RemoteSource, nodeName=node_1, state=WAITING" + nl
                 + "      class=RemoteSource, nodeName=node_2, state=WAITING" + nl
                 + "      class=RemoteSource, nodeName=node_3, state=WAITING" + nl
                 + nl
-                + "  Fragment#1 tree:" + nl
+                + "  Fragment#2 tree:" + nl
                 + "    class=Outbox, waiting=-1" + nl
                 + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
                 + "      class=, requested=0" + nl
@@ -826,9 +827,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "  Coordinator node: node_1" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
                 + nl
-                + "  Fragment#1 tree:" + nl
+                + "  Fragment#2 tree:" + nl
                 + "    class=Outbox, waiting=-1" + nl
                 + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
                 + "      class=, requested=0" + nl
@@ -1092,7 +1093,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(result.getCatalogTime()).thenReturn(expectedCatalogActivationTimestamp.longValue());
         when(ddlCommandHandler.handle(any(CatalogCommand.class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         await(execService.executePlan(plan, planCtx));
 
@@ -1187,7 +1188,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             CacheFactory cacheFactory,
             List<String> logicalNodes
     ) {
-        PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
+        PartitionPruner partitionPruner = (mappedFragments, dynamicParameters, ppMetadata) -> mappedFragments;
 
         LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
 

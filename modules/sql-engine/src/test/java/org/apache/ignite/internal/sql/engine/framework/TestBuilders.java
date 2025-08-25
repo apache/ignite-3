@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -32,7 +33,6 @@ import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -140,7 +140,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -201,7 +201,7 @@ public class TestBuilders {
                     ExecutionContext<RowT> ctx,
                     PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns
+                    int @Nullable [] requiredColumns
             ) {
 
                 return new TransformingPublisher<>(
@@ -228,7 +228,7 @@ public class TestBuilders {
                     ExecutionContext<RowT> ctx,
                     PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns
+                    int @Nullable [] requiredColumns
             ) {
 
                 return new TransformingPublisher<>(
@@ -249,21 +249,17 @@ public class TestBuilders {
      * {@link ScannableTable#indexRangeScan index range scan}.
      */
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
-        return new ScannableTable() {
+        return new AbstractScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> scan(
+            public <RowT> Publisher<RowT> indexRangeScan(
                     ExecutionContext<RowT> ctx,
                     PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns
+                    int indexId,
+                    List<String> columns,
+                    @Nullable RangeCondition<RowT> cond,
+                    int @Nullable [] requiredColumns
             ) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable BitSet requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
                                 () -> new TransformingIterator<>(
@@ -273,23 +269,6 @@ public class TestBuilders {
                         ),
                         rowFactory::create
                 );
-            }
-
-            @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public CompletableFuture<Long> estimatedSize() {
-                throw new UnsupportedOperationException();
             }
         };
     }
@@ -299,27 +278,11 @@ public class TestBuilders {
      * {@link ScannableTable#indexLookup index lookup}.
      */
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
-        return new ScannableTable() {
-            @Override
-            public <RowT> Publisher<RowT> scan(
-                    ExecutionContext<RowT> ctx,
-                    PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory,
-                    @Nullable BitSet requiredColumns
-            ) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
+        return new AbstractScannableTable() {
             @Override
             public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                    int @Nullable [] requiredColumns) {
                 return new TransformingPublisher<>(
                         SubscriptionUtils.fromIterable(
                                 () -> new TransformingIterator<>(
@@ -329,17 +292,6 @@ public class TestBuilders {
                         ),
                         rowFactory::create
                 );
-            }
-
-            @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public CompletableFuture<Long> estimatedSize() {
-                throw new UnsupportedOperationException();
             }
         };
     }
@@ -685,7 +637,8 @@ public class TestBuilders {
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,
                     -1,
-                    clock
+                    clock,
+                    null
             );
         }
     }
@@ -792,9 +745,16 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), planningTimeout, PLANNING_THREAD_COUNT,
-                    new NoOpMetricManager(), schemaManager);
+            var prepareService = new PrepareServiceImpl(
+                    clusterName,
+                    0,
+                    CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null)),
+                    planningTimeout,
+                    PLANNING_THREAD_COUNT,
+                    new NoOpMetricManager(),
+                    schemaManager
+            );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -806,7 +766,7 @@ public class TestBuilders {
             }
 
             ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                    NamedThreadFactory.create("test", "common-scheduled-executors", LOG)
+                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
             );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
@@ -1642,7 +1602,7 @@ public class TestBuilders {
 
                     return (UpdatableTable) Proxy.newProxyInstance(
                             getClass().getClassLoader(),
-                            new Class<?> [] {UpdatableTable.class},
+                            new Class<?>[] {UpdatableTable.class},
                             (proxy, method, args) -> {
                                 if ("descriptor".equals(method.getName())) {
                                     return table.descriptor();
@@ -1712,21 +1672,19 @@ public class TestBuilders {
         return builder.build();
     }
 
-    private static Object[] project(Object[] row, @Nullable BitSet requiredElements) {
-        if (requiredElements == null) {
+    private static Object[] project(Object[] row, int @Nullable [] requiredColumns) {
+        if (requiredColumns == null) {
             return row;
         }
 
-        Object[] newRow = new Object[requiredElements.cardinality()];
+        Object[] newRow = new Object[requiredColumns.length];
 
-        int idx = 0;
-        for (int i = requiredElements.nextSetBit(0); i != -1; i = requiredElements.nextSetBit(i + 1)) {
-            newRow[idx++] = row[i];
+        for (int i = 0; i < requiredColumns.length; i++) {
+            newRow[i] = row[requiredColumns[i]];
         }
 
         return newRow;
     }
-
 
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
@@ -1860,7 +1818,7 @@ public class TestBuilders {
                         .collect(Collectors.toList());
             }
 
-            return CompletableFuture.completedFuture(assignments);
+            return completedFuture(assignments);
         }
 
         @Override
@@ -1882,27 +1840,44 @@ public class TestBuilders {
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns
+                int @Nullable [] requiredColumns
         ) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> indexRangeScan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                int indexId,
+                List<String> columns,
+                @Nullable RangeCondition<RowT> cond,
+                int @Nullable [] requiredColumns) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> indexLookup(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                int indexId,
+                List<String> columns,
+                RowT key,
+                int @Nullable [] requiredColumns
+        ) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(
+                ExecutionContext<RowT> ctx,
+                InternalTransaction explicitTx,
+                RowFactory<RowT> rowFactory,
+                RowT key,
+                int @Nullable [] requiredColumns
+        ) {
             throw new UnsupportedOperationException();
         }
 
@@ -1988,6 +1963,11 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+            return completedFuture(false);
         }
 
         @Override

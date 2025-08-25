@@ -30,6 +30,8 @@ import org.apache.ignite.internal.util.CollectionUtils;
 class MapChannelTypeRegistry implements ChannelTypeRegistry {
     private final Int2ObjectMap<ChannelType> map;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
+    @SuppressWarnings("PMD.UnnecessaryCast")
     MapChannelTypeRegistry(ChannelType... channelTypes) {
         assert !nullOrEmpty(channelTypes);
 

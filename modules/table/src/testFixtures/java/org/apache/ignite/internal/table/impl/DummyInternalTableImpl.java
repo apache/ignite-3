@@ -63,6 +63,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -126,7 +127,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -190,7 +191,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
     private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
+            IgniteThreadFactory.create("node", "DummyInternalTable-common-scheduler-", true, LOG)
     );
 
     private final boolean enabledColocation = colocationEnabled();
@@ -695,7 +696,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 resourcesRegistry,
                 transactionInflights,
                 new TestLowWatermark(),
-                COMMON_SCHEDULER
+                COMMON_SCHEDULER,
+                new NoOpMetricManager()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

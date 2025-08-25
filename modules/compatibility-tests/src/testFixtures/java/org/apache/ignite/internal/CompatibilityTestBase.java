@@ -22,7 +22,11 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -31,6 +35,8 @@ import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -38,8 +44,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
-import org.junit.jupiter.params.ParameterizedClass;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the embedded
@@ -47,11 +51,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-@ParameterizedClass
-@MethodSource("baseVersions")
 public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+    public static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -79,6 +81,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     protected IgniteCluster cluster;
 
+    protected List<String> extraIgniteModuleIds() {
+        return Collections.emptyList();
+    }
+
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
@@ -87,7 +93,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         cluster = createCluster(testInfo, workDir);
 
         int nodesCount = nodesCount();
-        cluster.start(baseVersion, nodesCount);
+        cluster.start(baseVersion, nodesCount, extraIgniteModuleIds());
 
         cluster.init(this::configureInitParameters);
 
@@ -109,9 +115,20 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @param workDir Work directory.
      * @return A new instance of {@link IgniteCluster}.
      */
-    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+    public IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+        return createCluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
+    }
+
+    /**
+     * Creates a cluster with the given test info and work directory.
+     *
+     * @param testInfo Test information.
+     * @param workDir Work directory.
+     * @return A new instance of {@link IgniteCluster}.
+     */
+    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfigTemplate) {
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
-                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .defaultNodeBootstrapConfigTemplate(nodeBootstrapConfigTemplate)
                 .build();
 
         return new IgniteCluster(clusterConfiguration);
@@ -145,37 +162,61 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     protected abstract void setupBaseVersion(Ignite baseIgnite);
 
-    protected List<List<Object>> sql(String query) {
-        return sql(node(0), query);
+    protected List<List<Object>> sql(String query, Object... args) {
+        return sql(node(0), query, args);
     }
 
-    protected List<List<Object>> sql(Ignite ignite, String query) {
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, query);
+    protected static List<List<Object>> sql(Ignite ignite, String query, Object... args) {
+        return sql(ignite, null, query, args);
+    }
+
+    protected static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String query, Object... args) {
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, query, args);
     }
 
     protected Ignite node(int index) {
         return cluster.node(index);
     }
 
-    private static List<String> baseVersions() {
+    /**
+     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, last 2
+     * are taken.
+     *
+     * @return A list of base versions for a test.
+     */
+    public static List<String> baseVersions() {
         return baseVersions(2);
     }
 
     /**
-     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, at
-     * most {@code numLatest} are taken.
+     * Returns a list of base versions. If {@code testAllVersions} system property is empty or set to {@code true}, then all versions are
+     * returned, otherwise, at most {@code numLatest} latest versions are taken.
      *
      * @param numLatest Number of latest versions to take by default.
+     * @param skipVersions Array of strings to skip.
      * @return A list of base versions for a test.
      */
-    public static List<String> baseVersions(int numLatest) {
-        List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
-        if (System.getProperty("testAllVersions") != null) {
+    public static List<String> baseVersions(int numLatest, String... skipVersions) {
+        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
+        List<String> versions = IgniteVersions.INSTANCE.versions().stream()
+                .map(Version::version)
+                .filter(Predicate.not(skipSet::contains))
+                .collect(Collectors.toList());
+        if (shouldTestAllVersions()) {
             return versions;
         } else {
-            // Take at most two latest versions by default.
+            // Take at most numLatest latest versions.
             int fromIndex = Math.max(versions.size() - numLatest, 0);
             return versions.subList(fromIndex, versions.size());
         }
+    }
+
+    private static boolean shouldTestAllVersions() {
+        String value = System.getProperty("testAllVersions");
+        if (value != null) {
+            value = value.trim().toLowerCase();
+            return value.isEmpty() || "true".equals(value);
+        }
+        return false;
     }
 }

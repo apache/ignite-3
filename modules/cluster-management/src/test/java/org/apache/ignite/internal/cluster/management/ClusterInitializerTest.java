@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.assertArg;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +42,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -85,7 +88,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -101,6 +105,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
 
@@ -111,6 +117,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
+        verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
 
@@ -133,6 +140,9 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
             when(topologyService.getByConsistentId(node.name())).thenReturn(node);
         }
         when(topologyService.allMembers()).thenReturn(allNodes);
+
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
 
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
@@ -157,9 +167,14 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
             boolean shouldBeCmg = i <= 3 || (numNodes >= 5 && i <= 5);
 
             if (shouldBeCmg) {
-                verify(messagingService).invoke(eq(node), assertArg((CmgInitMessage msg) -> {
-                    assertThat(msg.metaStorageNodes(), equalTo(cmgNodeNameSet));
-                    assertThat(msg.cmgNodes(), equalTo(cmgNodeNameSet));
+                verify(messagingService).invoke(eq(node), any(CmgPrepareInitMessage.class), anyLong());
+                verify(messagingService).invoke(eq(node), any(CmgInitMessage.class), anyLong());
+                verify(messagingService, times(2)).invoke(eq(node), assertArg((NetworkMessage msg) -> {
+                    if (msg instanceof CmgInitMessage) {
+                        CmgInitMessage cmgInitMessage = (CmgInitMessage) msg;
+                        assertThat(cmgInitMessage.metaStorageNodes(), equalTo(cmgNodeNameSet));
+                        assertThat(cmgInitMessage.cmgNodes(), equalTo(cmgNodeNameSet));
+                    }
                 }), anyLong());
             } else {
                 verify(messagingService, never()).invoke(eq(node), any(CmgInitMessage.class), anyLong());
@@ -183,6 +198,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
 
@@ -192,6 +209,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
+        verify(messagingService).invoke(eq(metastorageNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
 
@@ -210,6 +228,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
         when(messagingService.invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
                     NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").shouldCancel(true).build();
@@ -229,6 +249,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
         assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
 
+        verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
         verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
     }
@@ -245,6 +266,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
         when(messagingService.invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
                     NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").shouldCancel(false).build();
@@ -261,12 +284,19 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
         assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
 
+        verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService, never()).send(eq(cmgNode), any(CancelInitMessage.class));
         verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
     }
 
     private CompletableFuture<NetworkMessage> initCompleteMessage() {
         NetworkMessage msg = msgFactory.initCompleteMessage().build();
+
+        return CompletableFuture.completedFuture(msg);
+    }
+
+    private CompletableFuture<NetworkMessage> prepareInitCompleteMessage() {
+        NetworkMessage msg = msgFactory.prepareInitCompleteMessage().build();
 
         return CompletableFuture.completedFuture(msg);
     }
@@ -309,5 +339,41 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         verify(messagingService, never()).invoke(any(ClusterNode.class), any(ChannelType.class), any(NetworkMessage.class), anyLong());
         verify(messagingService, never()).invoke(any(String.class), any(NetworkMessage.class), anyLong());
         verify(messagingService, never()).invoke(any(String.class), any(ChannelType.class), any(NetworkMessage.class), anyLong());
+    }
+
+    /**
+     * Tests a situation when one of the nodes fail during initialization.
+     */
+    @Test
+    void testInitOnHeterogeniusEnabledColocation() {
+        ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+
+        when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
+        when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
+        when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
+
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenReturn(prepareInitCompleteMessage());
+        when(messagingService.invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    NetworkMessage response = msgFactory.initErrorMessage().cause("colocation modes do not match.").shouldCancel(false)
+                            .build();
+
+                    return CompletableFuture.completedFuture(response);
+                });
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(metastorageNode.name()),
+                List.of(cmgNode.name()),
+                "cluster"
+        );
+
+        String errorMessageFragment = String.format("Got error response from node \"%s\": colocation modes do not match.", cmgNode.name());
+        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
+
+        verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
+        verify(messagingService, never()).send(eq(cmgNode), any(CancelInitMessage.class));
+        verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
     }
 }

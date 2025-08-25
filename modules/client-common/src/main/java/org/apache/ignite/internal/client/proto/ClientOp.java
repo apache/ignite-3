@@ -214,6 +214,9 @@ public class ClientOp {
     /** Batch mask. */
     private static final BitSet BATCH_MASK = new BitSet(64);
 
+    /** Partition operation mask. */
+    private static final BitSet OP_MASK = new BitSet(64);
+
     static {
         WRITE_MASK.set(TUPLE_UPSERT);
         WRITE_MASK.set(TUPLE_GET_AND_UPSERT);
@@ -235,6 +238,22 @@ public class ClientOp {
         BATCH_MASK.set(TUPLE_INSERT_ALL);
         BATCH_MASK.set(TUPLE_DELETE_ALL);
         BATCH_MASK.set(TUPLE_DELETE_ALL_EXACT);
+
+        OP_MASK.set(TABLES_GET);
+        OP_MASK.set(TUPLE_UPSERT);
+        OP_MASK.set(TUPLE_GET);
+        OP_MASK.set(TUPLE_GET_AND_UPSERT);
+        OP_MASK.set(TUPLE_INSERT);
+        OP_MASK.set(TUPLE_REPLACE);
+        OP_MASK.set(TUPLE_REPLACE_EXACT);
+        OP_MASK.set(TUPLE_GET_AND_REPLACE);
+        OP_MASK.set(TUPLE_DELETE);
+        OP_MASK.set(TUPLE_DELETE_EXACT);
+        OP_MASK.set(TUPLE_GET_AND_DELETE);
+        OP_MASK.set(TUPLE_CONTAINS_KEY);
+        OP_MASK.set(STREAMER_BATCH_SEND);
+        OP_MASK.set(TX_COMMIT);
+        OP_MASK.set(TX_ROLLBACK);
     }
 
     /**
@@ -255,5 +274,29 @@ public class ClientOp {
      */
     public static boolean isBatch(int opCode) {
         return BATCH_MASK.get(opCode);
+    }
+
+    /**
+     * Test if the partition operation.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isPartitionOperation(int opCode) {
+        // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
+        // (for instance, cancellation must not be processed until execution request is registered).
+        // || opCode == ClientOp.SQL_EXEC
+        // || opCode == ClientOp.SQL_EXEC_BATCH
+        // || opCode == ClientOp.SQL_EXEC_SCRIPT
+        // || opCode == ClientOp.SQL_QUERY_META;
+
+        // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
+        // || opCode == ClientOp.TUPLE_UPSERT_ALL
+        // || opCode == ClientOp.TUPLE_GET_ALL
+        // || opCode == ClientOp.TUPLE_INSERT_ALL
+        // || opCode == ClientOp.TUPLE_DELETE_ALL
+        // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+        // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+        return OP_MASK.get(opCode);
     }
 }

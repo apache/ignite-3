@@ -307,7 +307,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
-                    if (error != null) {
+                    if (error != null && !hasCause(error, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
                     }
 

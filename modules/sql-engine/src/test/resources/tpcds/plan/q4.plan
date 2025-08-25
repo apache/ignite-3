@@ -4,12 +4,12 @@ Limit
   Project
       fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY]
       projection: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY]
-      est: (rows=9592561442814741000000000000)
+      est: (rows=2398140360703685200000000000)
     HashJoin
-        predicate: AND(>(CASE(>(YEAR_TOTAL$0, 0E-13), /(YEAR_TOTAL$0$0, YEAR_TOTAL$0), null:DECIMAL(32767, 0)), CASE(>(YEAR_TOTAL$0$0$0$0, 0E-13), /(YEAR_TOTAL, YEAR_TOTAL$0$0$0$0), null:DECIMAL(32767, 0))), =(CUSTOMER_ID, CUSTOMER_ID$0$0$0$0))
+        predicate: AND(CASE(>(YEAR_TOTAL$0$0$0$0, 0E-13), CASE(>(YEAR_TOTAL$0, 0E-13), >(/(YEAR_TOTAL$0$0, YEAR_TOTAL$0), /(YEAR_TOTAL, YEAR_TOTAL$0$0$0$0)), false), false), =(CUSTOMER_ID, CUSTOMER_ID$0$0$0$0))
         fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0, CUSTOMER_ID$0$0$0$0, DYEAR$0$0$0$0, YEAR_TOTAL$0$0$0$0, SALE_TYPE$0$0$0$0, CUSTOMER_ID$0$0$0$0$0, DYEAR$0$0$0$0$0, YEAR_TOTAL$0$0$0$0$0, SALE_TYPE$0$0$0$0$0]
         type: inner
-        est: (rows=9592561442814741000000000000)
+        est: (rows=2398140360703685200000000000)
       Sort
           collation: [CUSTOMER_ID ASC, CUSTOMER_FIRST_NAME ASC, CUSTOMER_LAST_NAME ASC, CUSTOMER_BIRTH_COUNTRY ASC]
           est: (rows=798254)
@@ -48,7 +48,7 @@ Limit
                         est: (rows=24325)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: =(D_YEAR, +(1999, 1))
+                          predicate: =(D_YEAR, 2000)
                           fieldNames: [D_DATE_SK, D_YEAR]
                           est: (rows=24325)
                   Exchange
@@ -58,40 +58,25 @@ Limit
                         table: PUBLIC.CUSTOMER
                         fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
                         est: (rows=100000)
-          Project
+          Values
               fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE]
-              projection: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'c']
+              tuples: []
               est: (rows=1)
-            Values
-                fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                tuples: []
-                est: (rows=1)
-          Project
+          Values
               fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, YEAR_TOTAL, SALE_TYPE]
-              projection: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_BIRTH_COUNTRY, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'w']
+              tuples: []
               est: (rows=1)
-            Values
-                fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                tuples: []
-                est: (rows=1)
       HashJoin
-          predicate: AND(>(CASE(>(YEAR_TOTAL, 0E-13), /(YEAR_TOTAL$0, YEAR_TOTAL), null:DECIMAL(32767, 0)), CASE(>(YEAR_TOTAL$0$0, 0E-13), /(YEAR_TOTAL$0$0$0$0, YEAR_TOTAL$0$0), null:DECIMAL(32767, 0))), =(CUSTOMER_ID$0$0$0, CUSTOMER_ID))
+          predicate: AND(CASE(>(YEAR_TOTAL$0$0, 0E-13), CASE(>(YEAR_TOTAL, 0E-13), >(/(YEAR_TOTAL$0, YEAR_TOTAL), /(YEAR_TOTAL$0$0$0$0, YEAR_TOTAL$0$0)), false), false), =(CUSTOMER_ID$0$0$0, CUSTOMER_ID))
           fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0, CUSTOMER_ID$0$0$0$0, DYEAR$0$0$0$0, YEAR_TOTAL$0$0$0$0, SALE_TYPE$0$0$0$0]
           type: inner
-          est: (rows=160225767064505180000000)
+          est: (rows=80112883532252590000000)
         UnionAll
             est: (rows=199751)
-          Project
+          Values
               fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-              projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8's']
+              tuples: []
               est: (rows=1)
-            Filter
-                predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                est: (rows=1)
-              Values
-                  fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                  tuples: []
-                  est: (rows=1)
           Project
               fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
               projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'c']
@@ -138,17 +123,10 @@ Limit
                           table: PUBLIC.CUSTOMER
                           fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
                           est: (rows=100000)
-          Project
+          Values
               fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-              projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'w']
+              tuples: []
               est: (rows=1)
-            Filter
-                predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                est: (rows=1)
-              Values
-                  fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                  tuples: []
-                  est: (rows=1)
         MergeJoin
             predicate: =(CUSTOMER_ID$0$0, CUSTOMER_ID)
             fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0, CUSTOMER_ID$0$0$0, DYEAR$0$0$0, YEAR_TOTAL$0$0$0, SALE_TYPE$0$0$0]
@@ -159,14 +137,10 @@ Limit
               est: (rows=399501)
             UnionAll
                 est: (rows=399501)
-              Project
+              Values
                   fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                  projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8's']
+                  tuples: []
                   est: (rows=1)
-                Values
-                    fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                    tuples: []
-                    est: (rows=1)
               Project
                   fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
                   projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'c']
@@ -200,7 +174,7 @@ Limit
                             est: (rows=24325)
                           TableScan
                               table: PUBLIC.DATE_DIM
-                              predicate: =(D_YEAR, +(1999, 1))
+                              predicate: =(D_YEAR, 2000)
                               fieldNames: [D_DATE_SK, D_YEAR]
                               est: (rows=24325)
                       Exchange
@@ -210,14 +184,10 @@ Limit
                             table: PUBLIC.CUSTOMER
                             fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
                             est: (rows=100000)
-              Project
+              Values
                   fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                  projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'w']
+                  tuples: []
                   est: (rows=1)
-                Values
-                    fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                    tuples: []
-                    est: (rows=1)
           MergeJoin
               predicate: =(CUSTOMER_ID$0, CUSTOMER_ID)
               fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE, CUSTOMER_ID$0, DYEAR$0, YEAR_TOTAL$0, SALE_TYPE$0, CUSTOMER_ID$0$0, DYEAR$0$0, YEAR_TOTAL$0$0, SALE_TYPE$0$0]
@@ -228,28 +198,14 @@ Limit
                 est: (rows=99684)
               UnionAll
                   est: (rows=99684)
-                Project
+                Values
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                    projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8's']
+                    tuples: []
                     est: (rows=1)
-                  Filter
-                      predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                      est: (rows=1)
-                    Values
-                        fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                        tuples: []
-                        est: (rows=1)
-                Project
+                Values
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                    projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'c']
+                    tuples: []
                     est: (rows=1)
-                  Filter
-                      predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                      est: (rows=1)
-                    Values
-                        fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                        tuples: []
-                        est: (rows=1)
                 Project
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
                     projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'w']
@@ -352,46 +308,24 @@ Limit
                                   table: PUBLIC.CUSTOMER
                                   fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_FIRST_NAME, C_LAST_NAME, C_PREFERRED_CUST_FLAG, C_BIRTH_COUNTRY, C_LOGIN, C_EMAIL_ADDRESS]
                                   est: (rows=100000)
-                  Project
+                  Values
                       fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                      projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'c']
+                      tuples: []
                       est: (rows=1)
-                    Filter
-                        predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                        est: (rows=1)
-                      Values
-                          fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                          tuples: []
-                          est: (rows=1)
-                  Project
+                  Values
                       fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                      projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'w']
+                      tuples: []
                       est: (rows=1)
-                    Filter
-                        predicate: >(CAST($f8):DECIMAL(32767, 13), 0E-13)
-                        est: (rows=1)
-                      Values
-                          fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                          tuples: []
-                          est: (rows=1)
               UnionAll
                   est: (rows=199366)
-                Project
+                Values
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                    projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8's']
+                    tuples: []
                     est: (rows=1)
-                  Values
-                      fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                      tuples: []
-                      est: (rows=1)
-                Project
+                Values
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
-                    projection: [CUSTOMER_ID, DYEAR, CAST($f8):DECIMAL(32767, 13), _UTF-8'c']
+                    tuples: []
                     est: (rows=1)
-                  Values
-                      fieldNames: [CUSTOMER_ID, CUSTOMER_FIRST_NAME, CUSTOMER_LAST_NAME, CUSTOMER_PREFERRED_CUST_FLAG, CUSTOMER_BIRTH_COUNTRY, CUSTOMER_LOGIN, CUSTOMER_EMAIL_ADDRESS, DYEAR, $f8]
-                      tuples: []
-                      est: (rows=1)
                 Project
                     fieldNames: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, SALE_TYPE]
                     projection: [CUSTOMER_ID, DYEAR, YEAR_TOTAL, _UTF-8'w']
@@ -425,7 +359,7 @@ Limit
                               est: (rows=24325)
                             TableScan
                                 table: PUBLIC.DATE_DIM
-                                predicate: =(D_YEAR, +(1999, 1))
+                                predicate: =(D_YEAR, 2000)
                                 fieldNames: [D_DATE_SK, D_YEAR]
                                 est: (rows=24325)
                         Exchange

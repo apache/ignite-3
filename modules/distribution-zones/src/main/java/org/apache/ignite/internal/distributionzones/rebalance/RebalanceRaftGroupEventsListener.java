@@ -169,7 +169,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onLeaderElected(long term) {
+    public void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration
+    ) {
        // no-op
     }
 

@@ -159,7 +159,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
                                     new ClusterIdHolder(),
-                                    new NoOpFailureManager()
+                                    new NoOpFailureManager(),
+                                    config -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             null,

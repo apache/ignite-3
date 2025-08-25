@@ -65,6 +65,7 @@ import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -100,7 +101,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -134,6 +135,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService testClockService = new TestClockService(clock);
+
     private Set<String> placementDriverNodeNames;
     private Set<String> nodeNames;
 
@@ -162,7 +165,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     public void beforeTest(TestInfo testInfo) {
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", log)
+                IgniteThreadFactory.create("test", "partition-operations", log)
         );
 
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
@@ -217,7 +220,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     nodeName,
                     clusterService,
                     cmgManager,
-                    new TestClockService(clock),
+                    testClockService,
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
@@ -352,7 +355,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
@@ -414,7 +417,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),

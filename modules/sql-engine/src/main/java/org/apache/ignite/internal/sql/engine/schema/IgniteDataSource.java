@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.sql.engine.schema;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.Wrapper;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base interface for data sources such as tables and views.
@@ -70,7 +70,7 @@ public interface IgniteDataSource extends TranslatableTable, Wrapper {
      * @param typeFactory     Factory.
      * @param requiredColumns Used columns enumeration.
      */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
+    RelDataType getRowType(RelDataTypeFactory typeFactory, @Nullable ImmutableIntList requiredColumns);
 
     /**
      * Returns distribution of this data source.

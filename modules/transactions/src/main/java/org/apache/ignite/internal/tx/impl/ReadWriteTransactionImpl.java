@@ -191,7 +191,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> finish(
-            boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            boolean timeoutExceeded
     ) {
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
@@ -298,5 +301,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> kill() {
         return finishInternal(false, null, false, false, false);
+    }
+
+    /**
+     * Fail the transaction with exception so finishing it is not possible.
+     *
+     * @param e Fail reason.
+     */
+    public void fail(TransactionException e) {
+        // Thread safety is not needed.
+        finishFuture = failedFuture(e);
     }
 }

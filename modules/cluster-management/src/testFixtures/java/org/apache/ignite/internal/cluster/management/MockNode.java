@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -42,12 +42,14 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -86,7 +88,8 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributes,
-            StorageConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
@@ -126,11 +129,18 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
+        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
-                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
+                new ClusterInitializer(
+                        clusterService,
+                        hocon -> hocon,
+                        new TestConfigurationValidator(),
+                        () -> colocationEnabled
+                ),
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
@@ -138,7 +148,9 @@ public class MockNode {
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                () -> colocationEnabled,
+                onConfigurationCommittedListener
         );
 
         components = List.of(

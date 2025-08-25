@@ -60,7 +60,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferInitMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInitResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.Identifier;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 
@@ -156,7 +156,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 configuration.value().threadPoolSize(),
                 10, SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+                IgniteThreadFactory.create(nodeName, "file-transfer", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -418,7 +418,6 @@ public class FileTransferServiceImpl implements FileTransferService {
                 executorService
         );
     }
-
 
     private CompletableFuture<Void> sendFiles(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
         return fileSender.send(targetNodeConsistentId, transferId, paths)

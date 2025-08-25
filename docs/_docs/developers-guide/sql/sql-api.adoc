@@ -27,18 +27,6 @@ ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary ke
 
 NOTE: ResultSet is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep server cursor open.
 
-=== Using Sequences
-
-When creating a table, you can designate the primary key column to be filled automatically from the sequence the values for your primary key by using sql sequences:
-
-[source, java]
-----
-ignite.sql().execute(null, "CREATE SEQUENCE IF NOT EXISTS defaultSequence;");
-
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id bigint default NEXTVAL('defaultSequence') primary key, city_id bigint, name varchar, age int, company varchar);");
-----
-
-
 == Filling Tables
 
 With Ignite 3, you can fill the table by adding rows one by one, or in a batch. In both cases, you create an `INSERT` statement, and then exeсute it:
@@ -51,25 +39,6 @@ long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
         .add(2, "Jane", 28)
         .add(3, "Mary", 51)
         .add(4, "Richard", 33)))
-    .sum();
-----
-
-=== Using Sequences
-
-When filling a table, you can generate the values for your primary key by using sql sequences:
-
-[source, java]
-----
-ignite.sql().execute(null, "CREATE SEQUENCE IF NOT EXISTS defaultSequence;");
-
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id bigint default NEXTVAL('defaultSequence') primary key, city_id bigint, name varchar, age int, company varchar);");
-
-long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
-    "INSERT INTO Person (city_id, name, age, company) values (?, ?, ?, ?)",
-    BatchedArguments.of(1, "John", 46, "oldCorp")
-        .add(2, "Jane", 28, "newCorp")
-        .add(3, "Mary", 51, "newCorp")
-        .add(4, "Richard", 33, "oldCorp")))
     .sum();
 ----
 

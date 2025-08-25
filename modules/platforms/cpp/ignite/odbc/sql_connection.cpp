@@ -22,7 +22,6 @@
 #include "ignite/odbc/sql_environment.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
-#include "ignite/odbc/utility.h"
 
 #include "ignite/common/detail/bytes.h"
 #include <ignite/network/network.h>
@@ -31,11 +30,10 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <new>
 #include <random>
 #include <sstream>
 #include <detail/utils.h>
-
-constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
 namespace {
 
@@ -224,7 +222,7 @@ sql_statement *sql_connection::create_statement() {
 }
 
 sql_result sql_connection::internal_create_statement(sql_statement *&statement) {
-    statement = new sql_statement(*this);
+    statement = new(std::nothrow) sql_statement(*this);
 
     if (!statement) {
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
@@ -276,7 +274,7 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
 
     msg.clear();
 
-    std::byte len_buffer[PROTOCOL_HEADER_SIZE];
+    std::byte len_buffer[protocol::HEADER_SIZE];
     operation_result res = receive_all(&len_buffer, sizeof(len_buffer), timeout);
 
     if (res == operation_result::TIMEOUT)
@@ -285,7 +283,7 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
-    static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
+    static_assert(sizeof(std::int32_t) == protocol::HEADER_SIZE);
     std::int32_t len = detail::bytes::load<detail::endian::BIG, std::int32_t>(len_buffer);
     if (len < 0) {
         close();
@@ -422,10 +420,9 @@ sql_result sql_connection::internal_transaction_commit() {
 
     LOG_MSG("Committing transaction: " << *m_transaction_id);
 
-    network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(
-            protocol::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+        sync_request(protocol::client_operation::TX_COMMIT,
+            [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -448,9 +445,8 @@ sql_result sql_connection::internal_transaction_rollback() {
 
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
 
-    network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(protocol::client_operation::TX_ROLLBACK,
+        sync_request(protocol::client_operation::TX_ROLLBACK,
             [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 

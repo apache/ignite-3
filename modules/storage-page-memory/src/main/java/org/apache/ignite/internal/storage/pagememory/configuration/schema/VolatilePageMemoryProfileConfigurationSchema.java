@@ -21,11 +21,12 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 
 /**
  * In-memory storage profile configuration schema.
  */
-@PolymorphicConfigInstance("aimem")
+@PolymorphicConfigInstance(VolatilePageMemoryStorageEngine.ENGINE_NAME)
 public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /**
      * Initial memory region size in bytes.

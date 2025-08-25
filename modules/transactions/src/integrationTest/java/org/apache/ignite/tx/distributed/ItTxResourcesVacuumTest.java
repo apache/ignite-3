@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.Iterator;
 import java.util.Set;
@@ -52,7 +53,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -75,6 +75,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.table.RecordView;
@@ -208,7 +209,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), partId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), partId)
         );
-
 
         view.upsert(tx, tuple);
         view.upsert(parallelTx1, tupleForParallelTx);
@@ -868,7 +868,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         runningNodes().forEach(node -> {
             log.info("Test: triggering vacuum manually on node: " + node.name());
 
-            CompletableFuture<Void> vacuumFut = unwrapIgniteImpl(node).txManager().vacuum();
+            CompletableFuture<Void> vacuumFut = unwrapIgniteImpl(node).txManager().vacuum(mock(ResourceVacuumMetrics.class));
             assertThat(vacuumFut, willCompleteSuccessfully());
         });
     }
@@ -1131,14 +1131,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
             return txStatePartitionStorage.get(txId);
         });
-    }
-
-    private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
-        return cluster.runningNodes()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .filter(n -> n != null && filter.test(n))
-                .findFirst()
-                .get();
     }
 
 }

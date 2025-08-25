@@ -26,7 +26,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -35,13 +37,11 @@ import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNodeSerializer;
-import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner.ScanContext;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
@@ -55,11 +55,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for configuration compatibility.
  */
 public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
-    private static final String DEFAULT_FILE_NAME = "snapshot.bin";
+    static final String DEFAULT_FILE_NAME = "ignite-snapshot.bin";
     private static final String SNAPSHOTS_RESOURCE_LOCATION = "compatibility/configuration/";
-    private static final Path DEFAULT_SNAPSHOT_FILE = Path.of("modules", "runner", "build", "work", DEFAULT_FILE_NAME);
-
-    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationCompatibilityTest.class);
+    private static final String SNAPSHOT_FILE_NAME_PREFIX = "ignite-";
 
     /**
      * This test ensures that the current configuration can be serialized and deserialized correctly.
@@ -90,7 +88,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
      * This test ensures that the current configuration metadata wasn't changed. If the test fails, it means that the current configuration
      * metadata has changed, then current snapshot should be renamed to the latest release version, and a new snapshot should be created.
      *
-     * @see #main(String[]) method for generating a new snapshot.
+     * @see GenerateConfigurationSnapshot#main(String[]) method for generating a new snapshot.
      */
     @Test
     void testConfigurationChanged() throws IOException {
@@ -108,12 +106,22 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata);
+        ComparisonContext ctx = ComparisonContext.create(allModules);
+
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
     }
 
-    private static List<ConfigNode> loadCurrentConfiguration() {
+    private static Set<ConfigurationModule> allModules() {
+        var modulesProvider = new ServiceLoaderModulesProvider();
+        List<ConfigurationModule> modules = modulesProvider.modules(ConfigurationCompatibilityTest.class.getClassLoader());
+
+        return new HashSet<>(modules);
+    }
+
+    static List<ConfigNode> loadCurrentConfiguration() {
         ConfigurationModules modules = loadConfigurationModules(ConfigurationCompatibilityTest.class.getClassLoader());
 
         ConfigurationModule local = modules.local();
@@ -130,7 +138,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ScanContext scanContext = ScanContext.create(module);
 
         Class<?> rootClass = rootKey.schemaClass();
-        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal());
+        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal(), module.deletedPrefixes());
 
         ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 
@@ -151,21 +159,6 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     }
 
     /**
-     * Generates a snapshot of the current configuration metadata and saves it to a file.
-     */
-    public static void main(String[] args) throws IOException {
-        List<ConfigNode> configNodes = loadCurrentConfiguration();
-
-        ConfigShuttle shuttle = node -> LOG.info(node.toString());
-        LOG.info("DUMP TREE:");
-        configNodes.forEach(c -> c.accept(shuttle));
-
-        ConfigurationSnapshotManager.saveSnapshotToFile(configNodes, DEFAULT_SNAPSHOT_FILE);
-
-        LOG.info("Snapshot saved to: " + DEFAULT_SNAPSHOT_FILE.toAbsolutePath());
-    }
-
-    /**
      * List directory contents for a resource folder. Not recursive. Works for regular files and also JARs.
      */
     private static Stream<Arguments> getSnapshots() throws IOException {
@@ -182,6 +175,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
                         .map(Path::getFileName)
                         .map(Path::toString)
                         .filter(p -> p.endsWith(".bin"))
+                        .filter(p -> p.startsWith(SNAPSHOT_FILE_NAME_PREFIX))
                         .map(Arguments::of)
                         .collect(Collectors.toList())
                         .stream();

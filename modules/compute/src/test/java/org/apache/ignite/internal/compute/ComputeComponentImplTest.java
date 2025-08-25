@@ -74,6 +74,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -106,7 +108,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
@@ -169,7 +171,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
         ComputeExecutor computeExecutor = new ComputeExecutorImpl(
-                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()));
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()), EventLog.NOOP);
 
         computeComponent = new ComputeComponentImpl(
                 INSTANCE_NAME,
@@ -217,7 +219,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), SimpleJob.class.getName(), null, cancelHandle.token()
+                DEFAULT, List.of(), SimpleJob.class.getName(), ComputeEventMetadata.builder(), null, cancelHandle.token()
         );
 
         assertFalse(infiniteFuture.isDone());
@@ -611,7 +613,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void executorThreadsAreNamedAccordingly() {
         assertThat(
                 executeLocally(GetThreadNameJob.class.getName()),
-                willBe(startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")))
+                willBe(startsWith(IgniteThread.threadPrefix(INSTANCE_NAME, "compute")))
         );
     }
 
@@ -721,13 +723,13 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName) {
-        return computeComponent.executeLocally(DEFAULT, units, jobClassName, null, null)
+        return computeComponent.executeLocally(DEFAULT, units, jobClassName, ComputeEventMetadata.builder(), null, null)
                 .thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 
     private JobExecution<ComputeJobDataHolder> executeLocally(String jobClassName, @Nullable CancellationToken cancellationToken) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), jobClassName, null, cancellationToken
+                DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null, cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
@@ -739,14 +741,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
             @Nullable CancellationToken cancellationToken
     ) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), jobClassName, arg, cancellationToken
+                remoteNode, DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), arg, cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
 
     private CompletableFuture<String> executeRemotely(String jobClassName) {
-        return computeComponent.executeRemotely(DEFAULT, remoteNode, List.of(), jobClassName, null, null)
+        return computeComponent.executeRemotely(remoteNode, DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null, null)
                 .thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 

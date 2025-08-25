@@ -108,6 +108,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -128,7 +129,6 @@ import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -163,7 +163,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -195,6 +195,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -222,7 +223,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -404,7 +405,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 workerRegistry,
                 failureProcessor,
@@ -436,7 +437,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 hocon -> hocon,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                new SystemPropertiesNodeProperties()
         );
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
@@ -472,14 +474,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService(),
                 name,
                 message -> threadPoolsManager.partitionOperationsExecutor()
-        );
-
-        var replicaService = new ReplicaService(
-                messagingServiceReturningToStorageOperationsPool,
-                hybridClock,
-                threadPoolsManager.partitionOperationsExecutor(),
-                replicationConfiguration,
-                threadPoolsManager.commonScheduler()
         );
 
         var lockManager = new HeapLockManager(systemConfiguration);
@@ -559,6 +553,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
+        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
+        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
+
         var clockWaiter = new ClockWaiter(name, hybridClock, scheduledExecutorService);
 
         SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry
@@ -567,7 +565,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ClockService clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
-                () -> schemaSyncConfiguration.maxClockSkewMillis().value()
+                () -> schemaSyncConfiguration.maxClockSkewMillis().value(),
+                skew -> {}
+        );
+
+        var lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vault,
+                failureProcessor,
+                clusterSvc.messagingService()
         );
 
         maxClockSkewFuture.complete(clockService::maxClockSkewMillis);
@@ -584,11 +592,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService,
                 failureProcessor,
                 nodeProperties,
-                clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication()
+                clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication(),
+                threadPoolsManager.commonScheduler(),
+                metricManager
         );
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+                IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
@@ -608,23 +618,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
-
-        );
-
-        var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-        GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
-
-        var lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vault,
-                failureProcessor,
-                clusterSvc.messagingService()
         );
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
+
+        var replicaService = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                clockService,
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfiguration,
+                threadPoolsManager.commonScheduler()
+        );
 
         var txManager = new TxManagerImpl(
                 name,
@@ -645,7 +649,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -656,7 +661,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                failureProcessor
+                failureProcessor,
+                metricManager
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
@@ -711,7 +717,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                metricManager
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
@@ -723,13 +730,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             }
         };
 
-        var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
+        var schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        var schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                name,
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
@@ -812,18 +823,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark
         );
 
-        EventLog noopEventLog = new EventLog() {
-            @Override
-            public void log(Event event) {
-                // No-op.
-            }
-
-            @Override
-            public void log(String type, Supplier<Event> eventProvider) {
-                // No-op.
-            }
-        };
-
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 clusterSvc,
                 logicalTopologyService,
@@ -846,7 +845,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService()),
-                noopEventLog
+                EventLog.NOOP
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, HybridTimestampTracker.atomicTracker(null), threadPoolsManager.commonScheduler()));
@@ -889,6 +888,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockWaiter,
                 catalogManager,
                 indexMetaStorage,
+                schemaSafeTimeTracker,
                 schemaManager,
                 distributionZoneManager,
                 sharedTxStateStorage,

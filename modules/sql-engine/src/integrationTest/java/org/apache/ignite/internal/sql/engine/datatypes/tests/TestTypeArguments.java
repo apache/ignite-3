@@ -70,7 +70,6 @@ public final class TestTypeArguments<T extends Comparable<T>> {
         }
     }
 
-
     /**
      * Returns an original value of the {@code i-th} argument.
      */
@@ -141,7 +140,6 @@ public final class TestTypeArguments<T extends Comparable<T>> {
     private Argument<T> getArg(int index) {
         return args.get(index);
     }
-
 
     /**
      * Creates a stream of arguments for an unary operator.
@@ -383,7 +381,6 @@ public final class TestTypeArguments<T extends Comparable<T>> {
             return typeName + " " + value;
         }
     }
-
 
     private static <T extends Comparable<T>> Argument<T> createArgument(DataTypeTestSpec<T> testTypeSpec,
             String typeName, T value, Object argument) {

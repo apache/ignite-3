@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -61,7 +61,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     @Test
     public void testDisruptorBatch() throws Exception {
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 1,
@@ -118,7 +118,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     @Test
     public void testDisruptorSimple() throws Exception {
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 5,
@@ -159,7 +159,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         int stripes = random.nextInt(20) + 1;
 
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 stripes,
@@ -203,7 +203,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         int stripes = random.nextInt(20) + 1;
 
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 stripes,
@@ -263,7 +263,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         int totalHandlers = random.nextInt(20) + 1;
 
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 1,
@@ -331,14 +331,16 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         }
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Test
+    @SuppressWarnings("PMD.UnnecessaryCast")
     public void testConcurrentSubscribe() throws Exception {
         Random random = new Random();
 
         int totalHandlers = random.nextInt(20) + 1;
 
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("test", stripeName, true, logger),
                 16384,
                 NodeIdAwareTestObj::new,
                 1,

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -100,7 +101,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -137,6 +138,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService testClockService = new TestClockService(clock);
 
     private final TestInfo testInfo;
 
@@ -192,12 +195,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
+                IgniteThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
-                clock,
+                testClockService,
                 replicationConfiguration
         );
 
@@ -205,7 +208,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 cmgManager,
-                new TestClockService(clock),
+                testClockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,

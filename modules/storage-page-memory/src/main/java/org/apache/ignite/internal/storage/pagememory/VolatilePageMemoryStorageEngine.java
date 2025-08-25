@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -41,14 +39,13 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /** Storage engine implementation based on {@link VolatilePageMemory}. */
 public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
@@ -136,7 +133,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
+                IgniteThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -187,16 +184,19 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         // No-op.
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 
     /**
      * Creates, starts and adds a new data region to the engine.
      */
     private void addDataRegion(VolatilePageMemoryProfileConfiguration storageProfileConfiguration) {
-        initDataRegionSize(storageProfileConfiguration);
-
         int pageSize = engineConfig.pageSizeBytes().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
@@ -208,42 +208,5 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         dataRegion.start();
 
         regions.put(storageProfileConfiguration.name().value(), dataRegion);
-    }
-
-    private static void initDataRegionSize(VolatilePageMemoryProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> maxSize = storageProfileConfiguration.maxSizeBytes();
-
-        if (maxSize.value() == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
-
-            updateConfigValue(maxSize, defaultDataRegionSize);
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), maxSize.key(), defaultDataRegionSize
-            );
-        }
-
-        ConfigurationValue<Long> initSize = storageProfileConfiguration.initSizeBytes();
-
-        if (initSize.value() == UNSPECIFIED_SIZE) {
-            updateConfigValue(initSize, maxSize.value());
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), initSize.key(), maxSize.value()
-            );
-        }
-    }
-
-    private static <T> void updateConfigValue(ConfigurationValue<T> config, T newValue) {
-        CompletableFuture<Void> updateFuture = config.update(newValue);
-
-        // Node local configuration is synchronous, wait just in case.
-        try {
-            updateFuture.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new StorageException(e);
-        }
     }
 }

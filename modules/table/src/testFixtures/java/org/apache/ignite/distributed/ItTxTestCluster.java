@@ -93,6 +93,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -166,7 +167,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -415,11 +416,11 @@ public class ItTxTestCluster {
         logStorageFactories = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+                IgniteThreadFactory.create("test", Loza.CLIENT_POOL_NAME, LOG));
 
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", LOG)
+                IgniteThreadFactory.create("test", "partition-operations", LOG)
         );
 
         for (int i = 0; i < nodes; i++) {
@@ -508,7 +509,7 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
-                    clock,
+                    clockService,
                     partitionOperationsExecutor,
                     replicationConfiguration,
                     executor
@@ -544,7 +545,8 @@ public class ItTxTestCluster {
                     transactionInflights,
                     txMgr,
                     lowWatermark,
-                    new NoOpFailureManager()
+                    new NoOpFailureManager(),
+                    new TestMetricManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -614,7 +616,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TestMetricManager()
         );
     }
 
@@ -1295,7 +1298,7 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock,
+                clientClockService,
                 partitionOperationsExecutor,
                 replicationConfiguration,
                 executor
@@ -1328,7 +1331,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TestMetricManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
@@ -1339,7 +1343,8 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 clientTxManager,
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new TestMetricManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -63,7 +64,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to commit.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::commitAsync);
@@ -87,7 +88,7 @@ public class ClientLazyTransaction implements Transaction {
 
         if (tx0 == null) {
             // No operations were performed, nothing to rollback.
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tx0.thenCompose(ClientTransaction::rollbackAsync);

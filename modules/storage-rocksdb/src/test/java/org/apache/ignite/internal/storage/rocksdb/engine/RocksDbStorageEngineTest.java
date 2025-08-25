@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -43,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
+public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTest {
     @InjectConfiguration("mock.profiles.default.engine = rocksdb")
     StorageConfiguration storageConfiguration;
 
@@ -69,11 +71,9 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
         );
     }
 
-    @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfiguration.profiles().value()) {
-            assertThat(((RocksDbProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
+    @Override
+    protected void persistTableDestructionIfNeeded() {
+        assertThat(((RocksDbStorageEngine) storageEngine).flush(), willCompleteSuccessfully());
     }
 
     @Test

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -362,7 +363,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
         try {
             SqlProperties properties = toPropertiesBuilder(statement)
-                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                    .allowMultiStatement(false);
 
             result = queryProcessor.queryAsync(
                     properties,
@@ -589,7 +591,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     query,
                     cancellationToken,
                     arguments,
-                    new SqlProperties(),
+                    new SqlProperties().userName(Commons.SYSTEM_USER_NAME),
                     commonExecutor
             );
         } finally {
@@ -624,7 +626,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     ) {
 
         SqlProperties properties0 = new SqlProperties(properties)
-                .allowedQueryTypes(SqlQueryType.ALL);
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f = queryProcessor.queryAsync(
                 properties0,
@@ -660,7 +663,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         return new SqlProperties()
                 .timeZoneId(statement.timeZoneId())
                 .defaultSchema(IgniteNameUtils.parseIdentifier(statement.defaultSchema()))
-                .queryTimeout(statement.queryTimeout(TimeUnit.MILLISECONDS));
+                .queryTimeout(statement.queryTimeout(TimeUnit.MILLISECONDS))
+                .userName(Commons.SYSTEM_USER_NAME);
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -57,9 +60,11 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,7 +75,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
-    @InjectConfiguration("mock.profiles.default.engine = aipersist")
+    @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
 
     private PersistentPageMemoryStorageEngine engine;
@@ -266,5 +271,97 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
             return null;
         });
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void createMvPartitionStorageAndDoCheckpointInParallel() {
+        for (int i = 0; i < 10; i++) {
+            runRace(
+                    () -> getOrCreateMvPartition(PARTITION_ID),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void clearMvPartitionStorageAndDoCheckpointInParallel() {
+        for (int i = 0; i < 10; i++) {
+            getOrCreateMvPartition(PARTITION_ID);
+
+            runRace(
+                    () -> assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void destroyMvPartitionStorageAndDoCheckpointInParallel() {
+        for (int i = 0; i < 10; i++) {
+            getOrCreateMvPartition(PARTITION_ID);
+
+            runRace(
+                    () -> assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void startRebalancePartitionAndDoCheckpointInParallel() {
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            runRace(
+                    () -> assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void abortRebalancePartitionAndDoCheckpointInParallel() {
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+            runRace(
+                    () -> assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26233")
+    @Test
+    void finishRebalancePartitionAndDoCheckpointInParallel() {
+        getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+            var meta = new MvPartitionMeta(1, 1, BYTE_EMPTY_ARRAY, null, BYTE_EMPTY_ARRAY);
+
+            runRace(
+                    () -> assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, meta), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+        }
+    }
+
+    private CompletableFuture<Void> forceCheckpointAsync() {
+        return engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED);
     }
 }

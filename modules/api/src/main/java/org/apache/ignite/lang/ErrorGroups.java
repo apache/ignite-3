@@ -515,8 +515,8 @@ public class ErrorGroups {
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Port is in use. */
-        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+        /** Address or port bind error. */
+        public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
@@ -529,6 +529,10 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
+        @Deprecated
+        public static final int PORT_IN_USE_ERR = BIND_ERR;
     }
 
     /** Node configuration error group. */
@@ -710,6 +714,9 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Error while restarting the cluster with clean up. */
+        public static final int RESTART_WITH_CLEAN_UP_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Embedded API error group. */
@@ -755,5 +762,20 @@ public class ErrorGroups {
 
         /** Cluster has not yet been initialized or the node is in the process of stopping. */
         public static final int CLUSTER_NOT_INIT_ERR = REST_ERR_GROUP.registerErrorCode((short) 1);
+    }
+
+    /** Configuration error group. */
+    @ErrorCodeGroup
+    public static class CommonConfiguration {
+        public static final ErrorGroup COMMON_CONF_ERR_GROUP = registerGroup("COMMONCFG", (short) 24);
+
+        /** Configuration apply failed. */
+        public static final int CONFIGURATION_APPLY_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Configuration parse error. */
+        public static final int CONFIGURATION_PARSE_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Configuration validation error. */
+        public static final int CONFIGURATION_VALIDATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

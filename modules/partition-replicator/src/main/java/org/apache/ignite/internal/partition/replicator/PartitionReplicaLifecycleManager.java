@@ -1437,12 +1437,11 @@ public class PartitionReplicaLifecycleManager extends
                                         "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
                                         replicaGrpId
                                 );
-                            }
-                            if (hasCause(throwable, ComponentStoppingException.class)) {
+                            } else if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
+                            } else {
+                                LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
                             }
-
-                            LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
 
                             return LeaderWithTerm.NO_LEADER;
                         })
@@ -1800,7 +1799,7 @@ public class PartitionReplicaLifecycleManager extends
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
 
                         try {
-                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                            replicaMgr.destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
                         } catch (NodeStoppingException e) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
                         }
