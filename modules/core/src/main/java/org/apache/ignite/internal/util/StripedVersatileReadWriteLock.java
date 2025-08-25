@@ -67,9 +67,6 @@ public class StripedVersatileReadWriteLock {
         this(asyncContinuationExecutor, DEFAULT_CONCURRENCY);
     }
 
-    /**
-     * Constructor.
-     */
     private StripedVersatileReadWriteLock(Executor asyncContinuationExecutor, int concurrency) {
         assert concurrency > 0 : "Concurrency must be positive, but was: " + concurrency;
 
