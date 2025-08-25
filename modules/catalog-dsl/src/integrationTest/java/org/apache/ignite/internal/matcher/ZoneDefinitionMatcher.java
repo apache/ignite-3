@@ -41,8 +41,6 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
 
     private Matcher<String> distributionAlgorithmMatcher = AnythingMatcher.anything();
 
-    private Matcher<Integer> dataNodesAutoAdjustMatcher = AnythingMatcher.anything();
-
     private Matcher<Integer> dataNodesAutoAdjustScaleUpMatcher = AnythingMatcher.anything();
 
     private Matcher<Integer> dataNodesAutoAdjustScaleDownMatcher = AnythingMatcher.anything();
@@ -105,15 +103,6 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
 
     public ZoneDefinitionMatcher withDistributionAlgorithm(String distributionAlgorithm) {
         return withDistributionAlgorithmMatcher(equalTo(distributionAlgorithm));
-    }
-
-    public ZoneDefinitionMatcher withDataNodesAutoAdjustMatcher(Matcher<Integer> dataNodesAutoAdjustMatcher) {
-        this.dataNodesAutoAdjustMatcher = dataNodesAutoAdjustMatcher;
-        return this;
-    }
-
-    public ZoneDefinitionMatcher withDataNodesAutoAdjust(int dataNodesAutoAdjust) {
-        return withDataNodesAutoAdjustMatcher(equalTo(dataNodesAutoAdjust));
     }
 
     public ZoneDefinitionMatcher withDataNodesAutoAdjustScaleUpMatcher(
@@ -197,8 +186,6 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 .appendText("quorum size ").appendDescriptionOf(quorumSizeMatcher)
                 .appendText(System.lineSeparator())
                 .appendText("affinity ").appendDescriptionOf(distributionAlgorithmMatcher)
-                .appendText(System.lineSeparator())
-                .appendText("data nodes auto adjust ").appendDescriptionOf(dataNodesAutoAdjustMatcher)
                 .appendText(System.lineSeparator())
                 .appendText("data nodes auto adjust scale up ").appendDescriptionOf(dataNodesAutoAdjustScaleUpMatcher)
                 .appendText(System.lineSeparator())

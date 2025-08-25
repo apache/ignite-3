@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
@@ -60,8 +59,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable Integer quorumSize;
 
-    private final @Nullable Integer dataNodesAutoAdjust;
-
     private final @Nullable Integer dataNodesAutoAdjustScaleUp;
 
     private final @Nullable Integer dataNodesAutoAdjustScaleDown;
@@ -78,7 +75,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param quorumSize Quorum size.
-     * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
      * @param filter Nodes filter.
@@ -91,7 +87,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer quorumSize,
-            @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
@@ -103,7 +98,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         this.partitions = partitions;
         this.replicas = replicas;
         this.quorumSize = quorumSize;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -131,16 +125,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     }
 
     private CatalogZoneDescriptor fromParamsAndPreviousValue(CatalogZoneDescriptor previous) {
-        @Nullable Integer autoAdjust = null;
         @Nullable Integer scaleUp = null;
         @Nullable Integer scaleDown = null;
 
-        if (dataNodesAutoAdjust != null) {
-            autoAdjust = dataNodesAutoAdjust;
-            scaleUp = INFINITE_TIMER_VALUE;
-            scaleDown = INFINITE_TIMER_VALUE;
-        } else if (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null) {
-            autoAdjust = INFINITE_TIMER_VALUE;
+        if (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null) { // TODO: both..?
             scaleUp = dataNodesAutoAdjustScaleUp;
             scaleDown = dataNodesAutoAdjustScaleDown;
         }
@@ -157,7 +145,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                 requireNonNullElse(partitions, previous.partitions()),
                 replicas,
                 quorumSize,
-                requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
                 requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
                 requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
                 requireNonNullElse(filter, previous.filter()),
@@ -205,12 +192,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         validatePartition(partitions);
         validateField(replicas, 1, null, "Invalid number of replicas");
         validateField(quorumSize, 1, null, "Invalid quorum size");
-        validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
 
         validateZoneDataNodesAutoAdjustParametersCompatibility(
-                dataNodesAutoAdjust,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown
         );
@@ -231,8 +216,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         private @Nullable Integer replicas;
 
         private @Nullable Integer quorumSize;
-
-        private @Nullable Integer dataNodesAutoAdjust;
 
         private @Nullable Integer dataNodesAutoAdjustScaleUp;
 
@@ -278,13 +261,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
-        public AlterZoneCommandBuilder dataNodesAutoAdjust(Integer adjust) {
-            dataNodesAutoAdjust = adjust;
-
-            return this;
-        }
-
-        @Override
         public AlterZoneCommandBuilder dataNodesAutoAdjustScaleUp(Integer adjust) {
             dataNodesAutoAdjustScaleUp = adjust;
 
@@ -320,7 +296,6 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                     partitions,
                     replicas,
                     quorumSize,
-                    dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,

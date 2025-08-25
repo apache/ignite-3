@@ -65,8 +65,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable Integer quorumSize;
 
-    private final @Nullable Integer dataNodesAutoAdjust;
-
     private final @Nullable Integer dataNodesAutoAdjustScaleUp;
 
     private final @Nullable Integer dataNodesAutoAdjustScaleDown;
@@ -85,7 +83,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param quorumSize Quorum size.
-     * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
      * @param filter Nodes filter.
@@ -98,7 +95,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer quorumSize,
-            @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
@@ -110,7 +106,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.partitions = partitions;
         this.replicas = replicas;
         this.quorumSize = quorumSize;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -152,10 +147,9 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                 requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
-                requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE),
                 requireNonNullElse(
                         dataNodesAutoAdjustScaleUp,
-                        dataNodesAutoAdjust != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
+                        IMMEDIATE_TIMER_VALUE
                 ),
                 requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
                 requireNonNullElse(filter, DEFAULT_FILTER),
@@ -173,12 +167,10 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         int quorumSize = requireNonNullElse(this.quorumSize, defaultQuorumSize(replicas));
         validateReplicasAndQuorumCompatibility(replicas, quorumSize);
 
-        validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
 
         validateZoneDataNodesAutoAdjustParametersCompatibility(
-                dataNodesAutoAdjust,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown
         );
@@ -239,8 +231,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         private @Nullable Integer quorumSize;
 
-        private @Nullable Integer dataNodesAutoAdjust;
-
         private @Nullable Integer dataNodesAutoAdjustScaleUp;
 
         private @Nullable Integer dataNodesAutoAdjustScaleDown;
@@ -282,13 +272,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         @Override
         public CreateZoneCommandBuilder quorumSize(Integer quorumSize) {
             this.quorumSize = quorumSize;
-
-            return this;
-        }
-
-        @Override
-        public CreateZoneCommandBuilder dataNodesAutoAdjust(Integer adjust) {
-            dataNodesAutoAdjust = adjust;
 
             return this;
         }
@@ -336,7 +319,6 @@ public class CreateZoneCommand extends AbstractZoneCommand {
                     partitions,
                     replicas,
                     quorumSize,
-                    dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,

@@ -68,7 +68,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
-                .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
@@ -89,7 +88,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
-        assertEquals(73, zone.dataNodesAutoAdjust());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
@@ -355,7 +353,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
-                .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
@@ -386,7 +383,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(42, zone.partitions());
         assertEquals(2, zone.replicas());
         assertEquals(2, zone.quorumSize());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
@@ -516,7 +512,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_FILTER, zone.filter());

@@ -69,14 +69,13 @@ public class CatalogParamsValidationUtils {
      * Validates correctness of the auto adjust params.
      */
     public static void validateZoneDataNodesAutoAdjustParametersCompatibility(
-            @Nullable Integer autoAdjust,
             @Nullable Integer scaleUp,
             @Nullable Integer scaleDown
     ) {
-        if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
+        if (scaleUp != null || scaleDown != null) {
             throw new CatalogValidationException(
-                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}].",
-                    autoAdjust, scaleUp, scaleDown
+                    "Not compatible parameters [dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}].",
+                    scaleUp, scaleDown
             );
         }
     }

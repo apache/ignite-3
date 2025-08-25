@@ -38,9 +38,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
     /** Quorum size. */
     private final int quorumSize;
 
-    /** Data nodes auto adjust timeout. */
-    private final int dataNodesAutoAdjust;
-
     /** Data nodes auto adjust scale up timeout. */
     private final int dataNodesAutoAdjustScaleUp;
 
@@ -82,7 +79,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param partitions Count of partitions in distributions zone.
      * @param replicas Count of partition replicas.
      * @param quorumSize Quorum size.
-     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
@@ -95,14 +91,13 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             int partitions,
             int replicas,
             int quorumSize,
-            int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles,
             ConsistencyMode consistencyMode
     ) {
-        this(id, name, partitions, replicas, quorumSize, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+        this(id, name, partitions, replicas, quorumSize, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
                 filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
     }
 
@@ -125,7 +120,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             int partitions,
             int replicas,
             int quorumSize,
-            int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
@@ -138,7 +132,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
         this.partitions = partitions;
         this.replicas = replicas;
         this.quorumSize = quorumSize;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -174,15 +167,6 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      */
     public int consensusGroupSize() {
         return min(quorumSize * 2 - 1, replicas);
-    }
-
-    /**
-     * Gets timeout in seconds between node added or node left topology event itself and data nodes switch.
-     *
-     * @return Data nodes auto adjust timeout.
-     */
-    public int dataNodesAutoAdjust() {
-        return dataNodesAutoAdjust;
     }
 
     /**
