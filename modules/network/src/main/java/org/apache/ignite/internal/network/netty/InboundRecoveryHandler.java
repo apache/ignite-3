@@ -23,6 +23,8 @@ import java.util.Collections;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.InvokeRequest;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
@@ -60,7 +62,13 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
             long receivedMessages = ackMessage.receivedMessages();
 
             descriptor.acknowledge(receivedMessages);
-        } else if (message.needAck()) {
+        } else if (message instanceof InvokeResponse) {
+            InvokeResponse invokeResponse = (InvokeResponse) message;
+
+            descriptor.acknowledge(invokeResponse);
+        }
+
+        if (message.needAck() && !(message instanceof InvokeRequest)) {
             AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
                     .receivedMessages(descriptor.onReceive()).build();
 
