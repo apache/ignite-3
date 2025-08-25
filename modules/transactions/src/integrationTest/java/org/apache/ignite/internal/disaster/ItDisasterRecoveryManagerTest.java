@@ -21,7 +21,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
@@ -66,13 +65,9 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -491,29 +486,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 .orElseThrow(() -> new IllegalStateException("No node found that is a primary replica for the specified options."));
     }
 
-    private static void assertValueOnSpecificNodes(String tableName, Set<IgniteImpl> nodes, int id, int val) throws Exception {
-        for (IgniteImpl node : nodes) {
-            assertValueOnSpecificNode(tableName, node, id, val);
-        }
-    }
-
-    private static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val) throws Exception {
-        InternalTable internalTable = unwrapTableViewInternal(node.tables().table(tableName)).internalTable();
-
-        Row keyValueRow0 = createKeyValueRow(id, val);
-        Row keyRow0 = createKeyRow(id);
-
-        assertTrue(waitForCondition(() -> {
-            try {
-                CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
-
-                return compareRows(getFut.get(), keyValueRow0);
-            } catch (Exception e) {
-                return false;
-            }
-        }, 10_000), "Row comparison failed within the timeout.");
-    }
-
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void testRestartZonePartitions() {
@@ -820,24 +792,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
 
-    private static Row createKeyRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA.version(), SCHEMA.keyColumns(), -1);
-
-        rowBuilder.appendInt(id);
-
-        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
-    }
-
-    private static Row createKeyValueRow(int id, int value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
-
-        rowBuilder.appendInt(id);
-        rowBuilder.appendInt(value);
-
-        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
-    }
-
-    private static boolean compareRows(BinaryRow row1, BinaryRow row2) {
-        return row1.schemaVersion() == row2.schemaVersion() && row1.tupleSlice().equals(row2.tupleSlice());
+    private static void assertValueOnSpecificNodes(String tableName, Set<IgniteImpl> nodes, int id, int val) throws Exception {
+        DisasterRecoveryTestUtil.assertValueOnSpecificNodes(tableName, nodes, id, val, SCHEMA);
     }
 }
