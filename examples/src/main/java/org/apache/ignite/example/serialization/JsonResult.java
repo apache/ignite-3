@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.example.serialization;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.IgniteCompute;
+public class JsonResult {
 
-class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
-    @Override
-    IgniteCompute compute(Ignite entryNode) {
-        return entryNode.compute();
-    }
+    String originalWord;
+    String resultWord;
+    int length;
 }
