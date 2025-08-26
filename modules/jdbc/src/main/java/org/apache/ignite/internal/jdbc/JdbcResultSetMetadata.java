@@ -80,8 +80,7 @@ public class JdbcResultSetMetadata implements ResultSetMetaData {
     /** {@inheritDoc} */
     @Override
     public int isNullable(int col) throws SQLException {
-        getColumn(col);
-        return columnNullable;
+        return getColumn(col).isNullable() ? columnNullable : columnNoNulls;
     }
 
     /** {@inheritDoc} */

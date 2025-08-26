@@ -162,7 +162,9 @@ public abstract class JdbcResultSetMetadataBaseSelfTest {
     public void isNullable(boolean nullable) throws SQLException {
         ColumnDefinition column = new ColumnDefinition("C", ColumnType.INT8, 0, 0, nullable);
         ResultSetMetaData md = createMeta(List.of(column));
-        assertEquals(ResultSetMetaData.columnNullable, md.isNullable(1));
+
+        int indicator = nullable ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls;
+        assertEquals(indicator, md.isNullable(1));
     }
 
     @ParameterizedTest
