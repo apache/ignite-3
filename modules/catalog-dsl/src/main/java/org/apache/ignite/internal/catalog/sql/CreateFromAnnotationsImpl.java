@@ -137,12 +137,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
                 createZone.distributionAlgorithm(zone.distributionAlgorithm());
             }
 
-            if (zone.dataNodesAutoAdjust() > 0) {
-                createZone.dataNodesAutoAdjust(zone.dataNodesAutoAdjust());
-            }
             if (zone.dataNodesAutoAdjustScaleUp() > 0) {
                 createZone.dataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
             }
+
             if (zone.dataNodesAutoAdjustScaleDown() > 0) {
                 createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
             }

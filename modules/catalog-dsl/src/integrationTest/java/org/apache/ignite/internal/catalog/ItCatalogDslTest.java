@@ -95,7 +95,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Given zone definition
         ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
                 .distributionAlgorithm("rendezvous")
-                .dataNodesAutoAdjust(1)
                 .filter("filter")
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .build();

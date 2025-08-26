@@ -29,7 +29,6 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
     "zone" : {
       "defaultDataStorage" : "aipersist",
       "defaultDistributionZone" : {
-        "dataNodesAutoAdjust" : 2147483647,
         "dataNodesAutoAdjustScaleDown" : 2147483647,
         "dataNodesAutoAdjustScaleUp" : 0,
         "dataStorage" : {

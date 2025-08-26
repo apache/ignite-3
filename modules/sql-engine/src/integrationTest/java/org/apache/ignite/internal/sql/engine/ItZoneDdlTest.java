@@ -296,10 +296,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         sql(String.format("ALTER ZONE %s RENAME TO %s", failIfNoExists ? formZoneName : "IF EXISTS " + formZoneName, toZoneName));
     }
 
-    private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjust, boolean failIfNotExists) {
+    private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjustScaleUp, boolean failIfNotExists) {
         sql(String.format(
                 "ALTER ZONE %s SET (AUTO SCALE UP %s)",
-                failIfNotExists ? zoneName : "IF EXISTS " + zoneName, dataNodesAutoAdjust
+                failIfNotExists
+                        ? zoneName
+                        : "IF EXISTS " + zoneName,
+                dataNodesAutoAdjustScaleUp
         ));
     }
 

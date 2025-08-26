@@ -373,12 +373,6 @@ public class DataNodesManager {
                 .filter(node -> !scaleDownTimer.nodes().contains(node))
                 .collect(toSet());
 
-        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty())
-                && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
-            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-        }
-
         int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
 
         if (!removedNodes.isEmpty()

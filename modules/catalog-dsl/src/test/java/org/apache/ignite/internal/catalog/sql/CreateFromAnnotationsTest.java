@@ -71,7 +71,6 @@ class CreateFromAnnotationsTest {
                 .replicas(5)
                 .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -239,7 +238,6 @@ class CreateFromAnnotationsTest {
                     replicas = 5,
                     quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -271,7 +269,6 @@ class CreateFromAnnotationsTest {
                     replicas = 5,
                     quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -309,7 +306,6 @@ class CreateFromAnnotationsTest {
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -377,7 +373,6 @@ class CreateFromAnnotationsTest {
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
