@@ -27,7 +27,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
+import org.apache.ignite.internal.compute.events.ComputeEventsFactory;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -69,6 +72,7 @@ class ComputeJobFailover {
      */
     private final Executor executor;
 
+    private final EventLog eventLog;
     /**
      * The node where the job is being executed at a given moment. If node leaves the cluster, then the job is restarted on one of the
      * worker node returned by {@link #nextWorkerSelector} and the reference is CASed to the new node.
@@ -99,6 +103,7 @@ class ComputeJobFailover {
      * @param logicalTopologyService logical topology service.
      * @param topologyService physical topology service.
      * @param executor the thread pool where the failover should run on.
+     * @param eventLog Event log.
      * @param workerNode the node to execute the job on.
      * @param nextWorkerSelector the selector that returns the next worker to execute job on.
      * @param executionOptions execution options like priority or max retries.
@@ -112,6 +117,7 @@ class ComputeJobFailover {
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
             Executor executor,
+            EventLog eventLog,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionOptions executionOptions,
@@ -124,6 +130,7 @@ class ComputeJobFailover {
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.executor = executor;
+        this.eventLog = eventLog;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
         this.nextWorkerSelector = nextWorkerSelector;
 
@@ -138,6 +145,7 @@ class ComputeJobFailover {
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
             Executor executor,
+            EventLog eventLog,
             ClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionOptions executionOptions,
@@ -151,6 +159,7 @@ class ComputeJobFailover {
                 logicalTopologyService,
                 topologyService,
                 executor,
+                eventLog,
                 workerNode,
                 nextWorkerSelector,
                 executionOptions,
@@ -211,6 +220,8 @@ class ComputeJobFailover {
                         if (nextWorker == null) {
                             LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
+                            logJobFailedEvent();
+
                             failSafeExecution.completeExceptionally(new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR));
                             return;
                         }
@@ -228,6 +239,16 @@ class ComputeJobFailover {
 
                         launchJobOn(nextWorker).thenAccept(execution -> failSafeExecution.updateJobExecution(execution));
                     });
+        }
+
+        private void logJobFailedEvent() {
+            // Fill missing fields
+            ComputeEventMetadata eventMetadata = jobContext.metadataBuilder()
+                    .jobClassName(jobContext.jobClassName())
+                    .targetNode(runningWorkerNode.get().name()) // Use last worker node
+                    .build();
+
+            ComputeEventsFactory.logJobFailedEvent(eventLog, eventMetadata);
         }
     }
 }

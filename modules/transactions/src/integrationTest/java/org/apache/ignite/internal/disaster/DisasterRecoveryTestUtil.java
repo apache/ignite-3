@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.disaster;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -34,6 +40,11 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 
 /**
@@ -84,5 +95,55 @@ class DisasterRecoveryTestUtil {
         }
 
         return false;
+    }
+
+    static void assertValueOnSpecificNodes(
+            String tableName,
+            Set<IgniteImpl> nodes,
+            int id,
+            int val,
+            SchemaDescriptor schema
+    ) throws Exception {
+        for (IgniteImpl node : nodes) {
+            assertValueOnSpecificNode(tableName, node, id, val, schema);
+        }
+    }
+
+    static void assertValueOnSpecificNode(String tableName, IgniteImpl node, int id, int val, SchemaDescriptor schema) throws Exception {
+        InternalTable internalTable = unwrapTableViewInternal(node.tables().table(tableName)).internalTable();
+
+        Row keyValueRow0 = createKeyValueRow(schema, id, val);
+        Row keyRow0 = createKeyRow(schema, id);
+
+        assertTrue(waitForCondition(() -> {
+            try {
+                CompletableFuture<BinaryRow> getFut = internalTable.get(keyRow0, node.clock().now(), node.node());
+
+                return compareRows(getFut.get(), keyValueRow0);
+            } catch (Exception e) {
+                return false;
+            }
+        }, 10_000), "Row comparison failed within the timeout.");
+    }
+
+    static Row createKeyValueRow(SchemaDescriptor schema, int id, int value) {
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
+
+        rowBuilder.appendInt(id);
+        rowBuilder.appendInt(value);
+
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
+    }
+
+    private static boolean compareRows(BinaryRow row1, BinaryRow row2) {
+        return row1.schemaVersion() == row2.schemaVersion() && row1.tupleSlice().equals(row2.tupleSlice());
+    }
+
+    private static Row createKeyRow(SchemaDescriptor schema, int id) {
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), schema.keyColumns(), -1);
+
+        rowBuilder.appendInt(id);
+
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 }

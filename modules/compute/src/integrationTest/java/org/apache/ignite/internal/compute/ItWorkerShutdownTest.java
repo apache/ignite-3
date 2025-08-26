@@ -122,13 +122,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void remoteExecutionWorkerShutdown() throws Exception {
-        // Given entry node.
-        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates);
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -181,13 +179,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void remoteExecutionSingleWorkerShutdown() throws Exception {
-        // Given.
-        Ignite entryNode = node(0);
         // And only one remote candidate to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates);
 
         // Then the job is running on worker node.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -209,7 +205,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         Ignite entryNode = node(0);
 
         // When execute job locally.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(Set.of(entryNode.name()));
 
         // Then the job is running.
         InteractiveJobs.globalJob().assertAlive();
@@ -331,14 +327,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     @Test
     void cancelRemoteExecutionOnRestartedJob() throws Exception {
-        // Given entry node.
-        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
         CancelHandle cancelHandle = CancelHandle.create();
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates, cancelHandle.token());
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(remoteWorkerCandidates, cancelHandle.token());
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -445,12 +439,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return cluster.runningNodes().filter(node -> node.name().equals(candidateName)).findFirst().orElseThrow();
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
-        return executeGlobalInteractiveJob(entryNode, nodes, null);
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<String> nodes) {
+        return executeGlobalInteractiveJob(nodes, null);
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes, CancellationToken token) {
-        return new TestingJobExecution<>(compute(entryNode).submitAsync(
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Set<String> nodes, CancellationToken token) {
+        return new TestingJobExecution<>(compute(node(0)).submitAsync(
                 JobTarget.anyNode(clusterNodesByNames(nodes)),
                 JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
                 null,
