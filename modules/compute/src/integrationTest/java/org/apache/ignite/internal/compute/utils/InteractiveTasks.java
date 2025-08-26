@@ -249,17 +249,25 @@ public final class InteractiveTasks {
         /**
          * Checks that {@link GlobalInteractiveMapReduceTask} is alive and in the split phase.
          */
-        public static void assertSplitAlive() throws InterruptedException {
+        public static void assertSplitAlive() {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE_SPLIT);
-            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            try {
+                assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         /**
          * Checks that {@link GlobalInteractiveMapReduceTask} is alive.
          */
-        public static void assertReduceAlive() throws InterruptedException {
+        public static void assertReduceAlive() {
             GLOBAL_SIGNALS.offer(Signal.CONTINUE_REDUCE);
-            assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            try {
+                assertThat(GLOBAL_CHANNEL.poll(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), equalTo(ACK));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         /**

@@ -50,7 +50,6 @@ import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -261,9 +260,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
-            IgniteCompute igniteCompute = client.compute();
-            TaskExecution<Object> task = igniteCompute.submitMapReduce(
-                    TaskDescriptor.builder("job").build(), null);
+            TaskExecution<Object> task = client.compute().submitMapReduce(TaskDescriptor.builder("job").build(), null);
 
             assertThat(task.resultAsync(), willBe("s1"));
 
@@ -282,9 +279,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            IgniteCompute igniteCompute = client.compute();
-            TaskExecution<Object> execution = igniteCompute.submitMapReduce(
-                    TaskDescriptor.builder("job").build(), null);
+            TaskExecution<Object> execution = client.compute().submitMapReduce(TaskDescriptor.builder("job").build(), null);
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.FAILED)));
@@ -319,10 +314,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            IgniteCompute igniteCompute = client.compute();
             var jobTarget = getClusterNodes("s1");
             JobDescriptor<Object, String> jobDescriptor = JobDescriptor.<Object, String>builder("job").build();
-            CompletableFuture<JobExecution<String>> executionFut = igniteCompute.submitAsync(jobTarget, jobDescriptor, null);
+            CompletableFuture<JobExecution<String>> executionFut = client.compute().submitAsync(jobTarget, jobDescriptor, null);
 
             assertThat(executionFut, willBe(jobExecutionWithResultAndStateFuture(
                     willThrowFast(IgniteException.class),
@@ -339,10 +333,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             CompletableFuture<String> jobFut = new CompletableFuture<>();
             FakeCompute.future = jobFut;
 
-            IgniteCompute igniteCompute = client.compute();
             var jobTarget = getClusterNodes("s1");
             JobDescriptor<Object, String> jobDescriptor = JobDescriptor.<Object, String>builder("job").build();
-            CompletableFuture<JobExecution<String>> executionFut = igniteCompute.submitAsync(jobTarget, jobDescriptor, null);
+            CompletableFuture<JobExecution<String>> executionFut = client.compute().submitAsync(jobTarget, jobDescriptor, null);
 
             CompletableFuture<String> threadNameFut = new CompletableFuture<>();
 

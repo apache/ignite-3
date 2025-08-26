@@ -67,7 +67,7 @@ class ItComputeEventsEmbeddedTest extends ItComputeEventsTest {
     }
 
     @Test
-    void taskReduceCanceled() throws InterruptedException {
+    void taskReduceCanceled() {
         CancelHandle cancelHandle = CancelHandle.create();
         TaskExecution<List<String>> execution = startTask(cancelHandle.token());
         InteractiveTasks.GlobalApi.finishSplit();
@@ -90,11 +90,7 @@ class ItComputeEventsEmbeddedTest extends ItComputeEventsTest {
         TaskExecution<List<String>> taskExecution = compute().submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null, cancellationToken
         );
-        try {
-            InteractiveTasks.GlobalApi.assertSplitAlive();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        InteractiveTasks.GlobalApi.assertSplitAlive();
         return taskExecution;
     }
 }

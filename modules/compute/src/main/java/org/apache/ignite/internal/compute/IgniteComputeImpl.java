@@ -146,23 +146,23 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable T args,
+            @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return submitAsync(target, descriptor, ComputeEventMetadata.builder(Type.SINGLE), args, cancellationToken);
+        return submitAsync(target, descriptor, ComputeEventMetadata.builder(Type.SINGLE), arg, cancellationToken);
     }
 
     private <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
             ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable T args,
+            @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(args, descriptor.argumentMarshaller());
+        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, descriptor.argumentMarshaller());
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();

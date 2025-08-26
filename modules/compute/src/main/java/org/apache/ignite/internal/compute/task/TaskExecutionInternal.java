@@ -130,7 +130,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
             ComputeEventMetadataBuilder metadataBuilder,
-            I arg
+            @Nullable I arg
     ) {
         this.eventLog = eventLog;
         this.isCancelled = isCancelled;
