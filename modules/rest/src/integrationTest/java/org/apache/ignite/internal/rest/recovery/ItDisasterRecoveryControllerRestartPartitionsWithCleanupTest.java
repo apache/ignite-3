@@ -43,15 +43,15 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
-import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsWithCleanupRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsWithCleanupRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
-/** Test for disaster recovery restart partitions command. */
+/** Test for disaster recovery restart partitions with cleanup command. */
 @MicronautTest
-public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPerClassIntegrationTest {
+public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private static final String FIRST_ZONE = "first_ZONE";
@@ -60,9 +60,9 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
-    public static final String RESTART_PARTITIONS_ENDPOINT = "/partitions/restart";
+    public static final String RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT = "/partitions/restartWithCleanup";
 
-    public static final String RESTART_ZONE_PARTITIONS_ENDPOINT = "zone/partitions/restart";
+    public static final String RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT = "zone/partitions/restartWithCleanup";
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -76,7 +76,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    public void testRestartPartitionZoneNotFound() {
+    public void testRestartPartitionWithCleanupZoneNotFound() {
         String unknownZone = "unknown_zone";
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of());
@@ -92,7 +92,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
     @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
-    public void testRestartPartitionTableNotFound() {
+    public void testRestartPartitionWithCleanupTableNotFound() {
         String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());
@@ -105,7 +105,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    void testRestartPartitionsIllegalPartitionNegative() {
+    void testRestartPartitionsWithCleanupIllegalPartitionNegative() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
@@ -117,7 +117,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    void testRestartPartitionsPartitionsOutOfRange() {
+    void testRestartPartitionsWithCleanupPartitionsOutOfRange() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
@@ -135,7 +135,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    void testRestartPartitionsNodesAreCaseSensitive() {
+    void testRestartPartitionsWithCleanupNodesAreCaseSensitive() {
         Set<String> uppercaseNodeNames = nodeNames(initialNodes() - 1).stream()
                 .map(String::toUpperCase)
                 .collect(toSet());
@@ -150,7 +150,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    public void testRestartAllPartitions() {
+    public void testRestartAllPartitionsWithCleanup() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
@@ -159,7 +159,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    public void testRestartSpecifiedPartitions() {
+    public void testRestartSpecifiedPartitionsWithCleanup() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
@@ -168,7 +168,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    public void testRestartPartitionsByNodes() {
+    public void testRestartPartitionsWithCleanupByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
@@ -192,11 +192,11 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
             Collection<Integer> partitionIds
     ) {
         if (colocationEnabled()) {
-            return HttpRequest.POST(RESTART_ZONE_PARTITIONS_ENDPOINT,
-                    new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
+            return HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                    new RestartZonePartitionsWithCleanupRequest(nodeNames, zoneName, partitionIds));
         } else {
-            return HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
-                    new RestartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds));
+            return HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                    new RestartPartitionsWithCleanupRequest(nodeNames, zoneName, tableName, partitionIds));
         }
     }
 }

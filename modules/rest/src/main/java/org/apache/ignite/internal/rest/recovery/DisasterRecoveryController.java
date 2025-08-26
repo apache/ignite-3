@@ -46,7 +46,9 @@ import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResp
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsWithCleanupRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsWithCleanupRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -135,6 +137,27 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     }
 
     @Override
+    public CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsWithCleanupRequest command) {
+        if (nodeProperties.colocationEnabled()) {
+            return restartZonePartitionsWithCleanup(new RestartZonePartitionsWithCleanupRequest(
+                    command.nodeNames(),
+                    command.zoneName(),
+                    command.partitionIds()
+            ));
+        }
+
+        QualifiedName tableName = QualifiedName.parse(command.tableName());
+
+        return disasterRecoveryManager.restartTablePartitionsWithCleanup(
+                command.nodeNames(),
+                command.zoneName(),
+                tableName.schemaName(),
+                tableName.objectName(),
+                command.partitionIds()
+        );
+    }
+
+    @Override
     public CompletableFuture<Void> resetZonePartitions(ResetZonePartitionsRequest command) {
         checkColocationEnabled();
 
@@ -146,6 +169,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         checkColocationEnabled();
 
         return disasterRecoveryManager.restartPartitions(command.nodeNames(), command.zoneName(), command.partitionIds());
+    }
+
+    @Override
+    public CompletableFuture<Void> restartZonePartitionsWithCleanup(RestartZonePartitionsWithCleanupRequest command) {
+        checkColocationEnabled();
+
+        return disasterRecoveryManager.restartPartitionsWithCleanup(command.nodeNames(), command.zoneName(), command.partitionIds());
     }
 
     @Override

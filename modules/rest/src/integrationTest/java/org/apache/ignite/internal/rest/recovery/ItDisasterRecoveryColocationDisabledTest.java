@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.rest.constants.HttpCode.INTERNAL_SERVER_ERROR;
 import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerRestartPartitionsTest.RESTART_ZONE_PARTITIONS_ENDPOINT;
+import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest.RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT;
 import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerTest.RESET_ZONE_PARTITIONS_ENDPOINT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -79,6 +80,19 @@ public class ItDisasterRecoveryColocationDisabledTest extends ClusterPerClassInt
     @Test
     public void testRestartPartitions() {
         MutableHttpRequest<?> post = HttpRequest.POST(RESTART_ZONE_PARTITIONS_ENDPOINT,
+                new RestartZonePartitionsRequest(emptySet(), FIRST_ZONE, emptySet()));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(INTERNAL_SERVER_ERROR.code()));
+
+        assertThat(e.getMessage(), containsString("This method is unsupported when colocation is disabled."));
+    }
+
+    @Test
+    public void testRestartPartitionsWithCleanup() {
+        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
                 new RestartZonePartitionsRequest(emptySet(), FIRST_ZONE, emptySet()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
