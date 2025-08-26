@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.example.serialization;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.compute.utils.Clients;
-import org.junit.jupiter.api.AfterEach;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
-    private final Clients clients = new Clients();
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.Tuple;
 
-    @AfterEach
-    void cleanup() {
-        clients.cleanup();
-    }
+class TupleTransformJob implements ComputeJob<Tuple, Tuple> {
 
     @Override
-    protected IgniteCompute compute(Ignite entryNode) {
-        return clients.compute(entryNode);
+    public CompletableFuture<Tuple> executeAsync(JobExecutionContext ctx, Tuple arg) {
+        Tuple resultTuple = Tuple.copy(arg);
+        resultTuple.set("key", "new value");
+
+        return completedFuture(resultTuple);
     }
 }

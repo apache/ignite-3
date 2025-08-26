@@ -3990,6 +3990,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     @Test
     public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster

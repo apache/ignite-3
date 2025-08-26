@@ -618,6 +618,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 NetworkMessage response = initErrorMessage(finalEx);
 
                                 clusterService.messagingService().respond(sender, response, correlationId);
+                            } else {
+                                LOG.info("CMG Raft service started successfully.");
                             }
                         }));
             } else {
@@ -664,6 +666,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * otherwise an InitErrorMessage is sent.
      */
     private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
+        LOG.info("CmgPrepareInitMessage message received [sender={}, colocationEnabled={}]", sender.name(),
+                msg.initInitiatorColocationEnabled());
+
         NetworkMessage response;
         if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
             String colocationEnabledMismatchResponseMessage = IgniteStringFormatter.format(
@@ -971,6 +976,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             Peer serverPeer = isLearner ? raftConfiguration.learner(thisNodeConsistentId) : raftConfiguration.peer(thisNodeConsistentId);
 
             assert serverPeer != null;
+
+            LOG.info("Starting CMG Raft service [isLearner={}, nodeNames={}, serverPeer={}]", isLearner, nodeNames, serverPeer);
 
             RaftGroupService service = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                     raftNodeId(serverPeer),

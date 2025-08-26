@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -241,7 +242,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> {});
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -1092,7 +1093,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(result.getCatalogTime()).thenReturn(expectedCatalogActivationTimestamp.longValue());
         when(ddlCommandHandler.handle(any(CatalogCommand.class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         await(execService.executePlan(plan, planCtx));
 
