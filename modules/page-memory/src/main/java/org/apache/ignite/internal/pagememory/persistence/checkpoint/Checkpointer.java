@@ -621,7 +621,12 @@ public class Checkpointer extends IgniteWorker {
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
 
+            // TODO: IGNITE-26315 Deal with partition deletion blocking on checkpoint
             PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
+
+            if (meta == null) {
+                return;
+            }
 
             filePageStore.checkpointedPageCount(meta.metaSnapshot(currentCheckpointProgress.id()).pageCount());
 
