@@ -43,8 +43,8 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsWithCleanupRequest;
-import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsWithCleanupRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -193,10 +193,10 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     ) {
         if (colocationEnabled()) {
             return HttpRequest.POST(RESTART_ZONE_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                    new RestartZonePartitionsWithCleanupRequest(nodeNames, zoneName, partitionIds));
+                    new RestartZonePartitionsRequest(nodeNames, zoneName, partitionIds));
         } else {
             return HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
-                    new RestartPartitionsWithCleanupRequest(nodeNames, zoneName, tableName, partitionIds));
+                    new RestartPartitionsRequest(nodeNames, zoneName, tableName, partitionIds));
         }
     }
 }

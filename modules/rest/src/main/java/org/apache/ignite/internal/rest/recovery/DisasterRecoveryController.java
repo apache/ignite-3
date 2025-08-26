@@ -46,9 +46,7 @@ import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResp
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
-import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsWithCleanupRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
-import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsWithCleanupRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -137,9 +135,9 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     }
 
     @Override
-    public CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsWithCleanupRequest command) {
+    public CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsRequest command) {
         if (nodeProperties.colocationEnabled()) {
-            return restartZonePartitionsWithCleanup(new RestartZonePartitionsWithCleanupRequest(
+            return restartZonePartitionsWithCleanup(new RestartZonePartitionsRequest(
                     command.nodeNames(),
                     command.zoneName(),
                     command.partitionIds()
@@ -172,7 +170,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     }
 
     @Override
-    public CompletableFuture<Void> restartZonePartitionsWithCleanup(RestartZonePartitionsWithCleanupRequest command) {
+    public CompletableFuture<Void> restartZonePartitionsWithCleanup(RestartZonePartitionsRequest command) {
         checkColocationEnabled();
 
         return disasterRecoveryManager.restartPartitionsWithCleanup(command.nodeNames(), command.zoneName(), command.partitionIds());

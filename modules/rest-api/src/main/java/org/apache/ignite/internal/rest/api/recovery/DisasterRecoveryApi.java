@@ -118,7 +118,7 @@ public interface DisasterRecoveryApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.PROBLEM_JSON)
-    CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsWithCleanupRequest command);
+    CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsRequest command);
 
     @Post("zone/partitions/reset")
     @Operation(
@@ -161,7 +161,7 @@ public interface DisasterRecoveryApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.PROBLEM_JSON)
-    CompletableFuture<Void> restartZonePartitionsWithCleanup(@Body RestartZonePartitionsWithCleanupRequest command);
+    CompletableFuture<Void> restartZonePartitionsWithCleanup(@Body RestartZonePartitionsRequest command);
 
     @Get("zone/state/local")
     @Operation(operationId = "getZoneLocalPartitionStates", description = "Returns local zone partition states.")
