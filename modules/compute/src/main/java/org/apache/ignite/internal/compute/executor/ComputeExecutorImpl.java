@@ -126,7 +126,9 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
 
-        metadataBuilder.jobClassName(jobClassName);
+        metadataBuilder
+                .jobClassName(jobClassName)
+                .targetNode(ignite.name());
 
         Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
                 options.executorType(), jobClassName, classLoader, input, context);
@@ -241,21 +243,26 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
-            I input
+            ComputeEventMetadataBuilder metadataBuilder,
+            I arg
     ) {
         assert executorService != null;
 
         AtomicBoolean isCancelled = new AtomicBoolean();
         TaskExecutionContext context = new TaskExecutionContextImpl(ignite, isCancelled);
 
-        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, context, isCancelled, input);
+        metadataBuilder
+                .jobClassName(taskClass.getName())
+                .targetNode(ignite.name());
+
+        return new TaskExecutionInternal<>(executorService, eventLog, jobSubmitter, taskClass, context, isCancelled, metadataBuilder, arg);
     }
 
     @Override
     public void start() {
         stateMachine.start();
         IgniteThreadFactory threadFactory = IgniteThreadFactory.create(ignite.name(), "compute", LOG, STORAGE_READ, STORAGE_WRITE);
-        executorService = new PriorityQueueExecutor(configuration, threadFactory, stateMachine, eventLog, ignite.name());
+        executorService = new PriorityQueueExecutor(configuration, threadFactory, stateMachine, eventLog);
     }
 
     @Override

@@ -181,6 +181,16 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
+    public <T, R> TaskExecution<R> submitMapReduceInternal(
+            TaskDescriptor<T, R> taskDescriptor,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return taskExecution(future != null ? future : completedFuture((R) nodeName));
+    }
+
+    @Override
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
@@ -272,7 +282,7 @@ public class FakeCompute implements IgniteComputeInternal {
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return taskExecution(future != null ? future : completedFuture((R) nodeName));
+        return submitMapReduceInternal(taskDescriptor, null, arg, cancellationToken);
     }
 
     @Override

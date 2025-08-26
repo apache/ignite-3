@@ -116,6 +116,7 @@ public interface ComputeComponent extends IgniteComponent {
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
+            ComputeEventMetadataBuilder metadataBuilder,
             I arg
     );
 

@@ -87,7 +87,7 @@ public class EventMatcher extends TypeSafeMatcher<String> {
                 .withClassName(jobClassName)
                 .withJobId(jobId)
                 .withTargetNode(targetNode)
-                .withInitiatorNode(initiatorNode)
+                .withInitiatorNode(is(initiatorNode))
                 .withClientAddress(nullValue());
     }
 
@@ -115,57 +115,61 @@ public class EventMatcher extends TypeSafeMatcher<String> {
                 .withClientAddress(notNullValue(String.class));
     }
 
-    EventMatcher withTimestamp(Matcher<? super Long> matcher) {
+    public EventMatcher withTimestamp(Matcher<? super Long> matcher) {
         this.timestampMatcher = matcher;
         return this;
     }
 
-    EventMatcher withProductVersion(Matcher<? super String> matcher) {
+    public EventMatcher withProductVersion(Matcher<? super String> matcher) {
         this.productVersionMatcher = matcher;
         return this;
     }
 
-    EventMatcher withUsername(Matcher<? super String> matcher) {
+    public EventMatcher withUsername(Matcher<? super String> matcher) {
         this.usernameMatcher = matcher;
         return this;
     }
 
-    EventMatcher withType(String type) {
+    public EventMatcher withType(String type) {
         this.typeMatcher = is(type);
         return this;
     }
 
-    EventMatcher withClassName(String className) {
+    public EventMatcher withClassName(String className) {
         this.classNameMatcher = is(className);
         return this;
     }
 
-    EventMatcher withTableName(String tableName) {
+    public EventMatcher withTableName(String tableName) {
         this.tableNameMatcher = is(tableName);
         return this;
     }
 
-    EventMatcher withJobId(@Nullable UUID jobId) {
+    public EventMatcher withJobId(@Nullable UUID jobId) {
         this.jobIdMatcher = is(jobId);
         return this;
     }
 
-    EventMatcher withTaskId(@Nullable UUID taskId) {
+    public EventMatcher withTaskId(@Nullable UUID taskId) {
         this.taskIdMatcher = is(taskId);
         return this;
     }
 
-    EventMatcher withTargetNode(String targetNode) {
-        this.targetNodeMatcher = is(targetNode);
+    public EventMatcher withTargetNode(String targetNode) {
+        return withTargetNode(is(targetNode));
+    }
+
+    public EventMatcher withTargetNode(Matcher<? super String> targetNodeMatcher) {
+        this.targetNodeMatcher = targetNodeMatcher;
         return this;
     }
 
-    EventMatcher withInitiatorNode(String initiatorNode) {
-        this.initiatorNodeMatcher = is(initiatorNode);
+    public EventMatcher withInitiatorNode(Matcher<? super String> initiatorNodeMatcher) {
+        this.initiatorNodeMatcher = initiatorNodeMatcher;
         return this;
     }
 
-    EventMatcher withClientAddress(Matcher<? super String> clientAddressMatcher) {
+    public EventMatcher withClientAddress(Matcher<? super String> clientAddressMatcher) {
         this.clientAddressMatcher = clientAddressMatcher;
         return this;
     }

@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.internal.compute;
+
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.task.MapReduceJob;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
-import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 
-/**
- * Compute job submitter.
- */
-@FunctionalInterface
-public interface JobSubmitter<T, R> {
-    /**
-     * Submits compute jobs for an execution.
-     *
-     * @param computeJobRunners List of the compute job start parameters.
-     * @param metadataBuilder Compute event metadata builder.
-     * @param cancellationToken Cancellation token.
-     */
-    CompletableFuture<List<JobExecution<R>>> submit(
-            List<MapReduceJob<T, R>> computeJobRunners,
-            ComputeEventMetadataBuilder metadataBuilder,
-            CancellationToken cancellationToken
-    );
+/** Map reduce task that throws an exception from the splitAsync. */
+public class FailingSplitMapReduceTask implements MapReduceTask<Void, Void, Void, Void> {
+    @Override
+    public CompletableFuture<List<MapReduceJob<Void, Void>>> splitAsync(TaskExecutionContext taskContext, Void input) {
+        throw new RuntimeException();
+    }
+
+    @Override
+    public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
+        return nullCompletedFuture();
+    }
 }

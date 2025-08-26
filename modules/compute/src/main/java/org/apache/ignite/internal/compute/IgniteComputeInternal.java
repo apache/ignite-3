@@ -27,6 +27,9 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -108,6 +111,24 @@ public interface IgniteComputeInternal extends IgniteCompute {
             JobExecutionOptions options,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
+
+    /**
+     * Submits a {@link MapReduceTask} of the given class for an execution.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param taskDescriptor Map reduce task descriptor.
+     * @param metadataBuilder Event metadata builder.
+     * @param arg Task argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Task execution interface.
+     */
+    <T, R> TaskExecution<R> submitMapReduceInternal(
+            TaskDescriptor<T, R> taskDescriptor,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     );
 
