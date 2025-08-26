@@ -373,10 +373,6 @@ public class DataNodesManager {
                 .filter(node -> !scaleDownTimer.nodes().contains(node))
                 .collect(toSet());
 
-        if (!addedNodes.isEmpty() || !removedNodes.isEmpty()) {
-            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-        }
-
         int partitionResetDelay = partitionDistributionResetTimeoutSupplier.getAsInt();
 
         if (!removedNodes.isEmpty()
