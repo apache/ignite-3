@@ -197,7 +197,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         // Then the task is cancelled.
-        assertTaskFailed(taskExecution, FAILED, stateBeforeSplit);
+        assertTaskFailed(taskExecution, CANCELED, stateBeforeSplit);
 
         // And states list contains canceled states.
         assertJobStates(taskExecution, JobStatus.CANCELED);
