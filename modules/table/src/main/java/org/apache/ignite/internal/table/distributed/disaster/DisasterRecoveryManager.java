@@ -645,6 +645,46 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
+     * Restart partitions of a zone with cleanup. This method destroys partition storage during restart.
+     *
+     * @param nodeNames Names of nodes to restart partitions on. If empty, restart on all nodes.
+     * @param zoneName Zone name. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
+     * @return Future that completes when partitions are restarted.
+     */
+    public CompletableFuture<Void> restartPartitionsWithCleanup(
+            Set<String> nodeNames,
+            String zoneName,
+            Set<Integer> partitionIds
+    ) {
+        try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
+            Catalog catalog = catalogLatestVersion();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    // We pass here -1 as table id because it is not used for zone-based partitions.
+                    // We expect that the field will be removed once colocation track is finished.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522
+                    -1,
+                    partitionIds,
+                    nodeNames,
+                    catalog.time(),
+                    true
+            ));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
+    }
+
+    /**
      * Returns states of partitions in the cluster. Result is a mapping of {@link ZonePartitionId} to the mapping between a node name and a
      * partition state.
      *
@@ -1069,7 +1109,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         return zoneDescriptors;
     }
-
 
     /**
      * Short version of {@link DisasterRecoveryManager#processNewRequest(DisasterRecoveryRequest, long)} without revision.

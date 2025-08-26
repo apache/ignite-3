@@ -64,6 +64,8 @@ import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadataExtractor;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -325,7 +327,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+        return ddlConverter.convert((SqlDdl) sqlNode, ctx).thenApply(command -> new DdlPlan(nextPlanId(), command));
     }
 
     private CompletableFuture<QueryPlan> prepareKill(ParsedResult parsedResult) {
@@ -438,7 +440,8 @@ public class PrepareServiceImpl implements PrepareService {
 
                 SqlNode validatedNode = validated.sqlNode();
 
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+                RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+                IgniteRel optimizedRel = relWithMetadata.rel;
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
@@ -447,17 +450,29 @@ public class PrepareServiceImpl implements PrepareService {
 
                 if (optimizedRel instanceof IgniteKeyValueGet) {
                     IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
-                    PartitionAwarenessMetadata partitionAwarenessMetadata =
-                            PartitionAwarenessMetadataExtractor.getMetadata(kvGet);
 
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, kvGet, resultSetMetadata,
-                            parameterMetadata, partitionAwarenessMetadata
+                            nextPlanId(), 
+                            catalogVersion, 
+                            kvGet, 
+                            resultSetMetadata,
+                            parameterMetadata,
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 }
 
                 var plan = new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion, fastPlan
+                        nextPlanId(), 
+                        SqlQueryType.QUERY, 
+                        optimizedRel, 
+                        resultSetMetadata, 
+                        parameterMetadata, 
+                        catalogVersion, 
+                        relWithMetadata.numSources, 
+                        fastPlan, 
+                        relWithMetadata.paMetadata,
+                        relWithMetadata.ppMetadata
                 );
 
                 logPlan(parsedResult.originalQuery(), plan);
@@ -510,7 +525,8 @@ public class PrepareServiceImpl implements PrepareService {
         IgnitePlanner planner = ctx.planner();
         SqlNode validatedNode = planner.validate(sqlNode);
 
-        IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, null);
+        RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, null);
+        IgniteRel optimizedRel = relWithMetadata.rel;
 
         // Get parameter metadata.
         RelDataType parameterRowType = planner.getParameterRowType();
@@ -519,12 +535,25 @@ public class PrepareServiceImpl implements PrepareService {
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
-                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
-                    parameterMetadata, null
+                    nextPlanId(),
+                    ctx.catalogVersion(), 
+                    (IgniteKeyValueModify) optimizedRel,
+                    DML_METADATA,
+                    parameterMetadata, 
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
             );
         } else {
             plan = new MultiStepPlan(
-                    nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, ctx.catalogVersion(), null
+                    nextPlanId(),
+                    SqlQueryType.DML,
+                    optimizedRel, DML_METADATA,
+                    parameterMetadata,
+                    ctx.catalogVersion(), 
+                    relWithMetadata.numSources, 
+                    null, 
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
             );
         }
 
@@ -569,23 +598,36 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlNode validatedNode = stmt.value;
                 ParameterMetadata parameterMetadata = stmt.parameterMetadata;
 
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+                RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+                IgniteRel optimizedRel = relWithMetadata.rel;
 
                 int catalogVersion = ctx.catalogVersion();
 
                 ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
                     IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
-                    PartitionAwarenessMetadata partitionAwarenessMetadata =
-                            PartitionAwarenessMetadataExtractor.getMetadata(kvModify);
 
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA,
-                            parameterMetadata, partitionAwarenessMetadata
+                            nextPlanId(), 
+                            catalogVersion,
+                            kvModify,
+                            DML_METADATA,
+                            parameterMetadata, 
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(
-                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion, null
+                            nextPlanId(), 
+                            SqlQueryType.DML,
+                            optimizedRel,
+                            DML_METADATA, 
+                            parameterMetadata, 
+                            catalogVersion,
+                            relWithMetadata.numSources, 
+                            null, 
+                            relWithMetadata.paMetadata, 
+                            relWithMetadata.ppMetadata
                     );
                 }
 
@@ -721,7 +763,12 @@ public class PrepareServiceImpl implements PrepareService {
         );
     }
 
-    private IgniteRel doOptimize(PlanningContext ctx, SqlNode validatedNode, IgnitePlanner planner, @Nullable Runnable onTimeoutAction) {
+    private RelWithMetadata doOptimize(
+            PlanningContext ctx, 
+            SqlNode validatedNode, 
+            IgnitePlanner planner, 
+            @Nullable Runnable onTimeoutAction
+    ) {
         // Convert to Relational operators graph
         IgniteRel igniteRel;
         try {
@@ -747,7 +794,17 @@ public class PrepareServiceImpl implements PrepareService {
         // cluster keeps a lot of cached stuff that won't be used anymore.
         // In order let GC collect that, let's reattach tree to an empty cluster
         // before storing tree in plan cache
-        return Cloner.clone(igniteRel, Commons.emptyCluster());
+        RelWithSources reWithSources = Cloner.cloneAndAssignSourceId(igniteRel, Commons.emptyCluster());
+        int numTables = reWithSources.sources().size();
+        IgniteRel rel = reWithSources.root();
+
+        PartitionPruningMetadata partitionPruningMetadata = new PartitionPruningMetadataExtractor()
+                .go(rel);
+
+        PartitionAwarenessMetadata partitionAwarenessMetadata =
+                PartitionAwarenessMetadataExtractor.getMetadata(reWithSources, partitionPruningMetadata);
+
+        return new RelWithMetadata(rel, numTables, partitionAwarenessMetadata, partitionPruningMetadata);
     }
 
     private static ParameterMetadata createParameterMetadata(RelDataType parameterRowType) {
@@ -834,6 +891,25 @@ public class PrepareServiceImpl implements PrepareService {
     private static void logPlan(String queryString, ExplainablePlan plan) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Plan prepared: \n{}\n\n{}", queryString, plan.explain());
+        }
+    }
+
+    private static class RelWithMetadata {
+        final IgniteRel rel;
+        final @Nullable PartitionAwarenessMetadata paMetadata;
+        final @Nullable PartitionPruningMetadata ppMetadata;
+        final int numSources;
+
+        RelWithMetadata(
+                IgniteRel rel,
+                int numSources,
+                @Nullable PartitionAwarenessMetadata paMetadata, 
+                @Nullable PartitionPruningMetadata ppMetadata
+        ) {
+            this.rel = rel;
+            this.numSources = numSources;
+            this.paMetadata = paMetadata;
+            this.ppMetadata = ppMetadata;
         }
     }
 }

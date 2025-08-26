@@ -58,6 +58,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -67,9 +68,9 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -118,13 +119,16 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
+        PartitionMetaManager mockParititonMetaManager = mock(PartitionMetaManager.class);
+
         Checkpointer checkpointer = new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                createCheckpointPagesWriterFactory(mockParititonMetaManager),
                 mock(FilePageStoreManager.class),
+                mockParititonMetaManager,
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -159,6 +163,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -264,6 +269,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -294,6 +300,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -360,7 +367,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testDoCheckpoint() throws Exception {
         CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
-                fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
+                dirtyFullPageId(0, 0, 1), dirtyFullPageId(0, 0, 2), dirtyFullPageId(0, 0, 3)
         ));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
@@ -378,6 +385,13 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         LogSyncer mockLogSyncer = mock(LogSyncer.class);
 
+        PartitionMetaManager mock = mock(PartitionMetaManager.class);
+
+        FakePartitionMeta meta = new FakePartitionMeta(10, 1);
+        meta.init(UUID.randomUUID());
+
+        when(mock.getMeta(any())).thenReturn(meta);
+
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
                 null,
@@ -385,6 +399,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
+                mock,
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
@@ -416,6 +431,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
                 createFilePageStoreManager(Map.of()),
+                mock(PartitionMetaManager.class),
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
@@ -442,6 +458,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -483,6 +500,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
+                mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
@@ -516,7 +534,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         onPartitionDestructionFuture.get(1, SECONDS);
     }
 
-    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
+    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, DirtyFullPageId... pageIds) {
         return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, pageIds)));
     }
 
@@ -572,7 +590,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return manager;
     }
 
-    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
-        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    private static DirtyFullPageId dirtyFullPageId(int grpId, int partId, int pageIdx) {
+        return new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1);
     }
 }

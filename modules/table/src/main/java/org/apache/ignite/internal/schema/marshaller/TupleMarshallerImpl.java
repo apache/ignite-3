@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +108,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             TuplePart part = TuplePart.KEY_VALUE;
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+
+            var valuesWithStatistics = new ValuesWithStatistics(schema.length());
 
             gatherStatistics(part, tuple, valuesWithStatistics);
 
@@ -128,7 +129,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws MarshallerException {
         try {
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            var valuesWithStatistics = new ValuesWithStatistics(valTuple == null ? schema.keyColumns().size() : schema.length());
 
             gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
@@ -159,7 +160,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            var valuesWithStatistics = new ValuesWithStatistics(schema.keyColumns().size());
+
             TuplePart part = TuplePart.KEY;
 
             gatherStatistics(part, keyTuple, valuesWithStatistics);
@@ -334,10 +336,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * to build row with {@link RowAssembler}.
      */
     static class ValuesWithStatistics {
-        private final Map<String, Object> values = new HashMap<>();
+        private final Map<String, Object> values;
 
         private int estimatedValueSize;
         private int knownColumns;
+
+        ValuesWithStatistics(int numValues) {
+            values = newHashMap(numValues);
+        }
 
         @Nullable Object value(String columnName) {
             return values.get(columnName);

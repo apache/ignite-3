@@ -27,11 +27,17 @@ import org.jetbrains.annotations.Nullable;
  */
 public class StoragePartitionMetaFactory implements PartitionMetaFactory {
     @Override
-    public StoragePartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo abstractMetaIo, long pageAddr) {
+    public StoragePartitionMeta createPartitionMeta(
+            @Nullable UUID checkpointId,
+            PartitionMetaIo abstractMetaIo,
+            long pageAddr,
+            int partitionGeneration
+    ) {
         StoragePartitionMetaIo metaIo = (StoragePartitionMetaIo) abstractMetaIo;
 
         var result = new StoragePartitionMeta(
                 metaIo.getPageCount(pageAddr),
+                partitionGeneration,
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
                 metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),

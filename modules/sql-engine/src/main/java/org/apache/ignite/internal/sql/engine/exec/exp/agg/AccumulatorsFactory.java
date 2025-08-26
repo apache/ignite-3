@@ -229,7 +229,7 @@ public class AccumulatorsFactory<RowT> {
             List<Function<Object, Object>> casts =
                     Commons.transform(Pair.zip(inTypes, outTypes), AccumulatorsFactory::cast);
 
-            return new Function<Object[], Object[]>() {
+            return new Function<>() {
                 @Override
                 public Object[] apply(Object[] args) {
                     for (int i = 0; i < args.length; i++) {

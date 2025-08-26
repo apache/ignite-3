@@ -17,7 +17,6 @@
 
 package org.apache.ignite.raft.server.snasphot;
 
-
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;

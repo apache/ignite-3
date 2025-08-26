@@ -42,6 +42,7 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -76,6 +78,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final ClockService clockService;
 
+    private final EventLog eventLog;
+
     private PriorityQueueExecutor executorService;
 
     private @Nullable DotNetComputeExecutor dotNetComputeExecutor;
@@ -87,19 +91,22 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
      * @param topologyService Topology service.
+     * @param eventLog Event log.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
             TopologyService topologyService,
-            ClockService clockService
+            ClockService clockService,
+            EventLog eventLog
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
         this.clockService = clockService;
+        this.eventLog = eventLog;
     }
 
     public void setPlatformComputeTransport(PlatformComputeTransport transport) {
@@ -111,12 +118,15 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             String jobClassName,
             JobClassLoader classLoader,
+            ComputeEventMetadataBuilder metadataBuilder,
             ComputeJobDataHolder input
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
+
+        metadataBuilder.jobClassName(jobClassName);
 
         Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
                 options.executorType(), jobClassName, classLoader, input, context);
@@ -126,7 +136,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         QueueExecution<ComputeJobDataHolder> execution = executorService.submit(
                 jobCallable,
                 options.priority(),
-                options.maxRetries()
+                options.maxRetries(),
+                metadataBuilder
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
@@ -158,7 +169,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
-            JobExecutionContext context) {
+            JobExecutionContext context
+    ) {
         executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
 
         switch (executorType) {
@@ -196,15 +208,15 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
-            JobExecutionContext context) {
+            JobExecutionContext context
+    ) {
         Class<ComputeJob<Object, Object>> jobClass = jobClass(classLoader, jobClassName);
         ComputeJob<Object, Object> jobInstance = ComputeUtils.instantiateJob(jobClass);
 
         Marshaller<Object, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<Object, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
-        return unmarshalExecMarshal(
-                input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
+        return unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(
@@ -242,11 +254,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     @Override
     public void start() {
         stateMachine.start();
-        executorService = new PriorityQueueExecutor(
-                configuration,
-                IgniteThreadFactory.create(ignite.name(), "compute", LOG, STORAGE_READ, STORAGE_WRITE),
-                stateMachine
-        );
+        IgniteThreadFactory threadFactory = IgniteThreadFactory.create(ignite.name(), "compute", LOG, STORAGE_READ, STORAGE_WRITE);
+        executorService = new PriorityQueueExecutor(configuration, threadFactory, stateMachine, eventLog, ignite.name());
     }
 
     @Override

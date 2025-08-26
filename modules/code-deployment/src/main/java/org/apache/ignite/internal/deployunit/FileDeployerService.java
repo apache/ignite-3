@@ -55,7 +55,6 @@ public class FileDeployerService {
      */
     private Path unitsFolder;
 
-
     private final ExecutorService executor;
 
     /** Constructor. */

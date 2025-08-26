@@ -131,12 +131,32 @@ public class MappedFragment {
     public MappedFragment replaceColocationGroups(Long2ObjectMap<ColocationGroup> replacedGroups) {
         List<ColocationGroup> newGroups = new ArrayList<>(groupsBySourceId.size());
 
+        // Because a colocation group may contain multiple sources, partition pruning (PP) splits a colocation group in multiple groups.
+        // Each source id affected by PP goes into a separate group.
+        //
+        // Consider the following scenario:
+        // ColocationGroup [ sourceIds = [0, 1], ... ] where sourceIds point to the same table but the one with sourceId=0
+        // has a predicate and the one with source=1 does not. In this case we need to create two colocation groups:
+        // one for sourceId=0 and another for sourceId=1.
+        //
+        // We should get these colocation groups in the end:
+        //
+        // - ColocationGroup [ sourceId = [0] ... ] this one has the number of partitions reduced.
+        // - ColocationGroup [ sourceId = [1] ... ] this one has all partitions.
+        //
         for (Entry<ColocationGroup> e : groupsBySourceId.long2ObjectEntrySet()) {
             ColocationGroup newGroup = replacedGroups.get(e.getLongKey());
             if (newGroup != null) {
                 newGroups.add(newGroup);
             } else {
-                newGroups.add(e.getValue());
+                ColocationGroup existing = e.getValue();
+                existing = existing.removeSources(replacedGroups.keySet());
+
+                assert !existing.sourceIds().isEmpty() : "ColocationGroup has no sources. Source id: "
+                        + e.getLongKey() + " node names: " + existing.nodeNames() + " assignments: " + existing.assignments()
+                        + " replaced groups: " + replacedGroups.keySet();
+
+                newGroups.add(existing);
             }
         }
 

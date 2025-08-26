@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_MAX_DIRTY_PAGES_SYSTEM_PROPERTY;
@@ -57,16 +58,18 @@ import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteTh
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryDataRegion.class);
 
@@ -122,7 +125,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
-    PersistentPageMemoryDataRegion(
+    public PersistentPageMemoryDataRegion(
             MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
             @Nullable SystemLocalConfiguration systemLocalConfig,
@@ -151,12 +154,22 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void start() {
         var dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
+        long sizeBytes = dataRegionConfigView.sizeBytes();
+        if (sizeBytes == UNSPECIFIED_SIZE) {
+            sizeBytes = StorageEngine.defaultDataRegionSize();
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    cfg.name().value(), cfg.sizeBytes().key(), sizeBytes
+            );
+        }
+
         PersistentPageMemory pageMemory = new PersistentPageMemory(
-                regionConfiguration(dataRegionConfigView, pageSize),
+                regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
                 metricSource,
                 ioRegistry,
-                calculateSegmentSizes(dataRegionConfigView.sizeBytes(), Runtime.getRuntime().availableProcessors()),
-                calculateCheckpointBufferSize(dataRegionConfigView.sizeBytes()),
+                calculateSegmentSizes(sizeBytes, Runtime.getRuntime().availableProcessors()),
+                calculateCheckpointBufferSize(sizeBytes),
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
@@ -177,11 +190,15 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.pageMemory = pageMemory;
     }
 
-    private static PersistentDataRegionConfiguration regionConfiguration(PersistentPageMemoryProfileView cfg, int pageSize) {
+    private static PersistentDataRegionConfiguration regionConfiguration(
+            PersistentPageMemoryProfileView cfg,
+            long sizeBytes,
+            int pageSize
+    ) {
         return PersistentDataRegionConfiguration.builder()
                 .name(cfg.name())
                 .pageSize(pageSize)
-                .size(cfg.sizeBytes())
+                .size(sizeBytes)
                 .replacementMode(ReplacementMode.valueOf(cfg.replacementMode()))
                 .build();
     }
@@ -317,7 +334,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     private void flushDirtyPageOnReplacement(
             PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
     ) throws IgniteInternalCheckedException {
-        checkpointManager.writePageToDeltaFilePageStore(pageMemory, fullPageId, byteBuffer);
+        checkpointManager.writePageToFilePageStore(pageMemory, fullPageId, byteBuffer);
 
         CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 
@@ -416,7 +433,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         }
     }
 
-    void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+    /** Adds a table storage to the data region. */
+    @VisibleForTesting
+    public void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
         boolean add = tableStorages.add(tableStorage);
 
         assert add : tableStorage.getTableId();

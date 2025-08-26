@@ -58,6 +58,7 @@ import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakePartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
@@ -163,7 +164,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
                 (pageMem, pageId, pageBuf) -> {
-                    checkpointManager.writePageToDeltaFilePageStore(pageMem, pageId, pageBuf);
+                    checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
 
                     // Almost the same code that happens in data region, but here the region is mocked.
                     CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
@@ -189,12 +190,17 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         filePageStore.ensure();
 
         pageStoreManager.addStore(groupPartitionId, filePageStore);
-        partitionMetaManager.addMeta(groupPartitionId, partitionMetaManager.readOrCreateMeta(
+        PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                 null,
                 groupPartitionId,
                 filePageStore,
-                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN)
-        ));
+                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN),
+                pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
+        );
+
+        partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
+
+        filePageStore.pages(partitionMeta.pageCount());
     }
 
     @AfterEach
@@ -395,7 +401,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         // Unlike regular "for" loop, "forEach" makes "i" effectively final.
         IntStream.range(0, SEGMENT_SIZE / PAGE_SIZE * 2).forEach(i -> runInLock(() -> {
             // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
             long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
@@ -407,7 +413,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         for (int i = 0; i < pageIds.length * 10; i++) {
             runInLock(() -> {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
                 long pageId = pageIds[ThreadLocalRandom.current().nextInt(pageIds.length)];
 

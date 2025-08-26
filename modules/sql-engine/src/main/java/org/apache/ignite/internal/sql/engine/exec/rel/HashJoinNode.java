@@ -269,8 +269,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in LEFT join";
-
             this.outputProjection = outputProjection;
             this.rightRowFactory = rightRowFactory;
         }
@@ -283,6 +281,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        boolean checkNonEquiCondition = nonEquiCondition != ALWAYS_TRUE;
+
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
@@ -292,6 +292,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             if (rightRows.isEmpty()) {
                                 // Emit empty right row for unmatched left row.
                                 rightIt = Collections.singletonList(rightRowFactory.create()).iterator();
+                                checkNonEquiCondition = false;
                             } else {
                                 rightIt = rightRows.iterator();
                             }
@@ -308,6 +309,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 }
 
                                 RowT right = rightIt.next();
+
+                                if (checkNonEquiCondition && !nonEquiCondition.test(left, right)) {
+                                    right = rightRowFactory.create();
+                                }
 
                                 --requested;
 
@@ -804,6 +809,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         return Collections.emptyList();
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
+    @SuppressWarnings("PMD.UseDiamondOperator")
     private static <RowT> Iterator<RowT> getUntouched(Map<Key, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
             private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();

@@ -438,7 +438,7 @@ public class VersatileReadWriteLock {
                 .whenComplete((res, ex) -> readUnlock());
     }
 
-    private CompletableFuture<Void> readLockAsync() {
+    CompletableFuture<Void> readLockAsync() {
         if (tryReadLock()) {
             return nullCompletedFuture();
         }
@@ -473,7 +473,7 @@ public class VersatileReadWriteLock {
                 .whenComplete((res, ex) -> writeUnlock());
     }
 
-    private CompletableFuture<Void> writeLockAsync() {
+    CompletableFuture<Void> writeLockAsync() {
         if (tryWriteLock()) {
             return nullCompletedFuture();
         }

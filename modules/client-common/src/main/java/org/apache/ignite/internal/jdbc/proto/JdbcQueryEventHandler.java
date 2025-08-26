@@ -45,10 +45,10 @@ public interface JdbcQueryEventHandler {
      * Create connection context on a server and returns connection identity.
      *
      * @param timeZoneId Client time-zone ID.
-     *
+     * @param username Current user name.
      * @return A future representing result of the operation.
      */
-    CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId);
+    CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, String username);
 
     /**
      * {@link JdbcQueryExecuteRequest} command handler.

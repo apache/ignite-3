@@ -73,7 +73,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param dataRegion Data region for the table.
      * @param failureProcessor Failure processor.
      */
-    PersistentPageMemoryTableStorage(
+    public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
@@ -465,8 +465,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             ByteBuffer buffer
     ) throws StorageException {
         try {
+            int partGen = dataRegion.pageMemory().partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
             return (StoragePartitionMeta) dataRegion.partitionMetaManager()
-                    .readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore, buffer);
+                    .readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore, buffer, partGen);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error reading or creating partition meta information: [tableId={}, partitionId={}]",

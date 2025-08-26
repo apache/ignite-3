@@ -49,7 +49,6 @@ public class Ignite3ClusterContainer implements Startable {
 
     public final Network network;
 
-
     public final GenericContainer node;
 
     private BufferedWriter logWriter;

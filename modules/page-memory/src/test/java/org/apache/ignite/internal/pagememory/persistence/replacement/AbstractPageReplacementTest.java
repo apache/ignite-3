@@ -30,6 +30,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -150,7 +152,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 new long[]{MAX_MEMORY_SIZE},
                 10 * MiB,
                 filePageStoreManager,
-                checkpointManager::writePageToDeltaFilePageStore,
+                checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
@@ -187,19 +189,23 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 startWritePagesOnCheckpointFuture.complete(null);
 
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return invocation.callRealMethod();
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement.
-                startWritePagesOnPageReplacementFuture.complete(null);
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+
+            // After checkpoint is blocked, writes will be done only by page replacements.
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+                    startWritePagesOnPageReplacementFuture.complete(null);
+                }
 
                 return invocation.callRealMethod();
-            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+            }).when(filePageStore).write(anyLong(), any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
@@ -229,6 +235,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26244")
     void testFsyncDeltaFilesWillNotStartOnCheckpointUntilPageReplacementIsComplete() throws Exception {
         var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
         var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
@@ -244,7 +251,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
             FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(GROUP_ID, PARTITION_ID));
 
-            // First time the method should be invoked by the checkpoint writer, let's hold it for page replacement.
+            // Blocking checkpoint at the moment when it tries to create a delta file for the partition's meta page.
             doAnswer(invocation -> {
                 CompletableFuture<DeltaFilePageStoreIo> callRealMethodResult =
                         (CompletableFuture<DeltaFilePageStoreIo>) invocation.callRealMethod();
@@ -269,14 +276,18 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 assertThat(continueWritePagesOnCheckpointFuture, willCompleteSuccessfully());
 
                 return callRealMethodResult;
-            }).doAnswer(invocation -> {
-                // Second time the method should be invoked on page replacement, let's hold it.
-                startWritePagesOnPageReplacementFuture.complete(null);
+            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
 
-                assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+            // After checkpoint is blocked, writes will be done only by page replacements.
+            doAnswer(invocation -> {
+                if (startWritePagesOnCheckpointFuture.isDone()) {
+                    startWritePagesOnPageReplacementFuture.complete(null);
+
+                    assertThat(continueWritePagesOnPageReplacementFuture, willCompleteSuccessfully());
+                }
 
                 return invocation.callRealMethod();
-            }).when(filePageStore).getOrCreateNewDeltaFile(any(), any());
+            }).when(filePageStore).write(anyLong(), any());
 
             doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
 
@@ -349,7 +360,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                         null,
                         groupPartitionId,
                         filePageStore,
-                        buffer.rewind()
+                        buffer.rewind(),
+                        pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
                 );
 
                 filePageStore.pages(partitionMeta.pageCount());

@@ -135,7 +135,6 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
-import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -171,6 +170,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
+import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -187,7 +187,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
@@ -441,6 +441,8 @@ public class IgniteImpl implements Ignite {
     /** Creator for volatile {@link LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
+    private final SystemPropertiesComponent systemPropertiesComponent;
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -496,7 +498,7 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final EventLog eventLog;
+    private final EventLogImpl eventLog;
 
     private final KillCommandHandler killCommandHandler;
 
@@ -506,6 +508,8 @@ public class IgniteImpl implements Ignite {
 
     @Nullable
     private volatile ClusterState clusterState;
+
+    private final ClockServiceMetricSource clockServiceMetricSource;
 
     /**
      * The Constructor.
@@ -617,7 +621,7 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
-                new VaultStaleIds(vaultMgr),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureManager,
@@ -828,7 +832,14 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkewMillis().value());
+        clockServiceMetricSource = new ClockServiceMetricSource();
+
+        clockService = new ClockServiceImpl(
+                clock,
+                clockWaiter,
+                () -> schemaSyncConfig.maxClockSkewMillis().value(),
+                clockServiceMetricSource::onMaxClockSkewExceeded
+        );
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
@@ -870,7 +881,7 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
-                clock,
+                clockService,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig,
                 threadPoolsManager.commonScheduler()
@@ -986,7 +997,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1212,7 +1224,13 @@ public class IgniteImpl implements Ignite {
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
         ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
-                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
+                this,
+                stateMachine,
+                computeCfg,
+                clusterSvc.topologyService(),
+                clockService,
+                eventLog
+        );
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1233,12 +1251,14 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
                 computeExecutor,
-                computeCfg
+                computeCfg,
+                eventLog
         );
 
         systemViewManager.register(computeComponent);
 
         compute = new IgniteComputeImpl(
+                name,
                 placementDriverMgr.placementDriver(),
                 clusterSvc.topologyService(),
                 distributedTblMgr,
@@ -1283,6 +1303,7 @@ public class IgniteImpl implements Ignite {
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
+        systemPropertiesComponent = new SystemPropertiesComponent(systemDistributedConfiguration);
 
         restComponent = createRestComponent(name);
 
@@ -1453,6 +1474,9 @@ public class IgniteImpl implements Ignite {
             metricManager.registerSource(osMetrics);
             metricManager.enable(osMetrics);
 
+            metricManager.registerSource(clockServiceMetricSource);
+            metricManager.enable(clockServiceMetricSource);
+
             // Start the components that are required to join the cluster.
             // TODO https://issues.apache.org/jira/browse/IGNITE-22570
             CompletableFuture<Void> componentsStartFuture = lifecycleManager.startComponentsAsync(
@@ -1574,8 +1598,10 @@ public class IgniteImpl implements Ignite {
                                 clientHandlerModule,
                                 deploymentManager,
                                 sql,
+                                systemPropertiesComponent,
                                 resourceVacuumManager,
-                                metaStorageCompactionTrigger
+                                metaStorageCompactionTrigger,
+                                eventLog
                         );
 
                         // The system view manager comes last because other components

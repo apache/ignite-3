@@ -180,7 +180,6 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
             expectOutputRow(rowType, input, expected);
         }
 
-
         {
             RelDataType rowType = typeFactory.builder()
                     .add("c1", typeFactory.createSqlType(SqlTypeName.INTEGER))
