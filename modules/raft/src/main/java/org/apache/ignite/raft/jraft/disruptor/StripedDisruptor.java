@@ -25,7 +25,7 @@ import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.ExceptionHandler;
 import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.YieldingWaitStrategy;
+import com.lmax.disruptor.SleepingWaitStrategy;import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
@@ -167,7 +167,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                     .setEventFactory(eventFactory)
                     .setThreadFactory(threadFactorySupplier.apply(stripeName, LOG))
                     .setProducerType(ProducerType.MULTI)
-                    .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
+                    .setWaitStrategy(new SleepingWaitStrategy())
                     .build();
 
             eventHandlers.add(handler(i));
