@@ -20,7 +20,7 @@ package org.apache.ignite.internal.compute;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
 
-class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
+class ItWorkerShutdownEmbeddedTest extends ItWorkerShutdownTest {
     @Override
     IgniteCompute compute(Ignite entryNode) {
         return entryNode.compute();
