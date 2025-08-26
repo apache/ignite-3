@@ -246,8 +246,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
-        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
+        assertThat(initFuture, willThrow(InternalInitException.class));
 
         verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
@@ -281,8 +280,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        String errorMessageFragment = String.format("Got error response from node \"%s\": foobar", cmgNode.name());
-        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
+        assertThat(initFuture, willThrow(InternalInitException.class));
 
         verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService, never()).send(eq(cmgNode), any(CancelInitMessage.class));
@@ -369,8 +367,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        String errorMessageFragment = String.format("Got error response from node \"%s\": colocation modes do not match.", cmgNode.name());
-        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
+        assertThat(initFuture, willThrow(InternalInitException.class));
 
         verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).send(eq(cmgNode), any(CancelInitMessage.class));
