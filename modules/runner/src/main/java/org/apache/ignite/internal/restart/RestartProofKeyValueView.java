@@ -25,6 +25,8 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
@@ -44,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
-class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V> {
+class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V>, Wrapper {
     RestartProofKeyValueView(
             IgniteAttachmentLock attachmentLock,
             Ignite initialIgnite,
@@ -303,5 +305,10 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
             @Nullable CriteriaQueryOptions opts
     ) {
         return attachedAsync(view -> view.queryAsync(tx, criteria, indexName, opts));
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return attached(view -> Wrappers.unwrap(view, classToUnwrap));
     }
 }
