@@ -34,6 +34,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * This is, in fact, the default implementation of the {@link IgniteTransactions#runInTransaction} and
+ * {@link IgniteTransactions#runInTransactionAsync}, moved from the separate class to avoid the interface overloading. This
+ * implementation is common for both client and embedded {@link IgniteTransactions}.
+ */
 class RunInTransactionInternalImpl {
     private static final int MAX_SUPPRESSED = 100;
 
