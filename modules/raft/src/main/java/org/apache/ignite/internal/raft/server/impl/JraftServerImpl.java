@@ -398,6 +398,7 @@ public class JraftServerImpl implements RaftServer {
             opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
             opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

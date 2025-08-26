@@ -57,6 +57,7 @@ import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -667,8 +668,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(this.fsmCaller, "Null fsm caller");
         this.logStorage = this.serviceFactory.createLogStorage(this.options.getLogUri(), this.raftOptions);
 
-        // Shared event loop not supports currently cross partition shared log.
-        this.logManager = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP) ?
+        // Logit log implementation doesn't support shared group access.
+        this.logManager = IgniteSystemProperties.getBoolean(SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY) ?
             new LogManagerImpl() : new StripeAwareLogManager();
 
         LogManagerOptions opts = new LogManagerOptions();
@@ -1467,6 +1468,7 @@ public class NodeImpl implements Node, RaftServerService {
                     (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             opts.setNodeApplyDisruptor(
                     (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+            opts.setLogStripes(IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList()));
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

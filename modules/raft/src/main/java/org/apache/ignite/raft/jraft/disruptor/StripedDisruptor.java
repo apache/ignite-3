@@ -281,9 +281,6 @@ public class StripedDisruptor<T extends INodeIdAware> {
         /** Holds last unprocessed event in non shared event loop mode. */
         private final Map<NodeId, T> eventCache = new HashMap<>();
 
-        /** Holds events of different type in shared event loop mode. */
-        private final Map<NodeId, List<T>> sharedEventCache = new HashMap<>();
-
         /** Stripe id. */
         private final int stripeId;
 
@@ -297,8 +294,6 @@ public class StripedDisruptor<T extends INodeIdAware> {
         /** {@inheritDoc} */
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
-            // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
-
             if (event.getEvtType() == SUBSCRIBE) {
                 if (endOfBatch) {
                     consumeBatch(sequence);

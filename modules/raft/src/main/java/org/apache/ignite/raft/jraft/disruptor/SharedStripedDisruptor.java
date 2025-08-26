@@ -74,8 +74,6 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
         /** {@inheritDoc} */
         @Override
         public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
-            // Instrumentation.mark("Striped event: " + event.getClass().getName() + ":" + sequence + ":" + event.getEvtType() + " b=" + endOfBatch);
-
             if (event.getEvtType() == SUBSCRIBE) {
                 if (endOfBatch) {
                     consumeBatch(sequence);
@@ -118,6 +116,8 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
         private void consumeBatch(long sequence) throws Exception {
             for (Entry<NodeId, List<T>> entry : sharedEventCache.entrySet()) {
                 List<T> cached = entry.getValue();
+
+                // TODO support different types reordering within batch.
                 for (int i = 0; i < cached.size(); i++) {
                     T t = cached.get(i);
 
@@ -137,6 +137,7 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
                     EventHandler<T> grpHandler = map.get(t.getSrcType());
                     assert grpHandler != null :
                             "Event handler is not registered for group " + t.nodeId() + ":" + t.getSrcType();
+
                     grpHandler.onEvent(t, sequence, endB);
                 }
             }

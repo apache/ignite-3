@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -53,8 +54,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.Throughput)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + " USING {} (field{});";
 
@@ -79,8 +80,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"HASH"})
     private String indexType;
 
-    @Param({"uniquePrefix", "uniquePostfix"})
     //@Param({"uniquePrefix", "uniquePostfix"})
+    @Param({"uniquePrefix"})
     private String fieldValueGeneration;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
@@ -89,7 +90,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "false");
+        // System.setProperty(SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, "true");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
         super.nodeSetUp();
