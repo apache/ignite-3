@@ -47,7 +47,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Main class to abstract checkpoint-related processes and actions and hide them from higher-level components.
@@ -409,12 +408,5 @@ public class CheckpointManager {
                 checkpointer.prepareToDestroyPartition(groupPartitionId),
                 compactor.prepareToDestroyPartition(groupPartitionId)
         );
-    }
-
-    /** Returns compactor. */
-    @TestOnly
-    // TODO: IGNITE-25861 Maybe get rid of it
-    public Compactor compactor() {
-        return compactor;
     }
 }
