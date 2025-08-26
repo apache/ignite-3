@@ -394,13 +394,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             pageWriter.write(pageMemory, fullPageId, buf);
 
-            LongAdder longAdder = updatedPartitions.get(GroupPartitionId.convert(fullPageId));
-
-            if (longAdder == null) {
-                System.out.println(1);
-            } else {
-                longAdder.increment();
-            }
+            updatedPartitions.get(GroupPartitionId.convert(fullPageId)).increment();
         };
     }
 
