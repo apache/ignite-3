@@ -39,24 +39,20 @@ public class CodeDeploymentExample {
 
         System.out.println("\nConnecting to server...");
 
-        try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build()
-        ) {
+        try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
 
             System.out.println("\nConfiguring compute job...");
 
             JobDescriptor<String, String> job = JobDescriptor.builder(MyJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .resultClass(String.class)
-                    .build();
+                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)).resultClass(String.class).build();
 
             JobTarget target = JobTarget.anyNode(client.cluster().nodes());
-                System.out.println("\nExecuting compute job'" + "'...");
 
-                String result = client.compute().execute(target, job, "Hello from job");
+            System.out.println("\nExecuting compute job'" + "'...");
 
-                System.out.println("\n=== Result ===\n" + result);
+            String result = client.compute().execute(target, job, "Hello from job");
+
+            System.out.println("\n=== Result ===\n" + result);
         }
     }
 }
