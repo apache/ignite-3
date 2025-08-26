@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -292,7 +293,7 @@ public class ClusterInitializer {
                                 var errorResponse = (InitErrorMessage) response;
 
                                 throw new InternalInitException(
-                                        String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
+                                        Optional.ofNullable(errorResponse.cause()).orElse(""),
                                         errorResponse.shouldCancel()
                                 );
                             } else if (!(response instanceof InitCompleteMessage || response instanceof PrepareInitCompleteMessage)) {
