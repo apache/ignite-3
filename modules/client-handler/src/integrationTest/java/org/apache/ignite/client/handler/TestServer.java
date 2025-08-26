@@ -142,8 +142,7 @@ public class TestServer {
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
                 new SystemPropertiesNodeProperties(),
-                Runnable::run,
-                clusterTag::clusterId
+                Runnable::run
         );
 
         module.startAsync(componentContext).join();

@@ -1296,8 +1296,7 @@ public class IgniteImpl implements Ignite {
                 clientConnectorConfiguration,
                 lowWatermark,
                 nodeProperties,
-                threadPoolsManager.partitionOperationsExecutor(),
-                clusterIdService
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);

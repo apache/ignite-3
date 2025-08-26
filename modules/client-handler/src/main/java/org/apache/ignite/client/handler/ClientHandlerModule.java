@@ -39,6 +39,7 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
@@ -155,8 +155,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
-    private final ClusterIdSupplier clusterIdSupplier;
-
     @TestOnly
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
@@ -196,8 +194,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
             NodeProperties nodeProperties,
-            Executor partitionOperationsExecutor,
-            ClusterIdSupplier clusterIdSupplier
+            Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -217,7 +214,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert lowWatermark != null;
         assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
-        assert clusterIdSupplier != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -236,7 +232,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 lowWatermark, nodeProperties);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.clusterIdSupplier = clusterIdSupplier;
     }
 
     /** {@inheritDoc} */
@@ -460,7 +455,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 Map.of(),
                 computeExecutors::remove,
                 handshakeEventLoopSwitcher,
-                clusterIdSupplier
+                () -> {
+                    ClusterInfo clusterInfo = clusterInfoSupplier.get();
+                    List<UUID> idHistory = clusterInfo.idHistory();
+                    return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+                }
         );
     }
 

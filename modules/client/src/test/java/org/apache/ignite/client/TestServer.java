@@ -286,8 +286,7 @@ public class TestServer implements AutoCloseable {
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
                         new SystemPropertiesNodeProperties(),
-                        Runnable::run,
-                        () -> clusterId
+                        Runnable::run
                 );
 
         module.startAsync(componentContext).join();

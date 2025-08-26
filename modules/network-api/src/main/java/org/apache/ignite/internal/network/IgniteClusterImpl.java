@@ -42,7 +42,7 @@ public class IgniteClusterImpl implements IgniteCluster {
     @Override
     public UUID clusterId() {
         @Nullable UUID ret = clusterIdSupplier.clusterId();
-        assert ret != null : "Should not be null";
+        assert ret != null : "clusterId not available";
         return ret;
     }
 
