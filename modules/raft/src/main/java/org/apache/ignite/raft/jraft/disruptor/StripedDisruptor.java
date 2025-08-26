@@ -24,7 +24,7 @@ import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.ExceptionHandler;
-import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.PhasedBackoffWaitStrategy;import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.SleepingWaitStrategy;import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -167,7 +167,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
                     .setEventFactory(eventFactory)
                     .setThreadFactory(threadFactorySupplier.apply(stripeName, LOG))
                     .setProducerType(ProducerType.MULTI)
-                    .setWaitStrategy(new SleepingWaitStrategy())
+                    .setWaitStrategy(new PhasedBackoffWaitStrategy(100, 0, TimeUnit.MICROSECONDS, new BlockingWaitStrategy()))
                     .build();
 
             eventHandlers.add(handler(i));
