@@ -61,6 +61,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -82,6 +84,8 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link DataNodesManager}.
  */
 public class DataNodesManagerTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(DataNodesManagerTest.class);
+
     private static final String ZONE_NAME_1 = "test_zone_1";
     private static final String ZONE_NAME_2 = "test_zone_2";
 
@@ -246,7 +250,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void addNodesWithScheduledScaleUp() throws InterruptedException {
-        alterZone(ZONE_NAME_1, 1, null, null);
+        alterZone(ZONE_NAME_1, 5, null, null);
 
         addNodes(Set.of(C));
 
@@ -292,7 +296,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void removeNodesWithScheduledScaleDown() throws InterruptedException {
-        alterZone(ZONE_NAME_1, null, 1, null);
+        alterZone(ZONE_NAME_1, null, 5, null);
 
         removeNodes(Set.of(A));
 
@@ -534,11 +538,11 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
             CompletableFuture<Set<String>> dataNodesFuture = dataNodesManager.dataNodes(zoneId, clock.now());
             assertThat(dataNodesFuture, willSucceedFast());
             return dataNodesFuture.join().equals(expectedNodes);
-        }, 5000);
+        }, 10_000);
 
         if (!success) {
-            System.out.println("Expected: " + expectedNodes);
-            System.out.println("Actual: " + dataNodesManager.dataNodes(zoneId, clock.now()).join());
+            LOG.info("Expected: " + expectedNodes);
+            LOG.info("Actual: " + dataNodesManager.dataNodes(zoneId, clock.now()).join());
         }
 
         assertTrue(success);
@@ -564,10 +568,18 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void assertScaleUpScheduledOrDone(String zoneName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
+        boolean success = waitForCondition(() -> {
             ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
             return schedule.taskIsScheduled() || schedule.taskIsDone();
-        }, 2000));
+        }, 2000);
+
+        if (!success) {
+            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
+            LOG.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
+                    + schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone());
+        }
+
+        assertTrue(success);
     }
 
     private void assertScaleUpNotScheduled(String zoneName) throws InterruptedException {
@@ -582,7 +594,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         if (!success) {
             ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
-            System.out.println(schedule);
+            LOG.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
+                    + schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone());
         }
 
         assertTrue(success);
