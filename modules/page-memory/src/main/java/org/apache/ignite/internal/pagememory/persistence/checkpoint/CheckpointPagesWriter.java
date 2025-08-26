@@ -58,7 +58,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of page writer which able to store pages to disk during checkpoint.
  */
-// TODO: IGNITE-23203 Write retry pages in multiple threads 
+// TODO: IGNITE-23203 Write retry pages in multiple threads
+// TODO: IGNITE-26311 Improve dirty page write filtering for deleted partitions
 public class CheckpointPagesWriter implements Runnable {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriter.class);
