@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
@@ -158,8 +156,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     private void captureReduceFailure(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
             // Capture the reduce execution failure reason and time.
-            Throwable cause = ExceptionUtils.unwrapCause(throwable);
-            TaskStatus status = cause instanceof CancellationException ? CANCELED : FAILED;
+            TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
 
             JobState state = splitExecution.state();
             if (state != null) {
