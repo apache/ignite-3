@@ -588,7 +588,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(
                 secondNode.startFuture(),
-                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
+                willThrow(JoinDeniedException.class, "Cluster tags do not match")
         );
     }
 
@@ -762,7 +762,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 () -> initCluster(cmgNodes, cmgNodes),
                 InitException.class,
                 "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException: IGN-CMN-65535"
-                        + " Got error response from node \"icmt_tifodecmwcn_10001\": Colocation modes do not match"
+                        + " Initialization of node \"icmt_tifodecmwcn_10001\" failed: Colocation modes do not match"
                         + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
                         + ", recipientColocationMode=" + !colocationEnabled + "]."
         );

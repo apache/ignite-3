@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
+import static org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -56,7 +58,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of page writer which able to store pages to disk during checkpoint.
  */
-// TODO: IGNITE-23203 Write retry pages in multiple threads 
+// TODO: IGNITE-23203 Write retry pages in multiple threads
+// TODO: IGNITE-26311 Improve dirty page write filtering for deleted partitions
 public class CheckpointPagesWriter implements Runnable {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriter.class);
@@ -162,7 +165,7 @@ public class CheckpointPagesWriter implements Runnable {
     @Override
     public void run() {
         try {
-            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry = new HashMap<>();
+            Map<PersistentPageMemory, List<DirtyFullPageId>> pageIdsToRetry = new HashMap<>();
 
             ByteBuffer tmpWriteBuf = threadBuf.get();
 
@@ -203,18 +206,19 @@ public class CheckpointPagesWriter implements Runnable {
         checkpointProgress.blockPartitionDestruction(partitionId);
 
         try {
-            if (shouldWriteMetaPage(partitionId)) {
-                writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
-            }
+            addUpdatePartitionCounterIfAbsent(partitionId);
+
+            boolean isMetaWritten = false;
 
             for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
                 updateHeartbeat.run();
 
-                FullPageId pageId = checkpointDirtyPagesView.get(i);
+                DirtyFullPageId pageId = checkpointDirtyPagesView.get(i);
 
-                if (pageId.pageIdx() == 0) {
-                    // Skip meta-pages, they are written by "writePartitionMeta".
-                    continue;
+                if (!isMetaWritten && isPartGenerationMatchWithMeta(pageId, partitionId)) {
+                    writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+
+                    isMetaWritten = true;
                 }
 
                 writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
@@ -226,7 +230,7 @@ public class CheckpointPagesWriter implements Runnable {
 
     private void writeDirtyPage(
             PersistentPageMemory pageMemory,
-            FullPageId pageId,
+            DirtyFullPageId pageId,
             ByteBuffer tmpWriteBuf,
             PageStoreWriter pageStoreWriter,
             boolean useTryWriteLockLockOnPage
@@ -237,8 +241,8 @@ public class CheckpointPagesWriter implements Runnable {
         drainCheckpointBuffers(tmpWriteBuf);
     }
 
-    private Map<PersistentPageMemory, List<FullPageId>> writeRetryDirtyPages(
-            Map<PersistentPageMemory, List<FullPageId>> pageIdsToRetry,
+    private Map<PersistentPageMemory, List<DirtyFullPageId>> writeRetryDirtyPages(
+            Map<PersistentPageMemory, List<DirtyFullPageId>> pageIdsToRetry,
             ByteBuffer tmpWriteBuf,
             int attempt
     ) throws IgniteInternalCheckedException {
@@ -254,9 +258,9 @@ public class CheckpointPagesWriter implements Runnable {
             );
         }
 
-        Map<PersistentPageMemory, List<FullPageId>> newPageIdsToRetry = useTryWriteLockOnPage ? new HashMap<>() : Map.of();
+        Map<PersistentPageMemory, List<DirtyFullPageId>> newPageIdsToRetry = useTryWriteLockOnPage ? new HashMap<>() : Map.of();
 
-        for (Entry<PersistentPageMemory, List<FullPageId>> entry : pageIdsToRetry.entrySet()) {
+        for (Entry<PersistentPageMemory, List<DirtyFullPageId>> entry : pageIdsToRetry.entrySet()) {
             PersistentPageMemory pageMemory = entry.getKey();
 
             PageStoreWriter pageStoreWriter = createPageStoreWriter(pageMemory, newPageIdsToRetry);
@@ -264,7 +268,7 @@ public class CheckpointPagesWriter implements Runnable {
             GroupPartitionId partitionId = null;
 
             try {
-                for (FullPageId pageId : entry.getValue()) {
+                for (DirtyFullPageId pageId : entry.getValue()) {
                     if (shutdownNow.getAsBoolean()) {
                         return Map.of();
                     }
@@ -321,9 +325,9 @@ public class CheckpointPagesWriter implements Runnable {
 
                     updateHeartbeat.run();
 
-                    FullPageId cpPageId = pageMemory.pullPageFromCpBuffer();
+                    DirtyFullPageId cpPageId = pageMemory.pullPageFromCpBuffer();
 
-                    if (cpPageId.equals(FullPageId.NULL_PAGE)) {
+                    if (cpPageId.equals(NULL_PAGE)) {
                         break;
                     }
 
@@ -332,9 +336,7 @@ public class CheckpointPagesWriter implements Runnable {
                     checkpointProgress.blockPartitionDestruction(partitionId);
 
                     try {
-                        if (shouldWriteMetaPage(partitionId)) {
-                            writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
-                        }
+                        addUpdatePartitionCounterIfAbsent(partitionId);
 
                         pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, true);
                     } finally {
@@ -345,15 +347,18 @@ public class CheckpointPagesWriter implements Runnable {
         }
     }
 
-    /**
-     * Returns {@code true} if checkpointer should write meta page of partition. Guaranteed to return {@code true} exactly once for every
-     * passed partition ID.
-     */
-    private boolean shouldWriteMetaPage(GroupPartitionId partitionId) {
+    private void addUpdatePartitionCounterIfAbsent(GroupPartitionId partitionId) {
         // We deliberately avoid "computeIfAbsent" here for the sake of performance.
         // For the overwhelming amount of calls "partitionId" should already be in the set.
-        return !updatedPartitions.containsKey(partitionId)
-                && null == updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+        if (!updatedPartitions.containsKey(partitionId)) {
+            updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+        }
+    }
+
+    private boolean isPartGenerationMatchWithMeta(DirtyFullPageId pageId, GroupPartitionId partitionId) {
+        PartitionMeta partitionMeta = partitionMetaManager.getMeta(partitionId);
+
+        return partitionMeta != null && partitionMeta.partitionGeneration() == pageId.partitionGeneration();
     }
 
     /**
@@ -364,7 +369,7 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private PageStoreWriter createPageStoreWriter(
             PersistentPageMemory pageMemory,
-            @Nullable Map<PersistentPageMemory, List<FullPageId>> pagesToRetry
+            @Nullable Map<PersistentPageMemory, List<DirtyFullPageId>> pagesToRetry
     ) {
         return (fullPageId, buf, tag) -> {
             if (tag == TRY_AGAIN_TAG) {
@@ -410,7 +415,11 @@ public class CheckpointPagesWriter implements Runnable {
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
-        FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
+        var fullPageId = new DirtyFullPageId(
+                partitionMetaPageId(partitionId.getPartitionId()),
+                partitionId.getGroupId(),
+                partitionMeta.partitionGeneration()
+        );
 
         pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 

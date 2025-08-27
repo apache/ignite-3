@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 
 /** Interface for writing dirty pages to {@link PageStore} on checkpoint. */
@@ -34,5 +33,5 @@ public interface PageStoreWriter {
      *      for a page and need to try writing again later.
      * @throws IgniteInternalCheckedException If write page failed.
      */
-    void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
+    void writePage(DirtyFullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
 }

@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -157,7 +156,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     private void captureReduceFailure(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
             // Capture the reduce execution failure reason and time.
-            TaskStatus status = throwable instanceof CancellationException ? CANCELED : FAILED;
+            TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
 
             JobState state = splitExecution.state();
             if (state != null) {
