@@ -515,14 +515,18 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT str_col, SUM(int_col), COUNT(str_col) FROM test_str_int_real_dec GROUP BY GROUPING SETS "
                 + "( (str_col, int_col), (str_col), (int_col), () ) HAVING SUM(int_col) > 0")
                 .disableRules(rules)
+                // empty group
                 .returns(null, 80L, 4L)
+                // group (str_col, int_col)
                 .returns("s1", 10L, 1L)
-                .returns("s3", 40L, 1L)
                 .returns("s1", 20L, 1L)
                 .returns("s2", 10L, 1L)
+                .returns("s3", 40L, 1L)
+                // group (str_col)
+                .returns("s1", 30L, 2L)
                 .returns("s2", 10L, 1L)
                 .returns("s3", 40L, 1L)
-                .returns("s1", 30L, 2L)
+                // group (int_col)
                 .returns(null, 40L, 1L)
                 .returns(null, 20L, 2L)
                 .returns(null, 20L, 1L)
@@ -531,7 +535,39 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("rulesForGroupingSets")
-    public void testDuplicateGroupingSets(String[] rules) {
+    public void testGroupingSetsWithGroupingAggregate(String[] rules) {
+        sql("DELETE FROM test_str_int_real_dec");
+
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (4, 's3', 40)");
+
+        assertQuery("SELECT GROUPING(int_col, str_col), GROUPING(int_col),"
+                + "str_col, SUM(int_col), COUNT(str_col) FROM test_str_int_real_dec GROUP BY GROUPING SETS "
+                + "( (str_col, int_col), (str_col), (int_col), () ) HAVING SUM(int_col) > 0")
+                .disableRules(rules)
+                // group (str_col, int_col)
+                .returns(3L, 1L, "s1", 10L, 1L)
+                .returns(3L, 1L, "s1", 20L, 1L)
+                .returns(3L, 1L, "s2", 10L, 1L)
+                .returns(3L, 1L, "s3", 40L, 1L)
+                // group (str_col)
+                .returns(1L, 0L, "s1", 30L, 2L)
+                .returns(1L, 0L, "s2", 10L, 1L)
+                .returns(1L, 0L, "s3", 40L, 1L)
+                // group (int_col)
+                .returns(2L, 1L, null, 20L, 2L)
+                .returns(2L, 1L, null, 20L, 1L)
+                .returns(2L, 1L, null, 40L, 1L)
+                // empty group
+                .returns(0L, 0L, null, 80L, 4L)
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("rulesForGroupingSets")
+    public void testGroupingFunction(String[] rules) {
         sql("DELETE FROM test_str_int_real_dec");
 
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
@@ -760,7 +796,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"},
 
                 // Use colocated aggregates grouping sets
-                new String[]{"MapReduceHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}
+                new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule"}
         );
 
         return rules.stream().map(Object.class::cast).map(Arguments::of);
