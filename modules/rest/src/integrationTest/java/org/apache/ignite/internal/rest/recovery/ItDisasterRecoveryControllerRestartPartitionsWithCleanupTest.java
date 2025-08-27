@@ -48,6 +48,7 @@ import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 /** Test for disaster recovery restart partitions with cleanup command. */
 @MicronautTest
@@ -70,9 +71,11 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
 
     @BeforeAll
     public void setUp() {
-        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']", FIRST_ZONE, 3, DEFAULT_AIPERSIST_PROFILE_NAME));
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME,
                 FIRST_ZONE));
+
+        sql(String.format("INSERT INTO PUBLIC.\"%s\" VALUES (1, 1)", TABLE_NAME));
     }
 
     @Test
@@ -172,6 +175,19 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<?> post = restartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of());
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+    }
+
+    @Test
+    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
+    public void testRestartTablePartitionsWithCleanupByNodes() {
+        Set<String> nodeNames = nodeNames(initialNodes() - 1);
+
+        MutableHttpRequest<?> post = HttpRequest.POST(RESTART_PARTITIONS_WITH_CLEANUP_ENDPOINT,
+                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
