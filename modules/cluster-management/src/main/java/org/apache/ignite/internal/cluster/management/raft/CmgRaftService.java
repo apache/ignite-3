@@ -148,7 +148,7 @@ public class CmgRaftService implements ManuallyCloseable {
         return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
-                        throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
+                        throw new JoinDeniedException(((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
                     }  else {
