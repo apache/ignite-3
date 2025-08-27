@@ -21,6 +21,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -752,6 +753,7 @@ public class TestBuilders {
                     new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null)),
                     planningTimeout,
                     PLANNING_THREAD_COUNT,
+                    PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
                     schemaManager
             );

@@ -48,6 +48,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -187,6 +188,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     public static final int PLANNING_THREAD_COUNT = 2;
 
+    public static final int PLAN_EXPIRATION_SECONDS = Integer.MAX_VALUE;
+
     /** Timeout in ms for stopping execution service. */
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
@@ -256,6 +259,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
+                PLAN_EXPIRATION_SECONDS,
                 metricManager,
                 new PredefinedSchemaManager(schema)
         );
@@ -1462,6 +1466,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         @Override
         public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
             throw new UnsupportedOperationException();
         }
 
