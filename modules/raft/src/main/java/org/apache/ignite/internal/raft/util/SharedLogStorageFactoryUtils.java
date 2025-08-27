@@ -33,7 +33,7 @@ public class SharedLogStorageFactoryUtils {
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
-    private static final boolean LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT = false;
+    public static final boolean LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT = false;
 
     /**
      * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on

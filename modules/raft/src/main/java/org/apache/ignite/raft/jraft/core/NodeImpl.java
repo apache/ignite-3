@@ -670,7 +670,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         // Logit log implementation doesn't support shared group access.
         this.logManager = IgniteSystemProperties.getBoolean(SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY) ?
-            new LogManagerImpl() : new StripeAwareLogManager();
+            new LogManagerImpl() : new StripeAwareLogManager(); // TODO force stripeawarelm work only with shared aware storage.
 
         LogManagerOptions opts = new LogManagerOptions();
         opts.setLogEntryCodecFactory(this.serviceFactory.createLogEntryCodecFactory());
@@ -1449,26 +1449,32 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
-            int stripes = opts.getStripes();
+            // Shared disruptor may be already set in Raft Server. TODO remove support here ?
+            if (opts.getfSMCallerExecutorDisruptor() == null) {
+                int stripes = opts.getStripes();
+                boolean enabledShared = logStorage instanceof RocksDbSharedLogStorage;
 
-            StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
-                            opts.getServerName(),
-                            "JRaft-Shared-Disruptor",
-                            (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
-                            opts.getRaftOptions().getDisruptorBufferSize(),
-                            SharedEvent::new,
-                            stripes,
-                            logStorage instanceof RocksDbSharedLogStorage,
-                            false,
-                            opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
-                    );
+                StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
+                        opts.getServerName(),
+                        "JRaft-Shared-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        SharedEvent::new,
+                        stripes,
+                        logStorage instanceof RocksDbSharedLogStorage,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
+                );
 
-            opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
-            opts.setLogManagerDisruptor(
-                    (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
-            opts.setNodeApplyDisruptor(
-                    (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
-            opts.setLogStripes(IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList()));
+                opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
+                opts.setLogManagerDisruptor(
+                        (StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
+                opts.setNodeApplyDisruptor(
+                        (StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
+                if (enabledShared) {
+                    opts.setLogStripes(IntStream.range(0, stripes).mapToObj(i -> new Stripe()).collect(toList()));
+                }
+            }
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

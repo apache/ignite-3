@@ -153,7 +153,11 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
          * @throws Exception Throw when some handler fails.
          */
         private void internalBatching(T event, long sequence) throws Exception {
-            sharedEventCache.compute(event.nodeId(), (k, v) -> {
+            // Shared stripe accumulates events from different groups.
+            // Currently only log events can be batched together.
+            NodeId nodeId = sharedStripe && event.getSrcType() == DisruptorEventSourceType.LOG ? FAKE_NODE_ID : event.nodeId();
+
+            sharedEventCache.compute(nodeId, (k, v) -> {
                 if (v == null) {
                     v = new ArrayList<>(); // Use Avg batch size TODO.
                 }

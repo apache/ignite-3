@@ -50,6 +50,7 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.SkipListMemTableConfig;
 
 /**
  * Single-use class to create {@link SharedRocksDbInstance} fully initialized instances.
@@ -102,6 +103,8 @@ public class SharedRocksDbInstanceCreator {
                     .setCreateMissingColumnFamilies(true)
                     // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                     .setAtomicFlush(true)
+                    .setEnableWriteThreadAdaptiveYield(true)
+                    .setAllowConcurrentMemtableWrite(true)
                     .setListeners(List.of(flusher.listener()))
                     .setWriteBufferManager(profile.writeBufferManager())
                     // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
@@ -238,6 +241,7 @@ public class SharedRocksDbInstanceCreator {
     @SuppressWarnings("resource")
     private static ColumnFamilyOptions defaultCfOptions() {
         return new ColumnFamilyOptions()
+                .setMemTableConfig(new SkipListMemTableConfig())
                 .setMemtablePrefixBloomSizeRatio(0.125)
                 .setTableFormatConfig(new BlockBasedTableConfig().setFilterPolicy(new BloomFilter()));
     }

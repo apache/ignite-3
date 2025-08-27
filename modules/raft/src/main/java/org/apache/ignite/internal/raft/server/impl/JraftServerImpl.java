@@ -22,6 +22,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY;
+import static org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -380,6 +382,9 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
+            // Logit log storage doesn't support shared access.
+            boolean enabledShared = !IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT);
+
             StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
@@ -387,7 +392,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     SharedEvent::new,
                     opts.getStripes(),
-                    false,
+                    enabledShared,
                     false,
                     opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
             );
@@ -398,7 +403,9 @@ public class JraftServerImpl implements RaftServer {
             opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
             opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            if (enabledShared) {
+                opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            }
 
             if (opts.getReadOnlyServiceDisruptor() == null) {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(

@@ -57,7 +57,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
      * in case the disruptor supports batching, because the {@link DisruptorEventType#SUBSCRIBE} event might be a finale one and have to be
      * handled.
      */
-    private final NodeId FAKE_NODE_ID = new NodeId(null, null);
+    protected static final NodeId FAKE_NODE_ID = new NodeId(null, null);
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(StripedDisruptor.class);
@@ -89,7 +89,7 @@ public class StripedDisruptor<T extends INodeIdAware> {
     private final DisruptorMetrics metrics;
 
     /** If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one. */
-    private final boolean sharedStripe;
+    protected final boolean sharedStripe;
 
     /**
      * Creates a disruptor for the specific RAFT group. This type of disruption is intended for only one group.
@@ -167,7 +167,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
                     .setEventFactory(eventFactory)
                     .setThreadFactory(threadFactorySupplier.apply(stripeName, LOG))
                     .setProducerType(ProducerType.MULTI)
-                    .setWaitStrategy(new PhasedBackoffWaitStrategy(100, 0, TimeUnit.MICROSECONDS, new BlockingWaitStrategy()))
+                    //.setWaitStrategy(new PhasedBackoffWaitStrategy(100, 0, TimeUnit.MICROSECONDS, new BlockingWaitStrategy()))
+                    .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
                     .build();
 
             eventHandlers.add(handler(i));
