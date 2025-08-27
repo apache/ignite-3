@@ -246,7 +246,8 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 "cluster"
         );
 
-        assertThat(initFuture, willThrow(InternalInitException.class));
+        String errorMessageFragment = String.format("Initialization of node \"%s\" failed: foobar", cmgNode.name());
+        assertThat(initFuture, willThrow(InternalInitException.class, errorMessageFragment));
 
         verify(messagingService).invoke(eq(cmgNode), any(CmgPrepareInitMessage.class), anyLong());
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
