@@ -45,6 +45,7 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
@@ -277,6 +278,8 @@ public class AccumulatorsFactory<RowT> {
 
         private final boolean distinct;
 
+        private final boolean grouping;
+
         AccumulatorWrapperImpl(
                 ExecutionContext<RowT> ctx,
                 Accumulator accumulator,
@@ -289,6 +292,7 @@ public class AccumulatorsFactory<RowT> {
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
             this.distinct = call.isDistinct();
+            this.grouping = call.getAggregation() == SqlStdOperatorTable.GROUPING;
 
             literalAgg = call.getAggregation() == LITERAL_AGG;
             ignoreNulls = call.ignoreNulls();
@@ -300,6 +304,11 @@ public class AccumulatorsFactory<RowT> {
         @Override
         public boolean isDistinct() {
             return distinct;
+        }
+
+        @Override
+        public boolean isGrouping() {
+            return grouping;
         }
 
         @Override

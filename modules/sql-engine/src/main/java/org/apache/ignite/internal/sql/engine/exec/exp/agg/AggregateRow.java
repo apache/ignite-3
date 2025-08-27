@@ -61,7 +61,7 @@ public class AggregateRow<RowT> {
     }
 
     /** Updates this row by using data of the given row. */
-    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
+    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet grpFields, RowHandler<RowT> handler, RowT row) {
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> acc = accs.get(i);
 
@@ -76,7 +76,11 @@ public class AggregateRow<RowT> {
                 Set<Object> distinctSet = distinctSets.get(i);
                 distinctSet.add(args[0]);
             } else {
-                acc.accumulator().add(state, args);
+                if (acc.isGrouping()) {
+                    acc.accumulator().add(state, new Object[]{grpFields});
+                } else {
+                    acc.accumulator().add(state, args);
+                }
             }
 
             state.resetIndex();
@@ -92,9 +96,14 @@ public class AggregateRow<RowT> {
     }
 
     /** Writes aggregate state of the given row to given array. */
-    public void writeTo(AggregateType type, List<AccumulatorWrapper<RowT>> accs, Object[] output, ImmutableBitSet allFields, byte groupId) {
-        int cardinality = allFields.cardinality();
-
+    public void writeTo(
+            AggregateType type,
+            List<AccumulatorWrapper<RowT>> accs,
+            Object[] output,
+            int offset,
+            ImmutableBitSet groupFields,
+            byte groupId
+    ) {
         AccumulatorsState result = new AccumulatorsState(accs.size());
 
         for (int i = 0; i < accs.size(); i++) {
@@ -106,14 +115,20 @@ public class AggregateRow<RowT> {
             if (acc.isDistinct()) {
                 Set<Object> distinctSet = distinctSets.get(i);
 
-                for (var arg : distinctSet) {
-                    acc.accumulator().add(state, new Object[]{arg});
+                if (acc.isGrouping()) {
+                    if (!distinctSet.isEmpty()) {
+                        acc.accumulator().add(state, new Object[]{groupFields});
+                    }
+                } else {
+                    for (var arg : distinctSet) {
+                        acc.accumulator().add(state, new Object[]{arg});
+                    }
                 }
             }
 
             acc.accumulator().end(state, result);
 
-            output[i + cardinality] = acc.convertResult(result.get());
+            output[i + offset] = acc.convertResult(result.get());
 
             state.resetIndex();
             result.resetIndex();
