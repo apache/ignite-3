@@ -94,6 +94,7 @@ testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
 protobuf = "4.31.1"
 cytodynamics = "0.2.0"
+japicmp = "0.23.1"
 
 #Tools
 pmdTool = "7.13.0"
@@ -307,6 +308,8 @@ gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 
 cytodynamics-nucleus = { module = "com.linkedin.cytodynamics:cytodynamics-nucleus", version.ref = "cytodynamics" }
+
+japicmp = { module = "com.github.siom79.japicmp:japicmp", version.ref = "japicmp" }
 
 [bundles]
 junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]

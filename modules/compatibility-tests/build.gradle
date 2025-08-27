@@ -48,6 +48,7 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     testFixturesImplementation libs.cytodynamics.nucleus
+    testFixturesImplementation libs.japicmp
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
@@ -58,12 +59,12 @@ dependencies {
     testFixturesImplementation project(':ignite-rest-api')
 }
 
-private def resolveAllDependencies(String... dependencyNotations) {
+private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
     def dependencies = dependencyNotations.collect {
         dependencies.create(it)
     }
     Configuration detached = configurations.detachedConfiguration(dependencies as Dependency[])
-    detached.transitive = true
+    detached.transitive = transitive
     detached.attributes {
         it.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
         it.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
@@ -87,7 +88,7 @@ def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityT
         def versions = shouldTestAllVersions() ? versionsJson.versions : versionsJson.versions.takeRight(2)
         versions.each { version ->
             versionsJson.artifacts.each { artifact ->
-                resolveAllDependencies("$artifact:$version.version")
+                resolveAllDependencies(true, "$artifact:$version.version")
             }
         }
     }
@@ -107,11 +108,12 @@ integrationTest.dependsOn resolveCompatibilityTestDependencies
 tasks.register('constructArgFile') {
     doLast {
         String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
-        def jars = resolveAllDependencies(dependencies)
+        def transitive = project.property('argFileTransitive')?.toBoolean() ?: true
+        def jars = resolveAllDependencies(transitive, dependencies)
         def jarFiles = files(jars)
         def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')
-        def classPathOnly = project.property('classPathOnly')?.toBoolean() ?: false
+        def classPathOnly = project.property('argFileClassPathOnly')?.toBoolean() ?: false
 
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
