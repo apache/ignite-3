@@ -24,8 +24,6 @@ class ItApiCompatibilityTest {
 
     @ApiCompatibilityTest(
             newVersion = "3.1.0-SNAPSHOT",
-            oldVersion = "3.0.0",
-            modules = "ignite-api",
             errorOnIncompatibility = false
     )
     void testApiModule(CompatibilityOutput output) {}

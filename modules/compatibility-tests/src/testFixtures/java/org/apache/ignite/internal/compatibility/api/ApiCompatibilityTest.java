@@ -38,9 +38,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public @interface ApiCompatibilityTest {
 
     /**
-     * Module old version to check compatibility against.
+     * Module old version to check compatibility against. If empty, uses {@code igniteVersions.json}.
      */
-    String oldVersion();
+    String oldVersion() default "";
 
     /**
      * Module new version to check compatibility for.
@@ -50,7 +50,7 @@ public @interface ApiCompatibilityTest {
     /**
      * List of modules to check. If empty, all modules are checked.
      */
-    String[] modules() default {};
+    String[] modules() default { "ignite-api" };
 
     /**
      * Semicolon separated list of elements to exclude in the form

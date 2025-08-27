@@ -22,6 +22,8 @@ import static org.junit.platform.commons.support.AnnotationSupport.isAnnotated;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.IgniteVersions;
+import org.apache.ignite.internal.IgniteVersions.Version;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
@@ -38,15 +40,26 @@ class ApiCompatibilityExtension implements TestTemplateInvocationContextProvider
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
         ApiCompatibilityTest a = findAnnotation(context.getRequiredTestMethod(), ApiCompatibilityTest.class).orElseThrow();
 
-        // to reduce test time - resolve dependencies paths here once for all modules
+        Stream<String> oldVersions;
+        if (a.oldVersion().isBlank()) {
+            oldVersions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).distinct();
+        } else {
+            oldVersions = Stream.of(a.oldVersion());
+        }
+
+        // to reduce test time - need to resolve dependencies paths here once for all modules
         String[] modules = a.modules().length == 0 ? MODULES_ALL : a.modules();
+
         return Arrays.stream(modules)
-                .map(module -> new CompatibilityInput(module, a))
+                .flatMap(module -> {
+                    //noinspection DataFlowIssue
+                    return oldVersions.map(oldVersion -> new CompatibilityInput(module, oldVersion, a));
+                })
                 .map(input -> new ApiCompatibilityTestInvocationContext(input, new TestNameFormatter(context, input)));
     }
 
     static {
-        MODULES_ALL = new String[] { // could be moved to public annotation after stabilization
+        MODULES_ALL = new String[] { // could be resolved by gradle or moved to public annotation after stabilization
                 "ignite-api",
                 "ignite-binary-tuple",
                 "ignite-bytecode",

@@ -19,11 +19,17 @@ package org.apache.ignite.internal.compatibility.api;
 
 class CompatibilityInput {
     private final String module;
-    private final ApiCompatibilityTest annotation;
+    private final String oldVersion;
+    private final String newVersion;
+    private final String exclude;
+    private final boolean errorOnIncompatibility;
 
-    CompatibilityInput(String module, ApiCompatibilityTest annotation) {
+    CompatibilityInput(String module, String oldVersion, ApiCompatibilityTest annotation) {
         this.module = module;
-        this.annotation = annotation;
+        this.oldVersion = oldVersion;
+        this.newVersion = annotation.newVersion();
+        this.exclude = annotation.exclude();
+        this.errorOnIncompatibility = annotation.errorOnIncompatibility();
     }
 
     String module() {
@@ -31,26 +37,26 @@ class CompatibilityInput {
     }
 
     String oldVersion() {
-        return annotation.oldVersion();
+        return oldVersion;
     }
 
     String newVersion() {
-        return annotation.newVersion();
+        return newVersion;
     }
 
     String oldVersionNotation() {
-        return "org.apache.ignite:" + module + ":" + annotation.oldVersion();
+        return "org.apache.ignite:" + module + ":" + oldVersion;
     }
 
     String newVersionNotation() {
-        return "org.apache.ignite:" + module + ":" + annotation.newVersion();
+        return "org.apache.ignite:" + module + ":" + newVersion;
     }
 
     String exclude() {
-        return annotation.exclude();
+        return exclude;
     }
 
     boolean errorOnIncompatibility() {
-        return annotation.errorOnIncompatibility();
+        return errorOnIncompatibility;
     }
 }

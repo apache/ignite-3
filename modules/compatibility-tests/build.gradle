@@ -108,12 +108,12 @@ integrationTest.dependsOn resolveCompatibilityTestDependencies
 tasks.register('constructArgFile') {
     doLast {
         String[] dependencies = ((String) project.property('dependencyNotation')).split(",")
-        def transitive = project.property('argFileTransitive')?.toBoolean() ?: true
+        def transitive = project.property('argFileTransitive').toBoolean()
         def jars = resolveAllDependencies(transitive, dependencies)
         def jarFiles = files(jars)
         def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')
-        def classPathOnly = project.property('argFileClassPathOnly')?.toBoolean() ?: false
+        def classPathOnly = project.property('argFileClassPathOnly').toBoolean()
 
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
