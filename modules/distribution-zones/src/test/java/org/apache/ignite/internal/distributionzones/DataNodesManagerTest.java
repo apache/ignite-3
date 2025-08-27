@@ -61,8 +61,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -84,8 +82,6 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link DataNodesManager}.
  */
 public class DataNodesManagerTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(DataNodesManagerTest.class);
-
     private static final String ZONE_NAME_1 = "test_zone_1";
     private static final String ZONE_NAME_2 = "test_zone_2";
 
@@ -541,8 +537,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         }, 10_000);
 
         if (!success) {
-            LOG.info("Expected: " + expectedNodes);
-            LOG.info("Actual: " + dataNodesManager.dataNodes(zoneId, clock.now()).join());
+            log.info("Expected: " + expectedNodes);
+            log.info("Actual: " + dataNodesManager.dataNodes(zoneId, clock.now()).join());
         }
 
         assertTrue(success);
@@ -575,7 +571,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         if (!success) {
             ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
-            LOG.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
+            log.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
                     + schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone());
         }
 
@@ -594,7 +590,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         if (!success) {
             ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
-            LOG.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
+            log.info("Unsuccessful schedule [taskIsScheduled={}, taskIsCancelled={}, taskIsDone={}]."
                     + schedule.taskIsScheduled(), schedule.taskIsCancelled(), schedule.taskIsDone());
         }
 
