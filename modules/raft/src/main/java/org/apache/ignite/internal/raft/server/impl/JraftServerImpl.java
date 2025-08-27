@@ -315,6 +315,8 @@ public class JraftServerImpl implements RaftServer {
         }
 
         boolean useSharedDisruptor = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP);
+        // Logit log storage doesn't support shared access.
+        boolean enabledShared = !IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT);
 
         if (!useSharedDisruptor) {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -374,7 +376,7 @@ public class JraftServerImpl implements RaftServer {
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         StableClosureEvent::new,
                         opts.getLogStripesCount(),
-                        true,
+                        enabledShared,
                         opts.isLogYieldStrategy(),
                         opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
                 ));
@@ -382,9 +384,6 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             }
         } else {
-            // Logit log storage doesn't support shared access.
-            boolean enabledShared = !IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT);
-
             StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
