@@ -36,6 +36,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -351,6 +352,24 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                     () -> assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, meta), willCompleteSuccessfully()),
                     () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
             );
+        }
+    }
+
+    @Test
+    void testSyncFreeListOnCheckpointAfterStartRebalance() {
+        MvPartitionStorage storage = getOrCreateMvPartition(PARTITION_ID);
+
+        var meta = new MvPartitionMeta(1, 1, BYTE_EMPTY_ARRAY, null, BYTE_EMPTY_ARRAY);
+
+        for (int i = 0; i < 10; i++) {
+            IntStream.rangeClosed(0, 10).forEach(n -> addWriteCommitted(storage));
+
+            runRace(
+                    () -> assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully()),
+                    () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
+            );
+
+            assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, meta), willCompleteSuccessfully());
         }
     }
 
