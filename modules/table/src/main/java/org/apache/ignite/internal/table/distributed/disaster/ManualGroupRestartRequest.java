@@ -29,17 +29,18 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.RESTART_WITH_CLEAN_UP_ERR;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -150,7 +151,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private boolean shouldProcessPartition(ReplicationGroupId replicationGroupId, CatalogZoneDescriptor zoneDescriptor) {
         Set<Integer> partitionIdsToCheck = partitionIds.isEmpty()
-                ? IntStream.range(0, zoneDescriptor.partitions()).boxed().collect(Collectors.toSet())
+                ? Arrays.stream(AssignmentUtil.partitionIds(zoneDescriptor.partitions())).boxed().collect(Collectors.toSet())
                 : partitionIds;
 
         if (replicationGroupId instanceof TablePartitionId) {

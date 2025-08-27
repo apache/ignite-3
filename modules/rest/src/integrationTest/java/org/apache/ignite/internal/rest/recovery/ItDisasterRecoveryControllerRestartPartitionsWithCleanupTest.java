@@ -48,7 +48,6 @@ import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 /** Test for disaster recovery restart partitions with cleanup command. */
 @MicronautTest
@@ -182,7 +181,6 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
-    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testRestartTablePartitionsWithCleanupByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
