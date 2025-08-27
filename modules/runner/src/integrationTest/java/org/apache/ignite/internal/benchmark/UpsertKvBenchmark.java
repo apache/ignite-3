@@ -54,8 +54,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(64)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + " USING {} (field{});";
 
