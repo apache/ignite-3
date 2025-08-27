@@ -38,9 +38,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public @interface ApiCompatibilityTest {
 
     /**
-     * Module old version to check compatibility against. If empty, uses {@code igniteVersions.json}.
+     * Module old versions to check compatibility against. If empty, uses {@code versions.json}.
      */
-    String oldVersion() default "";
+    String[] oldVersions() default {};
 
     /**
      * Module new version to check compatibility for.

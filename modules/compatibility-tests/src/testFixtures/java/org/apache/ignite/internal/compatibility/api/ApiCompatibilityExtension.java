@@ -43,10 +43,10 @@ class ApiCompatibilityExtension implements TestTemplateInvocationContextProvider
         ApiCompatibilityTest a = findAnnotation(context.getRequiredTestMethod(), ApiCompatibilityTest.class).orElseThrow();
 
         List<String> oldVersions;
-        if (a.oldVersion().isBlank()) {
+        if (a.oldVersions().length == 0) {
             oldVersions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).distinct().collect(Collectors.toList());
         } else {
-            oldVersions = List.of(a.oldVersion());
+            oldVersions = Arrays.asList(a.oldVersions());
         }
 
         // to reduce test time - need to resolve dependencies paths here once for all modules
