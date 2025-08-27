@@ -21,6 +21,8 @@ import static org.junit.platform.commons.support.AnnotationSupport.findAnnotatio
 import static org.junit.platform.commons.support.AnnotationSupport.isAnnotated;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.IgniteVersions;
 import org.apache.ignite.internal.IgniteVersions.Version;
@@ -40,21 +42,18 @@ class ApiCompatibilityExtension implements TestTemplateInvocationContextProvider
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
         ApiCompatibilityTest a = findAnnotation(context.getRequiredTestMethod(), ApiCompatibilityTest.class).orElseThrow();
 
-        Stream<String> oldVersions;
+        List<String> oldVersions;
         if (a.oldVersion().isBlank()) {
-            oldVersions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).distinct();
+            oldVersions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).distinct().collect(Collectors.toList());
         } else {
-            oldVersions = Stream.of(a.oldVersion());
+            oldVersions = List.of(a.oldVersion());
         }
 
         // to reduce test time - need to resolve dependencies paths here once for all modules
         String[] modules = a.modules().length == 0 ? MODULES_ALL : a.modules();
 
         return Arrays.stream(modules)
-                .flatMap(module -> {
-                    //noinspection DataFlowIssue
-                    return oldVersions.map(oldVersion -> new CompatibilityInput(module, oldVersion, a));
-                })
+                .flatMap(module -> oldVersions.stream().map(v -> new CompatibilityInput(module, v, a)))
                 .map(input -> new ApiCompatibilityTestInvocationContext(input, new TestNameFormatter(context, input)));
     }
 
