@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgressImpl;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -364,11 +366,33 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
-        dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+        CheckpointProgress currentCheckpointProgress = dataRegion.checkpointManager().currentCheckpointProgress();
 
-        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
-                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
-                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+        assert currentCheckpointProgress == null || currentCheckpointProgress instanceof CheckpointProgressImpl :
+                "currentCheckpointProgress=" + currentCheckpointProgress + ", groupPartitionId=" + groupPartitionId;
+
+        Lock partitionDesctructionLock = null;
+
+        if (currentCheckpointProgress != null) {
+            partitionDesctructionLock = ((CheckpointProgressImpl) currentCheckpointProgress).partitionDesctructionLock(groupPartitionId);
+        }
+
+        if (partitionDesctructionLock != null) {
+            partitionDesctructionLock.lock();
+        }
+
+        try {
+            dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
+            dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
+
+            return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
+                    .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+        } finally {
+            if (partitionDesctructionLock != null) {
+                partitionDesctructionLock.unlock();
+            }
+        }
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {

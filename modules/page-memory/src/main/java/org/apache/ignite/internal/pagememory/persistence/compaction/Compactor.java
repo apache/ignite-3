@@ -460,6 +460,7 @@ public class Compactor extends IgniteWorker {
      * @param groupPartitionId Pair of group ID with partition ID.
      * @return Future at the complete of which we can delete the partition file and its delta files.
      */
+    // TODO: IGNITE-26315 От этого тоже нужно будет скорее всего избавиться
     public CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
         CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
 

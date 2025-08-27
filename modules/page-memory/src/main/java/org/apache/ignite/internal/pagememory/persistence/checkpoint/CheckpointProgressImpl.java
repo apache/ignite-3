@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
@@ -77,6 +79,8 @@ public class CheckpointProgressImpl implements CheckpointProgress {
 
     /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
     private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
+
+    private final Map<GroupPartitionId, Lock> destructionLockByPartitionId = new ConcurrentHashMap<>();
 
     /** Assistant for synchronizing page replacement and fsync phase. */
     private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
@@ -236,6 +240,10 @@ public class CheckpointProgressImpl implements CheckpointProgress {
             this.state.compareAndSet(state, newState);
 
             doFinishFuturesWhichLessOrEqualTo(newState);
+        }
+
+        if (newState == FINISHED) {
+            destructionLockByPartitionId.clear();
         }
     }
 
@@ -420,5 +428,11 @@ public class CheckpointProgressImpl implements CheckpointProgress {
      */
     CompletableFuture<Void> getUnblockFsyncOnPageReplacementFuture() {
         return checkpointPageReplacement.stopBlocking();
+    }
+
+    /** No doc yet. */
+    // TODO: IGNITE-26315 Добавить документацию и удалить не нужные методы
+    public Lock partitionDesctructionLock(GroupPartitionId groupPartitionId) {
+        return destructionLockByPartitionId.computeIfAbsent(groupPartitionId, unused -> new ReentrantLock());
     }
 }

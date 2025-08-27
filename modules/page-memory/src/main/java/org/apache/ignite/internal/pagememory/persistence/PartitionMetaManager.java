@@ -65,7 +65,7 @@ public class PartitionMetaManager {
     }
 
     /**
-     * Returns the partition's meta information.
+     * Returns the partition's meta information, {@code null} if not yet added or was removed when the partition was destroyed.
      *
      * @param groupPartitionId Partition of the group.
      */

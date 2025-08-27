@@ -403,10 +403,8 @@ public class CheckpointManager {
      * @param groupPartitionId Pair of group ID with partition ID.
      * @return Future that will complete when the callback completes.
      */
+    // TODO: IGNITE-26315 Вот тут скорее всего сделать по другому или вроде того
     public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
-        return CompletableFuture.allOf(
-                checkpointer.prepareToDestroyPartition(groupPartitionId),
-                compactor.prepareToDestroyPartition(groupPartitionId)
-        );
+        return compactor.prepareToDestroyPartition(groupPartitionId);
     }
 }

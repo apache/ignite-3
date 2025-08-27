@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -194,5 +195,11 @@ public class CheckpointPages {
      */
     public void unblockPartitionDestruction(GroupPartitionId groupPartitionId) {
         checkpointProgress.unblockPartitionDestruction(groupPartitionId);
+    }
+
+    /** No doc yet. */
+    // TODO: IGNITE-26315 Исправить документацию и удалить не используемые методы
+    public Lock partitionDesctructionLock(GroupPartitionId groupPartitionId) {
+        return checkpointProgress.partitionDesctructionLock(groupPartitionId);
     }
 }

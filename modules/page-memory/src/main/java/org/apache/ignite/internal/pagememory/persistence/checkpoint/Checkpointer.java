@@ -46,6 +46,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -612,27 +613,29 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        currentCheckpointProgress.blockPartitionDestruction(partitionId);
+        Lock partitionDesctructionLock = currentCheckpointProgress.partitionDesctructionLock(partitionId);
+
+        partitionDesctructionLock.lock();
 
         try {
+            PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
+
+            // If this happens, then the partition is destroyed.
+            if (meta == null) {
+                return;
+            }
+
             fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore);
 
             fsyncFilePageStoreOnCheckpointThread(filePageStore);
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
 
-            // TODO: IGNITE-26315 Deal with partition deletion blocking on checkpoint
-            PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
-
-            if (meta == null) {
-                return;
-            }
-
             filePageStore.checkpointedPageCount(meta.metaSnapshot(currentCheckpointProgress.id()).pageCount());
 
             currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
-            currentCheckpointProgress.unblockPartitionDestruction(partitionId);
+            partitionDesctructionLock.unlock();
         }
     }
 
