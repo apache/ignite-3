@@ -1,47 +1,37 @@
 Sort
     collation: [CUSTDIST DESC, C_COUNT DESC]
-    est: (rows=1687525500)
   ColocatedHashAggregate
       fieldNames: [C_COUNT, CUSTDIST]
       group: [C_COUNT]
       aggregation: [COUNT()]
-      est: (rows=1687525500)
     Project
         fieldNames: [C_COUNT]
         projection: [EXPR$1]
-        est: (rows=1687525500)
-      ColocatedSortAggregate
+      Project
           fieldNames: [C_CUSTKEY, EXPR$1]
-          collation: [C_CUSTKEY ASC]
-          group: [C_CUSTKEY]
-          aggregation: [COUNT(O_ORDERKEY)]
-          est: (rows=1687525500)
-        Project
-            fieldNames: [C_CUSTKEY, O_ORDERKEY]
-            projection: [C_CUSTKEY, O_ORDERKEY]
-            est: (rows=8437627500)
-          MergeJoin
-              predicate: =(C_CUSTKEY, O_CUSTKEY)
-              type: right
-              est: (rows=8437627500)
-            Exchange
-                distribution: single
-                est: (rows=375000)
-              IndexScan
-                  table: PUBLIC.ORDERS
-                  index: O_CK
-                  type: SORTED
-                  predicate: NOT(LIKE(O_COMMENT, _UTF-8'%special%requests%'))
-                  fieldNames: [O_ORDERKEY, O_CUSTKEY, O_COMMENT]
-                  collation: [O_CUSTKEY ASC]
-                  est: (rows=375000)
-            Exchange
-                distribution: single
-                est: (rows=150000)
-              Sort
-                  collation: [C_CUSTKEY ASC]
-                  est: (rows=150000)
-                TableScan
-                    table: PUBLIC.CUSTOMER
-                    fieldNames: [C_CUSTKEY]
-                    est: (rows=150000)
+          projection: [f0, CAST(f0_1):BIGINT NOT NULL]
+        ReduceHashAggregate
+            fieldNames: [f0, f0_1]
+            group: [C_CUSTKEY]
+            aggregation: [$SUM0(_ACC0)]
+          Exchange
+              distribution: single
+            MapHashAggregate
+                fieldNames: [C_CUSTKEY, _ACC0, _GROUP_ID]
+                group: [C_CUSTKEY]
+                aggregation: [COUNT(O_ORDERKEY)]
+              Project
+                  fieldNames: [C_CUSTKEY, O_ORDERKEY]
+                  projection: [C_CUSTKEY, O_ORDERKEY]
+                HashJoin
+                    predicate: =(C_CUSTKEY, O_CUSTKEY)
+                    type: right
+                  Exchange
+                      distribution: table PUBLIC.CUSTOMER in zone "Default" by [O_CUSTKEY]
+                    TableScan
+                        table: PUBLIC.ORDERS
+                        predicate: NOT(LIKE(O_COMMENT, _UTF-8'%special%requests%'))
+                        fieldNames: [O_ORDERKEY, O_CUSTKEY, O_COMMENT]
+                  TableScan
+                      table: PUBLIC.CUSTOMER
+                      fieldNames: [C_CUSTKEY]

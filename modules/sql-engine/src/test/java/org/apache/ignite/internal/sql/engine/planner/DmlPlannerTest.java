@@ -31,8 +31,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -364,7 +364,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                                         p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
                                         p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
                                 ))))
-                        .and(hasChildThat(isInstanceOf(IgniteMergeJoin.class)
+                        .and(hasChildThat(isInstanceOf(IgniteHashJoin.class)
                                 .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
                         )));
 
@@ -389,7 +389,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                                         p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
                                         p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
                                 ))))
-                        .and(hasChildThat(isInstanceOf(IgniteMergeJoin.class)
+                        .and(hasChildThat(isInstanceOf(IgniteHashJoin.class)
                                 .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
                         )));
     }
