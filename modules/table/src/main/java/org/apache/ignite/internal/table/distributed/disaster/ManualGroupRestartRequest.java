@@ -35,6 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -133,7 +134,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
             ReplicationGroupId replicationGroupId = raftNodeId.groupId();
 
-            if (shouldProcessPartition(replicationGroupId)) {
+            if (shouldProcessPartition(replicationGroupId, zoneDescriptor)) {
                 if (cleanUp) {
                     restartFutures.add(
                             createRestartWithCleanupFuture(disasterRecoveryManager, replicationGroupId, revision, zoneDescriptor, catalog)
@@ -147,14 +148,21 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         return restartFutures.isEmpty() ? nullCompletedFuture() : allOf(restartFutures.toArray(CompletableFuture[]::new));
     }
 
-    private boolean shouldProcessPartition(ReplicationGroupId replicationGroupId) {
+    private boolean shouldProcessPartition(ReplicationGroupId replicationGroupId, CatalogZoneDescriptor zoneDescriptor) {
+        Set<Integer> partitionIdsToCheck = partitionIds.isEmpty()
+                ? IntStream.range(0, zoneDescriptor.partitions()).boxed().collect(Collectors.toSet())
+                : partitionIds;
+
         if (replicationGroupId instanceof TablePartitionId) {
             TablePartitionId groupId = (TablePartitionId) replicationGroupId;
-            return groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId());
+
+            return groupId.tableId() == tableId && partitionIdsToCheck.contains(groupId.partitionId());
         } else if (replicationGroupId instanceof ZonePartitionId) {
             ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
-            return groupId.zoneId() == zoneId && partitionIds.contains(groupId.partitionId());
+
+            return groupId.zoneId() == zoneId && partitionIdsToCheck.contains(groupId.partitionId());
         }
+
         return false;
     }
 
