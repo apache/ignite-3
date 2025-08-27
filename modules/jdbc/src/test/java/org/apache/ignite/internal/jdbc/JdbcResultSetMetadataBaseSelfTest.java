@@ -64,7 +64,7 @@ public abstract class JdbcResultSetMetadataBaseSelfTest {
     public void isAutoIncrement(ColumnType columnType) throws SQLException {
         ColumnDefinition column = new ColumnDefinition("C", columnType, 0, 0, true);
         ResultSetMetaData md = createMeta(List.of(column));
-        assertFalse(md.isSearchable(1));
+        assertFalse(md.isAutoIncrement(1));
     }
 
     @ParameterizedTest
@@ -72,7 +72,7 @@ public abstract class JdbcResultSetMetadataBaseSelfTest {
     public void isCaseSensitive(ColumnType columnType) throws SQLException {
         ColumnDefinition column = new ColumnDefinition("C", columnType, 0, 0, true);
         ResultSetMetaData md = createMeta(List.of(column));
-        assertFalse(md.isSearchable(1));
+        assertFalse(md.isCaseSensitive(1));
     }
 
     @ParameterizedTest

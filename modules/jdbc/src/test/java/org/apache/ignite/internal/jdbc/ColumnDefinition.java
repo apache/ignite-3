@@ -31,10 +31,6 @@ public final class ColumnDefinition {
     public final int scale;
     public final boolean nullable;
 
-    ColumnDefinition(String label, ColumnType type) {
-        this(label, null, null, null, type, -1, -1, false);
-    }
-
     ColumnDefinition(
             String label,
             ColumnType type,
