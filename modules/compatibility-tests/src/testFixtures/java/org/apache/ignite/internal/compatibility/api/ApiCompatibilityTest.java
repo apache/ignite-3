@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * {@code @ApiCompatibilityTest} is used to signal that the annotated method is a API compatibility test between two versions of a module.
  *
  * <p>This annotation is somewhat similar to {@code @ParameterizedTest}, as in it also can run test multiple times per module.</p>
+ *
  * <p>Methods annotated with this annotation should not be annotated with {@code Test}.</p>
  */
 @Target(ElementType.METHOD)
