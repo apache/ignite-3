@@ -106,7 +106,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             CatalogStorageProfilesDescriptor storageProfiles,
             ConsistencyMode consistencyMode
     ) {
-        this(id, name, partitions, replicas, quorumSize, 0, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+        this(id, name, partitions, replicas, quorumSize, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
                 filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
     }
 
