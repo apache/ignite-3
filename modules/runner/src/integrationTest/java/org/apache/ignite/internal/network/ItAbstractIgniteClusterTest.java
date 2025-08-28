@@ -109,6 +109,6 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
     @Test
     void testClusterId() {
         UUID expected = unwrapIgniteImpl(node(0)).clusterIdService().clusterId();
-        assertEquals(expected, ignite().cluster().clusterId());
+        assertEquals(expected, ignite().cluster().id());
     }
 }

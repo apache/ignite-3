@@ -138,7 +138,6 @@ import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
@@ -302,8 +301,7 @@ public class ClientInboundMessageHandler
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
-            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
-            ClusterIdSupplier clusterIdSupplier
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -321,14 +319,17 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
-        assert clusterIdSupplier != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
-        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), clusterIdSupplier);
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), () -> {
+            ClusterInfo clusterInfo = clusterInfoSupplier.get();
+            List<UUID> idHistory = clusterInfo.idHistory();
+            return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+        });
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;

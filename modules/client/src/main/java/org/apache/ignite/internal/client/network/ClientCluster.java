@@ -42,7 +42,7 @@ public class ClientCluster implements IgniteCluster {
     }
 
     @Override
-    public UUID clusterId() {
+    public UUID id() {
         return ch.clusterId();
     }
 

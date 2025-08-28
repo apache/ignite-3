@@ -47,8 +47,8 @@ public class RestartProofIgniteCluster implements IgniteCluster, Wrapper {
     }
 
     @Override
-    public UUID clusterId() {
-        return attachmentLock.attached(ignite -> ignite.cluster().clusterId());
+    public UUID id() {
+        return attachmentLock.attached(ignite -> ignite.cluster().id());
     }
 
     @Override

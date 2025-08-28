@@ -31,7 +31,7 @@ public interface IgniteCluster {
      *
      * @return Cluster's current ID.
      */
-    UUID clusterId();
+    UUID id();
 
     /**
      * Returns all cluster nodes that are part of the logical topology, including the local node if applicable.

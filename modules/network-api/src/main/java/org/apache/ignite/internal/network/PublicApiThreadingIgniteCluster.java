@@ -46,8 +46,8 @@ public class PublicApiThreadingIgniteCluster implements IgniteCluster, Wrapper {
     }
 
     @Override
-    public UUID clusterId() {
-        return execUserSyncOperation(cluster::clusterId);
+    public UUID id() {
+        return execUserSyncOperation(cluster::id);
     }
 
     @Override

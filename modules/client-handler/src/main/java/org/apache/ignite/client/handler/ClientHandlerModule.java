@@ -39,7 +39,6 @@ import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -454,12 +453,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 SUPPORTED_FEATURES,
                 Map.of(),
                 computeExecutors::remove,
-                handshakeEventLoopSwitcher,
-                () -> {
-                    ClusterInfo clusterInfo = clusterInfoSupplier.get();
-                    List<UUID> idHistory = clusterInfo.idHistory();
-                    return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
-                }
+                handshakeEventLoopSwitcher
         );
     }
 
