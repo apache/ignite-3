@@ -85,6 +85,39 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param partitions Count of partitions in distributions zone.
      * @param replicas Count of partition replicas.
      * @param quorumSize Quorum size.
+     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param storageProfiles Storage profiles descriptor.
+     * @param consistencyMode Consistency mode of the zone.
+     */
+    @Deprecated
+    public CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int quorumSize,
+            int dataNodesAutoAdjust,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogStorageProfilesDescriptor storageProfiles,
+            ConsistencyMode consistencyMode
+    ) {
+        this(id, name, partitions, replicas, quorumSize, 0, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+                filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
+    }
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
@@ -221,6 +254,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      *
      * @return Data nodes auto adjust timeout.
      */
+    @Deprecated
     public int dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
