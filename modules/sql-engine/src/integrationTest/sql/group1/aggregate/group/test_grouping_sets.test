@@ -5,62 +5,56 @@
 
 # Single group
 query I
-SELECT GROUPING(a) as g1
+SELECT GROUPING(a)
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a))
-ORDER BY g1
 ----
 1
 1
 
-query II
-SELECT GROUPING(a) as g1, a
+query II rowsort
+SELECT GROUPING(a), a
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a))
-ORDER BY g1, a
 ----
 1	1
 1	4
 
-query II
-SELECT GROUPING(a) as g1, SUM(c) as g2
+query II rowsort
+SELECT GROUPING(a), SUM(c)
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a))
-ORDER BY g1, g2
 ----
-1	6
 1	9
+1	6
 
 # Multiple groups
-query III
-SELECT GROUPING(a) as g1, GROUPING(b) as g2, GROUPING(c) as g3
+query III rowsort
+SELECT GROUPING(a), GROUPING(b), GROUPING(c)
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a), (b), (c))
-ORDER BY g1, g2, g3
 ----
-0	0	1
-0	0	1
-0	1	0
-0	1	0
 1	0	0
 1	0	0
+0	1	0
+0	1	0
+0	0	1
+0	0	1
 
 query IIII
-SELECT GROUPING(a) as g1, GROUPING(b), a, b
+SELECT GROUPING(a), GROUPING(b), a, b
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a), (b))
-ORDER BY g1, a, b
 ----
-0	1	NULL	2
-0	1	NULL	NULL
 1	0	1	NULL
 1	0	4	NULL
+0	1	NULL	2
+0	1	NULL	NULL
 
-query IIII
-SELECT GROUPING(a) as g1,SUM(a) as g2, GROUPING(b),  SUM(c) as g3
+query IIII rowsort
+SELECT GROUPING(a), SUM(a), GROUPING(b),  SUM(c)
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((a), (b))
-ORDER BY g1, g2, g3
 ----
 0	1	1	3
 0	5	1	12
@@ -78,22 +72,20 @@ GROUP BY GROUPING SETS ((b), (b))
 1
 1
 
-query II
-SELECT GROUPING(b) as g1, b
+query II rowsort
+SELECT GROUPING(b), b
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((b), (b))
-ORDER BY g1, b
 ----
 1	2
 1	2
 1	NULL
 1	NULL
 
-query II
+query II rowsort
 SELECT GROUPING(b) as g1, SUM(c) as g2
 FROM (VALUES (1, 2, 3), (4, NULL, 6), (1, NULL, 6)) AS t (a, b, c)
 GROUP BY GROUPING SETS ((b), (b))
-ORDER BY g1, g2
 ----
 1	3
 1	3
@@ -101,8 +93,8 @@ ORDER BY g1, g2
 1	12
 
 # Empty group
-query IIRR
-SELECT GROUPING(city_id) as g1, GROUPING(category_id) as g2, min(price) as price_min, max(price) as price_max
+query IIRR rowsort
+SELECT GROUPING(city_id), GROUPING(category_id), min(price), max(price)
 FROM (VALUES
 (2, 6, 21500.00),
 (2, 6, 22900.00),
@@ -113,18 +105,17 @@ FROM (VALUES
 (4, 9, 75600.00)
 ) AS t (city_id, category_id, price)
 GROUP BY GROUPING SETS ((city_id), (category_id), ())
-ORDER BY g1, g2, price_min, price_max
 ----
-0	0	17800.00	75600.00
+1	0	17800.00	23500.00
+1	0	20000.00	75600.00
 0	1	17800.00	17800.00
 0	1	20000.00	23500.00
 0	1	37000.00	37000.00
 0	1	75600.00	75600.00
-1	0	17800.00	23500.00
-1	0	20000.00	75600.00
+0	0	17800.00	75600.00
 
 skipif ignite3
-# Custom types
+# CREATE TICKET
 query IIT rowsort
 SELECT GROUPING(id), GROUPING(id), id
 FROM ( VALUES
@@ -145,11 +136,14 @@ query IIT rowsort
 SELECT GROUPING(val), GROUPING(val), val
 FROM ( VALUES
 (1, 1),
-(1, 2)
+(1, 2),
+(1, 3)
 ) as t(id, val)
 GROUP BY ALL GROUPING SETS ((val), (val))
 ----
-1	1	c4a0327c-44be-416d-ae90-75c05079789f
-1	1	c4a0327c-44be-416d-ae90-75c05079789f
-1	1	367fc6f1-40c3-4237-8545-3fd102d29134
-1	1	367fc6f1-40c3-4237-8545-3fd102d29134
+1	1	1
+1	1	1
+1	1	2
+1	1	2
+1	1	3
+1	1	3
