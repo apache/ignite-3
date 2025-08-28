@@ -147,6 +147,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -231,6 +232,7 @@ import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -464,6 +466,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final TableAssignmentsService assignmentsService;
     private final ReliableCatalogVersions reliableCatalogVersions;
 
+    private final MetricManager metricManager;
+
     /**
      * Creates a new table manager.
      *
@@ -494,6 +498,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionReplicaLifecycleManager Partition replica lifecycle manager.
      * @param minTimeCollectorService Collects minimum required timestamp for each partition.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param metricManager Metric manager.
      */
     public TableManager(
             String nodeName,
@@ -533,7 +538,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             NodeProperties nodeProperties,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            SystemDistributedConfiguration systemDistributedConfiguration
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            MetricManager metricManager
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -563,6 +569,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
+        this.metricManager = metricManager;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1533,7 +1540,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 lowWatermark,
                 failureProcessor,
-                nodeProperties
+                nodeProperties,
+                table.metrics()
         );
     }
 
@@ -1786,6 +1794,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partitions = zoneDescriptor.partitions();
 
+        TableMetricSource metrics = new TableMetricSource(tableName);
+        metricManager.registerSource(metrics);
+        metricManager.enable(metrics);
+
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
                 zoneDescriptor.id(),
@@ -1804,7 +1816,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled()
+                nodeProperties.colocationEnabled(),
+                metrics
         );
 
         return new TableImpl(
@@ -2013,6 +2026,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assert table != null : tableId;
 
         InternalTable internalTable = table.internalTable();
+
+        metricManager.unregisterSource(internalTable.metrics());
 
         if (!nodeProperties.colocationEnabled()) {
             Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())

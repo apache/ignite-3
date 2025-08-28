@@ -127,6 +127,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -143,6 +144,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -308,7 +310,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled()
+                colocationEnabled(),
+                new TableMetricSource(QualifiedName.fromSimple("test"))
         );
 
         RaftGroupService svc = mock(RaftGroupService.class);
@@ -494,7 +497,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
         );
 
         if (enabledColocation) {

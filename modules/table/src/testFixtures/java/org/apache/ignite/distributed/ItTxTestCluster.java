@@ -167,6 +167,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -684,7 +685,8 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled()
+                colocationEnabled(),
+                new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
         TableImpl table = new TableImpl(
@@ -1121,7 +1123,8 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
     }
 

@@ -87,6 +87,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -341,7 +343,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(StreamerReceiverRunner.class),
                     () -> 10_000L,
                     () -> 10_000L,
-                    colocationEnabled()
+                    colocationEnabled(),
+                    new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;
 

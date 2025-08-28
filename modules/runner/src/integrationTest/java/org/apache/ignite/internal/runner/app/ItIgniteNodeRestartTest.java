@@ -811,7 +811,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionReplicaLifecycleListener,
                 nodeProperties,
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                metricManager
         );
 
         var indexManager = new IndexManager(

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -552,4 +553,14 @@ public interface InternalTable extends ManuallyCloseable {
      * @return The id.
      */
     ReplicationGroupId targetReplicationGroupId(int partId);
+
+    /**
+     * Returns a metric source for this table.
+     *
+     * @return Table metrics source.
+     */
+    default TableMetricSource metrics() {
+        // TODO
+        return null;
+    }
 }
