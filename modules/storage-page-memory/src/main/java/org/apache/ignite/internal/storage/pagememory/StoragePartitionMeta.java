@@ -62,6 +62,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      * Constructor.
      *
      * @param pageCount Count of pages in the partition.
+     * @param partitionGeneration Partition generation at the time of its creation.
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
      * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing last replication
@@ -79,6 +80,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      */
     public StoragePartitionMeta(
             int pageCount,
+            int partitionGeneration,
             long lastAppliedIndex,
             long lastAppliedTerm,
             long lastReplicationProtocolGroupConfigFirstPageId,
@@ -91,7 +93,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             long gcQueueMetaPageId,
             long estimatedSize
     ) {
-        super(pageCount);
+        super(pageCount, partitionGeneration);
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.lastReplicationProtocolGroupConfigFirstPageId = lastReplicationProtocolGroupConfigFirstPageId;

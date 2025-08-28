@@ -68,9 +68,9 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -367,7 +367,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testDoCheckpoint() throws Exception {
         CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
-                fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
+                dirtyFullPageId(0, 0, 1), dirtyFullPageId(0, 0, 2), dirtyFullPageId(0, 0, 3)
         ));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
@@ -387,7 +387,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         PartitionMetaManager mock = mock(PartitionMetaManager.class);
 
-        FakePartitionMeta meta = new FakePartitionMeta(10);
+        FakePartitionMeta meta = new FakePartitionMeta(10, 1);
         meta.init(UUID.randomUUID());
 
         when(mock.getMeta(any())).thenReturn(meta);
@@ -534,7 +534,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         onPartitionDestructionFuture.get(1, SECONDS);
     }
 
-    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
+    private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, DirtyFullPageId... pageIds) {
         return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, pageIds)));
     }
 
@@ -590,7 +590,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return manager;
     }
 
-    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
-        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    private static DirtyFullPageId dirtyFullPageId(int grpId, int partId, int pageIdx) {
+        return new DirtyFullPageId(pageId(partId, (byte) 0, pageIdx), grpId, 1);
     }
 }

@@ -108,7 +108,6 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -228,7 +227,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-25640")
     void cancelComputeSubmitMapReduceAsyncWithCancelHandle() {
         IgniteClient entryNode = client();
 

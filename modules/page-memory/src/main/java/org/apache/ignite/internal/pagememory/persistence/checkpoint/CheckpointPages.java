@@ -20,14 +20,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
-import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -39,11 +37,11 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used.</p>
  *
- * @see PersistentPageMemory#checkpointWritePage(FullPageId, ByteBuffer, PageStoreWriter, CheckpointMetricsTracker)
- * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
+ * @see PersistentPageMemory#checkpointWritePage
+ * @see PersistentPageMemory.Segment#tryToRemovePage
  */
 public class CheckpointPages {
-    private final Set<FullPageId> pageIds;
+    private final Set<DirtyFullPageId> pageIds;
 
     private final CheckpointProgressImpl checkpointProgress;
 
@@ -53,7 +51,7 @@ public class CheckpointPages {
      * @param pageIds Dirty page IDs in the segment that should be written at a checkpoint or page replacement.
      * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
+    public CheckpointPages(Set<DirtyFullPageId> pageIds, CheckpointProgress checkpointProgress) {
         this.pageIds = pageIds;
         this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
@@ -72,11 +70,11 @@ public class CheckpointPages {
      *      removes or did not exist.
      * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
      *         checkpoint.
-     * @see #removeOnCheckpoint(FullPageId)
-     * @see #blockFsyncOnPageReplacement(FullPageId)
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #removeOnCheckpoint
+     * @see #blockFsyncOnPageReplacement
+     * @see #unblockFsyncOnPageReplacement
      */
-    public boolean removeOnPageReplacement(FullPageId pageId) throws IgniteInternalCheckedException {
+    public boolean removeOnPageReplacement(DirtyFullPageId pageId) throws IgniteInternalCheckedException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
             getUninterruptibly(checkpointProgress.futureFor(PAGES_SORTED));
@@ -98,9 +96,9 @@ public class CheckpointPages {
      * @param pageId Page ID to remove.
      * @return {@code True} if the page was removed by the current method invoke, {@code false} if the page was already removed by another
      *      removes or did not exist.
-     * @see #removeOnPageReplacement(FullPageId)
+     * @see #removeOnPageReplacement
      */
-    public boolean removeOnCheckpoint(FullPageId pageId) {
+    public boolean removeOnCheckpoint(DirtyFullPageId pageId) {
         return pageIds.remove(pageId);
     }
 
@@ -109,7 +107,7 @@ public class CheckpointPages {
      *
      * @param pageId Page ID for checking.
      */
-    public boolean contains(FullPageId pageId) {
+    public boolean contains(DirtyFullPageId pageId) {
         return pageIds.contains(pageId);
     }
 
@@ -125,10 +123,10 @@ public class CheckpointPages {
      * the same page.</p>
      *
      * @param pageId Page ID for which page replacement will begin.
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
-     * @see #removeOnPageReplacement(FullPageId)
+     * @see #unblockFsyncOnPageReplacement
+     * @see #removeOnPageReplacement
      */
-    public void blockFsyncOnPageReplacement(FullPageId pageId) {
+    public void blockFsyncOnPageReplacement(DirtyFullPageId pageId) {
         checkpointProgress.blockFsyncOnPageReplacement(pageId);
     }
 
@@ -144,10 +142,10 @@ public class CheckpointPages {
      *
      * @param pageId Page ID for which the page replacement has ended.
      * @param error Error on page replacement, {@code null} if missing.
-     * @see #blockFsyncOnPageReplacement(FullPageId)
-     * @see #removeOnPageReplacement(FullPageId)
+     * @see #blockFsyncOnPageReplacement
+     * @see #removeOnPageReplacement
      */
-    public void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+    public void unblockFsyncOnPageReplacement(DirtyFullPageId pageId, @Nullable Throwable error) {
         checkpointProgress.unblockFsyncOnPageReplacement(pageId, error);
     }
 

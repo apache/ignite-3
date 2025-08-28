@@ -410,7 +410,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 () -> node2.raftService.startJoinCluster(incorrectTag, null).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
-                        "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
+                        "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                         incorrectTag, state.clusterTag()
                 )
         );

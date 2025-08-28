@@ -105,7 +105,7 @@ public class HandshakeEventLoopSwitcher {
                     if (!registrationFuture.isSuccess()) {
                         LOG.error("Cannot register a channel with an event loop", registrationFuture.cause());
 
-                        fut.completeExceptionally(deregistrationFuture.cause());
+                        fut.completeExceptionally(registrationFuture.cause());
 
                         channel.close();
 
