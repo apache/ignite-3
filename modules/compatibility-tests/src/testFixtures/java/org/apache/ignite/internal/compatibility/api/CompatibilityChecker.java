@@ -44,6 +44,11 @@ import org.apache.ignite.internal.util.ArrayUtils;
 
 class CompatibilityChecker {
 
+    /**
+     * Runs japicmp with given input and returns the output.
+     *
+     * @see <a href="https://siom79.github.io/japicmp/CliTool.html">japicmp options</a>
+     */
     static CompatibilityOutput check(CompatibilityInput input) {
         String[] args = {
                 "--old", Dependencies.path(input.oldVersionNotation(), false),
