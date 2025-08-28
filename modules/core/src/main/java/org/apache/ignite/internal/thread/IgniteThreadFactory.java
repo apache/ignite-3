@@ -41,6 +41,8 @@ public class IgniteThreadFactory implements ThreadFactory {
     /** Operations that are allowed to be executed on threads produced by this factory. */
     private final ThreadOperation[] allowedOperations;
 
+    private final boolean virtual;
+
     /**
      * Constructor.
      */
@@ -52,14 +54,27 @@ public class IgniteThreadFactory implements ThreadFactory {
      * Constructor.
      */
     private IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
+        this(prefix, daemon, log, allowedOperations, false);
+    }
+
+    private IgniteThreadFactory(String nodeName, String poolName, IgniteLogger log) {
+        this(IgniteThread.threadPrefix(nodeName, poolName), false, log, null, true);
+    }
+
+    private IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations, boolean virtual) {
         this.prefix = Objects.requireNonNull(prefix, "prefix");
         this.daemon = daemon;
         this.exHnd = new LogUncaughtExceptionHandler(log);
         this.allowedOperations = allowedOperations;
+        this.virtual = virtual;
     }
 
     @Override
-    public IgniteThread newThread(Runnable r) {
+    public Thread newThread(Runnable r) {
+        if (virtual) {
+            return Thread.ofVirtual().name(prefix, counter.getAndIncrement()).uncaughtExceptionHandler(exHnd).unstarted(r);
+        }
+
         IgniteThread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
         t.setDaemon(this.daemon);
@@ -89,6 +104,10 @@ public class IgniteThreadFactory implements ThreadFactory {
      */
     public static IgniteThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
         return create(nodeName, poolName, false, logger, allowedOperations);
+    }
+
+    public static ThreadFactory createVirtual(String nodeName, String poolName, IgniteLogger logger) {
+        return new IgniteThreadFactory(nodeName, poolName, logger);
     }
 
     /**

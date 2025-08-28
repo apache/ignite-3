@@ -48,7 +48,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -318,19 +320,18 @@ public class JraftServerImpl implements RaftServer {
         // Logit log storage doesn't support shared access.
         boolean enabledShared = !IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT);
 
+//        BiFunction<String, IgniteLogger, ThreadFactory> fac = (stripeName, logger) -> IgniteThreadFactory.create(
+//                opts.getServerName(), stripeName, logger);
+
+        BiFunction<String, IgniteLogger, ThreadFactory> fac = (stripeName, logger) -> IgniteThreadFactory.createVirtual(
+                opts.getServerName(), stripeName, logger);
+
         if (!useSharedDisruptor) {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
                 opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-FSMCaller-Disruptor",
-                        (stripeName, logger) -> IgniteThreadFactory.create(
-                                opts.getServerName(),
-                                stripeName,
-                                true,
-                                logger,
-                                STORAGE_READ,
-                                STORAGE_WRITE
-                        ),
+                        fac,
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ApplyTask::new,
                         opts.getStripes(),
@@ -344,7 +345,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-NodeImpl-Disruptor",
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        fac,
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         LogEntryAndClosure::new,
                         opts.getStripes(),
@@ -358,7 +359,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-ReadOnlyService-Disruptor",
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        fac,
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ReadIndexEvent::new,
                         opts.getStripes(),
@@ -372,7 +373,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setLogManagerDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-LogManager-Disruptor",
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        fac,
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         StableClosureEvent::new,
                         opts.getLogStripesCount(),
@@ -387,7 +388,7 @@ public class JraftServerImpl implements RaftServer {
             StripedDisruptor<SharedEvent> sharedDisruptor = new SharedStripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-Shared-Disruptor",
-                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger, STORAGE_READ, STORAGE_WRITE),
+                    fac,
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     SharedEvent::new,
                     opts.getStripes(),
@@ -410,7 +411,7 @@ public class JraftServerImpl implements RaftServer {
                 opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                         opts.getServerName(),
                         "JRaft-ReadOnlyService-Disruptor",
-                        (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                        fac,
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ReadIndexEvent::new,
                         opts.getStripes(),
