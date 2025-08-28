@@ -52,121 +52,131 @@ public class JdbcResultSetMetadata implements ResultSetMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean isAutoIncrement(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isCaseSensitive(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isSearchable(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isCurrency(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public int isNullable(int col) throws SQLException {
-        return columnNullable;
+        return getColumn(col).isNullable() ? columnNullable : columnNoNulls;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isSigned(int col) throws SQLException {
+        getColumn(col);
         return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getColumnDisplaySize(int col) throws SQLException {
+        getColumn(col);
         return COL_WIDTH;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getColumnLabel(int col) throws SQLException {
-        return meta.get(col - 1).columnLabel();
+        return getColumn(col).columnLabel();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getColumnName(int col) throws SQLException {
-        return meta.get(col - 1).columnName();
+        return getColumn(col).columnName();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getSchemaName(int col) throws SQLException {
-        return meta.get(col - 1).schemaName();
+        return getColumn(col).schemaName();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getPrecision(int col) throws SQLException {
-        return meta.get(col - 1).precision();
+        return getColumn(col).precision();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getScale(int col) throws SQLException {
-        return meta.get(col - 1).scale();
+        return getColumn(col).scale();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getTableName(int col) throws SQLException {
-        return meta.get(col - 1).tableName();
+        return getColumn(col).tableName();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getCatalogName(int col) throws SQLException {
+        getColumn(col);
         return "";
     }
 
     /** {@inheritDoc} */
     @Override
     public int getColumnType(int col) throws SQLException {
-        return meta.get(col - 1).dataType();
+        return getColumn(col).dataType();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getColumnTypeName(int col) throws SQLException {
-        return meta.get(col - 1).dataTypeName();
+        return getColumn(col).dataTypeName();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isReadOnly(int col) throws SQLException {
+        getColumn(col);
         return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isWritable(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isDefinitelyWritable(int col) throws SQLException {
+        getColumn(col);
         return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getColumnClassName(int col) throws SQLException {
-        return meta.get(col - 1).dataTypeClass();
+        return getColumn(col).dataTypeClass();
     }
 
     /** {@inheritDoc} */
@@ -183,5 +193,12 @@ public class JdbcResultSetMetadata implements ResultSetMetaData {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return iface != null && iface.isAssignableFrom(JdbcResultSetMetadata.class);
+    }
+
+    private JdbcColumnMeta getColumn(int col) throws SQLException {
+        if (col < 1 || col > meta.size()) {
+            throw new SQLException("Invalid column index: " + col);
+        }
+        return meta.get(col - 1);
     }
 }
