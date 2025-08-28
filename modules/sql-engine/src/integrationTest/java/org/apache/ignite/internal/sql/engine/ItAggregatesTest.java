@@ -552,7 +552,6 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns(1L, "s3")
                 .check();
 
-
         assertQuery("SELECT GROUPING(str_col), str_col FROM test_str_int_real_dec GROUP BY GROUPING SETS ((str_col), (str_col))")
                 .disableRules(rules)
                 .returns(1L, "s1")
