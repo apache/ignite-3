@@ -434,7 +434,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ClientConnectorView configuration,
             long connectionId
     ) {
-        return new  ClientInboundMessageHandler(
+        return new ClientInboundMessageHandler(
                 igniteTables,
                 txManager,
                 queryProcessor,
