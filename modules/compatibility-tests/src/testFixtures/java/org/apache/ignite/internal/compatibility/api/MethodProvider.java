@@ -57,7 +57,7 @@ class MethodProvider {
         if (factoryMethodName.contains("#")) {
             return true;
         }
-        if (factoryMethodName.matches("[a-zA-Z0-9].*")) {
+        if (factoryMethodName.matches("^[a-zA-Z0-9_]*$")) {
             return true;
         }
         return false;

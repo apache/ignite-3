@@ -24,6 +24,7 @@ class ItApiCompatibilityTest {
 
     @ApiCompatibilityTest(
             newVersion = "3.1.0-SNAPSHOT",
+            oldVersions = "3.0.0",
             errorOnIncompatibility = false
     )
     void testApiModule(CompatibilityOutput output) {}
