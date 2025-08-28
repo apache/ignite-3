@@ -27,9 +27,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * {@code @ApiCompatibilityTest} is used to signal that the annotated method is a API compatibility test between two versions of a module.
  *
- * <p>This annotation is somewhat similar to {@code @ParameterizedTest}, as in it also can run test multiple times per module.</p>
+ * <p>This annotation is somewhat similar to {@code @ParameterizedTest}, as in it also can run test multiple times per module.
  *
- * <p>Methods annotated with this annotation should not be annotated with {@code Test}.</p>
+ * <p>Methods annotated with this annotation should not be annotated with {@code Test}.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -38,7 +38,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public @interface ApiCompatibilityTest {
 
     /**
-     * Module old versions to check compatibility against. If empty, uses {@code versions.json}.
+     * Module old versions to check compatibility against.
+     *
+     * <p>If empty, uses {@code versions.json}.
+     *
+     * <p>If single value is given and it looks like a static factory method, this method is used to provide versions.
+     * Factory methods in external classes must be referenced by
+     * <em>fully qualified method name</em> &mdash; for example,
+     * {@code "com.example.StringsProviders#blankStrings"} or
+     * {@code "com.example.TopLevelClass$NestedClass#classMethod"} for a factory
+     * method in a static nested class.
      */
     String[] oldVersions() default {};
 
