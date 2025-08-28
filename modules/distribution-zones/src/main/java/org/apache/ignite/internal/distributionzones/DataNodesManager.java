@@ -1112,7 +1112,7 @@ public class DataNodesManager {
         }
 
         try {
-            if (dataNodes.isEmpty()) {
+            if (zoneId != 0 && dataNodes.isEmpty()) {
                 throw new RuntimeException("Empty data nodes set is not allowed [zoneId=" + zoneId + "].");
             }
 
