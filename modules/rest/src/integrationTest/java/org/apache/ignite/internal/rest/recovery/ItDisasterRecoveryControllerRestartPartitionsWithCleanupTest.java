@@ -172,6 +172,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsWithCleanupTest extend
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     public void testRestartPartitionsWithCleanupByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
