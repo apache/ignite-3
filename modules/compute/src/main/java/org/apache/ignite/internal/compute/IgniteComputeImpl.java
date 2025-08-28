@@ -163,15 +163,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(descriptor);
 
         ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, descriptor.argumentMarshaller());
+        ExecutionContext executionContext = new ExecutionContext(descriptor, metadataBuilder, argHolder);
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
             return unmarshalResult(
-                    executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), metadataBuilder,
-                            argHolder, cancellationToken
-                    ),
+                    executeAsyncWithFailover(nodes, executionContext, cancellationToken),
                     descriptor,
                     observableTimestampTracker
             );
@@ -183,7 +181,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             QualifiedName tableName = colocatedTarget.tableName();
             Object key = colocatedTarget.key();
 
-            metadataBuilder.tableName(tableName.toCanonicalForm());
+            executionContext.metadataBuilder().tableName(tableName.toCanonicalForm());
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobFut;
             if (mapper != null) {
@@ -200,11 +198,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                                 key,
                                                 mapper
                                         ),
-                                        descriptor.units(),
-                                        descriptor.jobClassName(),
-                                        descriptor.options(),
-                                        metadataBuilder,
-                                        argHolder,
+                                        executionContext,
                                         cancellationToken
                                 )));
 
@@ -213,11 +207,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenCompose(table -> submitColocatedInternal(
                                 table,
                                 (Tuple) key,
-                                descriptor.units(),
-                                descriptor.jobClassName(),
-                                descriptor.options(),
-                                metadataBuilder,
-                                argHolder,
+                                executionContext,
                                 cancellationToken
                         ));
             }
@@ -360,11 +350,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 executeOnOneNodeWithFailover(
                         node,
                         nextWorkerSelector,
-                        descriptor.units(),
-                        descriptor.jobClassName(),
-                        options,
-                        metadataBuilder,
-                        argHolder,
+                        new ExecutionContext(options, descriptor.units(), descriptor.jobClassName(), metadataBuilder, argHolder),
                         cancellationToken
                 ),
                 descriptor,
@@ -408,11 +394,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
@@ -431,16 +413,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
-        return executeOnOneNodeWithFailover(
-                targetNode,
-                selector,
-                units,
-                jobClassName,
-                options,
-                metadataBuilder,
-                arg,
-                cancellationToken
-        );
+        return executeOnOneNodeWithFailover(targetNode, selector, executionContext, cancellationToken);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -457,41 +430,26 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions jobExecutionOptions,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
-        ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
-
-        return executeOnOneNodeWithFailover(
-                targetNode, nextWorkerSelector, units, jobClassName, options, metadataBuilder,
-                arg, cancellationToken
-        );
+        return convertToComputeFuture(
+                executeOnOneNodeWithFailoverInternal(targetNode, nextWorkerSelector, executionContext, cancellationToken)
+        ).thenApply(JobExecutionWrapper::new);
     }
 
-    private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
+    private CompletableFuture<? extends JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailoverInternal(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
-        metadataBuilder.initiatorNode(nodeName);
+        executionContext.metadataBuilder().initiatorNode(nodeName);
 
         if (isLocal(targetNode)) {
-            return convertToComputeFuture(computeComponent.executeLocally(
-                    options, units, jobClassName, metadataBuilder, arg, cancellationToken
-            )).thenApply(JobExecutionWrapper::new);
+            return computeComponent.executeLocally(executionContext, cancellationToken);
         } else {
-            return convertToComputeFuture(computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, options, units, jobClassName, metadataBuilder, arg, cancellationToken
-            )).thenApply(JobExecutionWrapper::new);
+            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, executionContext, cancellationToken);
         }
     }
 
@@ -520,18 +478,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, nodeProperties, table, key),
-                        units, jobClassName, options, metadataBuilder, arg, cancellationToken
+                        executionContext,
+                        cancellationToken
                 ));
     }
 
@@ -560,7 +515,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         new PartitionNextWorkerSelector(
                                 placementDriver, topologyService, clock, nodeProperties,
                                 table.zoneId(), table.tableId(), partition),
-                        units, jobClassName, options, metadataBuilder, arg, cancellationToken
+                        new ExecutionContext(options, units, jobClassName, metadataBuilder, arg),
+                        cancellationToken
                 ));
     }
 
@@ -709,23 +665,25 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
-            ReceiverExecutionOptions options) {
-        JobExecutionOptions jobOptions = JobExecutionOptions.builder()
+            ReceiverExecutionOptions options
+    ) {
+        ExecutionOptions jobOptions = ExecutionOptions.builder()
                 .priority(options.priority())
                 .maxRetries(options.maxRetries())
                 .executorType(options.executorType())
                 .build();
 
-        // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-        return executeAsyncWithFailover(
-                Set.of(node),
+        ExecutionContext executionContext = new ExecutionContext(
+                jobOptions,
                 deploymentUnits,
                 getReceiverJobClassName(options.executorType()),
-                jobOptions,
                 ComputeEventMetadata.builder(Type.DATA_RECEIVER),
-                SharedComputeUtils.marshalArgOrResult(payload, null),
-                null
-        ).thenCompose(JobExecution::resultAsync)
+                SharedComputeUtils.marshalArgOrResult(payload, null)
+        );
+
+        // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
+        return executeAsyncWithFailover(Set.of(node), executionContext, null)
+                .thenCompose(JobExecution::resultAsync)
                 .handle((res, err) -> {
                     if (err != null) {
                         if (err.getCause() instanceof ComputeException) {
