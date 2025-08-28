@@ -15,23 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.example.serialization;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.compute.utils.Clients;
-import org.junit.jupiter.api.AfterEach;
+public class JsonResult {
 
-class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
-    private final Clients clients = new Clients();
-
-    @AfterEach
-    void cleanup() {
-        clients.cleanup();
-    }
-
-    @Override
-    protected IgniteCompute compute(Ignite entryNode) {
-        return clients.compute(entryNode);
-    }
+    String originalWord;
+    String resultWord;
+    int length;
 }

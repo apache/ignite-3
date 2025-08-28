@@ -327,4 +327,25 @@ public class PageHeader {
 
         putInt(absPtr + PARTITION_GENERATION_OFFSET, partitionGeneration);
     }
+
+    /**
+     * Reads dirty full page ID from page header.
+     *
+     * @param absPtr Absolute memory pointer to the page header.
+     */
+    public static DirtyFullPageId dirtyFullPageId(long absPtr) {
+        return new DirtyFullPageId(pageId(absPtr), pageGroupId(absPtr), partitionGeneration(absPtr));
+    }
+
+    /**
+     * Writes dirty full page ID to page header.
+     *
+     * @param absPtr Absolute memory pointer to the page header.
+     * @param dirtyFullPageId Dirty full page ID to write.
+     */
+    public static void dirtyFullPageId(long absPtr, DirtyFullPageId dirtyFullPageId) {
+        pageId(absPtr, dirtyFullPageId.pageId());
+        pageGroupId(absPtr, dirtyFullPageId.groupId());
+        partitionGeneration(absPtr, dirtyFullPageId.partitionGeneration());
+    }
 }

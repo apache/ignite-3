@@ -180,7 +180,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 logicalTopologyService,
                 jobContextManager,
                 computeExecutor,
-                computeConfiguration
+                computeConfiguration,
+                EventLog.NOOP
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());

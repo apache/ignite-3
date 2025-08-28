@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.events;
+package org.apache.ignite.tx;
 
-import org.apache.ignite.compute.IgniteCompute;
-
-class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
-    @Override
-    protected IgniteCompute compute() {
-        return node(0).compute();
-    }
+/**
+ * This is the marker interface for exceptions that can be retried if happened in {@link IgniteTransactions#runInTransaction} and
+ * {@link IgniteTransactions#runInTransactionAsync}.
+ */
+public interface RetriableTransactionException {
 }

@@ -225,7 +225,7 @@ public class ClusterInitializer {
                                             e = e.getCause();
                                         }
 
-                                        LOG.info("Initialization failed [reason={}]", e, e.getMessage());
+                                        LOG.warn("Initialization failed [reason={}]", e, e.getMessage());
 
                                         if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
                                             return CompletableFuture.<Void>failedFuture(e);
@@ -291,8 +291,10 @@ public class ClusterInitializer {
                             if (response instanceof InitErrorMessage) {
                                 var errorResponse = (InitErrorMessage) response;
 
+                                LOG.warn("Got error response from node \"{}\": {}", node.name(), errorResponse.cause());
+
                                 throw new InternalInitException(
-                                        String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
+                                        String.format("Initialization of node \"%s\" failed: %s", node.name(), errorResponse.cause()),
                                         errorResponse.shouldCancel()
                                 );
                             } else if (!(response instanceof InitCompleteMessage || response instanceof PrepareInitCompleteMessage)) {

@@ -84,7 +84,6 @@ public interface ClientCompatibilityTests {
     AtomicInteger idGen();
 
     default String tableNamePrefix() {
-        // TODO IGNITE-25846 Remove this method, table name should be the same across versions.
         return "";
     }
 

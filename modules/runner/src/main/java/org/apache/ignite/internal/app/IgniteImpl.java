@@ -1251,7 +1251,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
                 computeExecutor,
-                computeCfg
+                computeCfg,
+                eventLog
         );
 
         systemViewManager.register(computeComponent);

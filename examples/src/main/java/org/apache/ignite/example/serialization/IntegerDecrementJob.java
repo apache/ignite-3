@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.example.serialization;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.IgniteCompute;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-class ItEmbeddedWorkerShutdownTest extends ItWorkerShutdownTest {
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+public class IntegerDecrementJob implements ComputeJob<Integer, Integer> {
     @Override
-    IgniteCompute compute(Ignite entryNode) {
-        return entryNode.compute();
+    public CompletableFuture<Integer> executeAsync(JobExecutionContext ctx, Integer arg) {
+        return completedFuture(Optional.ofNullable(arg).map(integer -> integer - 1).orElse(null));
     }
 }
