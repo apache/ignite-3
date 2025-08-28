@@ -63,6 +63,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -152,7 +153,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 pageWriter,
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId0, partitionMeta0, groupPartId1, partitionMeta1)),
-                () -> false
+                () -> false,
+                new PartitionDestructionLockManager()
         );
 
         pagesWriter.run();
@@ -231,7 +233,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
-                () -> false
+                () -> false,
+                new PartitionDestructionLockManager()
         );
 
         pagesWriter.run();
@@ -292,7 +295,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, partitionMeta)),
-                () -> checkpointWritePageCount.get() > 0
+                () -> checkpointWritePageCount.get() > 0,
+                new PartitionDestructionLockManager()
         );
 
         pagesWriter.run();

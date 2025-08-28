@@ -225,6 +225,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param rwLock Read-write lock for pages.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     public PersistentPageMemory(
             PersistentDataRegionConfiguration dataRegionConfiguration,
@@ -235,7 +236,8 @@ public class PersistentPageMemory implements PageMemory {
             PageReadWriteManager pageStoreManager,
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
-            OffheapReadWriteLock rwLock
+            OffheapReadWriteLock rwLock,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.dataRegionConfiguration = dataRegionConfiguration;
         this.metricSource = metricSource;
@@ -272,7 +274,13 @@ public class PersistentPageMemory implements PageMemory {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
+        delayedPageReplacementTracker = new DelayedPageReplacementTracker(
+                pageSize,
+                flushDirtyPageForReplacement,
+                LOG,
+                sizes.length - 1,
+                partitionDestructionLockManager
+        );
 
         this.writeThrottle = null;
     }

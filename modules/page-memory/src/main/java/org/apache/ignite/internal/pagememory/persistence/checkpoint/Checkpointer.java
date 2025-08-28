@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMI
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -184,6 +184,8 @@ public class Checkpointer extends IgniteWorker {
 
     private final LogSyncer logSyncer;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /**
      * Constructor.
      *
@@ -197,6 +199,7 @@ public class Checkpointer extends IgniteWorker {
      * @param pageSize Page size.
      * @param checkpointConfig Checkpoint configuration.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     Checkpointer(
             String igniteInstanceName,
@@ -209,7 +212,8 @@ public class Checkpointer extends IgniteWorker {
             Compactor compactor,
             int pageSize,
             CheckpointConfiguration checkpointConfig,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 
@@ -223,6 +227,7 @@ public class Checkpointer extends IgniteWorker {
         this.failureManager = failureManager;
         this.logSyncer = logSyncer;
         this.partitionMetaManager = partitionMetaManager;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
@@ -613,7 +618,7 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        Lock partitionDesctructionLock = currentCheckpointProgress.partitionDesctructionLock(partitionId);
+        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
         partitionDesctructionLock.lock();
 
@@ -930,30 +935,6 @@ public class Checkpointer extends IgniteWorker {
      */
     void updateLastProgressAfterReleaseWriteLock() {
         afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
-    }
-
-    /**
-     * Prepares the checkpointer to destroy a partition.
-     *
-     * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
-     * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
-     * I/O operations on them.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will end when the checkpoint is ready to destroy the partition.
-     */
-    CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
-        CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
-
-        // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
-        // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
-        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
-            return nullCompletedFuture();
-        }
-
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
-
-        return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 
     private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {

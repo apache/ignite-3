@@ -45,6 +45,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -119,6 +120,8 @@ public class CheckpointPagesWriter implements Runnable {
     /** Shutdown now. */
     private final BooleanSupplier shutdownNow;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /**
      * Creates task for write pages.
      *
@@ -134,6 +137,7 @@ public class CheckpointPagesWriter implements Runnable {
      * @param ioRegistry Page IO registry.
      * @param partitionMetaManager Partition meta information manager.
      * @param shutdownNow Shutdown supplier.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     CheckpointPagesWriter(
             CheckpointMetricsTracker tracker,
@@ -147,7 +151,8 @@ public class CheckpointPagesWriter implements Runnable {
             WriteDirtyPage pageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
-            BooleanSupplier shutdownNow
+            BooleanSupplier shutdownNow,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.tracker = tracker;
         this.dirtyPartitionQueue = dirtyPartitionQueue;
@@ -161,6 +166,7 @@ public class CheckpointPagesWriter implements Runnable {
         this.ioRegistry = ioRegistry;
         this.partitionMetaManager = partitionMetaManager;
         this.shutdownNow = shutdownNow;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
     }
 
     @Override
@@ -204,7 +210,7 @@ public class CheckpointPagesWriter implements Runnable {
     ) throws IgniteInternalCheckedException {
         CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
 
-        Lock partitionDesctructionLock = checkpointProgress.partitionDesctructionLock(partitionId);
+        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
         partitionDesctructionLock.lock();
 
@@ -287,7 +293,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                         partitionId = GroupPartitionId.convert(pageId);
 
-                        partitionDesctructionLock = checkpointProgress.partitionDesctructionLock(partitionId);
+                        partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
                         partitionDesctructionLock.lock();
                     }
@@ -340,7 +346,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                     GroupPartitionId partitionId = GroupPartitionId.convert(cpPageId);
 
-                    Lock partitionDesctructionLock = checkpointProgress.partitionDesctructionLock(partitionId);
+                    Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
                     partitionDesctructionLock.lock();
 

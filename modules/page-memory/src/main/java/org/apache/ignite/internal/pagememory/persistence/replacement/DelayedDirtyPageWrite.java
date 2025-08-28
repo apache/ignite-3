@@ -25,6 +25,7 @@ import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
@@ -56,6 +57,8 @@ public class DelayedDirtyPageWrite {
     /** Replacing pages tracker, used to register & unregister pages being written. */
     private final DelayedPageReplacementTracker tracker;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /** Full page id to be written on {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
     private @Nullable DirtyFullPageId fullPageId;
 
@@ -74,18 +77,21 @@ public class DelayedDirtyPageWrite {
      * @param byteBufThreadLoc Thread local buffers to use for pages copying.
      * @param pageSize Page size in bytes.
      * @param tracker Tracker to lock/unlock page reads.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     DelayedDirtyPageWrite(
             WriteDirtyPage flushDirtyPage,
             ThreadLocal<ByteBuffer> byteBufThreadLoc,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
-            DelayedPageReplacementTracker tracker
+            DelayedPageReplacementTracker tracker,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.flushDirtyPage = flushDirtyPage;
         this.pageSize = pageSize;
         this.byteBufThreadLoc = byteBufThreadLoc;
         this.tracker = tracker;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
     }
 
     /**
@@ -135,7 +141,7 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
-        Lock partitionDesctructionLock = checkpointPages.partitionDesctructionLock(GroupPartitionId.convert(fullPageId));
+        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(GroupPartitionId.convert(fullPageId)).readLock();
 
         partitionDesctructionLock.lock();
 

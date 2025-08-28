@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgressImpl;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -109,6 +108,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     protected void finishDestruction() {
         dataRegion.pageMemory().onGroupDestroyed(getTableId());
+
+        dataRegion.checkpointManager().partitionDestructionLockManager().removeLockForGroup(getTableId());
 
         try {
             dataRegion.filePageStoreManager().destroyGroupIfExists(getTableId());
@@ -366,32 +367,19 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
-        CheckpointProgress currentCheckpointProgress = dataRegion.checkpointManager().currentCheckpointProgress();
+        Lock partitionDestructionLock = dataRegion.checkpointManager().partitionDestructionLockManager().destructionLock(groupPartitionId)
+                .writeLock();
 
-        assert currentCheckpointProgress == null || currentCheckpointProgress instanceof CheckpointProgressImpl :
-                "currentCheckpointProgress=" + currentCheckpointProgress + ", groupPartitionId=" + groupPartitionId;
-
-        Lock partitionDesctructionLock = null;
-
-        if (currentCheckpointProgress != null) {
-            partitionDesctructionLock = ((CheckpointProgressImpl) currentCheckpointProgress).partitionDesctructionLock(groupPartitionId);
-        }
-
-        if (partitionDesctructionLock != null) {
-            partitionDesctructionLock.lock();
-        }
+        partitionDestructionLock.lock();
 
         try {
             dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
 
             dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
 
-            return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
-                    .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+            return dataRegion.filePageStoreManager().destroyPartition(groupPartitionId);
         } finally {
-            if (partitionDesctructionLock != null) {
-                partitionDesctructionLock.unlock();
-            }
+            partitionDestructionLock.unlock();
         }
     }
 

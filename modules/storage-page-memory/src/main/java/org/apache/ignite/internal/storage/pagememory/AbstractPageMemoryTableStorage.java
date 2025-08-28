@@ -26,15 +26,12 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToC
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
@@ -292,43 +289,20 @@ public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemor
         }
     }
 
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractPageMemoryTableStorage.class);
-
-    // TODO: IGNITE-26315 Вернуть как было
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        long startNanos = System.nanoTime();
+        return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+            mvPartitionStorage.startRebalance();
 
-        return busy(() -> {
-            LOG.info(">>>>> in busy: {}", Duration.ofNanos(System.nanoTime() - startNanos));
-
-            return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
-                LOG.info(">>>>> in startRebalance: {}", Duration.ofNanos(System.nanoTime() - startNanos));
-
-                mvPartitionStorage.startRebalance();
-
-                LOG.info(">>>>> after mvPartitionStorage.startRebalance: {}", Duration.ofNanos(System.nanoTime() - startNanos));
-
-                return clearStorageAndUpdateDataStructures(mvPartitionStorage)
-                        .thenAccept(unused -> {
-                            LOG.info(
-                                    ">>>>> after clearStorageAndUpdateDataStructures: {}",
-                                    Duration.ofNanos(System.nanoTime() - startNanos)
-                            );
-
+            return clearStorageAndUpdateDataStructures(mvPartitionStorage)
+                    .thenAccept(unused ->
                             mvPartitionStorage.runConsistently(locker -> {
                                 mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
                                 return null;
-                            });
-
-                            LOG.info(
-                                    ">>>>> after mvPartitionStorage.runConsistently: {}",
-                                    Duration.ofNanos(System.nanoTime() - startNanos)
-                            );
-                        });
-            });
-        });
+                            })
+                    );
+        }));
     }
 
     @Override

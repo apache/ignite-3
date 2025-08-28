@@ -23,13 +23,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -148,58 +144,5 @@ public class CheckpointPages {
      */
     public void unblockFsyncOnPageReplacement(DirtyFullPageId pageId, @Nullable Throwable error) {
         checkpointProgress.unblockFsyncOnPageReplacement(pageId, error);
-    }
-
-    /**
-     * Blocks physical destruction of partition.
-     *
-     * <p>When the intention to destroy partition appears, {@link FilePageStore#isMarkedToDestroy()} is set to {@code == true} and
-     * {@link PersistentPageMemory#invalidate(int, int)} invoked at the beginning. And if there is a block, it waits for unblocking.
-     * Then it destroys the partition, {@link FilePageStoreManager#getStore(GroupPartitionId)} will return {@code null}.</p>
-     *
-     * <p>It is recommended to use where physical destruction of the partition may have an impact, for example when writing dirty pages and
-     * executing a fsync.</p>
-     *
-     * <p>To make sure that we can physically do something with the partition during a block, we will need to use approximately the
-     * following code:</p>
-     * <pre><code>
-     *     checkpointProgress.blockPartitionDestruction(partitionId);
-     *
-     *     try {
-     *         FilePageStore pageStore = FilePageStoreManager#getStore(partitionId);
-     *
-     *         if (pageStore == null || pageStore.isMarkedToDestroy()) {
-     *             return;
-     *         }
-     *
-     *         someAction(pageStore);
-     *     } finally {
-     *         checkpointProgress.unblockPartitionDestruction(partitionId);
-     *     }
-     * </code></pre>
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @see #unblockPartitionDestruction(GroupPartitionId)
-     */
-    public void blockPartitionDestruction(GroupPartitionId groupPartitionId) {
-        checkpointProgress.blockPartitionDestruction(groupPartitionId);
-    }
-
-    /**
-     * Unblocks physical destruction of partition.
-     *
-     * <p>As soon as the last thread makes an unlock, the physical destruction of the partition can immediately begin.</p>
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @see #blockPartitionDestruction(GroupPartitionId)
-     */
-    public void unblockPartitionDestruction(GroupPartitionId groupPartitionId) {
-        checkpointProgress.unblockPartitionDestruction(groupPartitionId);
-    }
-
-    /** No doc yet. */
-    // TODO: IGNITE-26315 Исправить документацию и удалить не используемые методы
-    public Lock partitionDesctructionLock(GroupPartitionId groupPartitionId) {
-        return checkpointProgress.partitionDesctructionLock(groupPartitionId);
     }
 }

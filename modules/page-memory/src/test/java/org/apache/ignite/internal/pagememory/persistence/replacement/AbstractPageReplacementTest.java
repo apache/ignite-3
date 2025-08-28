@@ -154,7 +154,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 filePageStoreManager,
                 checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         dataRegionList.add(() -> pageMemory);
