@@ -46,7 +46,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 /**
  * Local configuration storage.
  */
-public class LocalConfigurationStorage implements ConfigurationStorage {
+public class VaultConfigurationStorage implements LocalConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in the Vault. */
     private static final String LOC_PREFIX = "loc-cfg.";
 
@@ -54,7 +54,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray VERSION_KEY = new ByteArray(LOC_PREFIX + "$version");
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LocalConfigurationStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(VaultConfigurationStorage.class);
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -89,9 +89,14 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
      *
      * @param vaultMgr Vault manager.
      */
-    public LocalConfigurationStorage(String nodeName, VaultManager vaultMgr) {
+    public VaultConfigurationStorage(String nodeName, VaultManager vaultMgr) {
         this.vaultMgr = vaultMgr;
         this.threadPool = Executors.newFixedThreadPool(4, IgniteThreadFactory.create(nodeName, "loc-cfg", LOG));
+    }
+
+    @Override
+    public boolean userModificationsAllowed() {
+        return false;
     }
 
     @Override
