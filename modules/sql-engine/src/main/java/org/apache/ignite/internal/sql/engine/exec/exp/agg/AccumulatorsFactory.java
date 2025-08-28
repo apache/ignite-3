@@ -260,6 +260,8 @@ public class AccumulatorsFactory<RowT> {
     private static final class AccumulatorWrapperImpl<RowT> implements AccumulatorWrapper<RowT> {
         static final IntList SINGLE_ARG_LIST = IntList.of(0);
 
+        private static final Object[] NO_ARGUMENTS = {null};
+
         private final Accumulator accumulator;
 
         private final Function<Object[], Object[]> inAdapter;
@@ -322,9 +324,10 @@ public class AccumulatorsFactory<RowT> {
                 return null;
             }
 
-            if (literalAgg) {
+            if (literalAgg || grouping) {
                 // LiteralAgg has a constant as its argument.
-                return new Object[]{null};
+                // Grouping aggregate doesn't accepts rows.
+                return NO_ARGUMENTS;
             }
 
             if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {

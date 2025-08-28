@@ -231,6 +231,9 @@ public class Accumulators {
         return () -> new GroupingAccumulator(call.getArgList());
     }
 
+    /**
+     * {@code GROUPING(column [, ...])} accumulator. Pseudo accumulator that accepts group key columns set.
+     */
     public static class GroupingAccumulator implements Accumulator {
         private final List<Integer> argList;
 
@@ -241,11 +244,7 @@ public class Accumulators {
 
         @Override
         public void add(AccumulatorsState state, Object[] args) {
-            if (state.get() == null) {
-                assert args.length == 1 && args[0] instanceof ImmutableBitSet;
-
-                state.set(args[0]);
-            }
+            assert false;
         }
 
         @Override

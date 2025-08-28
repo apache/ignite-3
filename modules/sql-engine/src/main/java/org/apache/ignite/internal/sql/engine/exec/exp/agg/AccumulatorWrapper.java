@@ -27,7 +27,7 @@ public interface AccumulatorWrapper<RowT> {
     /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
     boolean isDistinct();
 
-    /** Returns {@code true} if the accumulator function should be applied groupset keys. */
+    /** Returns {@code true} if the accumulator function should be applied to groupset keys. */
     boolean isGrouping();
 
     /** Returns the accumulator function. */

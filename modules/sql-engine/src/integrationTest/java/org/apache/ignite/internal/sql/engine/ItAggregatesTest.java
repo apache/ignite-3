@@ -535,13 +535,33 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("rulesForGroupingSets")
-    public void testGroupingSetsWithGroupingAggregate(String[] rules) {
+    public void testGroupingFunction(String[] rules) {
+        sql("DELETE FROM test_str_int_real_dec");
+
         sql("DELETE FROM test_str_int_real_dec");
 
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (4, 's3', 40)");
+
+        assertQuery("SELECT GROUPING(str_col), str_col FROM test_str_int_real_dec GROUP BY GROUPING SETS ((str_col))")
+                .disableRules(rules)
+                .returns(1L, "s1")
+                .returns(1L, "s2")
+                .returns(1L, "s3")
+                .check();
+
+
+        assertQuery("SELECT GROUPING(str_col), str_col FROM test_str_int_real_dec GROUP BY GROUPING SETS ((str_col), (str_col))")
+                .disableRules(rules)
+                .returns(1L, "s1")
+                .returns(1L, "s1")
+                .returns(1L, "s2")
+                .returns(1L, "s2")
+                .returns(1L, "s3")
+                .returns(1L, "s3")
+                .check();
 
         assertQuery("SELECT GROUPING(int_col, str_col), GROUPING(int_col),"
                 + "str_col, SUM(int_col), COUNT(str_col) FROM test_str_int_real_dec GROUP BY GROUPING SETS "
@@ -567,7 +587,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("rulesForGroupingSets")
-    public void testGroupingFunction(String[] rules) {
+    public void testDuplicateGroupingSets(String[] rules) {
         sql("DELETE FROM test_str_int_real_dec");
 
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");

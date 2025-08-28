@@ -72,15 +72,13 @@ public class AggregateRow<RowT> {
 
             state.setIndex(i);
 
-            if (acc.isDistinct()) {
+            if (acc.isGrouping()) {
+                state.set(grpFields);
+            } else if (acc.isDistinct()) {
                 Set<Object> distinctSet = distinctSets.get(i);
                 distinctSet.add(args[0]);
             } else {
-                if (acc.isGrouping()) {
-                    acc.accumulator().add(state, new Object[]{grpFields});
-                } else {
-                    acc.accumulator().add(state, args);
-                }
+                acc.accumulator().add(state, args);
             }
 
             state.resetIndex();
@@ -113,16 +111,12 @@ public class AggregateRow<RowT> {
             result.setIndex(i);
 
             if (acc.isDistinct()) {
+                assert !acc.isGrouping();
+
                 Set<Object> distinctSet = distinctSets.get(i);
 
-                if (acc.isGrouping()) {
-                    if (!distinctSet.isEmpty()) {
-                        acc.accumulator().add(state, new Object[]{groupFields});
-                    }
-                } else {
-                    for (var arg : distinctSet) {
-                        acc.accumulator().add(state, new Object[]{arg});
-                    }
+                for (var arg : distinctSet) {
+                    acc.accumulator().add(state, new Object[]{arg});
                 }
             }
 

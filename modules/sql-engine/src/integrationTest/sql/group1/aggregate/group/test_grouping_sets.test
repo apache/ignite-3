@@ -115,7 +115,7 @@ GROUP BY GROUPING SETS ((city_id), (category_id), ())
 0	0	17800.00	75600.00
 
 skipif ignite3
-# CREATE TICKET
+# https://issues.apache.org/jira/browse/IGNITE-26335 Conversion to relational algebra failed to preserve datatypes
 query IIT rowsort
 SELECT GROUPING(id), GROUPING(id), id
 FROM ( VALUES
@@ -130,7 +130,7 @@ GROUP BY ALL GROUPING SETS (id)
 1	1	367fc6f1-40c3-4237-8545-3fd102d29134
 
 skipif ignite3
-# CREATE TICKET
+# https://issues.apache.org/jira/browse/IGNITE-26335 Conversion to relational algebra failed while rewriting GROUPING SETS to UNION
 # Duplicate groups
 query IIT rowsort
 SELECT GROUPING(val), GROUPING(val), val
