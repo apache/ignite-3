@@ -25,7 +25,25 @@ class ItApiCompatibilityTest {
     @ApiCompatibilityTest(
             newVersion = "3.1.0-SNAPSHOT",
             oldVersions = "3.0.0",
-            errorOnIncompatibility = false
+            exclude = "org.apache.ignite.Ignite#clusterNodes();"
+                    + "org.apache.ignite.Ignite#clusterNodesAsync();"
+                    + "org.apache.ignite.catalog.IgniteCatalog#dropTable(java.lang.String);"
+                    + "org.apache.ignite.catalog.IgniteCatalog#dropTableAsync(java.lang.String);"
+                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinition(java.lang.String);"
+                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinitionAsync(java.lang.String);"
+                    + "org.apache.ignite.compute.ColocatedJobTarget;"
+                    + "org.apache.ignite.compute.TableJobTarget;"
+                    + "org.apache.ignite.lang.ColumnNotFoundException;"
+                    + "org.apache.ignite.lang.IndexAlreadyExistsException;"
+                    + "org.apache.ignite.lang.IndexNotFoundException;"
+                    + "org.apache.ignite.lang.TableAlreadyExistsException;"
+                    + "org.apache.ignite.lang.TableNotFoundException;"
+                    + "org.apache.ignite.lang.util.IgniteNameUtils;"
+                    + "org.apache.ignite.sql.IgniteSql;"
+                    + "org.apache.ignite.table.DataStreamerTarget;"
+                    + "org.apache.ignite.table.IgniteTables;"
+                    + "org.apache.ignite.table.QualifiedName;"
+                    + "org.apache.ignite.table.Table;"
     )
     void testApiModule(CompatibilityOutput output) {}
 
