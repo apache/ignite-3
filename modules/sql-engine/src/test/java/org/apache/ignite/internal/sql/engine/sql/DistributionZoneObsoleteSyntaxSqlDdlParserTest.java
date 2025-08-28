@@ -116,7 +116,7 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
 
         List<SqlNode> optList = createZone.createOptionList().getList();
 
-        assertThat(optList.size(), is(8));
+        assertThat(optList.size(), is(7));
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");

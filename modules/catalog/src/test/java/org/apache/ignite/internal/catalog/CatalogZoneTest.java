@@ -88,7 +88,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
