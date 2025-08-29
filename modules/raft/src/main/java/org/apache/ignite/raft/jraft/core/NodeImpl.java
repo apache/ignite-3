@@ -1380,15 +1380,54 @@ public class NodeImpl implements Node, RaftServerService {
         if (!useSharedDisruptor || opts.isSystemGroup()) {
             int stripes = opts.getStripes();
             if (opts.isSystemGroup()) {
+                // Override with dedicated set of disruptors for system groups.
                 opts.setfSMCallerExecutorDisruptor(StripedDisruptor.createSerialDisruptor(
                         opts.getServerName(),
-                        "JRaft-FSMCaller-Disruptor-" + groupId,
+                        (opts.isSystemGroup() ? "[SYS]" : "") + "JRaft-FSMCaller-Disruptor-" + groupId,
                         (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
                         opts.getRaftOptions().getDisruptorBufferSize(),
                         ApplyTask::new,
                         false,
                         null
                 ));
+
+                opts.setNodeApplyDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        (opts.isSystemGroup() ? "[SYS]" : "") + "JRaft-NodeImpl-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        LogEntryAndClosure::new,
+                        stripes,
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                ));
+
+                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        (opts.isSystemGroup() ? "[SYS]" : "") + "JRaft-ReadOnlyService-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        ReadIndexEvent::new,
+                        stripes,
+                        false,
+                        false,
+                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                ));
+
+                opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                        opts.getServerName(),
+                        (opts.isSystemGroup() ? "[SYS]" : "") + "JRaft-LogManager-Disruptor",
+                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                        opts.getRaftOptions().getDisruptorBufferSize(),
+                        StableClosureEvent::new,
+                        Math.min(stripes, opts.getLogStripesCount()),
+                        logStorage instanceof RocksDbSharedLogStorage,
+                        opts.isLogYieldStrategy(),
+                        opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                ));
+
+                opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
             } else {
                 if (opts.getfSMCallerExecutorDisruptor() == null) {
                     opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
@@ -1403,50 +1442,50 @@ public class NodeImpl implements Node, RaftServerService {
                             opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
                     ));
                 }
-            }
 
-            if (opts.getNodeApplyDisruptor() == null) {
-                opts.setNodeApplyDisruptor(new StripedDisruptor<>(
-                        opts.getServerName(),
-                        "JRaft-NodeImpl-Disruptor",
-                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
-                        opts.getRaftOptions().getDisruptorBufferSize(),
-                        LogEntryAndClosure::new,
-                        stripes,
-                        false,
-                        false,
-                        opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
-                ));
-            }
+                if (opts.getNodeApplyDisruptor() == null) {
+                    opts.setNodeApplyDisruptor(new StripedDisruptor<>(
+                            opts.getServerName(),
+                            "JRaft-NodeImpl-Disruptor",
+                            (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                            opts.getRaftOptions().getDisruptorBufferSize(),
+                            LogEntryAndClosure::new,
+                            stripes,
+                            false,
+                            false,
+                            opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                    ));
+                }
 
-            if (opts.getReadOnlyServiceDisruptor() == null) {
-                opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
-                        opts.getServerName(),
-                        "JRaft-ReadOnlyService-Disruptor",
-                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
-                        opts.getRaftOptions().getDisruptorBufferSize(),
-                        ReadIndexEvent::new,
-                        stripes,
-                        false,
-                        false,
-                        opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
-                ));
-            }
+                if (opts.getReadOnlyServiceDisruptor() == null) {
+                    opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
+                            opts.getServerName(),
+                            "JRaft-ReadOnlyService-Disruptor",
+                            (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                            opts.getRaftOptions().getDisruptorBufferSize(),
+                            ReadIndexEvent::new,
+                            stripes,
+                            false,
+                            false,
+                            opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                    ));
+                }
 
-            if (opts.getLogManagerDisruptor() == null) {
-                opts.setLogManagerDisruptor(new StripedDisruptor<>(
-                        opts.getServerName(),
-                        "JRaft-LogManager-Disruptor",
-                        (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
-                        opts.getRaftOptions().getDisruptorBufferSize(),
-                        StableClosureEvent::new,
-                        Math.min(stripes, opts.getLogStripesCount()),
-                        logStorage instanceof RocksDbSharedLogStorage,
-                        opts.isLogYieldStrategy(),
-                        opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
-                ));
+                if (opts.getLogManagerDisruptor() == null) {
+                    opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                            opts.getServerName(),
+                            "JRaft-LogManager-Disruptor",
+                            (stripeName, logger) -> create(opts.getServerName(), stripeName, true, logger),
+                            opts.getRaftOptions().getDisruptorBufferSize(),
+                            StableClosureEvent::new,
+                            Math.min(stripes, opts.getLogStripesCount()),
+                            logStorage instanceof RocksDbSharedLogStorage,
+                            opts.isLogYieldStrategy(),
+                            opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                    ));
 
-                opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+                    opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+                }
             }
         } else {
             // Shared disruptor may be already set in Raft Server. TODO remove support here ?

@@ -320,11 +320,12 @@ public class JraftServerImpl implements RaftServer {
         // Logit log storage doesn't support shared access.
         boolean enabledShared = !IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT);
 
-//        BiFunction<String, IgniteLogger, ThreadFactory> fac = (stripeName, logger) -> IgniteThreadFactory.create(
-//                opts.getServerName(), stripeName, logger);
+        boolean enableVirtual = !IgniteSystemProperties.getBoolean("ENABLE_VIRTUAL", false);
 
-        BiFunction<String, IgniteLogger, ThreadFactory> fac = (stripeName, logger) -> IgniteThreadFactory.createVirtual(
-                opts.getServerName(), stripeName, logger);
+        BiFunction<String, IgniteLogger, ThreadFactory> fac =
+                enableVirtual ? (stripeName, logger) -> IgniteThreadFactory.createVirtual(opts.getServerName(), stripeName, logger)
+                        : (stripeName, logger) -> IgniteThreadFactory.create(
+                                opts.getServerName(), stripeName, logger);
 
         if (!useSharedDisruptor) {
             if (opts.getfSMCallerExecutorDisruptor() == null) {

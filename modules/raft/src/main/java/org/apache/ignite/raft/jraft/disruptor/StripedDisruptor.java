@@ -38,6 +38,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
@@ -159,6 +160,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
         this.sharedStripe = sharedStripe;
         this.metrics = raftMetrics;
 
+        boolean useSpinWait = IgniteSystemProperties.getBoolean("USE_SPIN_WAIT", false);
+
         for (int i = 0; i < stripes; i++) {
             String stripeName = format("{}_stripe_{}", poolName, i);
 
@@ -167,8 +170,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
                     .setEventFactory(eventFactory)
                     .setThreadFactory(threadFactorySupplier.apply(stripeName, LOG))
                     .setProducerType(ProducerType.MULTI)
-                    //.setWaitStrategy(new PhasedBackoffWaitStrategy(100, 0, TimeUnit.MICROSECONDS, new BlockingWaitStrategy()))
-                    .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
+                    .setWaitStrategy(useSpinWait ? new PhasedBackoffWaitStrategy(100, 0, TimeUnit.MICROSECONDS, new BlockingWaitStrategy())
+                            : (useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy()))
                     .build();
 
             eventHandlers.add(handler(i));
