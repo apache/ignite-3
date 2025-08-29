@@ -401,22 +401,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             // Allow parallelism for batch operations.
-            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
-                // We are in the public API (user) thread, deserialize the response here.
-                try (ClientMessageUnpacker unpacker = fut.thenApply(ClientMessageUnpacker::retain).join()) {
-                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
-                } catch (Throwable t) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
-                }
-            }
+            // TODO: This block becomes useless after the change in completeRequestFutureAsync
+//            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
+//                // We are in the public API (user) thread, deserialize the response here.
+//                try (ClientMessageUnpacker unpacker = fut.thenApply(ClientMessageUnpacker::retain).join()) {
+//                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
+//                } catch (Throwable t) {
+//                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
+//                }
+//            }
 
-            return fut.handle((unpacker, err) -> {
-                if (err != null) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                }
-
-                return complete(payloadReader, notificationFut, unpacker);
-            });
+            return fut
+                    .thenApply(unpacker -> complete(payloadReader, notificationFut, unpacker))
+                    .exceptionally(err -> { throw sneakyThrow(ViewUtils.ensurePublicException(err)); });
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
