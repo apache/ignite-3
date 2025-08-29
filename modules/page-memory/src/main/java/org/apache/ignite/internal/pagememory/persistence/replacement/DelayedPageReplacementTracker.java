@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 
 /**
@@ -55,6 +56,8 @@ public class DelayedPageReplacementTracker {
      */
     private final Map<Long, DelayedDirtyPageWrite> delayedPageWriteThreadLocMap = new ConcurrentHashMap<>();
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /**
      * Constructor.
      *
@@ -62,17 +65,20 @@ public class DelayedPageReplacementTracker {
      * @param flushDirtyPage Flush dirty page.
      * @param log Logger.
      * @param segmentCnt Segments count.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     public DelayedPageReplacementTracker(
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
             WriteDirtyPage flushDirtyPage,
             IgniteLogger log,
-            int segmentCnt
+            int segmentCnt,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.pageSize = pageSize;
         this.flushDirtyPage = flushDirtyPage;
         this.log = log;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
 
         stripes = new Stripe[segmentCnt];
 
@@ -94,7 +100,7 @@ public class DelayedPageReplacementTracker {
      */
     public DelayedDirtyPageWrite delayedPageWrite() {
         return delayedPageWriteThreadLocMap.computeIfAbsent(Thread.currentThread().getId(),
-                id -> new DelayedDirtyPageWrite(flushDirtyPage, byteBufThreadLoc, pageSize, this));
+                id -> new DelayedDirtyPageWrite(flushDirtyPage, byteBufThreadLoc, pageSize, this, partitionDestructionLockManager));
     }
 
     /**
