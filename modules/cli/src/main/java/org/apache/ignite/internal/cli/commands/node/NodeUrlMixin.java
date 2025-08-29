@@ -48,13 +48,22 @@ public class NodeUrlMixin {
         /**
          * Node URL option.
          */
-        @Option(names = NODE_URL_OPTION, description = NODE_URL_OPTION_DESC, converter = RestEndpointUrlConverter.class)
+        @Option(
+                names = NODE_URL_OPTION,
+                description = NODE_URL_OPTION_DESC,
+                converter = RestEndpointUrlConverter.class,
+                defaultValue = Option.NULL_VALUE
+        )
         private URL nodeUrl;
 
         /**
          * Node name option.
          */
-        @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_NAME_OPTION_DESC)
+        @Option(
+                names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION},
+                description = NODE_NAME_OPTION_DESC,
+                defaultValue = Option.NULL_VALUE
+        )
         private String nodeName;
     }
 
