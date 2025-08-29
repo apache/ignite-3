@@ -153,38 +153,6 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testOnUpdateAutoAdjust() {
-        CompletableFuture<Void> onZoneUpdateFuture = new CompletableFuture<>();
-        CompletableFuture<Void> onAutoAdjustUpdateFuture = new CompletableFuture<>();
-
-        int newAutoAdjust = 303;
-
-        listenAlterZone(new CatalogAlterZoneEventListener(manager) {
-            @Override
-            protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
-                onZoneUpdateFuture.complete(null);
-
-                return nullCompletedFuture();
-            }
-
-            @Override
-            protected CompletableFuture<Void> onAutoAdjustUpdate(AlterZoneEventParameters parameters, int oldAutoAdjust) {
-                assertNotEquals(newAutoAdjust, oldAutoAdjust);
-
-                onAutoAdjustUpdateFuture.complete(null);
-
-                return nullCompletedFuture();
-            }
-        });
-
-        assertThat(manager.execute(createZoneBuilder(ZONE_NAME).build()), willCompleteSuccessfully());
-        assertThat(manager.execute(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(newAutoAdjust).build()), willCompleteSuccessfully());
-
-        assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
-        assertThat(onAutoAdjustUpdateFuture, willCompleteSuccessfully());
-    }
-
-    @Test
     void testOnUpdateAutoAdjustScaleUp() {
         CompletableFuture<Void> onZoneUpdateFuture = new CompletableFuture<>();
         CompletableFuture<Void> onAutoAdjustScaleUpUpdateFuture = new CompletableFuture<>();

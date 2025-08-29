@@ -85,16 +85,6 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
-    CreateZoneImpl dataNodesAutoAdjust(Integer adjust) {
-        Objects.requireNonNull(
-                adjust,
-                "Timeout between node added or node left topology event itself and data nodes switch must not be null."
-        );
-
-        withOptions.add(Option.dataNodesAutoAdjust(adjust));
-        return this;
-    }
-
     CreateZoneImpl dataNodesAutoAdjustScaleUp(Integer adjust) {
         Objects.requireNonNull(adjust, "Timeout between node added topology event itself and data nodes switch must not be null.");
 

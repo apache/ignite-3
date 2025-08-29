@@ -49,17 +49,11 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("partitions=2"));
         assertThat(toString, containsString("replicas=5"));
         assertThat(toString, containsString("quorumSize=3"));
-        assertThat(toString, containsString("dataNodesAutoAdjust=5"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=6"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=7"));
         assertThat(toString, containsString("filter=the-filter"));
         assertThat(toString, containsString("storageProfiles=CatalogStorageProfilesDescriptor ["));
         assertThat(toString, containsString("consistencyMode=STRONG_CONSISTENCY"));
-    }
-
-    @Test
-    void testUpdateRequiresAssignmentsRecalculationAutoAdjust() {
-        doTestUpdateRequiresAssignmentsRecalculation(builder -> builder.dataNodesAutoAdjust(100), false);
     }
 
     @Test
@@ -119,7 +113,6 @@ class CatalogZoneDescriptorTest {
                 2,
                 5,
                 3,
-                5,
                 6,
                 7,
                 "the-filter",

@@ -91,7 +91,6 @@ public class ZoneMetricSourceTest extends BaseIgniteAbstractTest {
                 1,
                 1,
                 1,
-                1,
                 CatalogUtils.DEFAULT_FILTER,
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default"))),
                 ConsistencyMode.STRONG_CONSISTENCY

@@ -121,7 +121,7 @@ public class CatalogZoneDescriptorSerializers {
             int partitions = input.readVarIntAsInt();
             int replicas = input.readVarIntAsInt();
             int quorumSize = input.readVarIntAsInt();
-            int dataNodesAutoAdjust = input.readVarIntAsInt();
+            input.readVarIntAsInt(); // deprecated field dataNodesAutoAdjust read, kept for compatibility.
             int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
             int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
             String filter = input.readUTF();
@@ -133,7 +133,6 @@ public class CatalogZoneDescriptorSerializers {
                     partitions,
                     replicas,
                     quorumSize,
-                    dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
@@ -154,7 +153,7 @@ public class CatalogZoneDescriptorSerializers {
             output.writeVarInt(descriptor.partitions());
             output.writeVarInt(descriptor.replicas());
             output.writeVarInt(descriptor.quorumSize());
-            output.writeVarInt(descriptor.dataNodesAutoAdjust());
+            output.writeVarInt(descriptor.dataNodesAutoAdjust()); // deprecated field, kept for compatibility.
             output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
             output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
             output.writeUTF(descriptor.filter());

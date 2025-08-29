@@ -56,14 +56,6 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     AlterZoneCommandBuilder quorumSize(@Nullable Integer quorumSize);
 
     /**
-     * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
-     *
-     * @param adjust Optional timeout.
-     * @return This instance.
-     */
-    AlterZoneCommandBuilder dataNodesAutoAdjust(@Nullable Integer adjust);
-
-    /**
      * Sets timeout in seconds between node added topology event itself and data nodes switch.
      *
      * @param adjust Optional timeout.

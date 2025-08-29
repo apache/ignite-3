@@ -71,7 +71,6 @@ class CreateFromAnnotationsTest {
                 .replicas(5)
                 .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -105,7 +104,7 @@ class CreateFromAnnotationsTest {
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_TEST (ID INT, F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR,"
@@ -123,7 +122,7 @@ class CreateFromAnnotationsTest {
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_TEST (ID INT, ID_STR VARCHAR(20), F_NAME VARCHAR, L_NAME VARCHAR,"
@@ -140,7 +139,7 @@ class CreateFromAnnotationsTest {
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='STRONG_CONSISTENCY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS PUBLIC.POJO_TEST"
@@ -159,7 +158,7 @@ class CreateFromAnnotationsTest {
                 query.toString(),
                 is("CREATE ZONE IF NOT EXISTS \"zone test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='STRONG_CONSISTENCY';"
                         + System.lineSeparator()
                         + "CREATE TABLE IF NOT EXISTS \"sche ma\".\"pojo test\""
@@ -239,7 +238,6 @@ class CreateFromAnnotationsTest {
                     replicas = 5,
                     quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -271,7 +269,6 @@ class CreateFromAnnotationsTest {
                     replicas = 5,
                     quorumSize = 2,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -309,7 +306,6 @@ class CreateFromAnnotationsTest {
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
@@ -377,7 +373,6 @@ class CreateFromAnnotationsTest {
                     partitions = 1,
                     replicas = 3,
                     distributionAlgorithm = "partitionDistribution",
-                    dataNodesAutoAdjust = 1,
                     dataNodesAutoAdjustScaleDown = 2,
                     dataNodesAutoAdjustScaleUp = 3,
                     filter = "filter",
