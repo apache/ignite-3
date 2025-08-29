@@ -134,7 +134,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             org.apache.ignite.sql.ResultSet<SqlRow> rs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
             when(rs.metadata()).thenReturn(null);
 
-            return new JdbcResultSet(rs, statement, (stmt) -> zoneId, FETCH_SIZE);
+            return new JdbcResultSet(rs, statement, () -> zoneId, FETCH_SIZE);
         }
 
         List<ColumnMetadata> apiCols = new ArrayList<>();
@@ -149,25 +149,19 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         ResultSetMetadata apiMeta = new ResultSetMetadataImpl(apiCols);
 
-        return new JdbcResultSet(new ApiResultSetStub(apiMeta, rows), statement, (stmt) -> zoneId, FETCH_SIZE);
+        return new JdbcResultSet(new ApiResultSetStub(apiMeta, rows), statement, () -> zoneId, FETCH_SIZE);
     }
 
     /** Minimal synchronous implementation of org.apache.ignite.sql.ResultSet{@literal <SqlRow>} for tests. */
     protected static class ApiResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
-        private final List<String> labels;
         private List<Object> current;
 
         ApiResultSetStub(ResultSetMetadata meta, List<List<Object>> rows) {
             this.meta = Objects.requireNonNull(meta, "meta");
             this.it = rows.iterator();
             this.current = null;
-            int cnt = meta.columns().size();
-            this.labels = new ArrayList<>();
-            for (int i = 0; i < cnt; i++) {
-                labels.add(meta.columns().get(i).name());
-            }
         }
 
         @Override
@@ -205,18 +199,16 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
                 throw new NoSuchElementException();
             }
             current = it.next();
-            return new UnmodifiableSqlRow(labels, current, meta);
+            return new UnmodifiableSqlRow(current, meta);
         }
     }
 
     /** Minimal SqlRow implementation backed by simple arrays for tests. */
     private static class UnmodifiableSqlRow implements SqlRow {
-        private final List<String> labels;
         private final List<Object> values;
         private final ResultSetMetadata meta;
 
-        UnmodifiableSqlRow(List<String> labels, List<Object> values, ResultSetMetadata meta) {
-            this.labels = labels;
+        UnmodifiableSqlRow(List<Object> values, ResultSetMetadata meta) {
             this.values = values;
             this.meta = meta;
         }
@@ -228,45 +220,32 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         @Override
         public int columnCount() {
-            return labels.size();
+            return meta.columns().size();
         }
 
         @Override
         public String columnName(int columnIndex) {
-            return labels.get(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public int columnIndex(String columnName) {
-            for (int i = 0; i < labels.size(); i++) {
-                if (labels.get(i).equals(columnName)) {
-                    return i;
-                }
-            }
-            return -1;
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public <T> T valueOrDefault(String columnName, T defaultValue) {
-            int idx = columnIndex(columnName);
-            if (idx < 0) {
-                return defaultValue;
-            }
-            return (T) values.get(idx);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public Tuple set(String columnName, Object value) {
-            throw new UnsupportedOperationException("Immutable test row");
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public <T> T value(String columnName) throws IllegalArgumentException {
-            int idx = columnIndex(columnName);
-            if (idx < 0) {
-                throw new IllegalArgumentException("Column not found: " + columnName);
-            }
-            return (T) values.get(idx);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
@@ -276,152 +255,152 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         @Override
         public boolean booleanValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public boolean booleanValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public byte byteValue(String columnName) {
-            return ((Number) value(columnName)).byteValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public byte byteValue(int columnIndex) {
-            return ((Number) value(columnIndex)).byteValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public short shortValue(String columnName) {
-            return ((Number) value(columnName)).shortValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public short shortValue(int columnIndex) {
-            return ((Number) value(columnIndex)).shortValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public int intValue(String columnName) {
-            return ((Number) value(columnName)).intValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public int intValue(int columnIndex) {
-            return ((Number) value(columnIndex)).intValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public long longValue(String columnName) {
-            return ((Number) value(columnName)).longValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public long longValue(int columnIndex) {
-            return ((Number) value(columnIndex)).longValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public float floatValue(String columnName) {
-            return ((Number) value(columnName)).floatValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public float floatValue(int columnIndex) {
-            return ((Number) value(columnIndex)).floatValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public double doubleValue(String columnName) {
-            return ((Number) value(columnName)).doubleValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public double doubleValue(int columnIndex) {
-            return ((Number) value(columnIndex)).doubleValue();
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public BigDecimal decimalValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public BigDecimal decimalValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public String stringValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public String stringValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public byte[] bytesValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public byte[] bytesValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public UUID uuidValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public UUID uuidValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalDate dateValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalDate dateValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalTime timeValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalTime timeValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalDateTime datetimeValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public LocalDateTime datetimeValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public Instant timestampValue(String columnName) {
-            return value(columnName);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override
         public Instant timestampValue(int columnIndex) {
-            return value(columnIndex);
+            throw new IllegalStateException("Should not be called");
         }
 
         @Override

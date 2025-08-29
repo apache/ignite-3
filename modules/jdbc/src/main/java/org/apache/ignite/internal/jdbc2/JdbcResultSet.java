@@ -59,7 +59,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -94,7 +94,7 @@ public class JdbcResultSet implements ResultSet {
 
     private final Statement statement;
 
-    private final Function<Statement, ZoneId> getZoneId;
+    private final Supplier<ZoneId> getZoneId;
 
     private Map<String, Integer> columnOrder;
 
@@ -116,7 +116,7 @@ public class JdbcResultSet implements ResultSet {
     public JdbcResultSet(
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
             Statement statement,
-            Function<Statement, ZoneId> getZoneId,
+            Supplier<ZoneId> getZoneId,
             int fetchSize
     ) {
         this.rs = rs;
@@ -1954,7 +1954,7 @@ public class JdbcResultSet implements ResultSet {
     }
 
     private LocalDateTime instantWithLocalTimeZone(Instant val) {
-        ZoneId zoneId = getZoneId.apply(statement);
+        ZoneId zoneId = getZoneId.get();
         if (zoneId == null) {
             zoneId = ZoneId.systemDefault();
         }
