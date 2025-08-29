@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
@@ -294,7 +295,15 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 assertThat(deltaFileIoFuture, willCompleteSuccessfully());
 
                 return deltaFileIoFuture.join();
-            }).when(filePageStore).getDeltaFileToCompaction();
+            }).doReturn(null).when(filePageStore).getDeltaFileToCompaction();
+
+            doAnswer(invocation -> {
+                DeltaFilePageStoreIo argument = invocation.getArgument(0);
+
+                assertThat(deltaFileIoFuture, willBe(argument));
+
+                return true;
+            }).when(filePageStore).removeDeltaFile(any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
