@@ -40,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
@@ -86,7 +87,7 @@ public class ClientComputeExecuteRequest {
                 .clientAddress(clientContext.remoteAddress().toString());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
+                candidates, new ExecutionContext(job.options(), job.deploymentUnits(), job.jobClassName(), metadataBuilder, job.arg()), null
         );
         sendResultAndState(executionFut, notificationSender);
 

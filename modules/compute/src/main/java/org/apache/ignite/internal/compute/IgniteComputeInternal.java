@@ -47,21 +47,13 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * candidate nodes.
      *
      * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options Job execution options.
-     * @param metadataBuilder Event metadata builder.
-     * @param arg Argument of the job.
+     * @param executionContext Execution context.
      * @param cancellationToken Cancellation token or {@code null}.
      * @return CompletableFuture Job result.
      */
     CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     );
 
@@ -71,22 +63,14 @@ public interface IgniteComputeInternal extends IgniteCompute {
      *
      * @param table Table whose key is used to determine the node to execute the job on.
      * @param key Key that identifies the node to execute the job on.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
-     * @param metadataBuilder Event metadata builder.
-     * @param arg Argument of the job.
+     * @param executionContext Execution context.
      * @param cancellationToken Cancellation token or {@code null}.
      * @return Job execution object.
      */
     CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     );
 
