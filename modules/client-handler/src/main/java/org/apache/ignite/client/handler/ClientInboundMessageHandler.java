@@ -325,7 +325,11 @@ public class ClientInboundMessageHandler
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
-        this.cluster = new IgniteClusterImpl(clusterService.topologyService());
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), () -> {
+            ClusterInfo clusterInfo = clusterInfoSupplier.get();
+            List<UUID> idHistory = clusterInfo.idHistory();
+            return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+        });
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
