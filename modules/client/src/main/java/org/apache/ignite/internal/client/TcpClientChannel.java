@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -66,7 +65,6 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
@@ -401,25 +399,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             });
 
             // Allow parallelism for batch operations.
-            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
-                // We are in the public API (user) thread, deserialize the response here.
-                try {
-                    ClientMessageUnpacker unpacker = fut.join();
+            // TODO: This block becomes useless after the change in completeRequestFutureAsync
+//            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
+//                // We are in the public API (user) thread, deserialize the response here.
+//                try (ClientMessageUnpacker unpacker = fut.thenApply(ClientMessageUnpacker::retain).join()) {
+//                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
+//                } catch (Throwable t) {
+//                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
+//                }
+//            }
 
-                    return completedFuture(complete(payloadReader, notificationFut, unpacker));
-                } catch (Throwable t) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(t));
-                }
-            }
-
-            // Handle the response in the async continuation pool.
-            return fut.handleAsync((unpacker, err) -> {
-                if (err != null) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                }
-
-                return complete(payloadReader, notificationFut, unpacker);
-            }, asyncContinuationExecutor);
+            return fut
+                    .thenApply(unpacker -> complete(payloadReader, notificationFut, unpacker))
+                    .exceptionally(err -> { throw sneakyThrow(ViewUtils.ensurePublicException(err)); });
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -446,7 +438,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
             ClientMessageUnpacker unpacker
     ) {
-        try (unpacker) {
+        try {
             if (payloadReader != null) {
                 return payloadReader.apply(new PayloadInputChannel(this, unpacker, notificationFut));
             }
@@ -465,7 +457,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            completeRequestFuture(pendingReqs.remove(-1L).future(), unpacker);
+            completeRequestFutureAsync(pendingReqs.remove(-1L).future(), unpacker);
             return;
         }
 
@@ -496,7 +488,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (err == null) {
             metrics.requestsCompletedIncrement();
 
-            completeRequestFuture(pendingReq.future(), unpacker);
+            completeRequestFutureAsync(pendingReq.future(), unpacker);
         } else {
             metrics.requestsFailedIncrement();
             notificationHandlers.remove(resId);
@@ -636,7 +628,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .handleAsync((unpacker, err) -> {
+                .handle((unpacker, err) -> {
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
@@ -653,7 +645,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         metrics.handshakesFailedIncrement();
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), th);
                     }
-                }, asyncContinuationExecutor);
+                });
     }
 
     /**
@@ -797,17 +789,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return cfg.getAddress().toString();
     }
 
-    private static void completeRequestFuture(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {
-        // Add reference count before jumping onto another thread (due to handleAsync() in send()).
+    private void completeRequestFutureAsync(CompletableFuture<ClientMessageUnpacker> fut, ClientMessageUnpacker unpacker) {
+        // Add reference count before jumping onto another thread.
         unpacker.retain();
 
         try {
-            if (!fut.complete(unpacker)) {
-                unpacker.close();
-            }
-        } catch (Throwable t) {
+            asyncContinuationExecutor.execute(() -> {
+                try (unpacker) {
+                    fut.complete(unpacker);
+                }
+            });
+        } catch (Throwable e) {
             unpacker.close();
-            throw t;
+            throw e;
         }
     }
 
@@ -823,17 +817,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         // Add reference count before jumping onto another thread.
         unpacker.retain();
 
-        asyncContinuationExecutor.execute(() -> {
-            try {
-                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+        try {
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                        unpacker.close();
+                    }
+                } catch (Throwable e) {
                     unpacker.close();
-                }
-            } catch (Throwable e) {
-                unpacker.close();
 
-                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-            }
-        });
+                    log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+                }
+            });
+        } catch (Throwable e) {
+            unpacker.close();
+            throw e;
+        }
     }
 
     void checkTimeouts(long now) {
