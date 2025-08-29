@@ -31,7 +31,7 @@ public final class ColumnDefinition {
     public final int scale;
     public final boolean nullable;
 
-    ColumnDefinition(
+    public ColumnDefinition(
             String label,
             ColumnType type,
             int precision,

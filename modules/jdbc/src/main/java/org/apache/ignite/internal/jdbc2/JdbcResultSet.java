@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.internal.jdbc2;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -54,35 +54,22 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 
 /**
- * Jdbc result set implementation.
+ * JDBC ResultSet adapter backed by {@code org.apache.ignite.sql.ResultSet<SqlRow>}.
+ *
+ * <p>This is a minimal implementation to provide forward-only, read-only access to rows.
+ * Many optional JDBC operations are not supported and will throw SQLFeatureNotSupportedException.</p>
  */
 public class JdbcResultSet implements ResultSet {
     /** Decimal format to convert string to decimal. */
@@ -103,302 +90,60 @@ public class JdbcResultSet implements ResultSet {
         }
     };
 
-    private final JdbcStatement stmt;
-    private final @Nullable Long cursorId;
-    private final boolean hasResultSet;
-    private final boolean hasNextResult;
+    private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
 
-    /** Jdbc metadata. */
-    private final @Nullable JdbcResultSetMetadata jdbcMeta;
+    private final Statement statement;
 
-    /** Column order map. */
-    private @Nullable Map<String, Integer> colOrder;
+    private final Supplier<ZoneId> getZoneId;
 
-    /** Rows. */
-    private @Nullable List<BinaryTupleReader> rows;
+    private Map<String, Integer> columnOrder;
 
-    /** Rows iterator. */
-    private @Nullable Iterator<List<Object>> rowsIter;
-
-    /** Current row. */
-    private @Nullable List<Object> curRow;
-
-    /** Current position. */
-    private int curPos;
-
-    /** Finished flag. */
-    private boolean finished;
-
-    /** Closed flag. */
-    private boolean closed;
-
-    /** If {#code true} indicates that handler still holds cursor in resources. */
-    private boolean holdsResource;
-
-    /** Was {@code NULL} flag. */
-    private boolean wasNull;
-
-    /** Fetch size. */
     private int fetchSize;
 
-    /** Update count. */
-    private long updCnt;
+    private SqlRow currentRow;
 
-    /** Close statement after close result set count. */
-    private boolean closeStmt;
+    private int currentPosition;
 
-    /** Query request handler. */
-    private JdbcQueryCursorHandler cursorHandler;
+    private boolean closed;
 
-    /** Count of columns in resultSet row. */
-    private int columnCount;
+    private boolean wasNull;
 
-    /** Function to deserialize raw rows to list of objects. */
-    private @Nullable Function<BinaryTupleReader, List<Object>> transformer;
+    private JdbcResultSetMetadata meta;
 
     /**
-     * Creates new result set.
-     *
-     * @param handler JdbcQueryCursorHandler.
-     * @param stmt Statement.
-     * @param cursorId Cursor ID.
-     * @param fetchSize Fetch size.
-     * @param finished Finished flag.
-     * @param rows Rows.
-     * @param hasResultSet Is Result ser for Select query.
-     * @param hasNextResult Whether this result is part of multi statement and there is at least one more result available.
-     * @param updCnt Update count.
-     * @param closeStmt Close statement on the result set close.
-     * @param columnCount Count of columns in resultSet row.
-     * @param transformer Function to deserialize raw rows to list of objects.
+     * Constructor.
      */
-    JdbcResultSet(
-            JdbcQueryCursorHandler handler,
-            JdbcStatement stmt,
-            @Nullable Long cursorId,
-            int fetchSize,
-            boolean finished,
-            @Nullable List<BinaryTupleReader> rows,
-            @Nullable List<JdbcColumnMeta> meta,
-            boolean hasResultSet,
-            boolean hasNextResult,
-            long updCnt,
-            boolean closeStmt,
-            int columnCount,
-            @Nullable Function<BinaryTupleReader, List<Object>> transformer
+    public JdbcResultSet(
+            org.apache.ignite.sql.ResultSet<SqlRow> rs,
+            Statement statement,
+            Supplier<ZoneId> getZoneId,
+            int fetchSize
     ) {
-        assert stmt != null;
-        assert fetchSize > 0;
-
-        this.cursorHandler = handler;
-        this.stmt = stmt;
-        this.cursorId = cursorId;
+        this.rs = rs;
+        this.statement = statement;
+        this.getZoneId = getZoneId;
         this.fetchSize = fetchSize;
-        this.finished = finished;
-        this.hasResultSet = hasResultSet;
-        this.hasNextResult = hasNextResult;
-        this.closeStmt = closeStmt;
-        this.columnCount = columnCount;
-
-        if (this.hasResultSet) {
-            this.transformer = Objects.requireNonNull(transformer);
-            this.rows = Objects.requireNonNull(rows);
-            this.jdbcMeta = new JdbcResultSetMetadata(Objects.requireNonNull(meta));
-
-            rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
-        } else {
-            this.updCnt = updCnt;
-            this.jdbcMeta = null;
-        }
-
-        holdsResource = cursorId != null;
+        this.currentRow = null;
+        this.closed = false;
+        this.wasNull = false;
     }
 
-    /**
-     * Creates new result set.
-     *
-     * @param rows Rows.
-     * @param meta Column metadata.
-     *
-     * @exception SQLException if a database access error occurs
-     */
-    JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) throws SQLException {
-        stmt = null;
-        cursorId = null;
-
-        finished = true;
-        hasResultSet = true;
-        hasNextResult = false;
-        holdsResource = false;
-
-        this.rowsIter = rows.iterator();
-        this.jdbcMeta = new JdbcResultSetMetadata(meta);
-
-        initColumnOrder(jdbcMeta);
-    }
-
-    /**
-     * Creates new result set.
-     *
-     * @exception SQLException if a database access error occurs
-     */
-    @TestOnly
-    JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta, JdbcStatement stmt) throws SQLException {
-        this.stmt = stmt;
-        cursorId = null;
-
-        finished = true;
-        hasResultSet = true;
-        hasNextResult = false;
-        holdsResource = false;
-
-        this.rowsIter = rows.iterator();
-        this.jdbcMeta = new JdbcResultSetMetadata(meta);
-
-        initColumnOrder(jdbcMeta);
-    }
-
-    boolean holdResults() {
-        return rows != null;
-    }
-
-    @Nullable JdbcResultSet getNextResultSet() throws SQLException {
-        try {
-            if (hasNextResult) {
-                assert cursorId != null;
-
-                // all resources will be freed on server by `getMoreResultsAsync` call, so we need to reflect this in local result set
-                closed = true;
-                holdsResource = false;
-
-                JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
-                JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
-
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-
-                Long newCursorId = res.cursorId();
-
-                List<JdbcColumnMeta> meta = res.meta();
-
-                rows = List.of();
-
-                Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
-
-                int colCount = meta != null ? meta.size() : 0;
-
-                return new JdbcResultSet(cursorHandler, stmt, newCursorId, fetchSize, !res.hasMoreData(), res.items(),
-                        meta, res.hasResultSet(), res.hasNextResult(), res.updateCount(), closeStmt, colCount, transformer);
-            } else {
-                // cursor doesn't have next result, thus let's just close current one
-                close0(true);
-
-                return null;
-            }
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Fetch request failed.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
-        }
-    }
-
-    /** {@inheritDoc} */
     @Override
     public boolean next() throws SQLException {
         ensureNotClosed();
-        if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            try {
-                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
-
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-
-                rows = new ArrayList<>(res.items().size());
-                for (ByteBuffer item : res.items()) {
-                    rows.add(new BinaryTupleReader(columnCount, item));
-                }
-
-                finished = res.last();
-
-                rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
-            } catch (InterruptedException e) {
-                throw new SQLException("Thread was interrupted.", e);
-            } catch (ExecutionException e) {
-                throw new SQLException("Fetch request failed.", e);
-            } catch (CancellationException e) {
-                throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
-            }
-        }
-
-        if (rowsIter != null) {
-            if (rowsIter.hasNext()) {
-                curRow = rowsIter.next();
-
-                curPos++;
-
-                return true;
-            } else {
-                rowsIter = null;
-                curRow = null;
-
-                return false;
-            }
-        } else {
+        if (!rs.hasNext()) {
+            currentRow = null;
             return false;
         }
+        currentRow = rs.next();
+        currentPosition += 1;
+        return currentRow != null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws SQLException {
-        close0(!hasNextResult);
-
-        if (closeStmt) {
-            stmt.closeIfAllResultsClosed();
-        }
-    }
-
-    /**
-     * Close result set.
-     *
-     * @param removeFromResources If {@code true} cursor need to be removed from client resources.
-     *
-     * @throws SQLException On error.
-     */
-    void close0(boolean removeFromResources) throws SQLException {
-        try {
-            if (!holdsResource) {
-                return;
-            }
-
-            holdsResource = !removeFromResources;
-
-            assert cursorId != null;
-
-            if (stmt != null) {
-                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId, removeFromResources)).get();
-
-                if (!res.success()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
-            }
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Unable to close result set.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Close result set request canceled.", e);
-        } finally {
-            closed = true;
-        }
-    }
-
-    boolean holdsResources() {
-        return holdsResource;
+        closed = true;
+        rs.close();
     }
 
     /** {@inheritDoc} */
@@ -419,17 +164,15 @@ public class JdbcResultSet implements ResultSet {
             return null;
         } else if (value instanceof Instant) {
             LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
-            assert jdbcMeta != null;
 
-            return Formatters.formatDateTime(localDateTime, colIdx, jdbcMeta);
+            initMetadata();
+
+            return Formatters.formatDateTime(localDateTime, colIdx, meta);
         } else if (value instanceof LocalTime) {
-            assert jdbcMeta != null;
 
-            return Formatters.formatTime((LocalTime) value, colIdx, jdbcMeta);
+            return Formatters.formatTime((LocalTime) value, colIdx, meta);
         } else if (value instanceof LocalDateTime) {
-            assert jdbcMeta != null;
-
-            return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMeta);
+            return Formatters.formatDateTime((LocalDateTime) value, colIdx, meta);
         } else if (value instanceof LocalDate) {
             return Formatters.formatDate((LocalDate) value);
         } else if (value instanceof byte[]) {
@@ -462,7 +205,7 @@ public class JdbcResultSet implements ResultSet {
             return ((Boolean) val);
         } else if (val instanceof Number) {
             return ((Number) val).intValue() != 0;
-        } else if (cls == String.class || cls == Character.class) {
+        } else if (cls == String.class) {
             try {
                 return Integer.parseInt(val.toString()) != 0;
             } catch (NumberFormatException e) {
@@ -1011,7 +754,7 @@ public class JdbcResultSet implements ResultSet {
     public ResultSetMetaData getMetaData() throws SQLException {
         ensureNotClosed();
 
-        return metaOrThrow();
+        return initMetadata();
     }
 
     /** {@inheritDoc} */
@@ -1053,7 +796,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isBeforeFirst() throws SQLException {
         ensureNotClosed();
 
-        return curPos == 0 && rowsIter != null && rowsIter.hasNext();
+        return currentRow == null && rs.hasNext();
     }
 
     /** {@inheritDoc} */
@@ -1061,7 +804,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isAfterLast() throws SQLException {
         ensureNotClosed();
 
-        return finished && rowsIter == null && curRow == null;
+        return currentRow == null && !rs.hasNext();
     }
 
     /** {@inheritDoc} */
@@ -1069,7 +812,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isFirst() throws SQLException {
         ensureNotClosed();
 
-        return curPos == 1;
+        return currentRow != null && currentPosition == 1;
     }
 
     /** {@inheritDoc} */
@@ -1077,7 +820,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean isLast() throws SQLException {
         ensureNotClosed();
 
-        return finished && rowsIter != null && !rowsIter.hasNext() && curRow != null;
+        return currentRow != null && !rs.hasNext();
     }
 
     /** {@inheritDoc} */
@@ -1117,7 +860,7 @@ public class JdbcResultSet implements ResultSet {
     public int getRow() throws SQLException {
         ensureNotClosed();
 
-        return isAfterLast() ? 0 : curPos;
+        return isAfterLast() ? 0 : currentPosition;
     }
 
     /** {@inheritDoc} */
@@ -1187,7 +930,7 @@ public class JdbcResultSet implements ResultSet {
     public int getType() throws SQLException {
         ensureNotClosed();
 
-        return stmt.getResultSetType();
+        return TYPE_FORWARD_ONLY;
     }
 
     /** {@inheritDoc} */
@@ -1685,7 +1428,7 @@ public class JdbcResultSet implements ResultSet {
     public Statement getStatement() throws SQLException {
         ensureNotClosed();
 
-        return stmt;
+        return statement;
     }
 
     /** {@inheritDoc} */
@@ -1997,7 +1740,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean isClosed() throws SQLException {
-        return closed || stmt == null || stmt.isClosed();
+        return closed || statement.isClosed();
     }
 
     /** {@inheritDoc} */
@@ -2189,15 +1932,6 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Get the isQuery flag.
-     *
-     * @return Is query flag.
-     */
-    public boolean hasResultSet() {
-        return hasResultSet;
-    }
-
-    /**
      * Gets object field value by index.
      *
      * @param colIdx Column index.
@@ -2208,22 +1942,19 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
         ensureHasCurrentRow();
 
-        try {
-            assert curRow != null;
-
-            Object val = curRow.get(colIdx - 1);
-
-            wasNull = val == null;
-
-            return val;
-        } catch (IndexOutOfBoundsException e) {
-            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION, e);
+        if (colIdx < 1 || colIdx > rs.metadata().columns().size()) {
+            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION);
         }
+
+        Object val = currentRow.value(colIdx - 1);
+
+        wasNull = val == null;
+
+        return val;
     }
 
-    private LocalDateTime instantWithLocalTimeZone(Instant val) throws SQLException {
-        JdbcConnection connection = (JdbcConnection) stmt.getConnection();
-        ZoneId zoneId = connection.connectionProperties().getConnectionTimeZone();
+    private LocalDateTime instantWithLocalTimeZone(Instant val) {
+        ZoneId zoneId = getZoneId.get();
         if (zoneId == null) {
             zoneId = ZoneId.systemDefault();
         }
@@ -2236,7 +1967,7 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException If result set is not positioned on a row.
      */
     private void ensureHasCurrentRow() throws SQLException {
-        if (curRow == null) {
+        if (currentRow == null) {
             throw new SQLException("Result set is not positioned on a row.");
         }
     }
@@ -2253,27 +1984,9 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Get the update count.
-     *
-     * @return Update count for no-SELECT queries.
-     */
-    public long updatedCount() {
-        return updCnt;
-    }
-
-    /**
-     * Set the close statement flag.
-     *
-     * @param closeStmt Close statement on this result set close.
-     */
-    public void closeStatement(boolean closeStmt) {
-        this.closeStmt = closeStmt;
-    }
-
-    /**
      * Get object of given class.
      *
-     * @param colIdx    Column index.
+     * @param colIdx Column index.
      * @param targetCls Class representing the Java data type to convert the designated column to.
      * @return Converted object.
      * @throws SQLException On error.
@@ -2332,56 +2045,34 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     private Map<String, Integer> columnOrder() throws SQLException {
-        if (colOrder != null) {
-            return colOrder;
+        if (columnOrder != null) {
+            return columnOrder;
         }
 
-        initColumnOrder(metaOrThrow());
+        JdbcResultSetMetadata metadata = initMetadata();
 
-        return colOrder;
-    }
+        columnOrder = new HashMap<>(metadata.getColumnCount());
 
-    /**
-     * Init column order map.
-     */
-    private void initColumnOrder(JdbcResultSetMetadata jdbcMeta) throws SQLException {
-        colOrder = new HashMap<>(jdbcMeta.getColumnCount());
+        for (int i = 0; i < metadata.getColumnCount(); i++) {
+            String colName = metadata.getColumnLabel(i + 1).toUpperCase();
 
-        for (int i = 0; i < jdbcMeta.getColumnCount(); ++i) {
-            String colName = jdbcMeta.getColumnLabel(i + 1).toUpperCase();
-
-            if (!colOrder.containsKey(colName)) {
-                colOrder.put(colName, i);
+            if (!columnOrder.containsKey(colName)) {
+                columnOrder.put(colName, i);
             }
         }
+
+        return columnOrder;
     }
 
-    private JdbcResultSetMetadata metaOrThrow() throws SQLException {
-        if (jdbcMeta == null) {
-            throw new SQLException("Result doesn't have metadata");
-        }
-
-        return jdbcMeta;
-    }
-
-    static Function<BinaryTupleReader, List<Object>> createTransformer(List<JdbcColumnMeta> meta) {
-        return (tuple) -> {
-            int columnCount = meta.size();
-            List<Object> row = new ArrayList<>(columnCount);
-            int currentDecimalScale = -1;
-
-            int idx = 0;
-            for (JdbcColumnMeta columnMeta : meta) {
-                ColumnType type = columnMeta.columnType();
-                if (type == ColumnType.DECIMAL) {
-                    currentDecimalScale = columnMeta.scale();
-                }
-
-                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, idx++, currentDecimalScale));
+    private JdbcResultSetMetadata initMetadata() throws SQLException {
+        if (meta == null) {
+            ResultSetMetadata metadata = rs.metadata();
+            if (metadata == null) {
+                throw new SQLException("ResultSet doesn't have metadata");
             }
-
-            return row;
-        };
+            meta = new JdbcResultSetMetadata(metadata);
+        }
+        return meta;
     }
 
     private static class Formatters {
@@ -2428,8 +2119,8 @@ public class JdbcResultSet implements ResultSet {
         }
 
         private static String formatWithPrecision(
-                DateTimeFormatter formatter, 
-                TemporalAccessor value, 
+                DateTimeFormatter formatter,
+                TemporalAccessor value,
                 int colIdx,
                 JdbcResultSetMetadata jdbcMeta
         ) throws SQLException {
@@ -2447,7 +2138,7 @@ public class JdbcResultSet implements ResultSet {
 
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
-            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+            long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
             for (int i = 0; i < precision; i++) {
