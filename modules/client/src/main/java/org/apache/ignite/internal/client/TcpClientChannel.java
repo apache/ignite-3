@@ -823,15 +823,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         unpacker.retain();
 
         try {
-            try {
-                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                        unpacker.close();
+                    }
+                } catch (Throwable e) {
                     unpacker.close();
-                }
-            } catch (Throwable e) {
-                unpacker.close();
 
-                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-            }
+                    log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+                }
+            });
         } catch (Throwable e) {
             unpacker.close();
             throw e;
