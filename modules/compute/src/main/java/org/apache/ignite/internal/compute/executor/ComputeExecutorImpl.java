@@ -119,7 +119,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             String jobClassName,
             JobClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
-            ComputeJobDataHolder input
+            @Nullable ComputeJobDataHolder arg
     ) {
         assert executorService != null;
 
@@ -131,7 +131,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 .targetNode(ignite.name());
 
         Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
-                options.executorType(), jobClassName, classLoader, input, context);
+                options.executorType(), jobClassName, classLoader, arg, context);
 
         jobCallable = addObservableTimestamp(jobCallable, clockService);
 
@@ -170,14 +170,14 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobExecutorType executorType,
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
         executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
 
         switch (executorType) {
             case JAVA_EMBEDDED:
-                return getJavaJobCallable(jobClassName, classLoader, input, context);
+                return getJavaJobCallable(jobClassName, classLoader, arg, context);
 
             case DOTNET_SIDECAR:
                 DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
@@ -186,7 +186,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                     throw new IllegalStateException("DotNetComputeExecutor is not set");
                 }
 
-                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, arg, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
@@ -209,7 +209,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
         Class<ComputeJob<Object, Object>> jobClass = jobClass(classLoader, jobClassName);
@@ -218,11 +218,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<Object, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<Object, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
-        return unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
+        return unmarshalExecMarshal(arg, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
@@ -231,7 +231,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     ) {
         return () -> {
             CompletableFuture<R> userJobFut = jobInstance.executeAsync(
-                    context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
+                    context, unmarshalOrNotIfNull(inputMarshaller, arg, getJobExecuteArgumentType(jobClass)));
 
             return userJobFut == null
                     ? null
@@ -244,7 +244,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             ComputeEventMetadataBuilder metadataBuilder,
-            I arg
+            @Nullable I arg
     ) {
         assert executorService != null;
 

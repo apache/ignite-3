@@ -181,7 +181,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String taskClassName,
             ComputeEventMetadataBuilder metadataBuilder,
-            I input
+            @Nullable I arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -198,7 +198,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                                         jobSubmitter,
                                         taskClassName,
                                         metadataBuilder,
-                                        input
+                                        arg
                                 );
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
@@ -376,7 +376,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
             ComputeEventMetadataBuilder metadataBuilder,
-            I arg
+            @Nullable I arg
     ) {
         try {
             return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), metadataBuilder, arg);
