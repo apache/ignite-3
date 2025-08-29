@@ -44,7 +44,7 @@ public class SharedStripedDisruptor<T extends INodeIdAware> extends StripedDisru
     public SharedStripedDisruptor(String nodeName, String poolName, BiFunction<String, IgniteLogger, ThreadFactory> threadFactorySupplier,
             int bufferSize, EventFactory<T> eventFactory, int stripes, boolean sharedStripe, boolean useYieldStrategy,
             @Nullable DisruptorMetrics raftMetrics) {
-        super(nodeName, poolName, threadFactorySupplier, bufferSize, eventFactory, stripes, sharedStripe, useYieldStrategy, raftMetrics);
+        super(nodeName, poolName, threadFactorySupplier, bufferSize, eventFactory, stripes, sharedStripe, useYieldStrategy, raftMetrics); // TODO remove
     }
 
     @Override
