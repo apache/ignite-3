@@ -27,9 +27,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
 /**
@@ -37,12 +41,19 @@ import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessag
  */
 @Sharable
 public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapter {
+    private static final IgniteLogger LOG = Loggers.forClass(OutgoingAcknowledgementSilencer.class);
+
     /** Name of this handler. */
     private static final String NAME = "acknowledgement-silencer";
 
     private volatile boolean silenceAcks = true;
 
     private final CountDownLatch addedToPipelinesLatch;
+
+    /** Queue to send an invoke response when the blocking finishes. */
+    private final ConcurrentLinkedQueue<Object> pendingInvokes = new ConcurrentLinkedQueue<>();
+
+    private ChannelHandlerContext ctx;
 
     /**
      * Install this silencer on the given channels; it will drop {@link AcknowledgementMessage}s sent by them.
@@ -75,6 +86,16 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
      */
     public void stopSilencing() {
         silenceAcks = false;
+
+        for (Object pending : pendingInvokes) {
+            try {
+                super.write(ctx, pending, ctx.voidPromise());
+            } catch (Exception e) {
+                LOG.error("Failed to write pending invoke response", e);
+            }
+        }
+
+        ctx.flush();
     }
 
     /**
@@ -90,8 +111,13 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         OutNetworkObject out = (OutNetworkObject) msg;
 
-        if (silenceAcks && out.networkMessage() instanceof AcknowledgementMessage) {
+        if (silenceAcks && (out.networkMessage() instanceof AcknowledgementMessage || out.networkMessage() instanceof InvokeResponse)) {
+            if (out.networkMessage() instanceof InvokeResponse) {
+                pendingInvokes.add(msg);
+            }
+
             promise.setSuccess();
+
             return;
         }
 
@@ -102,6 +128,7 @@ public class OutgoingAcknowledgementSilencer extends ChannelOutboundHandlerAdapt
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         super.handlerAdded(ctx);
 
+        this.ctx = ctx;
         addedToPipelinesLatch.countDown();
     }
 }
