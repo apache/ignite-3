@@ -127,7 +127,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         @Nullable Integer scaleUp = null;
         @Nullable Integer scaleDown = null;
 
-        if (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null) { // TODO: both..?
+        if (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null) {
             scaleUp = dataNodesAutoAdjustScaleUp;
             scaleDown = dataNodesAutoAdjustScaleDown;
         }
