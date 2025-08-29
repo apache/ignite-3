@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -66,7 +65,6 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
