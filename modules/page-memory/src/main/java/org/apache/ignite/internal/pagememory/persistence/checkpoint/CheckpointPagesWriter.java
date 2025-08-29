@@ -210,9 +210,9 @@ public class CheckpointPagesWriter implements Runnable {
     ) throws IgniteInternalCheckedException {
         CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
 
-        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
+        Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
-        partitionDesctructionLock.lock();
+        partitionDestructionLock.lock();
 
         try {
             addUpdatePartitionCounterIfAbsent(partitionId);
@@ -233,7 +233,7 @@ public class CheckpointPagesWriter implements Runnable {
                 writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, true);
             }
         } finally {
-            partitionDesctructionLock.unlock();
+            partitionDestructionLock.unlock();
         }
     }
 
@@ -276,7 +276,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             GroupPartitionId partitionId = null;
 
-            Lock partitionDesctructionLock = null;
+            Lock partitionDestructionLock = null;
 
             try {
                 for (DirtyFullPageId pageId : entry.getValue()) {
@@ -287,22 +287,22 @@ public class CheckpointPagesWriter implements Runnable {
                     updateHeartbeat.run();
 
                     if (partitionIdChanged(partitionId, pageId)) {
-                        if (partitionDesctructionLock != null) {
-                            partitionDesctructionLock.unlock();
+                        if (partitionDestructionLock != null) {
+                            partitionDestructionLock.unlock();
                         }
 
                         partitionId = GroupPartitionId.convert(pageId);
 
-                        partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
+                        partitionDestructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
-                        partitionDesctructionLock.lock();
+                        partitionDestructionLock.lock();
                     }
 
                     writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter, useTryWriteLockOnPage);
                 }
             } finally {
-                if (partitionDesctructionLock != null) {
-                    partitionDesctructionLock.unlock();
+                if (partitionDestructionLock != null) {
+                    partitionDestructionLock.unlock();
                 }
             }
         }
@@ -346,16 +346,16 @@ public class CheckpointPagesWriter implements Runnable {
 
                     GroupPartitionId partitionId = GroupPartitionId.convert(cpPageId);
 
-                    Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
+                    Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
-                    partitionDesctructionLock.lock();
+                    partitionDestructionLock.lock();
 
                     try {
                         addUpdatePartitionCounterIfAbsent(partitionId);
 
                         pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker, true);
                     } finally {
-                        partitionDesctructionLock.unlock();
+                        partitionDestructionLock.unlock();
                     }
                 }
             }

@@ -618,9 +618,9 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
+        Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
 
-        partitionDesctructionLock.lock();
+        partitionDestructionLock.lock();
 
         try {
             PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
@@ -640,7 +640,7 @@ public class Checkpointer extends IgniteWorker {
 
             currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
-            partitionDesctructionLock.unlock();
+            partitionDestructionLock.unlock();
         }
     }
 

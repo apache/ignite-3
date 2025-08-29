@@ -141,9 +141,9 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
-        Lock partitionDesctructionLock = partitionDestructionLockManager.destructionLock(GroupPartitionId.convert(fullPageId)).readLock();
+        Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(GroupPartitionId.convert(fullPageId)).readLock();
 
-        partitionDesctructionLock.lock();
+        partitionDestructionLock.lock();
 
         try {
             flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
@@ -152,7 +152,7 @@ public class DelayedDirtyPageWrite {
 
             throw t;
         } finally {
-            partitionDesctructionLock.unlock();
+            partitionDestructionLock.unlock();
 
             checkpointPages.unblockFsyncOnPageReplacement(fullPageId, errorOnWrite);
 
