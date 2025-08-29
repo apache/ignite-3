@@ -31,6 +31,7 @@ import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job executor with priority mechanism.
@@ -42,26 +43,21 @@ public class PriorityQueueExecutor {
 
     private final EventLog eventLog;
 
-    private final String nodeName;
-
     /**
      * Constructor.
      *
      * @param configuration Compute configuration.
      * @param threadFactory Thread factory.
      * @param eventLog Event log.
-     * @param nodeName Local node name.
      */
     public PriorityQueueExecutor(
             ComputeConfiguration configuration,
             ThreadFactory threadFactory,
             ComputeStateMachine stateMachine,
-            EventLog eventLog,
-            String nodeName
+            EventLog eventLog
     ) {
         this.stateMachine = stateMachine;
         this.eventLog = eventLog;
-        this.nodeName = nodeName;
 
         BlockingQueue<Runnable> workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
         executor = new ComputeThreadPoolExecutor(
@@ -84,7 +80,7 @@ public class PriorityQueueExecutor {
      * @return Completable future which will be finished when compute job finished.
      */
     public <R> QueueExecution<R> submit(Callable<CompletableFuture<R>> job, int priority, int maxRetries) {
-        return submit(job, priority, maxRetries, ComputeEventMetadata.builder());
+        return submit(job, priority, maxRetries, null);
     }
 
     /**
@@ -94,27 +90,25 @@ public class PriorityQueueExecutor {
      * @param job Execute job callable.
      * @param priority Job priority.
      * @param maxRetries Number of retries of the execution after failure, {@code 0} means the execution will not be retried.
-     * @param metadataBuilder Event metadata builder.
+     * @param metadataBuilder Event metadata builder. No events will be logged if it's {@code null}.
      * @return Completable future which will be finished when compute job finished.
      */
     public <R> QueueExecution<R> submit(
             Callable<CompletableFuture<R>> job,
             int priority,
             int maxRetries,
-            ComputeEventMetadataBuilder metadataBuilder
+            @Nullable ComputeEventMetadataBuilder metadataBuilder
     ) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
 
         // Job ID could be set previously, if this is a remotely initiated execution, see ComputeJobFailover.
-        if (metadataBuilder.jobId() == null) {
+        if (metadataBuilder != null && metadataBuilder.jobId() == null) {
             metadataBuilder.jobId(jobId);
         }
 
-        ComputeEventMetadata eventMetadata = metadataBuilder
-                .targetNode(nodeName)
-                .build();
+        ComputeEventMetadata eventMetadata = metadataBuilder != null ? metadataBuilder.build() : null;
         logJobQueuedEvent(eventLog, eventMetadata);
 
         QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine, eventLog, eventMetadata);

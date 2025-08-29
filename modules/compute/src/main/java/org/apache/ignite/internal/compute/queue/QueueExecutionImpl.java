@@ -55,7 +55,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
     private final EventLog eventLog;
-    private final ComputeEventMetadata eventMetadata;
+    private final @Nullable ComputeEventMetadata eventMetadata;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
@@ -85,7 +85,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             ComputeThreadPoolExecutor executor,
             ComputeStateMachine stateMachine,
             EventLog eventLog,
-            ComputeEventMetadata eventMetadata
+            @Nullable ComputeEventMetadata eventMetadata
     ) {
         this.jobId = jobId;
         this.job = job;

@@ -78,7 +78,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
         assertTaskExecuting(taskExecution);
-        InteractiveTasks.GlobalApi.assertAlive();
+        InteractiveTasks.GlobalApi.assertSplitAlive();
 
         // Save state before split.
         TaskState stateBeforeSplit = taskExecution.stateAsync().join();
@@ -249,7 +249,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.all().finishReturnWorkerNames();
 
         // Wait for the reduce job to start.
-        InteractiveTasks.GlobalApi.assertAlive();
+        InteractiveTasks.GlobalApi.assertReduceAlive();
 
         // When cancel the task.
         assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
@@ -274,7 +274,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg, cancellationToken
         );
         assertTaskExecuting(taskExecution);
-        InteractiveTasks.GlobalApi.assertAlive();
+        InteractiveTasks.GlobalApi.assertSplitAlive();
         return taskExecution;
     }
 

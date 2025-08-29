@@ -601,8 +601,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(
+    public <T, R> TaskExecution<R> submitMapReduceInternal(
             TaskDescriptor<T, R> taskDescriptor,
+            ComputeEventMetadataBuilder metadataBuilder,
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -612,6 +613,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 this::submitJobs,
                 taskDescriptor.units(),
                 taskDescriptor.taskClassName(),
+                metadataBuilder,
                 arg
         );
 
@@ -620,6 +622,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         }
 
         return new TaskExecutionWrapper<>(taskExecution);
+    }
+
+    @Override
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return submitMapReduceInternal(taskDescriptor, ComputeEventMetadata.builder(Type.MAP_REDUCE), arg, cancellationToken);
     }
 
     @Override
@@ -633,13 +644,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private <M, T> CompletableFuture<List<JobExecution<T>>> submitJobs(
             List<MapReduceJob<M, T>> runners,
+            ComputeEventMetadataBuilder metadataBuilder,
             CancellationToken cancellationToken
     ) {
+        //noinspection unchecked
         return allOfToList(
                 runners.stream()
                         .map(runner -> submitAsync(
                                 JobTarget.anyNode(runner.nodes()),
                                 runner.jobDescriptor(),
+                                metadataBuilder.copyOf(), // Make a copy since the builder is mutable
                                 runner.arg(),
                                 cancellationToken
                         ))

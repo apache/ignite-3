@@ -180,6 +180,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
+            ComputeEventMetadataBuilder metadataBuilder,
             I input
     ) {
         if (!busyLock.enterBusy()) {
@@ -192,7 +193,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             CompletableFuture<TaskExecutionInternal<I, M, T, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<I, M, T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
+                                TaskExecutionInternal<I, M, T, R> execution = execTask(
+                                        context,
+                                        jobSubmitter,
+                                        taskClassName,
+                                        metadataBuilder,
+                                        input
+                                );
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -368,10 +375,11 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobContext context,
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            I input
+            ComputeEventMetadataBuilder metadataBuilder,
+            I arg
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), input);
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), metadataBuilder, arg);
         } catch (Throwable e) {
             context.close();
             throw e;
