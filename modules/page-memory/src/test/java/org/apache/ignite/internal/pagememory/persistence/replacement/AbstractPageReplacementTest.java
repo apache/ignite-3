@@ -74,7 +74,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -236,7 +235,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26244")
     void testFsyncDeltaFilesWillNotStartOnCheckpointUntilPageReplacementIsComplete() throws Exception {
         var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
         var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
@@ -291,6 +289,12 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
             }).when(filePageStore).write(anyLong(), any());
 
             doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
+
+            doAnswer(invocation -> {
+                assertThat(deltaFileIoFuture, willCompleteSuccessfully());
+
+                return deltaFileIoFuture.join();
+            }).when(filePageStore).getDeltaFileToCompaction();
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.
