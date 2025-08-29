@@ -21,13 +21,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -322,6 +326,138 @@ public abstract class BinaryTupleComparatorBaseTest {
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
     }
 
+    @Test
+    public void partialComparatorAsciiTest() {
+        assertTrue(supportsPartialComparison());
+
+        Comparator<ByteBuffer> comparator = newComparator(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.STRING)
+        );
+
+        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop".repeat(10))
+                .build();
+
+        ByteBuffer tupleWithEmptyStringReference = new BinaryTupleBuilder(1)
+                .appendString("")
+                .build();
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendString("rxfsuzvjpq".repeat(2))
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop".repeat(15))
+                .build();
+
+        assertTrue(comparator.compare(tuple1, tupleReference) < 0);
+        assertTrue(comparator.compare(tuple2, tupleReference) > 0);
+        assertTrue(comparator.compare(tuple3, tupleReference) > 0);
+        assertEquals(0, comparator.compare(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(comparator.compare(
+                tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN),
+                tupleWithEmptyStringReference
+        ) > 0);
+        assertEquals(0, comparator.compare(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(comparator.compare(
+                tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN),
+                tupleWithEmptyStringReference
+        ) > 0);
+    }
+
+    @Test
+    public void partialComparatorUnicodeTest() {
+        assertTrue(supportsPartialComparison());
+
+        Comparator<ByteBuffer> comparator = newComparator(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.STRING)
+        );
+
+        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз".repeat(10))
+                .build();
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendString("кчфлёодщъи".repeat(2))
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз".repeat(15))
+                .build();
+
+        assertTrue(comparator.compare(tuple1, tupleReference) < 0);
+        assertTrue(comparator.compare(tuple2, tupleReference) > 0);
+        assertTrue(comparator.compare(tuple3, tupleReference) > 0);
+        assertEquals(0, comparator.compare(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertEquals(0, comparator.compare(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple3.limit(220).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+    }
+
+    @Test
+    public void partialComparatorBytesTest() {
+        assertTrue(supportsPartialComparison());
+
+        Comparator<ByteBuffer> comparator = newComparator(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.BYTES)
+        );
+
+        byte[] bytes = new byte[150];
+
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte) (i % 10);
+        }
+
+        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
+                .appendBytes(Arrays.copyOfRange(bytes, 0, 100))
+                .build();
+
+        ByteBuffer tupleWithEmptyArrayReference = new BinaryTupleBuilder(1)
+                .appendBytes(new byte[0])
+                .build();
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendBytes(Arrays.copyOfRange(bytes, 0, 10))
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendBytes(Arrays.copyOfRange(bytes, 1, 21))
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
+                .appendBytes(bytes)
+                .build();
+
+        assertTrue(comparator.compare(tuple1, tupleReference) < 0);
+        assertTrue(comparator.compare(tuple2, tupleReference) > 0);
+        assertTrue(comparator.compare(tuple3, tupleReference) > 0);
+        assertEquals(0, comparator.compare(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(comparator.compare(
+                tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN),
+                tupleWithEmptyArrayReference
+        ) > 0);
+        assertEquals(0, comparator.compare(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
+        assertTrue(comparator.compare(tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(comparator.compare(
+                tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN),
+                tupleWithEmptyArrayReference
+        ) > 0);
+    }
+
     protected final Comparator<ByteBuffer> createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
         return newComparator(List.of(collation), List.of(type));
     }
@@ -330,4 +466,6 @@ public abstract class BinaryTupleComparatorBaseTest {
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes
     );
+
+    protected abstract boolean supportsPartialComparison();
 }
