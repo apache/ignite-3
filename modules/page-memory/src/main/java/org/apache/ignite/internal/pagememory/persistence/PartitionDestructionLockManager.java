@@ -23,7 +23,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** Partition Destruction Lock Manager. */
-// TODO: IGNITE-26315 Добавить туду с новым тикетом на реализацию без блокировок
+// TODO: IGNITE-26339 Make partition generation increase non-blocking
 public class PartitionDestructionLockManager {
     private final Map<GroupPartitionId, ReentrantReadWriteLock> lockByPartitionId = new ConcurrentHashMap<>();
 
