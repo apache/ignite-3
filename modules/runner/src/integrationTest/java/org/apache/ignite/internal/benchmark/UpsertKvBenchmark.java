@@ -50,8 +50,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for a single upsert operation via KV API with a possibility to disable updates via RAFT and to storage.
  */
 @State(Scope.Benchmark)
-@Fork(0)
-@Threads(1)
+@Fork(1)
+@Threads(4)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -92,8 +92,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public void nodeSetUp() throws Exception {
         // System.setProperty(IgniteSystemProperties.IGNITE_USE_SHARED_EVENT_LOOP, "true");
         // System.setProperty(SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, "true");
-        // System.setProperty("USE_SPIN_WAIT", "true");
-        // System.setProperty("ENABLE_VIRTUAL", "true");
+        //System.setProperty("USE_SPIN_WAIT", "true");
+        //System.setProperty("ENABLE_VIRTUAL", "true");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
         super.nodeSetUp();
