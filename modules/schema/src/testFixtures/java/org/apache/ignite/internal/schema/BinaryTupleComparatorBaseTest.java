@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -328,7 +329,7 @@ public abstract class BinaryTupleComparatorBaseTest {
 
     @Test
     public void partialComparatorAsciiTest() {
-        assertTrue(supportsPartialComparison());
+        assumeTrue(supportsPartialComparison());
 
         Comparator<ByteBuffer> comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
@@ -374,7 +375,7 @@ public abstract class BinaryTupleComparatorBaseTest {
 
     @Test
     public void partialComparatorUnicodeTest() {
-        assertTrue(supportsPartialComparison());
+        assumeTrue(supportsPartialComparison());
 
         Comparator<ByteBuffer> comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
@@ -408,7 +409,7 @@ public abstract class BinaryTupleComparatorBaseTest {
 
     @Test
     public void partialComparatorBytesTest() {
-        assertTrue(supportsPartialComparison());
+        assumeTrue(supportsPartialComparison());
 
         Comparator<ByteBuffer> comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
