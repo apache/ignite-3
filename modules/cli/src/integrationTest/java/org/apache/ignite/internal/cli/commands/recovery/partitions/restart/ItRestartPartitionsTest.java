@@ -178,6 +178,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         assertOutputContains("Successfully restarted partitions.");
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
     public void testRestartSpecifiedPartitionsWithCleanup() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -191,6 +192,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         assertOutputContains("Successfully restarted partitions.");
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
     public void testRestartPartitionsByNodesWithCleanup() {
         String nodeNames = CLUSTER.runningNodes()
