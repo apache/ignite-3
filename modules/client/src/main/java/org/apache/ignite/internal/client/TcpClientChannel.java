@@ -817,7 +817,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         unpacker.retain();
 
         try {
-            // TODO: If asyncContinuationExecutor throws an exception, the unpacker will be leaked.
             if (!fut.complete(unpacker)) {
                 unpacker.close();
             }
