@@ -441,7 +441,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     ) {
         try {
             CompletableFuture<T> resFut = new CompletableFuture<>();
-            asyncContinuationExecutor.execute(() -> resFut.complete(complete(payloadReader, notificationFut, unpacker)));
+
+            // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    resFut.complete(complete(payloadReader, notificationFut, unpacker));
+                } catch (Throwable t) {
+                    resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
+                }
+            });
             return resFut;
         } catch (Throwable t) {
             unpacker.close();
