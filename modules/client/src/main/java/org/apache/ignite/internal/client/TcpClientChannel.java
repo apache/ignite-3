@@ -132,7 +132,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    /** Executor for async operation listeners. */
+    /** Executor for async operation listeners.
+     * NOTE: don't use *async methods of CompletableFuture directly, because we can't release Netty buffers if the executor throws.
+     */
     private final Executor asyncContinuationExecutor;
 
     /** Connect timeout in milliseconds. */
@@ -412,14 +414,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             }
 
-            // Handle the response in the async continuation pool.
-            return fut.handleAsync((unpacker, err) -> {
-                if (err != null) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                }
-
-                return complete(payloadReader, notificationFut, unpacker);
-            }, asyncContinuationExecutor);
+            // Handle the response in the async continuation pool with completeAsync.
+            return fut
+                    .thenCompose(unpacker -> completeAsync(payloadReader, notificationFut, unpacker))
+                    .exceptionally(err -> {
+                        throw sneakyThrow(ViewUtils.ensurePublicException(err));
+                    });
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -431,6 +431,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             metrics.requestsActiveDecrement();
 
             throw sneakyThrow(ViewUtils.ensurePublicException(t));
+        }
+    }
+
+    private <T> CompletableFuture<T> completeAsync(
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
+            ClientMessageUnpacker unpacker
+    ) {
+        try {
+            CompletableFuture<T> resFut = new CompletableFuture<>();
+            asyncContinuationExecutor.execute(() -> resFut.complete(complete(payloadReader, notificationFut, unpacker)));
+            return resFut;
+        } catch (Throwable t) {
+            unpacker.close();
+            return failedFuture(ViewUtils.ensurePublicException(t));
         }
     }
 
