@@ -228,7 +228,7 @@ public class Accumulators {
             throw unsupportedAggregateFunction(call);
         }
 
-        return () -> new GroupingAccumulator(call.getArgList());
+        return GroupingAccumulator.newAccumulator(call.getArgList());
     }
 
     /**
@@ -237,7 +237,12 @@ public class Accumulators {
     public static class GroupingAccumulator implements Accumulator {
         private final List<Integer> argList;
 
-        public GroupingAccumulator(List<Integer> argList) {
+        public static Supplier<Accumulator> newAccumulator(List<Integer> argList) {
+            return () -> new GroupingAccumulator(argList);
+        }
+
+        private GroupingAccumulator(List<Integer> argList) {
+            assert !argList.isEmpty() : "GROUPING function must have at least one argument.";
             assert argList.size() < Long.SIZE : "GROUPING function with more than 63 arguments is not supported.";
             this.argList = argList;
         }
