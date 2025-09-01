@@ -132,9 +132,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    /** Executor for async operation listeners.
-     * NOTE: don't use *async methods of CompletableFuture directly, because we can't release Netty buffers if the executor throws.
-     */
+    /** Executor for async operation listeners. */
     private final Executor asyncContinuationExecutor;
 
     /** Connect timeout in milliseconds. */
@@ -443,6 +441,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             CompletableFuture<T> resFut = new CompletableFuture<>();
 
             // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
+            // With handleAsync et al we can't close the unpacker in that case.
             asyncContinuationExecutor.execute(() -> {
                 try {
                     resFut.complete(complete(payloadReader, notificationFut, unpacker));
@@ -450,6 +449,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
                 }
             });
+
             return resFut;
         } catch (Throwable t) {
             unpacker.close();
