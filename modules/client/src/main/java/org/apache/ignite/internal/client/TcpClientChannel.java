@@ -659,7 +659,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .thenCompose(unpacker -> completeAsync( r -> handshakeRes(r.in()), null, unpacker))
+                .thenCompose(unpacker -> completeAsync(r -> handshakeRes(r.in()), null, unpacker))
                 .exceptionally(err -> {
                     if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                         metrics.handshakesFailedTimeoutIncrement();
