@@ -37,18 +37,22 @@ public class JitComparatorOptions {
 
     private final boolean supportPrefixes;
 
+    private final boolean supportPartialComparison;
+
     private JitComparatorOptions(
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes,
             List<Boolean> nullableFlags,
             String className,
-            boolean supportPrefixes
+            boolean supportPrefixes,
+            boolean supportPartialComparison
     ) {
         this.columnCollations = columnCollations;
         this.columnTypes = columnTypes;
         this.nullableFlags = nullableFlags;
         this.className = className;
         this.supportPrefixes = supportPrefixes;
+        this.supportPartialComparison = supportPartialComparison;
     }
 
     public List<CatalogColumnCollation> columnCollations() {
@@ -71,6 +75,10 @@ public class JitComparatorOptions {
         return supportPrefixes;
     }
 
+    public boolean supportPartialComparison() {
+        return supportPartialComparison;
+    }
+
     /**
      * Creates a builder for {@link JitComparatorOptions}.
      *
@@ -89,6 +97,7 @@ public class JitComparatorOptions {
         private List<Boolean> nullableFlags;
         private String className;
         private boolean supportPrefixes;
+        private boolean supportPartialComparison;
 
         public JitComparatorOptionsBuilder columnCollations(List<CatalogColumnCollation> columnCollations) {
             this.columnCollations = columnCollations;
@@ -115,6 +124,11 @@ public class JitComparatorOptions {
             return this;
         }
 
+        public JitComparatorOptionsBuilder supportPartialComparison(boolean supportPartialComparison) {
+            this.supportPartialComparison = supportPartialComparison;
+            return this;
+        }
+
         /**
          * Builds a new {@link JitComparatorOptions} instance.
          */
@@ -127,7 +141,13 @@ public class JitComparatorOptions {
                 throw new IllegalArgumentException("Column collations, types, and nullable flags must have the same size");
             }
 
-            return new JitComparatorOptions(columnCollations, columnTypes, nullableFlags, className, supportPrefixes);
+            return new JitComparatorOptions(
+                    columnCollations,
+                    columnTypes,
+                    nullableFlags,
+                    className,
+                    supportPrefixes,
+                    supportPartialComparison);
         }
     }
 }

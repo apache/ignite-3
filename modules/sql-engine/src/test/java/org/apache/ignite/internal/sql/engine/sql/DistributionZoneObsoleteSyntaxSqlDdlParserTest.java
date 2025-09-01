@@ -96,7 +96,6 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
                         + "partitions=3, "
                         + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
                         + "distribution_algorithm='test_Distribution', "
-                        + "data_nodes_auto_adjust=1, "
                         + "data_nodes_auto_adjust_scale_up=2, "
                         + "data_nodes_auto_adjust_scale_down=3,"
                         + "consistency_mode='HIGH_AVAILABILITY'"
@@ -117,12 +116,11 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
 
         List<SqlNode> optList = createZone.createOptionList().getList();
 
-        assertThat(optList.size(), is(8));
+        assertThat(optList.size(), is(7));
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
@@ -132,7 +130,6 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
                 + "PARTITIONS 3, "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
                 + "DISTRIBUTION ALGORITHM 'test_Distribution', "
-                + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
                 + "AUTO SCALE DOWN 3, "
                 + "CONSISTENCY MODE 'HIGH_AVAILABILITY') "
@@ -201,7 +198,6 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
                 "alter zone a.test_zone set "
                         + "replicas=2, "
                         + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
-                        + "data_nodes_auto_adjust=1, "
                         + "data_nodes_auto_adjust_scale_up=2, "
                         + "data_nodes_auto_adjust_scale_down=3"
         );
@@ -214,12 +210,10 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
 
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET ("
                 + "REPLICAS 2, "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
-                + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
                 + "AUTO SCALE DOWN 3)";
         expectUnparsed(alterZoneSet, expectedStmt);
