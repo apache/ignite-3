@@ -17,6 +17,12 @@
 
 package org.apache.ignite.marshalling;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.io.Serializable;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,7 +45,14 @@ public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
         }
 
         if (object instanceof Serializable) {
-            return JavaSerializationByteArrayMarshalling.marshal((Serializable) object);
+            try (var baos = new ByteArrayOutputStream(); var out = new ObjectOutputStream(baos)) {
+                out.writeObject(object);
+                out.flush();
+
+                return baos.toByteArray();
+            } catch (IOException e) {
+                throw new MarshallingException(e);
+            }
         }
 
         throw new UnsupportedObjectTypeMarshallingException(object.getClass());
@@ -51,6 +64,20 @@ public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
             return null;
         }
 
-        return JavaSerializationByteArrayMarshalling.unmarshal(raw);
+        try (var bais = new ByteArrayInputStream(raw); var ois = new ObjectInputStream(bais) {
+            @Override
+            protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+                String name = desc.getName();
+                try {
+                    return Class.forName(name, false, ByteArrayMarshaller.this.getClass().getClassLoader());
+                } catch (ClassNotFoundException ex) {
+                    return super.resolveClass(desc);
+                }
+            }
+        }) {
+            return (T) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new MarshallingException(e);
+        }
     }
 }
