@@ -102,28 +102,32 @@ public class DotNetComputeExecutor {
      *
      * @param unitPath Paths to deployment units to undeploy.
      */
-    public void beginUndeployUnit(Path unitPath) {
+    public synchronized void beginUndeployUnit(Path unitPath) {
         try {
             String unitPathStr = unitPath.toRealPath().toString();
 
-            getPlatformComputeConnectionWithRetryAsync()
-                    .thenCompose(conn -> conn.connectionFut()
-                            .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
-                            .exceptionally(e -> {
-                                var cause = unwrapCause(e);
+            if (process == null || isDead(process) || process.connectionFut().isCompletedExceptionally()) {
+                // Process is not started or already dead, nothing to undeploy.
+                return;
+            }
 
-                                if (cause instanceof TraceableException) {
-                                    TraceableException te = (TraceableException) cause;
+            process.connectionFut()
+                    .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
+                    .exceptionally(e -> {
+                        var cause = unwrapCause(e);
 
-                                    if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
-                                        // Connection was lost (process exited), nothing to do.
-                                        return true;
-                                    }
-                                }
+                        if (cause instanceof TraceableException) {
+                            TraceableException te = (TraceableException) cause;
 
-                                LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
-                                return false;
-                            }));
+                            if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                // Connection was lost (process exited), nothing to do.
+                                return true;
+                            }
+                        }
+
+                        LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
+                        return false;
+                    });
         } catch (Throwable t) {
             LOG.warn(".NET unit undeploy error: " + t.getMessage(), t);
         }
