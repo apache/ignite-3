@@ -180,7 +180,8 @@ public:
      */
     void set_heartbeat_interval(std::chrono::microseconds heartbeat_interval) {
         if (heartbeat_interval.count() < 0) {
-            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative");
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative: "
+                + std::to_string(heartbeat_interval.count()) + " microseconds");
         }
 
         m_heartbeat_interval = heartbeat_interval;
