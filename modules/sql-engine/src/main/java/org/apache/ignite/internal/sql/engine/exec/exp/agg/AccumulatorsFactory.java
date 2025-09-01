@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import static org.apache.calcite.sql.fun.SqlInternalOperators.LITERAL_AGG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.createRowType;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 

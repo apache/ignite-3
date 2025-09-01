@@ -1246,8 +1246,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             case MIN:
             case MAX:
             case ANY_VALUE:
-            case GROUPING:
 
+                return;
+            case GROUPING:
+                if (call.operandCount() > 63) {
+                    // Function result of BIGINT can fit only bitmask of length less than 64;
+                    throw newValidationError(call, IgniteResource.INSTANCE.invalidArgCount(aggFunction.getName(), 1, 63));
+                }
                 return;
             default:
                 throw newValidationError(call,

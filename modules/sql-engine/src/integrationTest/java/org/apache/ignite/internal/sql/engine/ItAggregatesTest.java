@@ -29,7 +29,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -582,6 +586,13 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 // empty group
                 .returns(0L, 0L, null, 80L, 4L)
                 .check();
+
+        String invalidQuery = IgniteStringFormatter.format(
+                "SELECT GROUPING({}), str_col FROM test_str_int_real_dec GROUP BY GROUPING SETS ((str_col))",
+                IntStream.rangeClosed(1, 64).mapToObj(i -> "str_col").collect(Collectors.joining(",")));
+        assertThrows(SqlException.class, () -> sql(invalidQuery),
+                "Invalid number of arguments to function ''GROUPING''. Was expecting number of agruments in range [1, 63]");
+
     }
 
     @ParameterizedTest
