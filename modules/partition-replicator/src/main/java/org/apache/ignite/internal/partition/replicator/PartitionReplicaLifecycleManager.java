@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -97,6 +96,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -1375,9 +1375,16 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
-            }, ioExecutor);
+            localServicesStartFuture = replicaMgr.resetWithRetry(replicaGrpId, computedStableAssignments, () ->
+                    // TODO: extract pending assignments reading to a utility method.
+                    metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicaGrpId))
+                            .thenApply(RebalanceUtil::readPendingAssignments)
+                            .thenApply(actualPending ->
+                                    (actualPending != null && actualPending.force() && localAssignment(actualPending) != null)
+                                            ? actualPending
+                                            : null
+                            )
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }

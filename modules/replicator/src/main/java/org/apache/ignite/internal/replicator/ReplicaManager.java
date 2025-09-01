@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -38,6 +39,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -187,7 +189,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    private final Executor replicaStartStopExecutor;
+    private final ScheduledExecutorService replicaLifecycleExecutor;
 
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
@@ -247,7 +249,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
-     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     public ReplicaManager(
@@ -265,7 +267,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor,
+            ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -284,10 +286,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.replicaStartStopExecutor = replicaStartStopExecutor;
+        this.replicaLifecycleExecutor = replicaLifecycleExecutor;
 
         this.replicaStateManager = new ReplicaStateManager(
-                replicaStartStopExecutor,
+                replicaLifecycleExecutor,
                 placementDriver,
                 this,
                 failureProcessor
@@ -611,7 +613,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
-     *
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Replica> startReplica(
@@ -794,14 +795,144 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Returns current term of a replica.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return Current term.
+     */
+    public long currentTerm(ReplicationGroupId replicaGrpId) {
+        Loza loza = (Loza) raftManager;
+
+        return loza.currentTerm(new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId)));
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param peersAndLearners New node configuration.
+     * @param term Term on which this method was called.
+     */
+    public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        Loza loza = (Loza) raftManager;
+        return loza.resetPeers(raftNodeId, peersAndLearners, term);
+    }
+
+    /**
      * Performs a {@code resetPeers} operation on raft node.
      *
      * @param replicaGrpId Replication group ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+    boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
+        return resetPeers(replicaGrpId, peersAndLearners, currentTerm(replicaGrpId));
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node with retries.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param assignments New assignments.
+     */
+    public CompletableFuture<Void> resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            Supplier<CompletableFuture<Assignments>> retryOperation
+    ) {
+        var result = new CompletableFuture<Void>();
+
+        long term;
+
+        try {
+            term = currentTerm(replicaGrpId);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        resetWithRetry(replicaGrpId, assignments, term, result, 1, retryOperation);
+
+        return result;
+    }
+
+    private void resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            long term,
+            CompletableFuture<Void> result,
+            int iteration,
+            Supplier<CompletableFuture<Assignments>> retryOperation
+    ) {
+        if (iteration % 1000 == 0) {
+            LOG.info("Retrying reset [iter={}, groupId={}, assignments={}]", iteration, replicaGrpId, assignments);
+        }
+        supplyAsync(() -> inBusyLock(busyLock, () -> resetPeers(replicaGrpId, fromAssignments(assignments.nodes()), term)),
+                replicaLifecycleExecutor)
+                .whenComplete((resetSuccessful, ex) -> {
+                    if (ex != null) {
+                        if (isRetriable(ex)) {
+                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", ex, replicaGrpId);
+
+                            resetWithRetryThrottling(replicaGrpId, result, iteration, retryOperation);
+                        } else {
+                            result.completeExceptionally(ex);
+                        }
+                    } else if (!resetSuccessful) {
+                        LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+
+                        resetWithRetryThrottling(replicaGrpId, result, iteration, retryOperation);
+                    } else {
+                        result.complete(null);
+                    }
+                });
+    }
+
+    private void resetWithRetryThrottling(
+            ReplicationGroupId replicaGrpId,
+            CompletableFuture<Void> result,
+            int iteration,
+            Supplier<CompletableFuture<Assignments>> retryOperation
+    ) {
+        replicaLifecycleExecutor.schedule(
+                () -> {
+                    retryOperation.get().whenComplete((actualPending, err) -> {
+                        if (err != null) {
+                            LOG.error("Failed to check the invariant for reset peers. [groupId={}]. ", err, replicaGrpId);
+                            result.completeExceptionally(err);
+                        } else if (actualPending == null) {
+                            LOG.error("No longer eligible to reset peers. [groupId={}]. ", replicaGrpId);
+                            result.completeExceptionally(
+                                    new IllegalStateException("Local node is no longer in pending for: " + replicaGrpId));
+                        } else {
+                            long term;
+
+                            try {
+                                term = currentTerm(replicaGrpId);
+                            } catch (Exception e) {
+                                LOG.error("Failed to get current term. [groupId={}]. ", replicaGrpId);
+                                result.completeExceptionally(new IllegalStateException("Failed to get current term: " + replicaGrpId));
+                                return;
+                            }
+
+                            LOG.info("Reset peers retrying [groupId={}, pending={}, term={}]",
+                                    replicaGrpId, actualPending, term);
+
+
+                            resetWithRetry(replicaGrpId, actualPending, term, result, iteration + 1, retryOperation);
+                        }
+                    });
+                },
+                500,
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    private static boolean isRetriable(Throwable ex) {
+        Throwable exception = unwrapCause(ex);
+
+        return !(exception instanceof NodeStoppingException
+                || exception instanceof AssertionError
+            );
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
@@ -917,7 +1048,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return true;
-                }, replicaStartStopExecutor);
+                }, replicaLifecycleExecutor);
     }
 
     /** {@inheritDoc} */

@@ -133,6 +133,9 @@ public final class CliRequests {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
+
+        // term is intentionally Long and not long in order to perform nullable (not initialized) check.
+        Long term();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.TRANSFER_LEADER_REQUEST)
