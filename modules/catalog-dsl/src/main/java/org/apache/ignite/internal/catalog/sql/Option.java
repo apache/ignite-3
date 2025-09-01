@@ -39,10 +39,6 @@ class Option extends QueryPart {
         return new Option("QUORUM_SIZE", quorumSize);
     }
 
-    public static Option dataNodesAutoAdjust(Integer adjust) {
-        return new Option("DATA_NODES_AUTO_ADJUST", adjust);
-    }
-
     public static Option dataNodesAutoAdjustScaleUp(Integer adjust) {
         return new Option("DATA_NODES_AUTO_ADJUST_SCALE_UP", adjust);
     }
