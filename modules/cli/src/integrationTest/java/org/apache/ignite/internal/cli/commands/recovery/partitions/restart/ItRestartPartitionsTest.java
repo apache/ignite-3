@@ -211,4 +211,23 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
         assertOutputContains("Successfully restarted partitions.");
     }
+
+    @Test
+    public void testRestartPartitionsByNodesWithCleanupNoExecutorInNodes() {
+        String nodeNames = CLUSTER.runningNodes()
+                .skip(1)
+                .map(Ignite::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
 }
