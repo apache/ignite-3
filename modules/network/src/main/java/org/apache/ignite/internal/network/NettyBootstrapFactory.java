@@ -26,8 +26,6 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.EventExecutor;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +39,7 @@ import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
+import org.apache.ignite.internal.network.netty.NioSocketChannelEx;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -85,7 +84,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
         Bootstrap outboundBootstrap = new Bootstrap();
 
         outboundBootstrap.group(workerGroup)
-                .channel(NioSocketChannel.class)
+                .channel(NioSocketChannelEx.class)
                 // See createServerBootstrap for netty configuration details.
                 .option(ChannelOption.SO_KEEPALIVE, outboundConfiguration.soKeepAlive())
                 .option(ChannelOption.SO_LINGER, outboundConfiguration.soLinger())
@@ -104,7 +103,6 @@ public class NettyBootstrapFactory implements IgniteComponent {
         ServerBootstrap serverBootstrap = new ServerBootstrap();
 
         serverBootstrap.group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel.class)
                 /*
                  * The maximum queue length for incoming connection indications (a request to connect) is set
                  * to the backlog parameter. If a connection indication arrives when the queue is full,
