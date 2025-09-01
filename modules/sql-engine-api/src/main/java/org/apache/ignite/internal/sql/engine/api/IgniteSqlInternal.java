@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.sql.engine.api;
 
-dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.IgniteSql;
 
-    implementation libs.jetbrains.annotations
+/**
+ * Internal SQL facade.
+ */
+public interface IgniteSqlInternal extends IgniteSql {
+
+    /**
+     * Invalidates planner cache.
+     *
+     * @return Operation completion future.
+     */
+    CompletableFuture<Void> invalidatePlannerCache(Set<String> strings);
 }
-
-description = 'ignite-sql-engine-api'

@@ -48,7 +48,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for sql execution.
  */
-@Command(name = "sql", description = "Executes SQL query")
+@Command(name = "sql", description = "Executes SQL query", hidden = true)
 public class SqlCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
@@ -75,9 +75,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {

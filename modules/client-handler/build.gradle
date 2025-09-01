@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-api')
     implementation project(':ignite-table')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-network')
     implementation project(':ignite-core')

@@ -28,6 +28,7 @@ import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
 import org.apache.ignite.internal.cli.commands.recovery.RecoveryCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
+import org.apache.ignite.internal.cli.commands.sql.SqlQueryCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -43,6 +44,7 @@ import picocli.CommandLine.Option;
                 ""},
         subcommands = {
                 SqlCommand.class,
+                SqlQueryCommand.class,
                 CommandLine.HelpCommand.class,
                 CliCommand.class,
                 ConnectCommand.class,
