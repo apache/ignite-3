@@ -831,17 +831,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         // Add reference count before jumping onto another thread.
         unpacker.retain();
 
-        asyncContinuationExecutor.execute(() -> {
-            try {
-                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+        try {
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                        unpacker.close();
+                    }
+                } catch (Throwable e) {
                     unpacker.close();
-                }
-            } catch (Throwable e) {
-                unpacker.close();
 
-                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-            }
-        });
+                    log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+                }
+            });
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
+        }
     }
 
     void checkTimeouts(long now) {
