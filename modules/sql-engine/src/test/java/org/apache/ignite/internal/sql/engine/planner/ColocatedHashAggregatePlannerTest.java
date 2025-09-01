@@ -829,6 +829,4 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         )),
                 disableRules);
     }
-
-
 }
