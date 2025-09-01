@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.api.IgniteSqlInternal;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -66,7 +68,6 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
@@ -83,7 +84,7 @@ import org.jetbrains.annotations.TestOnly;
  * Embedded implementation of the Ignite SQL query facade.
  */
 @SuppressWarnings("rawtypes")
-public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
+public class IgniteSqlImpl implements IgniteSqlInternal, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
 
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
@@ -647,6 +648,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
             throw new CompletionException(mapToPublicSqlException(cause));
         });
+    }
+
+    @Override
+    public CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
+        return queryProcessor.invalidatePlannerCache(tableNames);
     }
 
     private static void validateDmlResult(AsyncCursor.BatchedResult<InternalSqlRow> page) {

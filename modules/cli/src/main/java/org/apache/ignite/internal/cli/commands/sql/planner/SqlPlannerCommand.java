@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.cli.commands.sql.planner;
 
-dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-    implementation libs.jetbrains.annotations
+/**
+ * SQL planner command.
+ */
+@Command(name = "planner",
+        subcommands = {
+                InvalidateCacheCommand.class
+        },
+        description = "SQL planner operations.")
+public class SqlPlannerCommand extends BaseCommand {
 }
-
-description = 'ignite-sql-engine-api'

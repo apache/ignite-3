@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -604,6 +605,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @Override
     public List<SystemView<?>> systemViews() {
         return List.of(queriesViewProvider.get());
+    }
+
+    @Override
+    public CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
+        return prepareSvc.invalidateCache(tableNames);
     }
 
     /** Completes the provided future when the callback is called. */

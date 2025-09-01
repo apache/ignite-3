@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.cli.commands.sql.planner;
 
-dependencies {
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-
-    implementation libs.jetbrains.annotations
+/**
+ * Tests for {@link SqlPlannerReplCommand}.
+ */
+public class ItSqlPlannerReplCommandTest extends ItSqlPlannerCommandTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return SqlPlannerReplCommand.class;
+    }
 }
-
-description = 'ignite-sql-engine-api'

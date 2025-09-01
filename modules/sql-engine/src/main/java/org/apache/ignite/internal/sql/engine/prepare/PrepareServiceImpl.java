@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -37,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
@@ -248,7 +250,7 @@ public class PrepareServiceImpl implements PrepareService {
         boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
         long timestamp = operationContext.operationTime().longValue();
-        int catalogVersion = schemaManager.catalogVersion(timestamp); 
+        int catalogVersion = schemaManager.catalogVersion(timestamp);
 
         CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
 
@@ -303,6 +305,30 @@ public class PrepareServiceImpl implements PrepareService {
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> invalidateCache(Set<String> tableNames) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (tableNames.isEmpty()) {
+                cache.clear();
+            } else {
+                cache.removeIfValue(p -> p.isDone() && planMatches(p.join(), tableNames::contains));
+            }
+
+            return null;
+        }, planningPool);
+    }
+
+    private boolean planMatches(QueryPlan plan, Predicate<String> containsTable) {
+        assert plan instanceof ExplainablePlan;
+
+        MatchingShuttle shuttle = new MatchingShuttle(containsTable);
+
+        ((ExplainablePlan) plan).getRel().accept(shuttle);
+
+        return shuttle.matches();
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(
@@ -455,25 +481,25 @@ public class PrepareServiceImpl implements PrepareService {
                     IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
 
                     return new KeyValueGetPlan(
-                            nextPlanId(), 
-                            catalogVersion, 
-                            kvGet, 
+                            nextPlanId(),
+                            catalogVersion,
+                            kvGet,
                             resultSetMetadata,
                             parameterMetadata,
-                            relWithMetadata.paMetadata, 
+                            relWithMetadata.paMetadata,
                             relWithMetadata.ppMetadata
                     );
                 }
 
                 var plan = new MultiStepPlan(
-                        nextPlanId(), 
-                        SqlQueryType.QUERY, 
-                        optimizedRel, 
-                        resultSetMetadata, 
-                        parameterMetadata, 
-                        catalogVersion, 
-                        relWithMetadata.numSources, 
-                        fastPlan, 
+                        nextPlanId(),
+                        SqlQueryType.QUERY,
+                        optimizedRel,
+                        resultSetMetadata,
+                        parameterMetadata,
+                        catalogVersion,
+                        relWithMetadata.numSources,
+                        fastPlan,
                         relWithMetadata.paMetadata,
                         relWithMetadata.ppMetadata
                 );
@@ -539,10 +565,10 @@ public class PrepareServiceImpl implements PrepareService {
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
                     nextPlanId(),
-                    ctx.catalogVersion(), 
+                    ctx.catalogVersion(),
                     (IgniteKeyValueModify) optimizedRel,
                     DML_METADATA,
-                    parameterMetadata, 
+                    parameterMetadata,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -552,9 +578,9 @@ public class PrepareServiceImpl implements PrepareService {
                     SqlQueryType.DML,
                     optimizedRel, DML_METADATA,
                     parameterMetadata,
-                    ctx.catalogVersion(), 
-                    relWithMetadata.numSources, 
-                    null, 
+                    ctx.catalogVersion(),
+                    relWithMetadata.numSources,
+                    null,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -611,25 +637,25 @@ public class PrepareServiceImpl implements PrepareService {
                     IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
 
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), 
+                            nextPlanId(),
                             catalogVersion,
                             kvModify,
                             DML_METADATA,
-                            parameterMetadata, 
-                            relWithMetadata.paMetadata, 
+                            parameterMetadata,
+                            relWithMetadata.paMetadata,
                             relWithMetadata.ppMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(
-                            nextPlanId(), 
+                            nextPlanId(),
                             SqlQueryType.DML,
                             optimizedRel,
-                            DML_METADATA, 
-                            parameterMetadata, 
+                            DML_METADATA,
+                            parameterMetadata,
                             catalogVersion,
-                            relWithMetadata.numSources, 
-                            null, 
-                            relWithMetadata.paMetadata, 
+                            relWithMetadata.numSources,
+                            null,
+                            relWithMetadata.paMetadata,
                             relWithMetadata.ppMetadata
                     );
                 }
@@ -767,9 +793,9 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private RelWithMetadata doOptimize(
-            PlanningContext ctx, 
-            SqlNode validatedNode, 
-            IgnitePlanner planner, 
+            PlanningContext ctx,
+            SqlNode validatedNode,
+            IgnitePlanner planner,
             @Nullable Runnable onTimeoutAction
     ) {
         // Convert to Relational operators graph
@@ -906,13 +932,49 @@ public class PrepareServiceImpl implements PrepareService {
         RelWithMetadata(
                 IgniteRel rel,
                 int numSources,
-                @Nullable PartitionAwarenessMetadata paMetadata, 
+                @Nullable PartitionAwarenessMetadata paMetadata,
                 @Nullable PartitionPruningMetadata ppMetadata
         ) {
             this.rel = rel;
             this.numSources = numSources;
             this.paMetadata = paMetadata;
             this.ppMetadata = ppMetadata;
+        }
+    }
+
+    private static class MatchingShuttle extends IgniteRelShuttle {
+        private final Predicate<String> containsTable;
+        boolean matches;
+
+        private MatchingShuttle(Predicate<String> containsTable) {
+            this.containsTable = containsTable;
+            matches = false;
+        }
+
+        /**
+         * Visits all children of a parent.
+         */
+        @Override
+        protected IgniteRel processNode(IgniteRel rel) {
+            if (!matches && rel.getTable() != null) {
+                matches = containsTable.test(rel.getTable().getQualifiedName().toString());
+            }
+
+            if (matches) {
+                return rel;
+            }
+
+            List<IgniteRel> inputs = Commons.cast(rel.getInputs());
+
+            for (int i = 0; i < inputs.size() && !matches; i++) {
+                visit(inputs.get(i));
+            }
+
+            return rel;
+        }
+
+        boolean matches() {
+            return matches;
         }
     }
 }

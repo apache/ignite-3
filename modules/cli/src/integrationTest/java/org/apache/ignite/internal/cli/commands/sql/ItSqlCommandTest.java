@@ -24,7 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link SqlCommand}.
+ * Tests for {@link SqlExecCommand}.
  */
 class ItSqlCommandTest extends CliSqlCommandTestBase {
 

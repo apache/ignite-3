@@ -61,7 +61,7 @@ public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
                 + "&ciphers=" + CIPHER1;
 
         // When
-        execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
+        executeJdbc(jdbcUrl, "select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -86,7 +86,7 @@ public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
                 + "&ciphers=" + CIPHER2;
 
         // When
-        execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
+        executeJdbc(jdbcUrl, "select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -95,5 +95,9 @@ public class ItJdbcSslCustomCipherTest extends CliIntegrationTest {
                 () -> assertErrOutputIs("Could not connect to node. Check SSL configuration" + System.lineSeparator()
                         + "Received fatal alert: protocol_version" + System.lineSeparator())
         );
+    }
+
+    private void executeJdbc(String jdbcUrl, String query) {
+        super.execute("sql", "exec", "--jdbc-url", jdbcUrl, query);
     }
 }
