@@ -28,11 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -172,6 +175,19 @@ public class ConfigurationTest extends AbstractClientTest {
             }
 
             executor.shutdown();
+        }
+    }
+
+    @Test
+    public void testAsyncContinuationExecutorException() {
+        Builder clientBuilder = IgniteClient.builder()
+                .addresses("localhost:" + serverPort)
+                .asyncContinuationExecutor(command -> {
+                    throw new RuntimeException("bad executor");
+                });
+
+        try (var client = clientBuilder.build()) {
+            client.tables().tables();
         }
     }
 }
