@@ -71,9 +71,9 @@ public class IgniteThreadFactory implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
-        if (virtual) {
-            return Thread.ofVirtual().name(prefix, counter.getAndIncrement()).uncaughtExceptionHandler(exHnd).unstarted(r);
-        }
+//        if (virtual) {
+//            return Thread.ofVirtual().name(prefix, counter.getAndIncrement()).uncaughtExceptionHandler(exHnd).unstarted(r);
+//        }
 
         IgniteThread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
