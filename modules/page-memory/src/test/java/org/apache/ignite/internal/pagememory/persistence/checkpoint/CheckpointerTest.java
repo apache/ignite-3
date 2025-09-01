@@ -20,11 +20,9 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -73,6 +71,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -121,18 +120,21 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testStartAndStop() throws Exception {
         PartitionMetaManager mockParititonMetaManager = mock(PartitionMetaManager.class);
 
-        Checkpointer checkpointer = new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mockParititonMetaManager),
+                createCheckpointPagesWriterFactory(mockParititonMetaManager, partitionDestructionLockManager),
                 mock(FilePageStoreManager.class),
                 mockParititonMetaManager,
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager
         );
 
         assertNull(checkpointer.runner());
@@ -167,7 +169,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager()
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -273,7 +276,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager()
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -293,18 +297,21 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     void testCheckpointBody() throws Exception {
         intervalMillis.set(100L);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class), partitionDestructionLockManager),
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager
         ));
 
         checkpointer.scheduledProgress()
@@ -392,18 +399,21 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         when(mock.getMeta(any())).thenReturn(meta);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(partitionMetaManager),
+                createCheckpointPagesWriterFactory(partitionMetaManager, partitionDestructionLockManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 mock,
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
-                mockLogSyncer
+                mockLogSyncer,
+                partitionDestructionLockManager
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -424,18 +434,24 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         Compactor compactor = mock(Compactor.class);
 
-        Checkpointer checkpointer = spy(new Checkpointer(
+        var partitionDestructionLockManager = new PartitionDestructionLockManager();
+
+        var checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 mock(FailureManager.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
+                createCheckpointPagesWriterFactory(
+                        new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY),
+                        partitionDestructionLockManager
+                ),
                 createFilePageStoreManager(Map.of()),
                 mock(PartitionMetaManager.class),
                 compactor,
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                partitionDestructionLockManager
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -462,7 +478,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(Compactor.class),
                 PAGE_SIZE,
                 checkpointConfig,
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                new PartitionDestructionLockManager()
         );
 
         // Checks case 0 deviation.
@@ -489,49 +506,6 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_800L), lessThanOrEqualTo(2_200L))
         );
-    }
-
-    @Test
-    void testPrepareToDestroyPartition() throws Exception {
-        Checkpointer checkpointer = new Checkpointer(
-                "test",
-                null,
-                mock(FailureManager.class),
-                mock(CheckpointWorkflow.class),
-                mock(CheckpointPagesWriterFactory.class),
-                mock(FilePageStoreManager.class),
-                mock(PartitionMetaManager.class),
-                mock(Compactor.class),
-                PAGE_SIZE,
-                checkpointConfig,
-                mock(LogSyncer.class)
-        );
-
-        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
-
-        // Everything should be fine as there is no current running checkpoint.
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
-
-        checkpointer.startCheckpointProgress();
-
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        checkpointProgress.transitTo(LOCK_RELEASED);
-        assertTrue(checkpointProgress.inProgress());
-
-        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
-        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
-
-        // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
-        checkpointProgress.blockPartitionDestruction(groupPartitionId);
-
-        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
-
-        checkpointProgress.unblockPartitionDestruction(groupPartitionId);
-
-        onPartitionDestructionFuture.get(1, SECONDS);
     }
 
     private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, DirtyFullPageId... pageIds) {
@@ -573,12 +547,16 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(PartitionMetaManager partitionMetaManager) {
+    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
+            PartitionMetaManager partitionMetaManager,
+            PartitionDestructionLockManager partitionDestructionLockManager
+    ) {
         return new CheckpointPagesWriterFactory(
                 mock(WriteDirtyPage.class),
                 ioRegistry,
                 partitionMetaManager,
-                PAGE_SIZE
+                PAGE_SIZE,
+                partitionDestructionLockManager
         );
     }
 

@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -61,14 +62,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
-        var compactor = new Compactor(
-                log,
-                "test",
-                1,
-                mock(FilePageStoreManager.class),
-                PAGE_SIZE,
-                mock(FailureManager.class)
-        );
+        Compactor compactor = newCompactor();
 
         assertNull(compactor.runner());
 
@@ -95,13 +89,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMergeDeltaFileToMainFile() throws Throwable {
-        Compactor compactor = new Compactor(
-                log,
-                "test",
-                1,
-                mock(FilePageStoreManager.class),
-                PAGE_SIZE,
-                mock(FailureManager.class));
+        Compactor compactor = newCompactor();
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -147,13 +135,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
         when(filePageStoreManager.allPageStores()).then(answer -> groupPageStoresMap.getAll());
 
-        Compactor compactor = spy(new Compactor(
-                log,
-                "test",
-                1,
-                filePageStoreManager,
-                PAGE_SIZE,
-                mock(FailureManager.class)));
+        Compactor compactor = spy(newCompactor(filePageStoreManager));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
@@ -179,13 +161,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testBody() throws Exception {
-        Compactor compactor = spy(new Compactor(
-                log,
-                "test",
-                1,
-                mock(FilePageStoreManager.class),
-                PAGE_SIZE,
-                mock(FailureManager.class)));
+        Compactor compactor = spy(newCompactor());
 
         doNothing().when(compactor).waitDeltaFiles();
 
@@ -204,13 +180,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitDeltaFiles() throws Exception {
-        Compactor compactor = spy(new Compactor(
-                log,
-                "test",
-                1,
-                mock(FilePageStoreManager.class),
-                PAGE_SIZE,
-                mock(FailureManager.class)));
+        Compactor compactor = spy(newCompactor());
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
 
@@ -223,13 +193,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCancel() throws Exception {
-        Compactor compactor = spy(new Compactor(
-                log,
-                "test",
-                1,
-                mock(FilePageStoreManager.class),
-                PAGE_SIZE,
-                mock(FailureManager.class)));
+        Compactor compactor = spy(newCompactor());
 
         assertFalse(compactor.isCancelled());
 
@@ -243,5 +207,21 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         assertFalse(Thread.currentThread().isInterrupted());
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
+    }
+
+    private Compactor newCompactor() {
+        return newCompactor(mock(FilePageStoreManager.class));
+    }
+
+    private Compactor newCompactor(FilePageStoreManager filePageStoreManager) {
+        return new Compactor(
+                log,
+                "test",
+                1,
+                filePageStoreManager,
+                PAGE_SIZE,
+                mock(FailureManager.class),
+                new PartitionDestructionLockManager()
+        );
     }
 }
