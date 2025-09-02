@@ -581,10 +581,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
     }
 
-    private void checkSimpleAggSingle(TestCase testCase) throws Exception {
-        checkSimpleAggSingle(testCase, hasAggregate());
-    }
-
     /**
      * Validates a plan for a query with GROUPING aggregate.
      */
@@ -595,6 +591,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_28_2A);
         assumeRun(TestCase.CASE_28_2B); // No collation can be utilized for the case if multiple group sets.
+    }
+
+    private void checkSimpleAggSingle(TestCase testCase) throws Exception {
+        checkSimpleAggSingle(testCase, hasAggregate());
     }
 
     private void checkSimpleAggSingle(TestCase testCase, Predicate<IgniteMapSortAggregate> aggPredicate) throws Exception {
