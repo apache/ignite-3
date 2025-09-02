@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,19 +58,17 @@ import org.junit.jupiter.params.provider.EnumSource;
  */
 public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
-    private static final Calendar CALENDAR = Calendar.getInstance();
-
     protected abstract ResultSet createResultSet(
-            @Nullable ZoneId zoneId, 
-            List<ColumnDefinition> cols, 
+            @Nullable ZoneId zoneId,
+            List<ColumnDefinition> cols,
             List<List<Object>> rows
     ) throws SQLException;
 
-    protected final ResultSet createPositionedSingle(ColumnDefinition col, Object value) throws SQLException {
-        return createPositionedMulti(new ColumnDefinition[]{col}, new Object[]{value});
+    private ResultSet createSingleRow(ColumnDefinition col, @Nullable Object value) throws SQLException {
+        return createMultiRow(new ColumnDefinition[]{col}, new Object[]{value});
     }
 
-    private ResultSet createPositionedMulti(@Nullable ZoneId zoneId, ColumnDefinition[] columns, Object[] values) throws SQLException {
+    private ResultSet createMultiRow(@Nullable ZoneId zoneId, ColumnDefinition[] columns, Object[] values) throws SQLException {
         if (columns.length != values.length) {
             throw new IllegalArgumentException("cols, values must have the same length");
         }
@@ -80,18 +77,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         List<List<Object>> rows = new ArrayList<>();
         rows.add(Arrays.asList(values));
 
-        ResultSet rs = createResultSet(zoneId, cols, rows);
-        assertTrue(rs.next());
-        return rs;
+        return createResultSet(zoneId, cols, rows);
     }
 
-    private ResultSet createPositionedMulti(ColumnDefinition[] columns, Object[] values) throws SQLException {
-        return createPositionedMulti(null, columns, values);
+    private ResultSet createMultiRow(ColumnDefinition[] columns, Object[] values) throws SQLException {
+        return createMultiRow(null, columns, values);
     }
 
     @Test
     public void getNotSupportedTypes() throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
+            assertTrue(rs.next());
 
             expectNotSupported(() -> rs.getArray(1));
             expectNotSupported(() -> rs.getArray("C"));
@@ -132,8 +128,24 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void getNotImplemented() throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
+
+            expectNotSupported(() -> rs.getAsciiStream(1));
+            expectNotSupported(() -> rs.getAsciiStream("C"));
+
+            expectNotSupported(() -> rs.getBinaryStream(1));
+            expectNotSupported(() -> rs.getBinaryStream("C"));
+
+            expectNotSupported(() -> rs.getCharacterStream(1));
+            expectNotSupported(() -> rs.getCharacterStream("C"));
+        }
+    }
+
+    @Test
     public void updateMethodsAreNotSupported() throws Exception {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
+            assertTrue(rs.next());
 
             expectNotSupported(() -> rs.updateBoolean(1, true));
             expectNotSupported(() -> rs.updateBoolean("C", true));
@@ -150,8 +162,8 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(() -> rs.updateLong(1, 0));
             expectNotSupported(() -> rs.updateLong("C", 0));
 
-            expectNotSupported(() -> rs.updateFloat(1, (float) 0.0));
-            expectNotSupported(() -> rs.updateFloat("C", (float) 0.0));
+            expectNotSupported(() -> rs.updateFloat(1, 0.0f));
+            expectNotSupported(() -> rs.updateFloat("C", 0.0f));
 
             expectNotSupported(() -> rs.updateDouble(1, 0.0));
             expectNotSupported(() -> rs.updateDouble("C", 0.0));
@@ -330,7 +342,11 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
+
+            expectPositioned(rs::wasNull);
+            assertTrue(rs.next());
+
             switch (columnType) {
                 case NULL:
                     assertNull(rs.getObject(1));
@@ -405,7 +421,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
+            assertTrue(rs.next());
+
             switch (columnType) {
                 case NULL:
                     assertNull(rs.getObject("C"));
@@ -479,7 +497,8 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void getUnknownColumn() throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), 1)) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), 1)) {
+            assertTrue(rs.next());
 
             expectInvalidColumn(rs::getBoolean, -1);
             expectInvalidColumn(rs::getBoolean, 2);
@@ -553,8 +572,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)),
                 List.of())
         ) {
-            expectPositioned(rs::wasNull);
-
             expectPositioned(() -> rs.getBoolean(1));
             expectPositioned(() -> rs.getBoolean("C"));
 
@@ -579,7 +596,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectPositioned(() -> rs.getBigDecimal(1));
             expectPositioned(() -> rs.getBigDecimal("C"));
 
+            //noinspection deprecation
             expectPositioned(() -> rs.getBigDecimal(1, 2));
+            //noinspection deprecation
             expectPositioned(() -> rs.getBigDecimal("C", 3));
 
             expectPositioned(() -> rs.getDate(1));
@@ -609,9 +628,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectPositioned(() -> rs.getURL(1));
             expectPositioned(() -> rs.getURL("C"));
 
-            assertNotNull(rs.getMetaData());
-            assertNotNull(rs.getStatement());
-
+            // Do not require positioning
             assertThat(rs.getType(), any(Integer.class));
 
             assertThat(rs.getConcurrency(), any(Integer.class));
@@ -632,7 +649,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void warnings() throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
             assertNull(rs.getWarnings());
 
             rs.clearWarnings();
@@ -642,7 +659,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void getMetadata() throws SQLException {
-        try (ResultSet rs = createPositionedSingle(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
         }
@@ -724,25 +741,27 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> rs.getBigDecimal(1));
             expectClosed(() -> rs.getBigDecimal("C"));
 
+            //noinspection deprecation
             expectClosed(() -> rs.getBigDecimal(1, 2));
+            //noinspection deprecation
             expectClosed(() -> rs.getBigDecimal("C", 3));
 
             expectClosed(() -> rs.getDate(1));
             expectClosed(() -> rs.getDate("C"));
-            expectClosed(() -> rs.getDate(1, CALENDAR));
-            expectClosed(() -> rs.getDate("C", CALENDAR));
+            expectClosed(() -> rs.getDate(1, Calendar.getInstance()));
+            expectClosed(() -> rs.getDate("C", Calendar.getInstance()));
 
             expectClosed(() -> rs.getTime(1));
             expectClosed(() -> rs.getTime("C"));
 
-            expectClosed(() -> rs.getTime(1, CALENDAR));
-            expectClosed(() -> rs.getTime("C", CALENDAR));
+            expectClosed(() -> rs.getTime(1, Calendar.getInstance()));
+            expectClosed(() -> rs.getTime("C", Calendar.getInstance()));
 
             expectClosed(() -> rs.getTimestamp(1));
             expectClosed(() -> rs.getTimestamp("C"));
 
-            expectClosed(() -> rs.getTimestamp(1, CALENDAR));
-            expectClosed(() -> rs.getTimestamp("C", CALENDAR));
+            expectClosed(() -> rs.getTimestamp(1, Calendar.getInstance()));
+            expectClosed(() -> rs.getTimestamp("C", Calendar.getInstance()));
 
             expectClosed(() -> rs.getString(1));
             expectClosed(() -> rs.getString("C"));
@@ -765,7 +784,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> rs.getAsciiStream(1));
             expectClosed(() -> rs.getAsciiStream("C"));
 
+            //noinspection deprecation
             expectClosed(() -> rs.getUnicodeStream(1));
+            //noinspection deprecation
             expectClosed(() -> rs.getUnicodeStream("C"));
 
             expectClosed(() -> rs.getBinaryStream(1));
@@ -817,8 +838,8 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectClosed(() -> rs.updateLong(1, 0));
             expectClosed(() -> rs.updateLong("C", 0));
 
-            expectClosed(() -> rs.updateFloat(1, (float) 0.0));
-            expectClosed(() -> rs.updateFloat("C", (float) 0.0));
+            expectClosed(() -> rs.updateFloat(1, 0.0f));
+            expectClosed(() -> rs.updateFloat("C", 0.0f));
 
             expectClosed(() -> rs.updateDouble(1, 0.0));
             expectClosed(() -> rs.updateDouble("C", 0.0));
@@ -925,7 +946,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         assertThrows(SQLFeatureNotSupportedException.class, m::call);
     }
 
-    protected static void expectSqlException(ResultSetMethod m, String message) {
+    private static void expectSqlException(ResultSetMethod m, String message) {
         SQLException err = assertThrows(SQLException.class, m::call);
         assertThat(err.getMessage(), containsString(message));
     }
