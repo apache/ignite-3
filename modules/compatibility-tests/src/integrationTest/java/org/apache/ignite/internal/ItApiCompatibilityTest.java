@@ -22,6 +22,7 @@ import org.apache.ignite.internal.compatibility.api.CompatibilityOutput;
 
 class ItApiCompatibilityTest {
 
+    // TODO resolve or explain exclusions https://issues.apache.org/jira/browse/IGNITE-26365
     @ApiCompatibilityTest(
             newVersion = "3.1.0-SNAPSHOT",
             oldVersions = "3.0.0",
