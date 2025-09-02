@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -38,6 +39,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -341,6 +346,78 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    public void wasNull(ColumnType columnType) throws SQLException {
+        Object value;
+        switch (columnType) {
+            case NULL:
+                value = null;
+                break;
+            case BOOLEAN:
+                value = true;
+                break;
+            case INT8:
+                value = (byte) 1;
+                break;
+            case INT16:
+                value = (short) 1;
+                break;
+            case INT32:
+                value = 1;
+                break;
+            case INT64:
+                value = 1L;
+                break;
+            case FLOAT:
+                value = 0.0f;
+                break;
+            case DOUBLE:
+                value = 0.0d;
+                break;
+            case DECIMAL:
+                value = BigDecimal.ZERO;
+                break;
+            case DATE:
+                value = LocalDate.now();
+                break;
+            case TIME:
+                value = LocalTime.now();
+                break;
+            case DATETIME:
+                value = LocalDateTime.now();
+                break;
+            case TIMESTAMP:
+                value = Instant.now();
+                break;
+            case UUID:
+                value = new UUID(1, 1);
+                break;
+            case STRING:
+                value = "";
+                break;
+            case BYTE_ARRAY:
+                value = new byte[0];
+                break;
+            case PERIOD:
+            case DURATION:
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + columnType);
+        }
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
+            expectPositioned(rs::wasNull);
+            assertTrue(rs.next());
+
+            expectSqlException(rs::wasNull, "Cannot invoke wasNull because no getter method has been called yet");
+
+            // Read a column, so we can call wasNull
+            rs.getObject(1);
+
+            assertEquals(value == null, rs.wasNull());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
 
@@ -415,6 +492,10 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 default:
                     throw new IllegalArgumentException("Unexpected type: " + columnType);
             }
+
+            // Fails when there is no input.
+            assertFalse(rs.next());
+            expectPositioned(rs::wasNull);
         }
     }
 
