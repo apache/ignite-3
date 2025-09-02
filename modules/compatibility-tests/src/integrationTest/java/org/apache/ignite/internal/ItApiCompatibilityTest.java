@@ -26,25 +26,29 @@ class ItApiCompatibilityTest {
     @ApiCompatibilityTest(
             newVersion = "3.1.0-SNAPSHOT",
             oldVersions = "3.0.0",
-            exclude = "org.apache.ignite.Ignite#clusterNodes();"
-                    + "org.apache.ignite.Ignite#clusterNodesAsync();"
-                    + "org.apache.ignite.catalog.IgniteCatalog#dropTable(java.lang.String);"
-                    + "org.apache.ignite.catalog.IgniteCatalog#dropTableAsync(java.lang.String);"
-                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinition(java.lang.String);"
-                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinitionAsync(java.lang.String);"
-                    + "org.apache.ignite.compute.ColocatedJobTarget;"
-                    + "org.apache.ignite.compute.TableJobTarget;"
-                    + "org.apache.ignite.lang.ColumnNotFoundException;"
-                    + "org.apache.ignite.lang.IndexAlreadyExistsException;"
-                    + "org.apache.ignite.lang.IndexNotFoundException;"
-                    + "org.apache.ignite.lang.TableAlreadyExistsException;"
-                    + "org.apache.ignite.lang.TableNotFoundException;"
-                    + "org.apache.ignite.lang.util.IgniteNameUtils;"
-                    + "org.apache.ignite.sql.IgniteSql;"
-                    + "org.apache.ignite.table.DataStreamerTarget;"
-                    + "org.apache.ignite.table.IgniteTables;"
-                    + "org.apache.ignite.table.QualifiedName;"
-                    + "org.apache.ignite.table.Table;"
+            exclude = ""
+                    + "org.apache.ignite.Ignite#clusterNodes();" // deprecated
+                    + "org.apache.ignite.Ignite#clusterNodesAsync();" // deprecated
+                    + "org.apache.ignite.catalog.IgniteCatalog#dropTable(java.lang.String);" // method abstract now default
+                    + "org.apache.ignite.catalog.IgniteCatalog#dropTableAsync(java.lang.String);" // method abstract now default
+                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinition(java.lang.String);" // method abstract now default
+                    + "org.apache.ignite.catalog.IgniteCatalog#tableDefinitionAsync(java.lang.String);" // method abstract now default
+                    + "org.apache.ignite.catalog.annotations.Zone#dataNodesAutoAdjust();" // removed
+                    + "org.apache.ignite.catalog.definitions.ZoneDefinition#dataNodesAutoAdjust();"  // removed
+                    + "org.apache.ignite.catalog.definitions.ZoneDefinition$Builder#dataNodesAutoAdjust(java.lang.Integer);"  // removed
+                    + "org.apache.ignite.compute.ColocatedJobTarget;" // method return type changed
+                    + "org.apache.ignite.compute.TableJobTarget;" // method return type changed
+                    + "org.apache.ignite.lang.ColumnNotFoundException;" // deprecated
+                    + "org.apache.ignite.lang.IndexAlreadyExistsException;" // deprecated
+                    + "org.apache.ignite.lang.IndexNotFoundException;" // deprecated
+                    + "org.apache.ignite.lang.TableAlreadyExistsException;" // deprecated
+                    + "org.apache.ignite.lang.TableNotFoundException;" // constructor removed
+                    + "org.apache.ignite.lang.util.IgniteNameUtils;" // methods removed, less accessible
+                    + "org.apache.ignite.sql.IgniteSql;" // method abstract now default
+                    + "org.apache.ignite.table.DataStreamerTarget;" // method abstract now default
+                    + "org.apache.ignite.table.IgniteTables;" // method abstract now default
+                    + "org.apache.ignite.table.QualifiedName;" // now final, serializable
+                    + "org.apache.ignite.table.Table;" // method abstract now default
     )
     void testApiModule(CompatibilityOutput output) {}
 
