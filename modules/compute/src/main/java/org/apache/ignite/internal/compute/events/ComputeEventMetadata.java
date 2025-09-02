@@ -35,7 +35,7 @@ public class ComputeEventMetadata {
     private final String jobClassName;
 
     /** Compute job id. */
-    private final UUID jobId;
+    private final @Nullable UUID jobId;
 
     /** Target node name. */
     private final String targetNode;
@@ -44,19 +44,19 @@ public class ComputeEventMetadata {
     private final String initiatorNode;
 
     /** Used in events for broadcast jobs - common id for a group of jobs. */
-    private final UUID taskId;
+    private final @Nullable UUID taskId;
 
     /** For colocated jobs. */
-    private final String tableName;
+    private final @Nullable String tableName;
 
     /** For client API. */
-    private final String clientAddress;
+    private final @Nullable String clientAddress;
 
     ComputeEventMetadata(
             EventUser eventUser,
             Type type,
             String jobClassName,
-            UUID jobId,
+            @Nullable UUID jobId,
             String targetNode,
             String initiatorNode,
             @Nullable UUID taskId,
@@ -105,6 +105,7 @@ public class ComputeEventMetadata {
         return jobClassName;
     }
 
+    @Nullable
     UUID jobId() {
         return jobId;
     }

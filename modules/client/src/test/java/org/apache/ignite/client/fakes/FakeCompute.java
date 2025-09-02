@@ -57,6 +57,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -107,14 +108,12 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
-            @Nullable CancellationToken cancellationToken) {
+            ExecutionContext executionContext,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        String jobClassName = executionContext.jobClassName();
         if (Objects.equals(jobClassName, GET_UNITS)) {
-            String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
+            String unitString = executionContext.units().stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution(unitString);
         }
 
@@ -135,7 +134,7 @@ public class FakeCompute implements IgniteComputeInternal {
             ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<Object> jobFut = job.executeAsync(
                     new JobExecutionContextImpl(ignite, new AtomicBoolean(), jobClassLoader, null),
-                    SharedComputeUtils.unmarshalArgOrResult(arg, null, null));
+                    SharedComputeUtils.unmarshalArgOrResult(executionContext.arg(), null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
@@ -154,11 +153,7 @@ public class FakeCompute implements IgniteComputeInternal {
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            ComputeEventMetadataBuilder metadataBuilder,
-            ComputeJobDataHolder args,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         return jobExecution(future != null
@@ -181,6 +176,16 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
+    public <T, R> TaskExecution<R> submitMapReduceInternal(
+            TaskDescriptor<T, R> taskDescriptor,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return taskExecution(future != null ? future : completedFuture((R) nodeName));
+    }
+
+    @Override
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
@@ -192,11 +197,11 @@ public class FakeCompute implements IgniteComputeInternal {
 
             return executeAsyncWithFailover(
                     nodes,
-                    descriptor.units(),
-                    descriptor.jobClassName(),
-                    descriptor.options(),
-                    ComputeEventMetadata.builder(),
-                    SharedComputeUtils.marshalArgOrResult(arg, null, observableTimestamp.longValue()),
+                    new ExecutionContext(
+                            descriptor,
+                            ComputeEventMetadata.builder(),
+                            SharedComputeUtils.marshalArgOrResult(arg, null, observableTimestamp.longValue())
+                    ),
                     cancellationToken
             ).thenApply(internalExecution -> unmarshalingExecution(descriptor, internalExecution));
         } else if (target instanceof ColocatedJobTarget) {
@@ -272,7 +277,7 @@ public class FakeCompute implements IgniteComputeInternal {
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return taskExecution(future != null ? future : completedFuture((R) nodeName));
+        return submitMapReduceInternal(taskDescriptor, null, arg, cancellationToken);
     }
 
     @Override

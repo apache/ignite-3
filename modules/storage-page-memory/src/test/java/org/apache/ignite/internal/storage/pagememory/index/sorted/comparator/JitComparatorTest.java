@@ -41,6 +41,7 @@ public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
                 .columnTypes(columnTypes)
                 .nullableFlags(Collections.nCopies(columnTypes.size(), true))
                 .supportPrefixes(true)
+                .supportPartialComparison(true)
                 .build()
         );
 
@@ -54,5 +55,10 @@ public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
                     ? -comparator.compare(rightAccessor, right.capacity(), leftAccessor, left.capacity())
                     : comparator.compare(leftAccessor, left.capacity(), rightAccessor, right.capacity());
         };
+    }
+
+    @Override
+    protected boolean supportsPartialComparison() {
+        return true;
     }
 }

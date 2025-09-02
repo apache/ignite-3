@@ -510,6 +510,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexMetaTree,
                 gcQueue
         );
+
+        checkpointManager.addCheckpointListener(checkpointListener, tableStorage.dataRegion());
     }
 
     @Override
@@ -517,6 +519,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
+                () -> checkpointManager.removeCheckpointListener(checkpointListener),
                 localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,

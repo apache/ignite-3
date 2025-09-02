@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.IgniteCluster;
@@ -31,8 +32,18 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteClusterImpl implements IgniteCluster {
     public final TopologyService topologyService;
 
-    public IgniteClusterImpl(TopologyService topologyService) {
+    public final ClusterIdSupplier clusterIdSupplier;
+
+    public IgniteClusterImpl(TopologyService topologyService, ClusterIdSupplier clusterIdSupplier) {
         this.topologyService = topologyService;
+        this.clusterIdSupplier = clusterIdSupplier;
+    }
+
+    @Override
+    public UUID id() {
+        @Nullable UUID ret = clusterIdSupplier.clusterId();
+        assert ret != null : "clusterId not available";
+        return ret;
     }
 
     @Override

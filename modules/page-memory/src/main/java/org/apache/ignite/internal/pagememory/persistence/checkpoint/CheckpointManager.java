@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -83,6 +84,8 @@ public class CheckpointManager {
 
     /** Delta file compactor. */
     private final Compactor compactor;
+
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
 
     /**
      * Constructor.
@@ -133,11 +136,14 @@ public class CheckpointManager {
                 checkpointConfig.checkpointThreads()
         );
 
+        partitionDestructionLockManager = new PartitionDestructionLockManager();
+
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 this::writePageToFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
-                pageSize
+                pageSize,
+                partitionDestructionLockManager
         );
 
         compactor = new Compactor(
@@ -146,7 +152,8 @@ public class CheckpointManager {
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
                 pageSize,
-                failureManager
+                failureManager,
+                partitionDestructionLockManager
         );
 
         checkpointer = new Checkpointer(
@@ -160,7 +167,8 @@ public class CheckpointManager {
                 compactor,
                 pageSize,
                 checkpointConfig,
-                logSyncer
+                logSyncer,
+                partitionDestructionLockManager
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
@@ -395,18 +403,8 @@ public class CheckpointManager {
         compactor.triggerCompaction();
     }
 
-    /**
-     * Callback on destruction of the partition of the corresponding group.
-     *
-     * <p>Prepares the checkpointer and compactor for partition destruction.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will complete when the callback completes.
-     */
-    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
-        return CompletableFuture.allOf(
-                checkpointer.prepareToDestroyPartition(groupPartitionId),
-                compactor.prepareToDestroyPartition(groupPartitionId)
-        );
+    /** Partition Destruction Lock Manager. */
+    public PartitionDestructionLockManager partitionDestructionLockManager() {
+        return partitionDestructionLockManager;
     }
 }

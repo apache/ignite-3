@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
@@ -42,6 +43,7 @@ import static org.mockito.Mockito.when;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -75,6 +77,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatcher;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -143,8 +146,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent)
-                .executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
+        verifyExecuteLocally(ExecutionOptions.DEFAULT);
 
         assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
@@ -185,8 +187,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent)
-                .executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
+        verifyExecuteLocally(ExecutionOptions.DEFAULT);
 
         assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
@@ -222,8 +223,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent)
-                .executeLocally(eq(expectedOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull());
+        verifyExecuteLocally(expectedOptions);
     }
 
     @Test
@@ -308,28 +308,38 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull()))
+        when(computeComponent.executeLocally(argThat(ctxEq(executionOptions)), isNull()))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
                         "jobResponse", null, jobTimestamp.longValue()), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), eq(token)))
+        when(computeComponent.executeLocally(argThat(ctxEq(executionOptions)), eq(token)))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
                         "jobResponse", null, jobTimestamp.longValue()), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(options), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull()
+                eq(remoteNode), any(), argThat(ctxEq(options)), isNull()
         )).thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
                 "remoteResponse", null, jobTimestamp.longValue()), remoteNode)));
     }
 
+    private void verifyExecuteLocally(ExecutionOptions options) {
+        verify(computeComponent)
+                .executeLocally(argThat(ctxEq(options)), isNull());
+    }
+
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
-        verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(options), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), any(), isNull()
-        );
+        verify(computeComponent)
+                .executeRemotelyWithFailover(eq(remoteNode), any(), argThat(ctxEq(options)), isNull());
+    }
+
+    private ArgumentMatcher<ExecutionContext> ctxEq(ExecutionOptions options) {
+        return ctx -> Objects.equals(ctx.options(), options)
+                && Objects.equals(ctx.units(), testDeploymentUnits)
+                && Objects.equals(ctx.jobClassName(), JOB_CLASS_NAME);
     }
 
     private static <R> CancellableJobExecution<R> completedExecution(@Nullable R result, ClusterNode node) {

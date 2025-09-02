@@ -71,13 +71,6 @@ public @interface Zone {
     String distributionAlgorithm() default "";
 
     /**
-     * Timeout in seconds between node added or node left topology event itself and data nodes switch.
-     *
-     * @return Timeout.
-     */
-    int dataNodesAutoAdjust() default -1;
-
-    /**
      * Timeout in seconds between node added topology event itself and data nodes switch.
      *
      * @return Timeout.
