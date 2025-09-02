@@ -40,7 +40,7 @@ public:
     /**
      * TCP port used by client by default if not specified explicitly.
      */
-    static constexpr uint16_t DEFAULT_PORT = 10800;
+    static constexpr std::uint16_t DEFAULT_PORT = 10800;
 
     /**
      * Default heartbeat interval.
@@ -153,7 +153,7 @@ public:
      *
      * @param limit Connections limit to set.
      */
-    void set_connection_limit(uint32_t limit) { m_connection_limit = limit; }
+    void set_connection_limit(std::uint32_t limit) { m_connection_limit = limit; }
 
     /**
      * Get a heartbeat interval.
@@ -301,7 +301,7 @@ private:
     std::shared_ptr<ignite_client_authenticator> m_authenticator{};
 
     /** Active connections limit. */
-    uint32_t m_connection_limit{0};
+    std::uint32_t m_connection_limit{0};
 
     /** Heartbeat interval. */
     std::chrono::microseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
