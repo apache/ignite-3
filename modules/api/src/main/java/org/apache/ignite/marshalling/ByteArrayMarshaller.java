@@ -65,6 +65,24 @@ public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
         }
 
         try (var bais = new ByteArrayInputStream(raw); var ois = new ObjectInputStream(bais) {
+            /*
+             * Why do we subclass ObjectInputStream here?
+             *
+             * - Class loading in a distributed / runtime‑extensible environment:
+             *   Ignite often needs to deserialize user classes that are not visible to the
+             *   system/application class loader (for example, user code deployed as a compute unit,
+             *   classes loaded by a job/unit-specific ClassLoader).
+             *   The default ObjectInputStream#resolveClass uses an internal heuristic ("latest
+             *   user-defined loader") that frequently ends up being the system or context class loader.
+             *   That loader may not see such user classes, leading to ClassNotFoundException during
+             *   deserialization.
+             *
+             * - Deterministic loader selection:
+             *   We explicitly resolve classes using the ClassLoader that defined this ByteArrayMarshaller
+             *   instance. In Ignite, this loader is set up to be the job/unit ClassLoader when user code
+             *   is executed or transported. This makes class resolution deterministic and aligned with
+             *   the deployment context, mirroring the environment where serialization occurred.
+             */
             @Override
             protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
                 String name = desc.getName();
