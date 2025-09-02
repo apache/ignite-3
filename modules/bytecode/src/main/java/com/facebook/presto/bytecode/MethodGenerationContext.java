@@ -17,6 +17,11 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.debug.LocalVariableNode;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -24,13 +29,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import com.facebook.presto.bytecode.debug.LocalVariableNode;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class MethodGenerationContext {
     private final MethodVisitor methodVisitor;

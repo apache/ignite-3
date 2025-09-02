@@ -16,11 +16,11 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
-
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 public class TestPopBytecodeExpression {
     @Test

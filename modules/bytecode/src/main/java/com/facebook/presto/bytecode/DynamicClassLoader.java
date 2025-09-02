@@ -17,6 +17,8 @@
 
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,8 +27,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 
 public class DynamicClassLoader
         extends ClassLoader

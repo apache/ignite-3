@@ -16,9 +16,9 @@
  */
 package com.facebook.presto.bytecode;
 
-import org.objectweb.asm.ClassWriter;
-
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
+
+import org.objectweb.asm.ClassWriter;
 
 public class SmartClassWriter
         extends ClassWriter

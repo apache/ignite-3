@@ -29,18 +29,18 @@
  */
 package com.facebook.presto.bytecode;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
+import static java.util.Arrays.stream;
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
-import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 /**
  * @author Eugene Kuleshov

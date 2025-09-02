@@ -45,7 +45,8 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
@@ -158,7 +158,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode) {
+            InternalClusterNode recipientNode) {
         return null;
     }
 
@@ -192,7 +192,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         return null;
     }
@@ -435,7 +435,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -450,7 +450,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             UUID txCoordinatorId
     ) {
         return null;
@@ -475,7 +475,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
@@ -524,13 +524,13 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
+    public CompletableFuture<InternalClusterNode> partitionLocation(int partitionIndex) {
         List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
         ReplicaMeta replica = replicaMetas.get(partitionIndex);
 
         //noinspection DataFlowIssue
         return completedFuture(
-                new ClusterNodeImpl(
+                new InternalClusterNodeImpl(
                         replica.getLeaseholderId(),
                         replica.getLeaseholder(),
                         new NetworkAddress("localhost", 10800)));
@@ -556,7 +556,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
-            ClusterNode node,
+            InternalClusterNode node,
             List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");
     }
@@ -564,7 +564,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     @Override
     public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
-            ClusterNode node,
+            InternalClusterNode node,
             List<DeploymentUnit> deploymentUnits,
             ReceiverExecutionOptions options) {
         JobExecutionOptions jobOptions = JobExecutionOptions.builder()
@@ -574,7 +574,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 .build();
 
         return compute.executeAsync(
-                JobTarget.node(node),
+                JobTarget.node(node.asPublicNode()),
                 JobDescriptor.builder(StreamerReceiverJob.class)
                         .units(deploymentUnits)
                         .options(jobOptions)

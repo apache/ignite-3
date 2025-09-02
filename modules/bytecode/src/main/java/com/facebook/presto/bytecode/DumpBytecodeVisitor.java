@@ -17,12 +17,10 @@
 
 package com.facebook.presto.bytecode;
 
-import java.io.PrintWriter;
-import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import static com.facebook.presto.bytecode.Access.INTERFACE;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.lang.String.format;
+
 import com.facebook.presto.bytecode.control.CaseStatement;
 import com.facebook.presto.bytecode.control.DoWhileLoop;
 import com.facebook.presto.bytecode.control.ForLoop;
@@ -51,10 +49,12 @@ import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.bytecode.instruction.VariableInstruction.IncrementVariableInstruction;
 import com.facebook.presto.bytecode.instruction.VariableInstruction.LoadVariableInstruction;
 import com.facebook.presto.bytecode.instruction.VariableInstruction.StoreVariableInstruction;
-
-import static com.facebook.presto.bytecode.Access.INTERFACE;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.lang.String.format;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class DumpBytecodeVisitor
         extends BytecodeVisitor<Void>

@@ -17,23 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import com.facebook.presto.bytecode.debug.LineNumberNode;
-import com.facebook.presto.bytecode.instruction.Constant;
-import com.facebook.presto.bytecode.instruction.InvokeInstruction;
-import com.facebook.presto.bytecode.instruction.JumpInstruction;
-import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.bytecode.instruction.TypeInstruction;
-import com.facebook.presto.bytecode.instruction.VariableInstruction;
-import org.objectweb.asm.MethodVisitor;
-
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -52,6 +35,23 @@ import static com.facebook.presto.bytecode.instruction.TypeInstruction.cast;
 import static com.facebook.presto.bytecode.instruction.TypeInstruction.instanceOf;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.loadVariable;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.storeVariable;
+
+import com.facebook.presto.bytecode.debug.LineNumberNode;
+import com.facebook.presto.bytecode.instruction.Constant;
+import com.facebook.presto.bytecode.instruction.InvokeInstruction;
+import com.facebook.presto.bytecode.instruction.JumpInstruction;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.bytecode.instruction.TypeInstruction;
+import com.facebook.presto.bytecode.instruction.VariableInstruction;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
 
 @SuppressWarnings("UnusedDeclaration")
 public class BytecodeBlock

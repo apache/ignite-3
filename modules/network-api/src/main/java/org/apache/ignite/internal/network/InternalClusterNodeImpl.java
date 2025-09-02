@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Representation of a node in a cluster.
  */
-public class ClusterNodeImpl implements ClusterNode {
+public class InternalClusterNodeImpl implements InternalClusterNode {
     /** Local ID assigned to the node instance. The ID changes between restarts. */
     private final UUID id;
 
@@ -40,6 +40,10 @@ public class ClusterNodeImpl implements ClusterNode {
     @Nullable
     private final NodeMetadata nodeMetadata;
 
+    public static InternalClusterNodeImpl fromPublicClusterNode(ClusterNode node) {
+        return new InternalClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata());
+    }
+
     /**
      * Constructor.
      *
@@ -48,7 +52,7 @@ public class ClusterNodeImpl implements ClusterNode {
      * @param address Node address.
      * @param nodeMetadata Node metadata.
      */
-    public ClusterNodeImpl(UUID id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
+    public InternalClusterNodeImpl(UUID id, String name, NetworkAddress address, @Nullable NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
@@ -62,7 +66,7 @@ public class ClusterNodeImpl implements ClusterNode {
      * @param name    Unique name of a cluster member.
      * @param address Node address.
      */
-    public ClusterNodeImpl(UUID id, String name, NetworkAddress address) {
+    public InternalClusterNodeImpl(UUID id, String name, NetworkAddress address) {
         this(id, name, address, null);
     }
 
@@ -88,6 +92,11 @@ public class ClusterNodeImpl implements ClusterNode {
     }
 
     @Override
+    public ClusterNode asPublicNode() {
+        return new PublicClusterNodeImpl(id, name, address, nodeMetadata);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -95,7 +104,7 @@ public class ClusterNodeImpl implements ClusterNode {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterNodeImpl that = (ClusterNodeImpl) o;
+        InternalClusterNodeImpl that = (InternalClusterNodeImpl) o;
         return name.equals(that.name) && address.equals(that.address);
     }
 

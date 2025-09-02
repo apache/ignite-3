@@ -102,7 +102,7 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
     @Test
     void failoverCandidateLeavesCluster() throws Exception {
         // Given remote candidates to execute a job.
-        Set<ClusterNode> remoteWorkerCandidates = Set.of(clusterNode(1), clusterNode(2));
+        Set<ClusterNode> remoteWorkerCandidates = Set.of(publicClusterNode(1), publicClusterNode(2));
         Set<String> remoteWorkerCandidateNames = remoteWorkerCandidates.stream()
                 .map(ClusterNode::name)
                 .collect(Collectors.toCollection(HashSet::new));
@@ -147,7 +147,7 @@ abstract class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegration
     @Test
     void failoverAndThenStopWorker() throws Exception {
         // Given remote candidates to execute a job.
-        Set<ClusterNode> remoteWorkerCandidates = Set.of(clusterNode(1), clusterNode(2));
+        Set<ClusterNode> remoteWorkerCandidates = Set.of(publicClusterNode(1), publicClusterNode(2));
         Set<String> remoteWorkerCandidateNames = remoteWorkerCandidates.stream()
                 .map(ClusterNode::name)
                 .collect(Collectors.toCollection(HashSet::new));

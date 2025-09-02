@@ -54,6 +54,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.RecipientLeftException;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -118,7 +118,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
      * till it's completed.
      */
-    private final CompletableFuture<ClusterNode> localNodeFuture = new CompletableFuture<>();
+    private final CompletableFuture<InternalClusterNode> localNodeFuture = new CompletableFuture<>();
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -523,7 +523,7 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createInitiatorHandshakeManager(short connectionId) {
-        ClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
+        InternalClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
 
         if (initiatorHandshakeManagerFactory == null) {
             return new RecoveryInitiatorHandshakeManager(
@@ -714,7 +714,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /**
      * Sets the local node. Only after this this manager becomes able to accept incoming connections.
      */
-    public void setLocalNode(ClusterNode localNode) {
+    public void setLocalNode(InternalClusterNode localNode) {
         localNodeFuture.complete(localNode);
     }
 }

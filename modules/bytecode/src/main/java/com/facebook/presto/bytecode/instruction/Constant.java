@@ -17,15 +17,6 @@
 
 package com.facebook.presto.bytecode.instruction;
 
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeUtils;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Type;
-
 import static com.facebook.presto.bytecode.OpCode.ACONST_NULL;
 import static com.facebook.presto.bytecode.OpCode.BIPUSH;
 import static com.facebook.presto.bytecode.OpCode.DCONST_0;
@@ -47,6 +38,15 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.instruction.FieldInstruction.getStaticInstruction;
 import static com.facebook.presto.bytecode.instruction.InvokeInstruction.invokeStatic;
 import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeUtils;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
 
 @SuppressWarnings("UnusedDeclaration")
 public abstract class Constant

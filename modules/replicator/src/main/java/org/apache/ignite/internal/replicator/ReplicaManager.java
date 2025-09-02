@@ -79,6 +79,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -128,7 +129,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -312,7 +312,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }
 
-    private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    private void onReplicaMessageReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaRequest)) {
             return;
         }
@@ -331,7 +331,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void handleReplicaRequest(ReplicaRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleReplicaRequest(ReplicaRequest request, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
@@ -478,7 +478,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return ex instanceof TimeoutException || ex instanceof IOException;
     }
 
-    private void onPlacementDriverMessageReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
+    private void onPlacementDriverMessageReceived(NetworkMessage msg0, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
             return;
         }
@@ -554,7 +554,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 List<CompletableFuture<NetworkMessage>> futs = new ArrayList<>();
 
                 for (String nodeId : nodeIds) {
-                    ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
+                    InternalClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                     if (node != null) {
                         // TODO: IGNITE-19441 Stop lease prolongation message might be sent several times.
@@ -629,7 +629,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+            InternalClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
             return startReplicaInternal(
                     replicaGrpId,
@@ -874,7 +874,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
-                        ClusterNode localMember = clusterNetSvc.topologyService().localMember();
+                        InternalClusterNode localMember = clusterNetSvc.topologyService().localMember();
 
                         replicaFuture.completeExceptionally(new ReplicaStoppingException(grpId, localMember));
 

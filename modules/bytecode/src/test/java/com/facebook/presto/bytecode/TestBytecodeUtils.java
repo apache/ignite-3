@@ -16,10 +16,10 @@
  */
 package com.facebook.presto.bytecode;
 
-import org.junit.jupiter.api.Test;
-
 import static com.facebook.presto.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 public class TestBytecodeUtils {
     @Test

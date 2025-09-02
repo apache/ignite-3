@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import java.util.UUID;
-import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
  * Checks that field annotated with {@link org.apache.ignite.configuration.annotation.Secret} must be {@link String}.

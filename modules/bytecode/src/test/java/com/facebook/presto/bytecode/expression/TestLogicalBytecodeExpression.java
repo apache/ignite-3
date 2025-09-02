@@ -16,14 +16,14 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
-
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
+
+import org.junit.jupiter.api.Test;
 
 @SuppressWarnings({"PointlessBooleanExpression", "DuplicateCondition"})
 public class TestLogicalBytecodeExpression {

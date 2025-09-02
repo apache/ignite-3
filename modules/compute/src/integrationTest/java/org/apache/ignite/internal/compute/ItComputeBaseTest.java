@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
@@ -174,12 +175,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = node(0);
 
         IgniteException ex = assertThrows(
-                IgniteException.class, () ->
-                        compute().execute(
-                                JobTarget.node(clusterNode(entryNode)),
-                                JobDescriptor.builder(jobClassName).units(units()).build(),
-                                null
-                        ));
+                IgniteException.class, () -> {
+                    compute().execute(
+                            JobTarget.node(clusterNode(entryNode)),
+                            JobDescriptor.builder(jobClassName).units(units()).build(),
+                            null
+                    );
+                });
 
         assertThat(ex, is(traceableException(ComputeException.class, errorCode, msg)));
     }
@@ -200,10 +202,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
     void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
-        IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
-                JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(jobClassName).units(units()).build(),
-                null));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            compute().execute(
+                    JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
+                    JobDescriptor.builder(jobClassName).units(units()).build(),
+                    null);
+        });
 
         assertThat(ex, is(traceableException(ComputeException.class, errorCode, msg)));
     }
@@ -292,9 +296,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobLocally() {
         Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
-                JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            compute().execute(
+                    JobTarget.node(clusterNode(entryNode)),
+                    JobDescriptor.builder(failingJobClass()).units(units()).build(), null);
+        });
 
         assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
     }
@@ -316,9 +322,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesFailingJobOnRemoteNodes() {
-        IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
-                JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
+        IgniteException ex = assertThrows(IgniteException.class, () -> {
+            compute().execute(
+                    JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
+                    JobDescriptor.builder(failingJobClass()).units(units()).build(), null);
+        });
 
         assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
     }
@@ -520,8 +528,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class).units(units()).build();
 
-        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> compute()
-                .execute(JobTarget.node(clusterNode(executeNode)), job, 100L, cancelHandle.token()));
+        CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> {
+            return compute()
+                    .execute(JobTarget.node(clusterNode(executeNode)), job, 100L, cancelHandle.token());
+        });
 
         cancelHandle.cancel();
 
@@ -532,8 +542,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcastAsync(boolean local) {
         Ignite entryNode = node(0);
-        Set<ClusterNode> executeNodes =
-                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        Set<ClusterNode> executeNodes;
+        if (local) {
+            executeNodes = Set.of(clusterNode(entryNode), clusterNode(node(2)));
+        } else {
+            executeNodes = Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        }
 
         CancelHandle cancelHandle = CancelHandle.create();
 
@@ -551,8 +565,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcast(boolean local) {
         Ignite entryNode = node(0);
-        Set<ClusterNode> executeNodes =
-                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        Set<ClusterNode> executeNodes;
+        if (local) {
+            executeNodes = Set.of(clusterNode(entryNode), clusterNode(node(2)));
+        } else {
+            executeNodes = Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        }
 
         CancelHandle cancelHandle = CancelHandle.create();
 
@@ -802,10 +820,14 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void partitionedBroadcast() {
+    void partitionedBroadcast() throws Exception {
         createTestTableWithOneRow();
 
-        Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> replicas = node(0).tables()
+                .table("test")
+                .partitionManager()
+                .primaryReplicasAsync()
+                .get(10, SECONDS);
         Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
                 .collect(toMap(entry -> ((HashPartition) entry.getKey()).partitionId(), Entry::getValue));
 

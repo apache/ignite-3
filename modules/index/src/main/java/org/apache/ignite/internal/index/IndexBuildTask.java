@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.network.ClusterNode;
 
 /** Task of building a table index. */
 class IndexBuildTask {
@@ -86,7 +86,7 @@ class IndexBuildTask {
 
     private final int batchSize;
 
-    private final ClusterNode node;
+    private final InternalClusterNode node;
 
     private final List<IndexBuildCompletionListener> listeners;
 
@@ -112,7 +112,7 @@ class IndexBuildTask {
             Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
-            ClusterNode node,
+            InternalClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,

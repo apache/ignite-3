@@ -66,9 +66,10 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -141,7 +142,6 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
@@ -157,7 +157,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(new UUID(1, 2), "node", ADDR);
+    public static final InternalClusterNode LOCAL_NODE = new InternalClusterNodeImpl(new UUID(1, 2), "node", ADDR);
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
@@ -324,11 +324,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             // Delegate replica requests directly to replica listener.
             lenient()
                     .doAnswer(invocationOnMock -> {
-                        ClusterNode node = invocationOnMock.getArgument(0);
+                        InternalClusterNode node = invocationOnMock.getArgument(0);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id()).thenApply(ReplicaResult::result);
                     })
-                    .when(replicaSvc).invoke(any(ClusterNode.class), any());
+                    .when(replicaSvc).invoke(any(InternalClusterNode.class), any());
 
             lenient()
                     .doAnswer(invocationOnMock -> {
@@ -341,12 +341,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             lenient()
                     .doAnswer(invocationOnMock -> {
-                        ClusterNode node = invocationOnMock.getArgument(0);
+                        InternalClusterNode node = invocationOnMock.getArgument(0);
 
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id())
                                 .thenApply(DummyInternalTableImpl::dummyTimestampAwareResponse);
                     })
-                    .when(replicaSvc).invokeRaw(any(ClusterNode.class), any());
+                    .when(replicaSvc).invokeRaw(any(InternalClusterNode.class), any());
 
             lenient()
                     .doAnswer(invocationOnMock -> {
@@ -713,7 +713,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
+    public CompletableFuture<InternalClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
         return completedFuture(LOCAL_NODE);
     }
 
@@ -730,23 +730,23 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Dummy messaging service for tests purposes. It does not provide any messaging functionality, but allows to trigger events.
      */
     private static class DummyMessagingService extends AbstractMessagingService {
-        private final ClusterNode localNode;
+        private final InternalClusterNode localNode;
 
         private final AtomicLong correlationIdGenerator = new AtomicLong();
 
-        DummyMessagingService(ClusterNode localNode) {
+        DummyMessagingService(InternalClusterNode localNode) {
             this.localNode = localNode;
         }
 
         /** {@inheritDoc} */
         @Override
-        public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+        public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
             throw new UnsupportedOperationException("Not implemented yet");
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+        public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
             throw new UnsupportedOperationException("Not implemented yet");
         }
 
@@ -762,7 +762,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
+        public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
             throw new UnsupportedOperationException("Not implemented yet");
         }
 
@@ -774,7 +774,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+        public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
             throw new UnsupportedOperationException("Not implemented yet");
         }
 

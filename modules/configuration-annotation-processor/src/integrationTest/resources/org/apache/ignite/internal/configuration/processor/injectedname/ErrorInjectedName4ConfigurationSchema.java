@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.configuration.processor.injectedname;
 
-import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
 /**
  * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.

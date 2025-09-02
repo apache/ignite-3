@@ -38,6 +38,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -129,7 +129,7 @@ public class TxCleanupRequestHandler {
     public void stop() {
     }
 
-    private void processTxCleanup(TxCleanupMessage txCleanupMessage, ClusterNode sender, @Nullable Long correlationId) {
+    private void processTxCleanup(TxCleanupMessage txCleanupMessage, InternalClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null;
 
         Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
@@ -234,7 +234,7 @@ public class TxCleanupRequestHandler {
      * @param groups Replication groups.
      * @param sender Cleanup request sender, needed to send cleanup replicated response.
      */
-    private void trackPartitions(UUID txId, Set<ReplicationGroupId> groups, ClusterNode sender) {
+    private void trackPartitions(UUID txId, Set<ReplicationGroupId> groups, InternalClusterNode sender) {
         writeIntentsReplicated.put(txId, new CleanupContext(sender, groups, groups));
     }
 
@@ -279,18 +279,18 @@ public class TxCleanupRequestHandler {
      * @param sender Cleanup request sender.
      * @param partitions Partitions that we received replication confirmation for.
      */
-    private void sendCleanupReplicatedResponse(UUID txId, ClusterNode sender, Collection<ReplicationGroupId> partitions) {
+    private void sendCleanupReplicatedResponse(UUID txId, InternalClusterNode sender, Collection<ReplicationGroupId> partitions) {
         messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(txId, partitions)));
     }
 
     private static class CleanupContext {
-        private final ClusterNode sender;
+        private final InternalClusterNode sender;
 
         private final Set<ReplicationGroupId> partitions;
 
         private final Set<ReplicationGroupId> initialPartitions;
 
-        public CleanupContext(ClusterNode sender, Set<ReplicationGroupId> partitions, Set<ReplicationGroupId> initialPartitions) {
+        public CleanupContext(InternalClusterNode sender, Set<ReplicationGroupId> partitions, Set<ReplicationGroupId> initialPartitions) {
             this.sender = sender;
             this.partitions = partitions;
             this.initialPartitions = initialPartitions;

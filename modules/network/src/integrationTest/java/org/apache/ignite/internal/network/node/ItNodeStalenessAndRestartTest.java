@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
@@ -63,7 +63,7 @@ class ItNodeStalenessAndRestartTest extends ClusterPerTestIntegrationTest {
 
         ignite0.clusterService().topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 if (member.name().equals(cluster.node(1).name())) {
                     ignite1Left.countDown();
                 }

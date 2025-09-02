@@ -54,6 +54,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -215,7 +215,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -248,7 +248,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken

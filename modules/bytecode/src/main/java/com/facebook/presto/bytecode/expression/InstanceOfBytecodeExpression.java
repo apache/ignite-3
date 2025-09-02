@@ -17,13 +17,13 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
-
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.util.Objects.requireNonNull;
+import java.util.List;
 
 class InstanceOfBytecodeExpression
         extends BytecodeExpression

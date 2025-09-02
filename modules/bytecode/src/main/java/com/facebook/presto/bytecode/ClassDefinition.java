@@ -17,15 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.objectweb.asm.ClassVisitor;
-
 import static com.facebook.presto.bytecode.Access.BRIDGE;
 import static com.facebook.presto.bytecode.Access.INTERFACE;
 import static com.facebook.presto.bytecode.Access.STATIC;
@@ -35,6 +26,15 @@ import static com.facebook.presto.bytecode.Access.toAccessModifier;
 import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V11;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.objectweb.asm.ClassVisitor;
 
 public class ClassDefinition {
     private final EnumSet<Access> access;

@@ -17,11 +17,11 @@
 
 package com.facebook.presto.bytecode.control;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-
-import static java.util.Objects.requireNonNull;
+import java.util.Objects;
 
 public class CaseStatement
     implements Comparable<CaseStatement> {

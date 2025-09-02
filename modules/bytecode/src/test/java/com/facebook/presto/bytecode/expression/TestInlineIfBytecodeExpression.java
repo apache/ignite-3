@@ -16,13 +16,13 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
-
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
+
+import org.junit.jupiter.api.Test;
 
 public class TestInlineIfBytecodeExpression {
     @Test

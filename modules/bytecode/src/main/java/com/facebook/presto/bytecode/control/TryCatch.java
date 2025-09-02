@@ -16,16 +16,16 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import java.util.List;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import java.util.List;
 import org.objectweb.asm.MethodVisitor;
-
-import static java.util.Objects.requireNonNull;
 
 public class TryCatch
     implements FlowControl {

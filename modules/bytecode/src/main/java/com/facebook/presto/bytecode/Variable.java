@@ -16,14 +16,14 @@
  */
 package com.facebook.presto.bytecode;
 
-import java.util.List;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.VariableInstruction;
-
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
+
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.instruction.VariableInstruction;
+import java.util.List;
 
 public class Variable
     extends BytecodeExpression {

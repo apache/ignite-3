@@ -17,15 +17,15 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
-
-import static java.util.Objects.requireNonNull;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 class NewInstanceBytecodeExpression
         extends BytecodeExpression

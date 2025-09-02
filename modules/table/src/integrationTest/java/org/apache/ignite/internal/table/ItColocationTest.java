@@ -66,6 +66,7 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
@@ -122,7 +123,6 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -191,7 +191,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     @BeforeAll
     static void beforeAllTests() {
-        ClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
@@ -271,7 +271,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         Answer<CompletableFuture<?>> clo = invocation -> {
             String nodeName = invocation.getArgument(0);
-            ClusterNode node = clusterNodeByName(nodeName);
+            InternalClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
             ReplicationGroupIdMessage commitPartId = colocationEnabled()
@@ -373,7 +373,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static ClusterNode clusterNodeByName(String nodeName) {
+    private static InternalClusterNode clusterNodeByName(String nodeName) {
         assertThat(nodeName, is(DummyInternalTableImpl.LOCAL_NODE.name()));
 
         return DummyInternalTableImpl.LOCAL_NODE;

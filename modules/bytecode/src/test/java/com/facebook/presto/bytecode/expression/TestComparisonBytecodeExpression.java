@@ -16,8 +16,6 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import org.junit.jupiter.api.Test;
-
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFloat;
@@ -30,6 +28,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.greate
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThanOrEqual;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
+
+import org.junit.jupiter.api.Test;
 
 public class TestComparisonBytecodeExpression {
     @Test

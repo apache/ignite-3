@@ -17,21 +17,21 @@
 
 package com.facebook.presto.bytecode.instruction;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.OpCode;
-import com.facebook.presto.bytecode.ParameterizedType;
-import org.objectweb.asm.MethodVisitor;
-
 import static com.facebook.presto.bytecode.OpCode.GETFIELD;
 import static com.facebook.presto.bytecode.OpCode.GETSTATIC;
 import static com.facebook.presto.bytecode.OpCode.PUTFIELD;
 import static com.facebook.presto.bytecode.OpCode.PUTSTATIC;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.OpCode;
+import com.facebook.presto.bytecode.ParameterizedType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import org.objectweb.asm.MethodVisitor;
 
 public abstract class FieldInstruction
     implements InstructionNode {
