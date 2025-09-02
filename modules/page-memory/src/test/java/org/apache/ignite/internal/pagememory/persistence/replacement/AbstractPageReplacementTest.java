@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -154,7 +154,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 filePageStoreManager,
                 checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         dataRegionList.add(() -> pageMemory);
@@ -235,7 +236,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26244")
     void testFsyncDeltaFilesWillNotStartOnCheckpointUntilPageReplacementIsComplete() throws Exception {
         var startWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
         var continueWritePagesOnCheckpointFuture = new CompletableFuture<Void>();
@@ -290,6 +290,20 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
             }).when(filePageStore).write(anyLong(), any());
 
             doReturn(deltaFileIoFuture).when(filePageStore).getNewDeltaFile();
+
+            doAnswer(invocation -> {
+                assertThat(deltaFileIoFuture, willCompleteSuccessfully());
+
+                return deltaFileIoFuture.join();
+            }).doReturn(null).when(filePageStore).getDeltaFileToCompaction();
+
+            doAnswer(invocation -> {
+                DeltaFilePageStoreIo argument = invocation.getArgument(0);
+
+                assertThat(deltaFileIoFuture, willBe(argument));
+
+                return true;
+            }).when(filePageStore).removeDeltaFile(any());
 
             // Trigger checkpoint so that it writes a meta page and one dirty one. We do it under a read lock to ensure that the background
             // does not start after the lock is released.

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.executor.platform;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for executing platform (non-Java) jobs.
@@ -38,7 +39,8 @@ public interface PlatformComputeConnection {
             long jobId,
             List<String> deploymentUnitPaths,
             String jobClassName,
-            ComputeJobDataHolder arg);
+            @Nullable ComputeJobDataHolder arg
+    );
 
     /**
      * Cancels a job started by {@link #executeJobAsync}.

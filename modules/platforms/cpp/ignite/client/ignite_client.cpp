@@ -21,8 +21,6 @@
 
 #include <ignite/common/ignite_error.h>
 
-#include "detail/argument_check_utils.h"
-
 namespace ignite {
 
 void ignite_client::start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
@@ -37,11 +35,6 @@ void ignite_client::start_async(ignite_client_configuration configuration, std::
 }
 
 ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
-    detail::arg_check::container_non_empty(configuration.get_endpoints(), "Connection endpoint list");
-
-    if (configuration.get_heartbeat_interval().count() < 0) {
-        throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative");
-    }
 
     auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 

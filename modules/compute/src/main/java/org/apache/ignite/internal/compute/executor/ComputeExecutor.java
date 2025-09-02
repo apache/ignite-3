@@ -35,13 +35,14 @@ public interface ComputeExecutor {
             String jobClassName,
             JobClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder input
+            @Nullable ComputeJobDataHolder arg
     );
 
     <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
-            I input
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     );
 
     void start();

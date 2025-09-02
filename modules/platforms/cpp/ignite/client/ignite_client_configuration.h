@@ -21,11 +21,14 @@
 #include <ignite/client/ignite_logger.h>
 #include <ignite/client/ssl_mode.h>
 
+#include <ignite/common/ignite_error.h>
+
 #include <initializer_list>
 #include <memory>
 #include <chrono>
 #include <string>
 #include <vector>
+#include <detail/config.h>
 
 namespace ignite {
 
@@ -37,7 +40,7 @@ public:
     /**
      * TCP port used by client by default if not specified explicitly.
      */
-    static constexpr uint16_t DEFAULT_PORT = 10800;
+    static constexpr std::uint16_t DEFAULT_PORT = 10800;
 
     /**
      * Default heartbeat interval.
@@ -53,7 +56,9 @@ public:
      * @param endpoints Endpoints list.
      */
     ignite_client_configuration(std::initializer_list<std::string_view> endpoints)
-        : m_endpoints(endpoints.begin(), endpoints.end()) {}
+        : m_endpoints(endpoints.begin(), endpoints.end()) {
+        check_endpoints_non_empty(m_endpoints);
+    }
 
     /**
      * Constructor.
@@ -61,7 +66,9 @@ public:
      * @param endpoints Endpoints list.
      */
     ignite_client_configuration(std::vector<std::string> endpoints) // NOLINT(google-explicit-constructor)
-        : m_endpoints(std::move(endpoints)) {}
+        : m_endpoints(std::move(endpoints)) {
+        check_endpoints_non_empty(m_endpoints);
+    }
 
     /**
      * Get endpoints.
@@ -86,7 +93,8 @@ public:
      * @param endpoints Endpoints.
      */
     void set_endpoints(std::initializer_list<std::string_view> endpoints) {
-        ignite_client_configuration::m_endpoints.assign(endpoints.begin(), endpoints.end());
+        std::vector<std::string> endpoints0(endpoints.begin(), endpoints.end());
+        set_endpoints(endpoints0);
     }
 
     /**
@@ -103,7 +111,8 @@ public:
      * @param endpoints Endpoints.
      */
     void set_endpoints(std::vector<std::string> endpoints) {
-        ignite_client_configuration::m_endpoints = std::move(endpoints);
+        check_endpoints_non_empty(endpoints);
+        m_endpoints = std::move(endpoints);
     }
 
     /**
@@ -135,7 +144,7 @@ public:
      *
      * @return Active connection limit.
      */
-    [[nodiscard]] uint32_t get_connection_limit() const { return m_connection_limit; }
+    [[nodiscard]] std::uint32_t get_connection_limit() const { return m_connection_limit; }
 
     /**
      * Set the connection limit.
@@ -144,7 +153,7 @@ public:
      *
      * @param limit Connections limit to set.
      */
-    void set_connection_limit(uint32_t limit) { m_connection_limit = limit; }
+    void set_connection_limit(std::uint32_t limit) { m_connection_limit = limit; }
 
     /**
      * Get a heartbeat interval.
@@ -170,6 +179,11 @@ public:
      * @param heartbeat_interval Heartbeat interval.
      */
     void set_heartbeat_interval(std::chrono::microseconds heartbeat_interval) {
+        if (heartbeat_interval.count() < 0) {
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Heartbeat interval can not be negative: "
+                + std::to_string(heartbeat_interval.count()) + " microseconds");
+        }
+
         m_heartbeat_interval = heartbeat_interval;
     }
 
@@ -269,8 +283,14 @@ public:
         m_ssl_ca_file = ssl_ca_file;
     }
 
-
 private:
+    /**
+     * Check that endpoints are not empty.
+     *
+     * @param endpoints Endpoint list.
+     */
+    IGNITE_API static void check_endpoints_non_empty(const std::vector<std::string>& endpoints);
+
     /** Endpoints. */
     std::vector<std::string> m_endpoints{"localhost"};
 
@@ -281,7 +301,7 @@ private:
     std::shared_ptr<ignite_client_authenticator> m_authenticator{};
 
     /** Active connections limit. */
-    uint32_t m_connection_limit{0};
+    std::uint32_t m_connection_limit{0};
 
     /** Heartbeat interval. */
     std::chrono::microseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};

@@ -75,12 +75,10 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
             createZone.distributionAlgorithm(def.distributionAlgorithm());
         }
 
-        if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjust())) {
-            createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
-        }
         if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleUp())) {
             createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
         }
+
         if (isGreaterThanOrEqualToZero(def.dataNodesAutoAdjustScaleDown())) {
             createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
         }

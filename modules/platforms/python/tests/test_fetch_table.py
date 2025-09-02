@@ -171,7 +171,8 @@ def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
     TEST_PAGE_SIZE + 1,
     TEST_PAGE_SIZE * 2,
     TEST_PAGE_SIZE * 2 + 1,
-    8000,
+    # TODO: IGNITE-26358 Implement Heartbeats
+    # 8000,
 ])
 def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup, rows_num):
     create_and_populate_test_table(cursor, rows_num, table_name, 1000)

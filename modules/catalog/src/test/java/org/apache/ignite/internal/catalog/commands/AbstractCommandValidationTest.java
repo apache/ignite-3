@@ -73,7 +73,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
             1,
             -1,
             -1,
-            -1,
             "",
             fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())),
             ConsistencyMode.STRONG_CONSISTENCY

@@ -220,7 +220,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), SimpleJob.class.getName(), ComputeEventMetadata.builder(), null, cancelHandle.token()
+                new ExecutionContext(DEFAULT, List.of(), SimpleJob.class.getName(), ComputeEventMetadata.builder(), null),
+                cancelHandle.token()
         );
 
         assertFalse(infiniteFuture.isDone());
@@ -724,13 +725,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName) {
-        return computeComponent.executeLocally(DEFAULT, units, jobClassName, ComputeEventMetadata.builder(), null, null)
-                .thenCompose(ComputeComponentImplTest::unwrapResult);
+        return computeComponent.executeLocally(
+                new ExecutionContext(DEFAULT, units, jobClassName, ComputeEventMetadata.builder(), null),
+                null
+        ).thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 
     private JobExecution<ComputeJobDataHolder> executeLocally(String jobClassName, @Nullable CancellationToken cancellationToken) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null, cancellationToken
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null),
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
@@ -742,15 +746,20 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
             @Nullable CancellationToken cancellationToken
     ) {
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeRemotely(
-                remoteNode, DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), arg, cancellationToken
+                remoteNode,
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), arg),
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
 
     private CompletableFuture<String> executeRemotely(String jobClassName) {
-        return computeComponent.executeRemotely(remoteNode, DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null, null)
-                .thenCompose(ComputeComponentImplTest::unwrapResult);
+        return computeComponent.executeRemotely(
+                remoteNode,
+                new ExecutionContext(DEFAULT, List.of(), jobClassName, ComputeEventMetadata.builder(), null),
+                null
+        ).thenCompose(ComputeComponentImplTest::unwrapResult);
     }
 
     private static CompletableFuture<String> unwrapResult(JobExecution<ComputeJobDataHolder> execution) {

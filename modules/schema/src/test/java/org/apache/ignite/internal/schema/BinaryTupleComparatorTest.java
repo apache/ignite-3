@@ -34,4 +34,9 @@ public class BinaryTupleComparatorTest extends BinaryTupleComparatorBaseTest {
     ) {
         return new BinaryTupleComparator(columnCollations, columnTypes);
     }
+
+    @Override
+    protected boolean supportsPartialComparison() {
+        return false;
+    }
 }

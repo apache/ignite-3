@@ -173,7 +173,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                     checkpointProgress.evictedPagesCounter().incrementAndGet();
                 },
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(2)
+                new OffheapReadWriteLock(2),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         pageStoreManager.start();
