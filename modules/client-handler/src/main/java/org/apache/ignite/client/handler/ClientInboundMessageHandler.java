@@ -650,12 +650,14 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (isNotification) {
-            LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
-        } else {
-            LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        if (LOG.isDebugEnabled()) {
+            if (isNotification) {
+                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+            } else {
+                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+            }
         }
 
         ClientMessagePacker packer = getPacker(ctx.alloc());
