@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 set(SOURCES
     cancel_handle.cpp
     ignite_client.cpp
+    ignite_client_configuration.cpp
     compute/broadcast_job_target.cpp
     compute/compute.cpp
     compute/job_execution.cpp

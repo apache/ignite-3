@@ -307,6 +307,11 @@ public enum Options {
                 + "'--cluster-management-group node1, node2' "
                 + "to specify more than one node) that will host the Cluster Management Group.";
 
+        public static final String RECOVERY_WITH_CLEANUP_OPTION = "--with-cleanup";
+
+        public static final String RECOVERY_WITH_CLEANUP_OPTION_DESC = "Restarts partitions, preceded by a storage cleanup. "
+                + "This will remove all data from the partition storages before restart.";
+
         /** Old cluster endpoint URL option long name. */
         public static final String RECOVERY_OLD_CLUSTER_URL_OPTION = "--old-cluster-url";
 
