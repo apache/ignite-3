@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTPS_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -71,10 +67,10 @@ public class PlatformCompatibilityTestNodeRunner {
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .basePort(DEFAULT_BASE_PORT + portOffset)
-                .baseHttpPort(DEFAULT_BASE_HTTP_PORT + portOffset)
-                .baseHttpsPort(DEFAULT_BASE_HTTPS_PORT + portOffset)
-                .baseClientPort(DEFAULT_BASE_CLIENT_PORT + portOffset)
+                .basePort(portOffset)
+                .baseHttpPort(portOffset + 1)
+                .baseHttpsPort(portOffset + 2)
+                .baseClientPort(portOffset + 3)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
