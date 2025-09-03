@@ -57,20 +57,23 @@ public class PlatformCompatibilityTestNodeRunner {
     public static void main(String[] args) throws Exception {
         String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
         String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");
-        int portOffset = Integer.parseInt(System.getenv().getOrDefault("IGNITE_OLD_SERVER_PORT_OFFSET", "20000"));
 
         if (version == null || workDir == null) {
             throw new Exception("IGNITE_OLD_SERVER_VERSION and IGNITE_OLD_SERVER_WORK_DIR environment variables are not set.");
         }
 
+        int port = Integer.parseInt(System.getenv("IGNITE_OLD_SERVER_PORT"));
+        int httpPort = Integer.parseInt(System.getenv("IGNITE_OLD_SERVER_HTTP_PORT"));
+        int clientPort = Integer.parseInt(System.getenv("IGNITE_OLD_SERVER_CLIENT_PORT"));
+
         System.out.println(">>> Starting test node with version: " + version + " in work directory: " + workDir);
+        System.out.println(">>> Ports: node=" + port + ", http=" + httpPort + ", client=" + clientPort);
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .basePort(portOffset)
-                .baseHttpPort(portOffset + 1)
-                .baseHttpsPort(portOffset + 2)
-                .baseClientPort(portOffset + 3)
+                .basePort(port)
+                .baseHttpPort(httpPort)
+                .baseClientPort(clientPort)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
