@@ -75,8 +75,11 @@ public class CurrentClientWithOldServerCompatibilityTest
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        _client.Dispose();
-        _javaServer.Dispose();
+        // ReSharper disable ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
+        _client?.Dispose();
+        _javaServer?.Dispose();
+
+        // ReSharper restore ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
         _workDir.Dispose();
     }
 
