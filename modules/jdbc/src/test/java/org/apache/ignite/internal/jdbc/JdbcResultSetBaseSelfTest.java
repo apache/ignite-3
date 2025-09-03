@@ -409,8 +409,8 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 List.of(Collections.singletonList(value),
                         Collections.singletonList(null),
                         Collections.singletonList(value)
-                ))) {
-
+                )
+        )) {
             // Allow to access wasNull for non-positioned result set.
             assertFalse(rs.wasNull());
 
