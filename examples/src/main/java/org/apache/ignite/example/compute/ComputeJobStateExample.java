@@ -12,17 +12,18 @@ package org.apache.ignite.example.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a result return.
+ * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle failures.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  *
@@ -40,7 +41,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
  *     </li>
  * </ol>
  */
-public class ComputeWithResultExample {
+public class ComputeJobStateExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -52,7 +53,7 @@ public class ComputeWithResultExample {
      *
      * @param args The command line arguments.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -67,52 +68,35 @@ public class ComputeWithResultExample {
         ) {
             //--------------------------------------------------------------------------------------
             //
-            // Configuring data streamer.
+            // Configuring compute job.
             //
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
 
-            JobDescriptor<String, Integer> job = JobDescriptor.builder(WordCountJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .build();
+            CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
+                    JobDescriptor.builder(WordPrintJob.class).build(), null
+            );
 
-            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Executing compute job using configured jobTarget.
-            //
-            //--------------------------------------------------------------------------------------
-
-            String phrase = "Count characters using callable";
-
-            System.out.println("\nExecuting compute job for the phrase '" + phrase + "'...");
-
-            Integer wordCnt = client.compute().execute(jobTarget, job, phrase);
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Printing the result.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nTotal number of words in the phrase is '" + wordCnt + "'.");
+            execution.get().stateAsync().thenApply(status -> {
+                if (status.toString() == "Failed") {
+                    System.out.println("\nJob failed...");
+                }
+                return null;
+            });
         }
     }
 
     /**
-     * Job that counts words in the provided phrase.
+     * Job that prints provided word.
      */
-    private static class WordCountJob implements ComputeJob<String, Integer> {
+    private static class WordPrintJob implements ComputeJob<String, Void> {
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, String phrase) {
-            assert phrase != null;
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
+            System.out.println("\nProcessing word '" + arg + "' at node '" + context.ignite().name() + "'.");
 
-            int wordCnt = phrase.split(" ").length;
-
-            return completedFuture(wordCnt);
+            return completedFuture(null);
         }
     }
 }
