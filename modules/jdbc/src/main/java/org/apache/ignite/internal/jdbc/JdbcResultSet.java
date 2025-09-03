@@ -126,9 +126,6 @@ public class JdbcResultSet implements ResultSet {
     /** Current position. */
     private int curPos;
 
-    /** True if a getter method was called. */
-    private boolean getMethodWasCalled;
-
     /** Finished flag. */
     private boolean finished;
 
@@ -313,8 +310,6 @@ public class JdbcResultSet implements ResultSet {
     public boolean next() throws SQLException {
         ensureNotClosed();
 
-        getMethodWasCalled = false;
-
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             try {
                 JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
@@ -376,8 +371,6 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     void close0(boolean removeFromResources) throws SQLException {
-        getMethodWasCalled = false;
-
         try {
             if (!holdsResource) {
                 return;
@@ -413,11 +406,6 @@ public class JdbcResultSet implements ResultSet {
     @Override
     public boolean wasNull() throws SQLException {
         ensureNotClosed();
-        ensureHasCurrentRow();
-
-        if (!getMethodWasCalled) {
-            throw new SQLException("Cannot invoke wasNull because no getter method has been called yet");
-        }
 
         return wasNull;
     }
@@ -2220,7 +2208,6 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
         ensureHasCurrentRow();
 
-        getMethodWasCalled = true;
         try {
             assert curRow != null;
 

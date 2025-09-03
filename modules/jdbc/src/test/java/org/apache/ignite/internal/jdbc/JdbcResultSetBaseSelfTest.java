@@ -47,6 +47,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -403,16 +404,46 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 throw new IllegalArgumentException("Unexpected type: " + columnType);
         }
 
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
-            expectPositioned(rs::wasNull);
-            assertTrue(rs.next());
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", columnType, 0, 0, true)),
+                List.of(Collections.singletonList(value),
+                        Collections.singletonList(null),
+                        Collections.singletonList(value)
+                ))) {
 
-            expectSqlException(rs::wasNull, "Cannot invoke wasNull because no getter method has been called yet");
+            // Allow to access wasNull for non-positioned result set.
+            assertFalse(rs.wasNull());
+
+            // First row
+            assertTrue(rs.next());
+            // Allow to access wasNull, if no getter was set as well.
+            assertFalse(rs.wasNull());
 
             // Read a column, so we can call wasNull
-            rs.getObject(1);
+            Object val1 = rs.getObject(1);
+            assertEquals(val1 == null, rs.wasNull());
 
-            assertEquals(value == null, rs.wasNull());
+            // Second row
+            assertTrue(rs.next());
+            // Result should not change
+            assertEquals(val1 == null, rs.wasNull());
+
+            Object val2 = rs.getObject(1);
+            assertNull(val2);
+            assertTrue(rs.wasNull());
+
+            // Third row
+            assertTrue(rs.next());
+            // Result should not change
+            assertTrue(rs.wasNull());
+
+            Object val3 = rs.getObject(1);
+            assertEquals(val3 == null, rs.wasNull());
+
+            // Move past the last row
+            assertFalse(rs.next());
+            // Result should not change
+            assertEquals(val3 == null, rs.wasNull());
         }
     }
 
@@ -421,7 +452,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
 
-            expectPositioned(rs::wasNull);
             assertTrue(rs.next());
 
             switch (columnType) {
@@ -493,9 +523,8 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                     throw new IllegalArgumentException("Unexpected type: " + columnType);
             }
 
-            // Fails when there is no input.
             assertFalse(rs.next());
-            expectPositioned(rs::wasNull);
+            assertTrue(rs.wasNull());
         }
     }
 
@@ -573,6 +602,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 default:
                     throw new IllegalArgumentException("Unexpected type: " + columnType);
             }
+
+            assertFalse(rs.next());
+            assertTrue(rs.wasNull());
         }
     }
 
