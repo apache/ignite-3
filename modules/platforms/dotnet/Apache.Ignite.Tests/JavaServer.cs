@@ -70,6 +70,7 @@ namespace Apache.Ignite.Tests
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir)
         {
+            // TODO: Find 4 ports that are free instead of using fixed offsets.
             // Calculate port offset based on the server version (minor + patch) to avoid conflicts with other tests.
             // This way we can have multiple active nodes with different versions (separate clusters).
             var portOffset = 20_000 + int.Parse(version[2..].Replace(".", string.Empty));
