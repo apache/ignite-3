@@ -63,7 +63,7 @@ class CompatibilityChecker {
 
         if (input.errorOnIncompatibility()) {
             args = ArrayUtils.concat(args,
-                    "--error-on-binary-incompatibility"
+                    "--error-on-source-incompatibility"
             );
         }
 
