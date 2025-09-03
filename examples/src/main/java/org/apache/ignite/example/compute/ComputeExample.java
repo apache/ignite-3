@@ -101,6 +101,8 @@ public class ComputeExample {
                 //--------------------------------------------------------------------------------------
 
                 System.out.println("\nExecuting compute job for word '" + word + "'...");
+
+                client.compute().execute(jobTarget, job, word);
             }
         }
     }
