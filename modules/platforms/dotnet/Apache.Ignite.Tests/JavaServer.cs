@@ -134,8 +134,7 @@ namespace Apache.Ignite.Tests
 
             var process = CreateProcess(gradleCommand, env);
 
-            var evt = new ManualResetEventSlim(false);
-            int[]? ports = null;
+            var tcs = new TaskCompletionSource<int[]>();
 
             DataReceivedEventHandler handler = (_, eventArgs) =>
             {
@@ -149,53 +148,48 @@ namespace Apache.Ignite.Tests
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
-                    ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
-                    evt.Set();
+                    var ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
+                    tcs.SetResult(ports);
+                }
+
+                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase))
+                {
+                    process.Kill(entireProcessTree: true);
+                    tcs.SetException(new Exception($"Java server failed: {line}"));
                 }
             };
 
             process.OutputDataReceived += handler;
             process.ErrorDataReceived += handler;
-            process.Exited += (_, _) => evt.Set();
 
             process.Start();
 
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            try
+            {
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
 
-            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)))
+                var ports = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(ConnectTimeoutSeconds));
+                var port = ports.FirstOrDefault();
+
+                if (!WaitForServer(port))
+                {
+                    process.Kill(entireProcessTree: true);
+                    KillProcessesOnPorts(ports);
+
+                    throw new InvalidOperationException(
+                        $"Failed to wait for the server to start (can't connect the client on port {port}). Check logs for details.");
+                }
+
+                Log($">>> Java server started on port {port}.");
+
+                return new JavaServer(ports, process);
+            }
+            catch (Exception)
             {
                 process.Kill(entireProcessTree: true);
-
-                throw new InvalidOperationException("Failed to wait for THIN_CLIENT_PORTS. Check logs for details.");
+                throw;
             }
-
-            if (process.HasExited)
-            {
-                throw new InvalidOperationException("Java server process has exited. Check logs for details.");
-            }
-
-            if (ports == null)
-            {
-                process.Kill(entireProcessTree: true);
-
-                throw new InvalidOperationException("Failed to get ports. Check logs for details.");
-            }
-
-            var port = ports.FirstOrDefault();
-
-            if (!WaitForServer(port))
-            {
-                process.Kill(entireProcessTree: true);
-                KillProcessesOnPorts(ports);
-
-                throw new InvalidOperationException(
-                    $"Failed to wait for the server to start (can't connect the client on port {port}). Check logs for details.");
-            }
-
-            Log($">>> Java server started on port {port}.");
-
-            return new JavaServer(ports, process);
         }
 
         private static Process CreateProcess(string gradleCommand, IDictionary<string, string?> env)
