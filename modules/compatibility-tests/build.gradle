@@ -163,16 +163,12 @@ tasks.register('postRelease', Copy) {
 
     doLast {
         // Add current version to versions JSON
-        addCurrentVersionToJson()
+        def versionsFile = file(versionsJsonFileName)
+        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+
+        versionsJson.versions.add(Map.of('version', project.projectVersion.toString()))
+
+        versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
+                .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
     }
-}
-
-private addCurrentVersionToJson() {
-    def versionsFile = file(versionsJsonFileName)
-    def versionsJson = new JsonSlurper().parseText(versionsFile.text)
-
-    versionsJson.versions.add(Map.of('version', project.projectVersion.toString()))
-
-    versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
-            .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
 }
