@@ -161,6 +161,7 @@ tasks.register('postRelease', Copy) {
     from configurations.openapiSpec
     into file("src/test/resources/versions/${project.projectVersion.toString().replace('.', '_')}/")
 
+    outputs.file versionsJsonFileName
     doLast {
         // Add current version to versions JSON
         def versionsFile = file(versionsJsonFileName)
