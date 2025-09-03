@@ -35,6 +35,8 @@ public class ZoneDefinition {
 
     private final String distributionAlgorithm;
 
+    private final Integer dataNodesAutoAdjust;
+
     private final Integer dataNodesAutoAdjustScaleUp;
 
     private final Integer dataNodesAutoAdjustScaleDown;
@@ -52,6 +54,7 @@ public class ZoneDefinition {
             Integer replicas,
             Integer quorumSize,
             String distributionAlgorithm,
+            Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
             String filter,
@@ -64,6 +67,7 @@ public class ZoneDefinition {
         this.replicas = replicas;
         this.quorumSize = quorumSize;
         this.distributionAlgorithm = distributionAlgorithm;
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -136,6 +140,17 @@ public class ZoneDefinition {
     }
 
     /**
+     * Deprecated, should not be used anymore. Returns timeout in seconds between node added or node left topology event itself and data
+     * nodes switch.
+     *
+     * @return Timeout.
+     */
+    @Deprecated
+    public Integer dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
+    }
+
+    /**
      * Returns timeout in seconds between node added topology event itself and data nodes switch.
      *
      * @return Timeout.
@@ -198,6 +213,7 @@ public class ZoneDefinition {
                 + ", replicas=" + replicas
                 + ", quorumSize=" + quorumSize
                 + ", distributionAlgorithm='" + distributionAlgorithm + '\''
+                + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
                 + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
                 + ", dataNodesAutoAdjustScaleDown=" + dataNodesAutoAdjustScaleDown
                 + ", filter='" + filter + '\''
@@ -222,6 +238,8 @@ public class ZoneDefinition {
 
         private String distributionAlgorithm;
 
+        private Integer dataNodesAutoAdjust;
+
         private Integer dataNodesAutoAdjustScaleUp;
 
         private Integer dataNodesAutoAdjustScaleDown;
@@ -241,6 +259,7 @@ public class ZoneDefinition {
             replicas = definition.replicas;
             quorumSize = definition.quorumSize;
             distributionAlgorithm = definition.distributionAlgorithm;
+            dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
             filter = definition.filter;
@@ -330,6 +349,24 @@ public class ZoneDefinition {
         }
 
         /**
+         * Deprecated, should not be used anymore. Sets timeout in seconds between node added or node left topology event itself and data
+         * nodes switch.
+         *
+         * @param adjust Timeout.
+         * @return This builder instance.
+         */
+        @Deprecated
+        public Builder dataNodesAutoAdjust(Integer adjust) {
+            Objects.requireNonNull(
+                    adjust,
+                    "Timeout between node added or node left topology event itself and data nodes switch must not be null."
+            );
+
+            this.dataNodesAutoAdjust = adjust;
+            return this;
+        }
+
+        /**
          * Sets timeout in seconds between node added topology event itself and data nodes switch.
          *
          * @param adjust Timeout.
@@ -410,6 +447,7 @@ public class ZoneDefinition {
                     replicas,
                     quorumSize,
                     distributionAlgorithm,
+                    dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
