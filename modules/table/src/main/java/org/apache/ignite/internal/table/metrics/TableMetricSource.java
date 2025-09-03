@@ -110,6 +110,8 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
     public static final String RW_READS = "RwReads";
     public static final String WRITES = "Writes";
 
+    private final QualifiedName tableName;
+
     /**
      * Creates a new instance of {@link TableMetricSource}.
      *
@@ -117,6 +119,16 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
      */
     public TableMetricSource(QualifiedName tableName) {
         super(SOURCE_NAME + '.' + tableName.toCanonicalForm(), "Table metrics.", "tables");
+        this.tableName = tableName;
+    }
+
+    /**
+     * Returns the qualified name of the table.
+     *
+     * @return Qualified name of the table.
+     */
+    public QualifiedName qualifiedTableName() {
+        return tableName;
     }
 
     /**

@@ -32,14 +32,16 @@ import org.junit.jupiter.api.Test;
  * If you want to change the name, or add a new metric, please don't forget to update the corresponding documentation.
  */
 public class TableMetricSourceTest {
-    static final String TABLE_NAME = "test_table";
+    private static final String TABLE_NAME = "test_table";
 
     @Test
     void testMetricSourceName() {
-        var metricSource = new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME));
+        QualifiedName qualifiedTableName = QualifiedName.fromSimple(TABLE_NAME);
+
+        var metricSource = new TableMetricSource(qualifiedTableName);
 
         assertThat(TableMetricSource.SOURCE_NAME, is("tables"));
-        assertThat(metricSource.name(), is("tables." + TABLE_NAME));
+        assertThat(metricSource.name(), is("tables." + qualifiedTableName.toCanonicalForm()));
     }
 
     @Test

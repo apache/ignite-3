@@ -1178,6 +1178,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
+            unregisterMetricsSource(parameters.tableId());
+
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
     }
@@ -1794,10 +1796,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partitions = zoneDescriptor.partitions();
 
-        TableMetricSource metrics = new TableMetricSource(tableName);
-        metricManager.registerSource(metrics);
-        metricManager.enable(metrics);
-
         InternalTableImpl internalTable = new InternalTableImpl(
                 tableName,
                 zoneDescriptor.id(),
@@ -1817,7 +1815,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
                 nodeProperties.colocationEnabled(),
-                metrics
+                createAndRegisterMetricsSource(tableName)
         );
 
         return new TableImpl(
@@ -2026,8 +2024,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assert table != null : tableId;
 
         InternalTable internalTable = table.internalTable();
-
-        metricManager.unregisterSource(internalTable.metrics());
 
         if (!nodeProperties.colocationEnabled()) {
             Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
@@ -3233,6 +3229,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 int tableId = tableDescriptor.id();
 
                 if (nextCatalog != null && nextCatalog.table(tableId) == null) {
+                    unregisterMetricsSource(tableId);
+
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3558,6 +3556,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             throw new IgniteInternalException(INTERNAL_ERR, "Failed to acquire a write lock for zone [zoneId=" + zoneId + ']', t);
+        }
+    }
+
+    private TableMetricSource createAndRegisterMetricsSource(QualifiedName tableName) {
+        TableMetricSource source = new TableMetricSource(tableName);
+
+        try {
+            metricManager.registerSource(source);
+            metricManager.enable(source);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}].", e, source.qualifiedTableName());
+        }
+
+        return source;
+    }
+
+    private void unregisterMetricsSource(int tableId) {
+        try {
+            TableImpl table = startedTables.get(tableId);
+            if (table == null) {
+                return;
+            }
+
+            metricManager.unregisterSource(table.metrics());
+        } catch (Exception e) {
+            LOG.warn("Failed to unregister metrics source for table [tableId={}].", e, tableId);
         }
     }
 
