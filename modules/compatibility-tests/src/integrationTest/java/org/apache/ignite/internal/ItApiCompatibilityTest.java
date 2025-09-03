@@ -33,9 +33,6 @@ class ItApiCompatibilityTest {
                     + "org.apache.ignite.catalog.IgniteCatalog#dropTableAsync(java.lang.String);" // method abstract now default
                     + "org.apache.ignite.catalog.IgniteCatalog#tableDefinition(java.lang.String);" // method abstract now default
                     + "org.apache.ignite.catalog.IgniteCatalog#tableDefinitionAsync(java.lang.String);" // method abstract now default
-                    + "org.apache.ignite.catalog.annotations.Zone#dataNodesAutoAdjust();" // removed
-                    + "org.apache.ignite.catalog.definitions.ZoneDefinition#dataNodesAutoAdjust();"  // removed
-                    + "org.apache.ignite.catalog.definitions.ZoneDefinition$Builder#dataNodesAutoAdjust(java.lang.Integer);"  // removed
                     + "org.apache.ignite.compute.ColocatedJobTarget;" // method return type changed
                     + "org.apache.ignite.compute.TableJobTarget;" // method return type changed
                     + "org.apache.ignite.lang.ColumnNotFoundException;" // deprecated
