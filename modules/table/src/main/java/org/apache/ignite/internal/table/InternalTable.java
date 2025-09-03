@@ -559,8 +559,5 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Table metrics source.
      */
-    default TableMetricSource metrics() {
-        // TODO
-        return null;
-    }
+    TableMetricSource metrics();
 }
