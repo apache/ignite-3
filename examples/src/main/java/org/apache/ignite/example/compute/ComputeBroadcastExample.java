@@ -1,15 +1,24 @@
 /*
- *  Copyright (C) GridGain Systems. All Rights Reserved.
- *  _________        _____ __________________        _____
- *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
- *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
- *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
- *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.compute.BroadcastJobTarget.table;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -39,7 +48,7 @@ import org.apache.ignite.table.QualifiedName;
  *         Create a new deployment unit using the CLI tool:<br>
  *         {@code cluster unit deploy computeExampleUnit \
  *          --version 1.0.0 \
- *          --path=$GRIDGAIN_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
+ *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
  *     </li>
  * </ol>
  */
@@ -68,7 +77,6 @@ public class ComputeBroadcastExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //tag::comment[]
             //--------------------------------------------------------------------------------------
             //
             // Configuring compute job.
@@ -95,12 +103,17 @@ public class ComputeBroadcastExample {
 
             System.out.println("\nCompute job executed...");
 
+            //--------------------------------------------------------------------------------------
+            //
+            // Executing compute job using a custom by specifying a fully qualified table name .
+            //
+            //
+
             QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
-            String executionResult = client.compute().execute(BroadcastJobTarget.table(customSchemaTable),
+            client.compute().execute(table(customSchemaTable),
                     JobDescriptor.builder(HelloMessageJob.class).build(), null
             );
 
-            System.out.println(executionResult);
 
             QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
             client.compute().execute(table(customSchemaTableName),
