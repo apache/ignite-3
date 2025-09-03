@@ -159,7 +159,7 @@ tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
 tasks.register('postRelease', Copy) {
     // Copy current OpenAPI specification to resources
     from configurations.openapiSpec
-    into file("src/test/resources/versions/${project.projectVersion.toString().replace('.', '_')}/")
+    into file("src/test/resources/versions/${project.projectVersion.toString()}/")
 
     outputs.file versionsJsonFileName
     doLast {
