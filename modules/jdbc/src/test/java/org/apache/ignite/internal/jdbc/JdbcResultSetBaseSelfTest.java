@@ -451,7 +451,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), null)) {
-
             assertTrue(rs.next());
 
             switch (columnType) {
