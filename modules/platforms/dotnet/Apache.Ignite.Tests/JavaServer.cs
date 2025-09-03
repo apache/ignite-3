@@ -23,6 +23,8 @@ namespace Apache.Ignite.Tests
     using System.Globalization;
     using System.IO;
     using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
@@ -35,10 +37,6 @@ namespace Apache.Ignite.Tests
     {
         private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
         private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
-
-        private const int DefaultClientPort = 10942;
-
-        private const int DefaultClientPortOldServer = 10800;
 
         private const int ConnectTimeoutSeconds = 4 * 60;
 
@@ -66,14 +64,12 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: []);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: [], defaultPort: 10942);
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir)
         {
-            // TODO: Find 4 ports that are free instead of using fixed offsets.
-            // Calculate port offset based on the server version (minor + patch) to avoid conflicts with other tests.
-            // This way we can have multiple active nodes with different versions (separate clusters).
-            var portOffset = 20_000 + int.Parse(version[2..].Replace(".", string.Empty));
+            // Get random unused ports to avoid conflicts with other tests.
+            var ports = GetUnusedPorts(3);
 
             return await StartInternalAsync(
                 old: true,
@@ -81,9 +77,10 @@ namespace Apache.Ignite.Tests
                 {
                     { "IGNITE_OLD_SERVER_VERSION", version },
                     { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
-                    { "IGNITE_OLD_SERVER_PORT_OFFSET", portOffset.ToString(CultureInfo.InvariantCulture) }
-                },
-                portOffset: portOffset);
+                    { "IGNITE_OLD_SERVER_PORT", ports[0].ToString(CultureInfo.InvariantCulture) },
+                    { "IGNITE_OLD_SERVER_HTTP_PORT", ports[1].ToString(CultureInfo.InvariantCulture) },
+                    { "IGNITE_OLD_SERVER_CLIENT_PORT", ports[2].ToString(CultureInfo.InvariantCulture) },
+                });
         }
 
         public void Dispose()
@@ -110,17 +107,16 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int portOffset = 0)
+        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int? defaultPort = null)
         {
             string gradleCommand = old ? GradleCommandExecOldServer : GradleCommandExec;
-            int defaultPort = (old ? DefaultClientPortOldServer : DefaultClientPort) + portOffset;
 
-            if (await TryConnect(defaultPort) == null)
+            if (defaultPort != null && await TryConnect(defaultPort.Value) == null)
             {
                 // Server started from outside.
                 Log(">>> Java server is already started on port " + defaultPort + ".");
 
-                return new JavaServer([defaultPort], null);
+                return new JavaServer([defaultPort.Value], null);
             }
 
             if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
@@ -331,6 +327,33 @@ namespace Apache.Ignite.Tests
 
             using var process = Process.Start(psi);
             process?.WaitForExit();
+        }
+
+        private static int[] GetUnusedPorts(int count)
+        {
+            var ports = new int[count];
+            var listeners = new List<TcpListener>();
+
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    var listener = new TcpListener(IPAddress.Loopback, 0);
+                    listeners.Add(listener);
+
+                    listener.Start();
+                    ports[i] = ((IPEndPoint)listener.LocalEndpoint).Port;
+                }
+
+                return ports;
+            }
+            finally
+            {
+                foreach (var listener in listeners)
+                {
+                    listener.Stop();
+                }
+            }
         }
     }
 }
