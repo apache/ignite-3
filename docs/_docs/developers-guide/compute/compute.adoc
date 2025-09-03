@@ -517,7 +517,7 @@ public static void example() throws ExecutionException, InterruptedException {
 IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
 
-    JobExecution<String> execution = client.compute().submit(JobTarget.anyNode(client.clusterNodes()),
+    JobExecution<String> execution = client.compute().submitAsync(JobTarget.anyNode(client.clusterNodes()),
             JobDescriptor.builder(NodeNameJob.class).build(), null
     );
 

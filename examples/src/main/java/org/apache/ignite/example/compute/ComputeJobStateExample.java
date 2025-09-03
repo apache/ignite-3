@@ -18,6 +18,7 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.compute.JobStatus.FAILED;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -48,11 +49,6 @@ import org.apache.ignite.compute.JobTarget;
  * </ol>
  */
 public class ComputeJobStateExample {
-    /** Deployment unit name. */
-    private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
-
-    /** Deployment unit version. */
-    private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
     /**
      * Main method of the example.
@@ -84,8 +80,8 @@ public class ComputeJobStateExample {
                     JobDescriptor.builder(WordPrintJob.class).build(), null
             );
 
-            execution.get().stateAsync().thenApply(status -> {
-                if (status.toString() == "Failed") {
+            execution.get().stateAsync().thenApply(state -> {
+                if (state.status() == FAILED) {
                     System.out.println("\nJob failed...");
                 }
                 return null;
