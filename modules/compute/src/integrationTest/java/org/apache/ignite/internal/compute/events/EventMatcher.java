@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.compute.events;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.ComputeEventsFactory.FieldNames;
 import org.apache.ignite.internal.compute.utils.MismatchesDescriptor;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -56,57 +60,116 @@ public class EventMatcher extends TypeSafeMatcher<String> {
         return new EventMatcher(eventType.name());
     }
 
-    EventMatcher withTimestamp(Matcher<? super Long> matcher) {
+    /**
+     * Generates a matcher for compute job event originated from the embedded API.
+     *
+     * @param eventType Event type.
+     * @param jobType Job type.
+     * @param jobId Job ID.
+     * @param jobClassName Job class name.
+     * @param targetNode Target node name.
+     * @param initiatorNode Initiator node name.
+     * @return Constructed event matcher.
+     */
+    public static EventMatcher embeddedJobEvent(
+            IgniteEventType eventType,
+            Type jobType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            String initiatorNode
+    ) {
+        return computeJobEvent(eventType)
+                .withTimestamp(notNullValue(Long.class))
+                .withProductVersion(is(IgniteProductVersion.CURRENT_VERSION.toString()))
+                .withUsername(is("SYSTEM"))
+                .withType(jobType.name())
+                .withClassName(jobClassName)
+                .withJobId(jobId)
+                .withTargetNode(targetNode)
+                .withInitiatorNode(is(initiatorNode))
+                .withClientAddress(nullValue());
+    }
+
+    /**
+     * Generates a matcher for compute job event originated from the thin client API.
+     *
+     * @param eventType Event type.
+     * @param jobType Job type.
+     * @param jobId Job ID.
+     * @param jobClassName Job class name.
+     * @param targetNode Target node name.
+     * @param initiatorNode Initiator node name.
+     * @return Constructed event matcher.
+     */
+    public static EventMatcher thinClientJobEvent(
+            IgniteEventType eventType,
+            Type jobType,
+            @Nullable UUID jobId,
+            String jobClassName,
+            String targetNode,
+            String initiatorNode
+    ) {
+        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, initiatorNode)
+                .withUsername(is("unknown"))
+                .withClientAddress(notNullValue(String.class));
+    }
+
+    public EventMatcher withTimestamp(Matcher<? super Long> matcher) {
         this.timestampMatcher = matcher;
         return this;
     }
 
-    EventMatcher withProductVersion(Matcher<? super String> matcher) {
+    public EventMatcher withProductVersion(Matcher<? super String> matcher) {
         this.productVersionMatcher = matcher;
         return this;
     }
 
-    EventMatcher withUsername(Matcher<? super String> matcher) {
+    public EventMatcher withUsername(Matcher<? super String> matcher) {
         this.usernameMatcher = matcher;
         return this;
     }
 
-    EventMatcher withType(String type) {
+    public EventMatcher withType(String type) {
         this.typeMatcher = is(type);
         return this;
     }
 
-    EventMatcher withClassName(String className) {
+    public EventMatcher withClassName(String className) {
         this.classNameMatcher = is(className);
         return this;
     }
 
-    EventMatcher withTableName(String tableName) {
+    public EventMatcher withTableName(String tableName) {
         this.tableNameMatcher = is(tableName);
         return this;
     }
 
-    EventMatcher withJobId(@Nullable UUID jobId) {
+    public EventMatcher withJobId(@Nullable UUID jobId) {
         this.jobIdMatcher = is(jobId);
         return this;
     }
 
-    EventMatcher withTaskId(@Nullable UUID taskId) {
+    public EventMatcher withTaskId(@Nullable UUID taskId) {
         this.taskIdMatcher = is(taskId);
         return this;
     }
 
-    EventMatcher withTargetNode(String targetNode) {
-        this.targetNodeMatcher = is(targetNode);
+    public EventMatcher withTargetNode(String targetNode) {
+        return withTargetNode(is(targetNode));
+    }
+
+    public EventMatcher withTargetNode(Matcher<? super String> targetNodeMatcher) {
+        this.targetNodeMatcher = targetNodeMatcher;
         return this;
     }
 
-    EventMatcher withInitiatorNode(Matcher<? super String> initiatorNodeMatcher) {
+    public EventMatcher withInitiatorNode(Matcher<? super String> initiatorNodeMatcher) {
         this.initiatorNodeMatcher = initiatorNodeMatcher;
         return this;
     }
 
-    EventMatcher withClientAddress(Matcher<? super String> clientAddressMatcher) {
+    public EventMatcher withClientAddress(Matcher<? super String> clientAddressMatcher) {
         this.clientAddressMatcher = clientAddressMatcher;
         return this;
     }

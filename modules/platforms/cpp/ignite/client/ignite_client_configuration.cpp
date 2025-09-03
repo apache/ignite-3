@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.events;
+#include <ignite/client/ignite_client_configuration.h>
+#include <ignite/client/detail/argument_check_utils.h>
 
-import org.apache.ignite.compute.IgniteCompute;
 
-class ItEmbeddedComputeEventsTest extends ItComputeEventsTest {
-    @Override
-    protected IgniteCompute compute() {
-        return node(0).compute();
-    }
+namespace ignite {
+
+void ignite_client_configuration::check_endpoints_non_empty(const std::vector<std::string>& endpoints) {
+    detail::arg_check::container_non_empty(endpoints, "Connection endpoint list");
 }
+
+} // namespace ignite

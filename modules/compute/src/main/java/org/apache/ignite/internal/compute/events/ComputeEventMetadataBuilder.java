@@ -30,7 +30,7 @@ public class ComputeEventMetadataBuilder {
     private EventUser eventUser;
     private Type type;
     private String jobClassName;
-    private UUID jobId;
+    private @Nullable UUID jobId;
     private String targetNode;
     private String initiatorNode;
     private @Nullable UUID taskId;
@@ -52,12 +52,12 @@ public class ComputeEventMetadataBuilder {
         return this;
     }
 
-    public ComputeEventMetadataBuilder jobId(UUID jobId) {
+    public ComputeEventMetadataBuilder jobId(@Nullable UUID jobId) {
         this.jobId = jobId;
         return this;
     }
 
-    public UUID jobId() {
+    public @Nullable UUID jobId() {
         return jobId;
     }
 
@@ -81,7 +81,7 @@ public class ComputeEventMetadataBuilder {
         return this;
     }
 
-    public ComputeEventMetadataBuilder clientAddress(String clientAddress) {
+    public ComputeEventMetadataBuilder clientAddress(@Nullable String clientAddress) {
         this.clientAddress = clientAddress;
         return this;
     }
@@ -93,7 +93,7 @@ public class ComputeEventMetadataBuilder {
      */
     public ComputeEventMetadata build() {
         return new ComputeEventMetadata(
-                eventUser,
+                eventUser != null ? eventUser : EventUser.system(),
                 type,
                 jobClassName,
                 jobId,
@@ -103,5 +103,28 @@ public class ComputeEventMetadataBuilder {
                 tableName,
                 clientAddress
         );
+    }
+
+    /**
+     * Creates new builder from this builder.
+     *
+     * @return Created builder.
+     */
+    public ComputeEventMetadataBuilder copyOf() {
+        ComputeEventMetadataBuilder builder = new ComputeEventMetadataBuilder()
+                .type(type)
+                .jobClassName(jobClassName)
+                .jobId(jobId)
+                .targetNode(targetNode)
+                .initiatorNode(initiatorNode)
+                .taskId(taskId)
+                .tableName(tableName)
+                .clientAddress(clientAddress);
+
+        if (eventUser != null) {
+            builder.eventUser(new UserDetails(eventUser.username(), eventUser.authenticationProvider()));
+        }
+
+        return builder;
     }
 }

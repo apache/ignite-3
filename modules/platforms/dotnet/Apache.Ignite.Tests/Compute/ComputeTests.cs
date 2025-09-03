@@ -744,8 +744,7 @@ namespace Apache.Ignite.Tests.Compute
 
             TaskState? state = await taskExec.GetStateAsync();
 
-            // TODO IGNITE-25640: must be TaskStatus.Canceled.
-            Assert.AreEqual(TaskStatus.Failed, state?.Status);
+            Assert.AreEqual(TaskStatus.Canceled, state?.Status);
         }
 
         [Test]

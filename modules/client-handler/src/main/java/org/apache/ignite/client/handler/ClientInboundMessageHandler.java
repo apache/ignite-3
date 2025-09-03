@@ -325,7 +325,11 @@ public class ClientInboundMessageHandler
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
-        this.cluster = new IgniteClusterImpl(clusterService.topologyService());
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), () -> {
+            ClusterInfo clusterInfo = clusterInfoSupplier.get();
+            List<UUID> idHistory = clusterInfo.idHistory();
+            return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+        });
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
@@ -930,7 +934,7 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
-                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId));
+                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_GET_STATE:
                 return ClientComputeGetStateRequest.process(in, compute);
@@ -1324,8 +1328,12 @@ public class ClientInboundMessageHandler
 
     private class ComputeConnection implements PlatformComputeConnection {
         @Override
-        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(long jobId, List<String> deploymentUnitPaths, String jobClassName,
-                ComputeJobDataHolder arg) {
+        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+                long jobId,
+                List<String> deploymentUnitPaths,
+                String jobClassName,
+                @Nullable ComputeJobDataHolder arg
+        ) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
                     packer -> {
                         packer.packLong(jobId);

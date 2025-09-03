@@ -46,8 +46,8 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionManager;
-import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobStarter;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
@@ -171,31 +171,20 @@ public class ComputeMessaging {
      * Submit Compute job to execution on remote node.
      *
      * @param remoteNode The job will be executed on this node.
-     * @param options Job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param metadataBuilder Event metadata builder.
-     * @param input Arguments of the job.
+     * @param executionContext Execution context.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
-    public CompletableFuture<UUID> remoteExecuteRequestAsync(
-            ClusterNode remoteNode,
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder input
-    ) {
-        List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
+    public CompletableFuture<UUID> remoteExecuteRequestAsync(ClusterNode remoteNode, ExecutionContext executionContext) {
+        List<DeploymentUnitMsg> deploymentUnitMsgs = executionContext.units().stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
                 .collect(toList());
 
         ExecuteRequestV2 executeRequest = messagesFactory.executeRequestV2()
-                .executeOptions(options)
+                .executeOptions(executionContext.options())
                 .deploymentUnits(deploymentUnitMsgs)
-                .jobClassName(jobClassName)
-                .metadataBuilder(metadataBuilder)
-                .input(input)
+                .jobClassName(executionContext.jobClassName())
+                .metadataBuilder(executionContext.metadataBuilder())
+                .input(executionContext.arg())
                 .build();
 
         return invoke(remoteNode, executeRequest)
@@ -209,7 +198,7 @@ public class ComputeMessaging {
                 ? ((ExecuteRequestV2) request).metadataBuilder()
                 : ComputeEventMetadata.builder();
 
-        starter.start(request.executeOptions(), units, request.jobClassName(), metadataBuilder, request.input())
+        starter.start(new ExecutionContext(request.executeOptions(), units, request.jobClassName(), metadataBuilder, request.input()))
                 .whenComplete((execution, err) -> {
                             if (err != null) {
                                 sendExecuteResponse(null, err, sender, correlationId);

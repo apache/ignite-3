@@ -180,6 +180,7 @@ public class PersistentTxStateVacuumizer {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
+                ComponentStoppingException.class,
                 GroupOverloadedException.class,
                 // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
                 // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
@@ -189,8 +190,7 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class,
-                ComponentStoppingException.class
+                AwaitReplicaTimeoutException.class
         );
     }
 

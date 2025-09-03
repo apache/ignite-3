@@ -52,7 +52,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  *
  * <p>Effective page ID is a page ID with zeroed bits used for page ID rotation.
  */
-public final class FullPageId {
+public class FullPageId {
     /** Null page ID. */
     public static final FullPageId NULL_PAGE = new FullPageId(-1, -1);
 
@@ -101,7 +101,7 @@ public final class FullPageId {
             return true;
         }
 
-        if (!(o instanceof FullPageId)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
@@ -143,7 +143,7 @@ public final class FullPageId {
     /**
      * MH3's plain finalization step.
      */
-    private static int mix32(int k) {
+    public static int mix32(int k) {
         k = (k ^ (k >>> 16)) * 0x85ebca6b;
         k = (k ^ (k >>> 13)) * 0xc2b2ae35;
 
@@ -157,7 +157,7 @@ public final class FullPageId {
      *
      * @see "http://zimbry.blogspot.com/2011/09/better-bit-mixing-improving-on.html"
      */
-    private static long mix64(long z) {
+    public static long mix64(long z) {
         z = (z ^ (z >>> 32)) * 0x4cd6944c5cc20b6dL;
         z = (z ^ (z >>> 29)) * 0xfc12c5b19d3259e9L;
 

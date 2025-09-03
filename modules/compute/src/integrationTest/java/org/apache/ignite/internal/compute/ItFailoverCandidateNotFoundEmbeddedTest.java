@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.Ignite;
+import static org.apache.ignite.internal.compute.events.EventMatcher.embeddedJobEvent;
+
+import java.util.UUID;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.compute.utils.Clients;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.EventMatcher;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.jetbrains.annotations.Nullable;
 
-class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
-    private final Clients clients = new Clients();
-
-    @AfterEach
-    void cleanup() {
-        clients.cleanup();
+class ItFailoverCandidateNotFoundEmbeddedTest extends ItFailoverCandidateNotFoundTest {
+    @Override
+    IgniteCompute compute() {
+        return node(0).compute();
     }
 
     @Override
-    protected IgniteCompute compute(Ignite entryNode) {
-        return clients.compute(entryNode);
+    protected EventMatcher jobEvent(IgniteEventType eventType, Type jobType, @Nullable UUID jobId, String jobClassName, String targetNode) {
+        return embeddedJobEvent(eventType, jobType, jobId, jobClassName, targetNode, node(0).name());
     }
 }

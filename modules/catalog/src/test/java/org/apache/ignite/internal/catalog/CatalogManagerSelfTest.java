@@ -133,7 +133,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
         assertEquals(DEFAULT_FILTER, zone.filter());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(colocationEnabled()), zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertNotNull(zone.storageProfiles());

@@ -173,7 +173,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                     checkpointProgress.evictedPagesCounter().incrementAndGet();
                 },
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(2)
+                new OffheapReadWriteLock(2),
+                checkpointManager.partitionDestructionLockManager()
         );
 
         pageStoreManager.start();
@@ -194,7 +195,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 null,
                 groupPartitionId,
                 filePageStore,
-                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN)
+                ByteBuffer.allocateDirect(PAGE_SIZE).order(ByteOrder.LITTLE_ENDIAN),
+                pageMemory.partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId())
         );
 
         partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
@@ -400,7 +402,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         // Unlike regular "for" loop, "forEach" makes "i" effectively final.
         IntStream.range(0, SEGMENT_SIZE / PAGE_SIZE * 2).forEach(i -> runInLock(() -> {
             // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
             long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
@@ -412,7 +414,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         for (int i = 0; i < pageIds.length * 10; i++) {
             runInLock(() -> {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
-                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID, 1);
 
                 long pageId = pageIds[ThreadLocalRandom.current().nextInt(pageIds.length)];
 

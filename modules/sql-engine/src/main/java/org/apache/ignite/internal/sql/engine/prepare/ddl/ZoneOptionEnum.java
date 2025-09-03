@@ -37,9 +37,6 @@ public enum ZoneOptionEnum {
     /** An expression to filter data nodes. */
     DATA_NODES_FILTER("NODES FILTER"),
 
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST("AUTO ADJUST"),
-
     /** Data nodes scale up auto adjust timeout. */
     DATA_NODES_AUTO_ADJUST_SCALE_UP("AUTO SCALE UP"),
 

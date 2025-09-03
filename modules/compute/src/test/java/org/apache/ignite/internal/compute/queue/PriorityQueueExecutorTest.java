@@ -614,8 +614,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 configuration,
                 IgniteThreadFactory.create(nodeName, "compute", LOG),
                 new InMemoryComputeStateMachine(configuration, nodeName),
-                EventLog.NOOP,
-                nodeName
+                EventLog.NOOP
         );
     }
 

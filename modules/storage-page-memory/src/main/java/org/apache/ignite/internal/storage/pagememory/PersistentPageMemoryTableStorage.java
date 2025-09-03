@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -107,6 +108,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     @Override
     protected void finishDestruction() {
         dataRegion.pageMemory().onGroupDestroyed(getTableId());
+
+        dataRegion.checkpointManager().partitionDestructionLockManager().removeLockForGroup(getTableId());
 
         try {
             dataRegion.filePageStoreManager().destroyGroupIfExists(getTableId());
@@ -364,11 +367,20 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
-        dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+        Lock partitionDestructionLock = dataRegion.checkpointManager().partitionDestructionLockManager().destructionLock(groupPartitionId)
+                .writeLock();
 
-        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
-                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
-                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+        partitionDestructionLock.lock();
+
+        try {
+            dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
+            dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
+
+            return dataRegion.filePageStoreManager().destroyPartition(groupPartitionId);
+        } finally {
+            partitionDestructionLock.unlock();
+        }
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {
@@ -465,8 +477,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             ByteBuffer buffer
     ) throws StorageException {
         try {
+            int partGen = dataRegion.pageMemory().partGeneration(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
             return (StoragePartitionMeta) dataRegion.partitionMetaManager()
-                    .readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore, buffer);
+                    .readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore, buffer, partGen);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error reading or creating partition meta information: [tableId={}, partitionId={}]",
