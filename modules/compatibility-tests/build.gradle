@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
@@ -78,11 +79,13 @@ private def resolveAllDependencies(String... dependencyNotations) {
     return detached.resolve()  // Set<File> of *.jar
 }
 
+def versionsJsonFileName = 'src/testFixtures/resources/igniteVersions.json'
+
 // This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined or is
 // not equals to `true`, at most 2 last versions are resolved
 def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityTestDependencies') {
     doLast {
-        def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
+        def versionsFile = file(versionsJsonFileName)
         def versionsJson = new JsonSlurper().parseText(versionsFile.text)
         def versions = shouldTestAllVersions() ? versionsJson.versions : versionsJson.versions.takeRight(2)
         versions.each { version ->
@@ -116,7 +119,7 @@ tasks.register('constructArgFile') {
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
             if (classPathOnly) {
-                jarFiles.forEach {f -> it.println(f.absolutePath) }
+                jarFiles.forEach { f -> it.println(f.absolutePath) }
                 return
             }
 
@@ -151,4 +154,25 @@ tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
+}
+
+tasks.register('postRelease', Copy) {
+    // Copy current OpenAPI specification to resources
+    from configurations.openapiSpec
+    into file("src/test/resources/versions/${project.projectVersion.toString().replace('.', '_')}/")
+
+    doLast {
+        // Add current version to versions JSON
+        addCurrentVersionToJson()
+    }
+}
+
+private addCurrentVersionToJson() {
+    def versionsFile = file(versionsJsonFileName)
+    def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+
+    versionsJson.versions.add(Map.of('version', project.projectVersion.toString()))
+
+    versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
+            .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
 }
