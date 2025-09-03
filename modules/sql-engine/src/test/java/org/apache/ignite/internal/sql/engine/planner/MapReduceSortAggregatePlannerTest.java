@@ -581,6 +581,18 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
     }
 
+    /**
+     * Validates a plan for a query with GROUPING aggregate.
+     */
+    @Test
+    public void groupsWithGroupingAggregate() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1A);
+        assumeRun(TestCase.CASE_28_1B); // No collation can be utilized for the case if multiple group sets.
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2A);
+        assumeRun(TestCase.CASE_28_2B); // No collation can be utilized for the case if multiple group sets.
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         checkSimpleAggSingle(testCase, hasAggregate());
     }
