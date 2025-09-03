@@ -85,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideNodeFilterValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideStorageProfileValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
@@ -284,8 +285,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         metricManager.enable(sqlQueryMetricSource);
 
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
+        var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
-        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator);
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
@@ -167,12 +168,18 @@ public class DdlSqlToCommandConverter {
     /** Storage profiles validator. */
     private final StorageProfileValidator storageProfileValidator;
 
+    /** Node filter validator. */
+    private final NodeFilterValidator nodeFilterValidator;
+
     /**
      * Constructor.
      *
      * @param storageProfileValidator Storage profile names validator.
      */
-    public DdlSqlToCommandConverter(StorageProfileValidator storageProfileValidator) {
+    public DdlSqlToCommandConverter(
+            StorageProfileValidator storageProfileValidator,
+            NodeFilterValidator nodeFilterValidator
+    ) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
@@ -211,6 +218,7 @@ public class DdlSqlToCommandConverter {
         alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
 
         this.storageProfileValidator = storageProfileValidator;
+        this.nodeFilterValidator = nodeFilterValidator;
     }
 
     /**
@@ -321,7 +329,7 @@ public class DdlSqlToCommandConverter {
         List<IgniteSqlPrimaryKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
                 .filter(IgniteSqlPrimaryKeyConstraint.class::isInstance)
                 .map(IgniteSqlPrimaryKeyConstraint.class::cast)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         for (SqlNode sqlNode : createTblNode.columnList().getList()) {
             if (sqlNode instanceof SqlColumnDeclaration) {
@@ -393,12 +401,12 @@ public class DdlSqlToCommandConverter {
                 : createTblNode.colocationColumns().getList().stream()
                         .map(SqlIdentifier.class::cast)
                         .map(SqlIdentifier::getSimple)
-                        .collect(Collectors.toList());
+                        .collect(toList());
 
         List<SqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
                 .filter(SqlColumnDeclaration.class::isInstance)
                 .map(SqlColumnDeclaration.class::cast)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         List<ColumnParams> columns = new ArrayList<>(colDeclarations.size());
 
@@ -741,12 +749,32 @@ public class DdlSqlToCommandConverter {
             storageProfileNames.add(profile.storageProfile());
         }
 
+        List<IgniteSqlZoneOption> options = createZoneNode.createOptionList().stream()
+                .map(IgniteSqlZoneOption.class::cast)
+                .collect(toList());
+
+        String nodesFilter = extractLiteralOptionValueFromZoneOptionList(options, DATA_NODES_FILTER.name());
+
         return storageProfileValidator.validate(storageProfileNames)
+                .thenCompose(unused -> nodeFilterValidator.validate(nodesFilter))
                 .thenApply(unused -> {
                     builder.storageProfilesParams(profiles);
 
                     return builder.build();
                 });
+    }
+
+    @Nullable
+    private String extractLiteralOptionValueFromZoneOptionList(List<IgniteSqlZoneOption> options, String optionName) {
+        return options.stream()
+                .map(opt -> (IgniteSqlZoneOption) opt)
+                .filter(opt -> opt.key().isSimple() && opt.key().getSimple().toUpperCase().equals(optionName))
+                .map(opt -> {
+                    DdlOptionInfo optInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
+                    return (String) ((SqlLiteral) opt.value()).getValueAs(optInfo.type);
+                })
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -766,7 +794,14 @@ public class DdlSqlToCommandConverter {
             updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder);
         }
 
-        return completedFuture(builder.build());
+        List<IgniteSqlZoneOption> options = alterZoneSet.alterOptionsList().stream()
+                .map(IgniteSqlZoneOption.class::cast)
+                .collect(toList());
+
+        String nodeFilter = extractLiteralOptionValueFromZoneOptionList(options, DATA_NODES_FILTER.name());
+
+        return nodeFilterValidator.validate(nodeFilter)
+                .thenApply(unused -> builder.build());
     }
 
     /**
