@@ -55,7 +55,7 @@ public class IgniteClusterImpl implements IgniteCluster {
 
     private static List<ClusterNode> toPublicClusterNodes(Collection<InternalClusterNode> nodes) {
         return nodes.stream()
-                .map(InternalClusterNode::asPublicNode)
+                .map(InternalClusterNode::toPublicNode)
                 .collect(Collectors.toList());
     }
 
@@ -66,6 +66,6 @@ public class IgniteClusterImpl implements IgniteCluster {
 
     @Override
     public @Nullable ClusterNode localNode() {
-        return topologyService.localMember().asPublicNode();
+        return topologyService.localMember().toPublicNode();
     }
 }

@@ -37,7 +37,7 @@ class TaskToJobExecutionWrapper<R> implements CancellableJobExecution<R> {
     TaskToJobExecutionWrapper(CancellableTaskExecution<R> taskExecution, InternalClusterNode localNode) {
         this.taskExecution = taskExecution;
 
-        publicLocalNode = localNode.asPublicNode();
+        publicLocalNode = localNode.toPublicNode();
     }
 
     @Override

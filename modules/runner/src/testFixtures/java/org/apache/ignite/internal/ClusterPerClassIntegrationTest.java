@@ -663,7 +663,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node().asPublicNode();
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

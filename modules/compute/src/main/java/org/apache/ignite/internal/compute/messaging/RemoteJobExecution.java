@@ -63,7 +63,7 @@ public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDat
         this.inFlightFutures = inFlightFutures;
         this.messaging = messaging;
 
-        publicRemoteNode = remoteNode.asPublicNode();
+        publicRemoteNode = remoteNode.toPublicNode();
     }
 
     @Override

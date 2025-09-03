@@ -309,7 +309,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected static ClusterNode publicClusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node().asPublicNode();
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
 
     protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {

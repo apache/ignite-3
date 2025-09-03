@@ -574,7 +574,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 .build();
 
         return compute.executeAsync(
-                JobTarget.node(node.asPublicNode()),
+                JobTarget.node(node.toPublicNode()),
                 JobDescriptor.builder(StreamerReceiverJob.class)
                         .units(deploymentUnits)
                         .options(jobOptions)

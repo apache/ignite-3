@@ -103,7 +103,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 .map(this::node)
                 .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::node)
-                .map(InternalClusterNode::asPublicNode)
+                .map(InternalClusterNode::toPublicNode)
                 .collect(toSet());
     }
 

@@ -59,5 +59,5 @@ public interface InternalClusterNode {
     /**
      * Converts this node to its public representation.
      */
-    ClusterNode asPublicNode();
+    ClusterNode toPublicNode();
 }

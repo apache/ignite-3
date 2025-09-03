@@ -74,7 +74,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
         }
         HashPartition hashPartition = (HashPartition) partition;
         return table.partitionLocation(hashPartition.partitionId())
-                .thenApply(InternalClusterNode::asPublicNode);
+                .thenApply(InternalClusterNode::toPublicNode);
     }
 
     @Override
@@ -91,7 +91,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
                 .thenApply(unused -> {
                     Map<Partition, ClusterNode> result = new HashMap<>(partitions);
                     for (int i = 0; i < partitions; i++) {
-                        result.put(new HashPartition(i), futures[i].join().asPublicNode());
+                        result.put(new HashPartition(i), futures[i].join().toPublicNode());
                     }
                     return result;
                 });

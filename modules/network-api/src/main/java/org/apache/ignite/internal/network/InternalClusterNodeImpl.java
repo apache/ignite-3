@@ -92,7 +92,7 @@ public class InternalClusterNodeImpl implements InternalClusterNode {
     }
 
     @Override
-    public ClusterNode asPublicNode() {
+    public ClusterNode toPublicNode() {
         return new PublicClusterNodeImpl(id, name, address, nodeMetadata);
     }
 

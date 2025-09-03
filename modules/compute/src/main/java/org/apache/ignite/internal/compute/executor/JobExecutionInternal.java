@@ -65,7 +65,7 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
         this.marshaller = marshaller;
         this.marshalResult = marshalResult;
 
-        this.publicLocalNode = localNode.asPublicNode();
+        this.publicLocalNode = localNode.toPublicNode();
     }
 
     public CompletableFuture<ComputeJobDataHolder> resultAsync() {
