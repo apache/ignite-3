@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
  * If there are {@link ConfigurationExtension} and {@link ConfigurationRoot}, the class should not have a parent (superclass).
