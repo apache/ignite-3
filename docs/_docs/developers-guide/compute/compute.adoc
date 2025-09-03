@@ -149,7 +149,7 @@ auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
 .deployment_units({deployment_unit{"unitName", "1.1.1"}})
 .build();
 
-job_execution execution = comp.submitAsync(job_target::any_node(nodes), job_desc, {std::string("Hello")}, {});
+job_execution execution = comp.submit(job_target::any_node(nodes), job_desc, {std::string("Hello")}, {});
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
