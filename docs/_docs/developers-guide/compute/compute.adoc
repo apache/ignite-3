@@ -653,8 +653,8 @@ IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build(
     // Create job execution options
     JobExecutionOptions options = JobExecutionOptions.builder().priority(1).build();
 
-    String executionResult = client.compute().execute(JobTarget.anyNode(client.clusterNodes()),
-            JobDescriptor.builder(NodeNameJob.class).options(options).build(), null
+    String executionResult = client.compute().execute(JobTarget.anyNode(client.cluster().nodes()),
+            JobDescriptor.builder(HighPriorityJob.class).options(options).build(), null
     );
 
     System.out.println(executionResult);
