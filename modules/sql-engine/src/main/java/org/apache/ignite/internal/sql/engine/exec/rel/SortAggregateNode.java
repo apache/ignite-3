@@ -277,7 +277,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            aggRow.writeTo(type, accs, fields, grpSet, AggregateRow.NO_GROUP_ID);
+            aggRow.writeTo(type, accs, fields, grpSet.cardinality(), grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }
