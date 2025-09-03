@@ -156,6 +156,7 @@ namespace Apache.Ignite.Tests
 
             process.OutputDataReceived += handler;
             process.ErrorDataReceived += handler;
+            process.Exited += (_, _) => evt.Set();
 
             process.Start();
 
@@ -167,6 +168,11 @@ namespace Apache.Ignite.Tests
                 process.Kill(entireProcessTree: true);
 
                 throw new InvalidOperationException("Failed to wait for THIN_CLIENT_PORTS. Check logs for details.");
+            }
+
+            if (process.HasExited)
+            {
+                throw new InvalidOperationException("Java server process has exited. Check logs for details.");
             }
 
             if (ports == null)
