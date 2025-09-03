@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network;
 
 import java.util.UUID;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -58,5 +59,5 @@ public interface InternalClusterNode {
     /**
      * Converts this node to its public representation.
      */
-    org.apache.ignite.network.ClusterNode asPublicNode();
+    ClusterNode asPublicNode();
 }
