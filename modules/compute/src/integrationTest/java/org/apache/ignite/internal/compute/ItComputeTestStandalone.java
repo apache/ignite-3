@@ -147,13 +147,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         IgniteTestUtils.assertThrows(
                 ComputeException.class,
-                () -> {
-                    entryNode.compute().execute(
-                            JobTarget.node(clusterNode(entryNode)),
-                            JobDescriptor.builder("org.apache.ignite.internal.compute.UnitJob").build(),
-                            null
-                    );
-                },
+                () -> entryNode.compute().execute(
+                        JobTarget.node(clusterNode(entryNode)),
+                        JobDescriptor.builder("org.apache.ignite.internal.compute.UnitJob").build(),
+                        null
+                ),
                 "Cannot load job class by name 'org.apache.ignite.internal.compute.UnitJob'."
                         + " Deployment units list is empty.");
     }

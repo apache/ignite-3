@@ -186,12 +186,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
         CustomFailingJob.th = exception;
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> {
-            entryNode.compute().execute(
-                    JobTarget.node(clusterNode(entryNode)),
-                    JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                    null);
-        });
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
 
         assertThat(ex, is(publicException(exception.code(), exception.getMessage())));
     }
@@ -204,12 +202,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
         CustomFailingJob.th = exception;
 
-        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> {
-            entryNode.compute().execute(
-                    JobTarget.node(clusterNode(entryNode)),
-                    JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                    null);
-        });
+        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
 
         assertThat(ex, is(publicCheckedException(exception.code(), exception.getMessage())));
     }
@@ -231,12 +227,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         CustomFailingJob.th = throwable;
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> {
-            entryNode.compute().execute(
-                    JobTarget.node(clusterNode(entryNode)),
-                    JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                    null);
-        });
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
 
         assertThat(ex, is(computeJobFailedException(throwable.getClass().getName(), throwable.getMessage())));
     }
@@ -251,11 +245,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(entryNodeIndex);
         Ignite targetNode = node(targetNodeIndex);
 
-        assertDoesNotThrow(() -> {
-            return entryNode.compute().execute(
-                    JobTarget.node(clusterNode(targetNode)),
-                    JobDescriptor.builder(PerformSyncKvGetPutJob.class).build(), null);
-        });
+        assertDoesNotThrow(() -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(targetNode)),
+                JobDescriptor.builder(PerformSyncKvGetPutJob.class).build(), null));
     }
 
     @Test
