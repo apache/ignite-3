@@ -17,15 +17,15 @@
 
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-
-import com.facebook.presto.bytecode.instruction.InstructionNode;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.facebook.presto.bytecode.instruction.InstructionNode;
 import org.objectweb.asm.MethodVisitor;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
 
 @SuppressWarnings("SpellCheckingInspection")
 public enum OpCode

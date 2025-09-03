@@ -17,8 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import static java.time.ZoneOffset.UTC;
-
 import java.io.StringWriter;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -27,6 +25,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jetbrains.annotations.Nullable;
+
+import static java.time.ZoneOffset.UTC;
 
 public final class BytecodeUtils {
     private static final AtomicLong CLASS_ID = new AtomicLong();

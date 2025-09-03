@@ -16,18 +16,18 @@
  */
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.util.Objects.requireNonNull;
-
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import org.objectweb.asm.Type;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
 
 public class Scope {
     private final Map<String, Variable> variables = new TreeMap<>();

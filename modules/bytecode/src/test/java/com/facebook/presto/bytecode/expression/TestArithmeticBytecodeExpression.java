@@ -16,6 +16,8 @@
  */
 package com.facebook.presto.bytecode.expression;
 
+import org.junit.jupiter.api.Test;
+
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseAnd;
@@ -33,8 +35,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.shiftL
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.shiftRight;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.shiftRightUnsigned;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
-
-import org.junit.jupiter.api.Test;
 
 public class TestArithmeticBytecodeExpression {
     @Test

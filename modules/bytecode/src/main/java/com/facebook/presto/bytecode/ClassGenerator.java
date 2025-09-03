@@ -17,12 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
-import static java.io.Writer.nullWriter;
-import static java.nio.file.Files.createDirectories;
-import static java.util.Objects.requireNonNull;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -42,6 +36,12 @@ import org.objectweb.asm.MethodTooLargeException;
 import org.objectweb.asm.util.CheckClassAdapter;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
+
+import static com.facebook.presto.bytecode.ClassInfoLoader.createClassInfoLoader;
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
+import static java.io.Writer.nullWriter;
+import static java.nio.file.Files.createDirectories;
+import static java.util.Objects.requireNonNull;
 
 public class ClassGenerator
 {

@@ -16,16 +16,6 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-import static java.util.Comparator.comparing;
-import static java.util.Objects.requireNonNull;
-
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.BytecodeVisitor;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.bytecode.instruction.LabelNode;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,8 +23,18 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
+import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 
 public class SwitchStatement
     implements FlowControl {

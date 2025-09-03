@@ -16,17 +16,17 @@
  */
 package com.facebook.presto.bytecode.instruction;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.OpCode.ILOAD;
-import static com.facebook.presto.bytecode.OpCode.ISTORE;
-
+import java.util.List;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Variable;
-import java.util.List;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.OpCode.ILOAD;
+import static com.facebook.presto.bytecode.OpCode.ISTORE;
 
 public abstract class VariableInstruction
     implements InstructionNode {

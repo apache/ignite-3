@@ -16,14 +16,14 @@
  */
 package com.facebook.presto.bytecode.expression;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
-
-import java.util.List;
-import org.junit.jupiter.api.Test;
 
 public class TestInvokeBytecodeExpression {
     @Test

@@ -17,19 +17,19 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
-
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.MethodGenerationContext;
-import com.facebook.presto.bytecode.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.ParameterizedType;
 import org.jetbrains.annotations.Nullable;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 class InvokeBytecodeExpression
     extends BytecodeExpression {

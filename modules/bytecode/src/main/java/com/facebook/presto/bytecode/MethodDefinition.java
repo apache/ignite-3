@@ -17,12 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.Access.STATIC;
-import static com.facebook.presto.bytecode.Access.toAccessModifier;
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static org.objectweb.asm.Opcodes.RETURN;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -32,6 +26,12 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.InsnNode;
+
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.toAccessModifier;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static org.objectweb.asm.Opcodes.RETURN;
 
 @SuppressWarnings("UnusedDeclaration")
 public class MethodDefinition {

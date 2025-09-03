@@ -16,17 +16,17 @@
  */
 package com.facebook.presto.bytecode.expression;
 
-import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static java.util.Objects.requireNonNull;
-
+import java.util.List;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.instruction.InstructionNode;
-import java.util.List;
+
+import static com.facebook.presto.bytecode.ArrayOpCode.getArrayOpCode;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
 
 class SetArrayElementBytecodeExpression
     extends BytecodeExpression {

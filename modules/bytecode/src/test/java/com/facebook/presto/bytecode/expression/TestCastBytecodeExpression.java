@@ -16,13 +16,13 @@
  */
 package com.facebook.presto.bytecode.expression;
 
+import com.facebook.presto.bytecode.BytecodeUtils;
+import org.junit.jupiter.api.Test;
+
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
-
-import com.facebook.presto.bytecode.BytecodeUtils;
-import org.junit.jupiter.api.Test;
 
 public class TestCastBytecodeExpression {
     public static final Object OBJECT_FIELD = "foo";

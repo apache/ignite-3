@@ -17,12 +17,12 @@
 
 package com.facebook.presto.bytecode;
 
-import static org.objectweb.asm.Opcodes.ASM5;
-
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+
+import static org.objectweb.asm.Opcodes.ASM5;
 
 class AddFakeLineNumberClassVisitor
         extends ClassVisitor

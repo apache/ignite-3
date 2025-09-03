@@ -17,8 +17,8 @@
 
 package com.facebook.presto.bytecode;
 
-import com.facebook.presto.bytecode.instruction.InstructionNode;
 import java.util.List;
+import com.facebook.presto.bytecode.instruction.InstructionNode;
 import org.objectweb.asm.MethodVisitor;
 
 public class Comment

@@ -16,6 +16,9 @@
  */
 package com.facebook.presto.bytecode.expression;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
@@ -27,9 +30,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-
-import java.util.List;
-import org.junit.jupiter.api.Test;
 
 public class TestConstantBytecodeExpression {
     @Test

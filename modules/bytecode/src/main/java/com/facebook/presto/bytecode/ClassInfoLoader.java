@@ -29,8 +29,6 @@
  */
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -42,6 +40,8 @@ import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.util.CheckClassAdapter;
+
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
 
 public class ClassInfoLoader {
     public static ClassInfoLoader createClassInfoLoader(Collection<ClassDefinition> classDefinitions,

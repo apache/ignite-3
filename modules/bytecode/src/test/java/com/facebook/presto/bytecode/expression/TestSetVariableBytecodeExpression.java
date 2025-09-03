@@ -16,19 +16,19 @@
  */
 package com.facebook.presto.bytecode.expression;
 
+import java.awt.Point;
+import java.util.function.Function;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import org.junit.jupiter.api.Test;
+
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeNode;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import com.facebook.presto.bytecode.BytecodeBlock;
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
-import com.facebook.presto.bytecode.Variable;
-import java.awt.Point;
-import java.util.function.Function;
-import org.junit.jupiter.api.Test;
 
 public class TestSetVariableBytecodeExpression {
     @Test

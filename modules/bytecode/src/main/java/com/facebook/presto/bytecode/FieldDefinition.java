@@ -17,9 +17,6 @@
 
 package com.facebook.presto.bytecode;
 
-import static com.facebook.presto.bytecode.Access.toAccessModifier;
-import static com.facebook.presto.bytecode.ParameterizedType.type;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -27,6 +24,9 @@ import java.util.List;
 import java.util.Set;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
+
+import static com.facebook.presto.bytecode.Access.toAccessModifier;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
 
 public class FieldDefinition {
     private final ClassDefinition declaringClass;

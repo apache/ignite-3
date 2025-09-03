@@ -17,15 +17,15 @@
 
 package com.facebook.presto.bytecode.control;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
-
+import java.util.List;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import java.util.List;
 import org.objectweb.asm.MethodVisitor;
+
+import static com.facebook.presto.bytecode.BytecodeUtils.checkState;
 
 public class DoWhileLoop
     implements FlowControl {
