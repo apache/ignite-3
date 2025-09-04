@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.asserts.CompletableFuture
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -407,14 +408,31 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
             CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
-            assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+
+            assertThat(sendFuture, willCompleteSuccessfully());
+
+            CompletableFuture<Void> ackSendFuture = ackFuture(manager1, emptyTestMessage);
+
+            assertThat(ackSendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
 
             ackSilencer.stopSilencing();
 
             provokeAckFor(sender);
 
-            assertThat(sendFuture, willCompleteSuccessfully());
+            assertThat(ackSendFuture, willCompleteSuccessfully());
         }
+    }
+
+    public CompletableFuture<Void> ackFuture(ConnectionManagerWrapper connectionManager, NetworkMessage msg) {
+        for (NettySender sender : connectionManager.channels().values()) {
+            for (OutNetworkObject outMsgWrapper : sender.recoveryDescriptor().unacknowledgedMessages()) {
+                if (outMsgWrapper.networkMessage() == msg) {
+                    return outMsgWrapper.acknowledgedFuture();
+                }
+            }
+        }
+
+        return nullCompletedFuture();
     }
 
     private static void waitTillChannelAppearsInMapOnAcceptor(
@@ -442,18 +460,12 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
             waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
 
-            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
-
             List<Integer> ordinals = new CopyOnWriteArrayList<>();
 
             CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
                     .whenComplete((res, ex) -> ordinals.add(1));
             CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
                     .whenComplete((res, ex) -> ordinals.add(2));
-
-            ackSilencer.stopSilencing();
-
-            provokeAckFor(sender);
 
             assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
             assertThat(ordinals, contains(1, 2));

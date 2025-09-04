@@ -20,9 +20,13 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
@@ -38,6 +42,12 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
     /** Messages factory. */
     private final NetworkMessagesFactory factory;
+
+    /**
+     * Flag indicating if the handler should schedule sending of acknowledgement messages.
+     * This is used to prevent sending too many acknowledgements in a short period of time.
+     */
+    private boolean scheduleAcknowledgement = true;
 
     /**
      * Constructor.
@@ -61,10 +71,24 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
             descriptor.acknowledge(receivedMessages);
         } else if (message.needAck()) {
-            AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
-                    .receivedMessages(descriptor.onReceive()).build();
+            descriptor.onReceive();
 
-            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+            if (scheduleAcknowledgement) {
+                scheduleAcknowledgement = false;
+
+                ctx.channel().eventLoop().schedule(
+                        () -> {
+                            scheduleAcknowledgement = true;
+
+                            AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
+                                    .receivedMessages(descriptor.receivedCount()).build();
+
+                            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+                        },
+                        100,
+                        TimeUnit.MILLISECONDS
+                );
+            }
         }
 
         super.channelRead(ctx, message);
