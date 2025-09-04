@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AcknowledgeView;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
@@ -40,21 +41,33 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
     /** Messages factory. */
     private final NetworkMessagesFactory factory;
 
+    /** Determines the number of received messages required to trigger the sending of acknowledgment messages synchronously. */
+    private final long syncAckThreshold;
+
+    /** This value determines how long the handler waits before sending acknowledgment messages. */
+    private final long postponeAckMillis;
+
     /**
      * Flag indicating if the handler should schedule sending of acknowledgement messages.
      * This is used to prevent sending too many acknowledgements in a short period of time.
      */
     private boolean scheduleAcknowledgement = true;
 
+    /** Tracks the count of the last sent received messages. */
+    private long lastSentReceivedCount = 0;
+
     /**
      * Constructor.
      *
      * @param descriptor Recovery descriptor.
      * @param factory Message factory.
+     * @param acknowledgeCfg Acknowledgement configuration.
      */
-    public InboundRecoveryHandler(RecoveryDescriptor descriptor, NetworkMessagesFactory factory) {
+    public InboundRecoveryHandler(RecoveryDescriptor descriptor, NetworkMessagesFactory factory, AcknowledgeView acknowledgeCfg) {
         this.descriptor = descriptor;
         this.factory = factory;
+        this.syncAckThreshold = acknowledgeCfg.syncAckThreshold();
+        this.postponeAckMillis = acknowledgeCfg.postponeAckMillis();
     }
 
     /** {@inheritDoc} */
@@ -68,27 +81,50 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
             descriptor.acknowledge(receivedMessages);
         } else if (message.needAck()) {
-            descriptor.onReceive();
-
-            if (scheduleAcknowledgement) {
-                scheduleAcknowledgement = false;
-
-                ctx.channel().eventLoop().schedule(
-                        () -> {
-                            scheduleAcknowledgement = true;
-
-                            AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
-                                    .receivedMessages(descriptor.receivedCount()).build();
-
-                            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
-                        },
-                        100,
-                        TimeUnit.MILLISECONDS
-                );
-            }
+            sentOrScheduleAcknowledgement(ctx);
         }
 
         super.channelRead(ctx, message);
+    }
+
+    /**
+     * Sends or schedules an acknowledgement message based on the received message count.
+     *
+     * @param ctx Channel handler context.
+     */
+    private void sentOrScheduleAcknowledgement(ChannelHandlerContext ctx) {
+        long receiveCnt = descriptor.onReceive();
+
+        if (receiveCnt - lastSentReceivedCount > syncAckThreshold) {
+            sentAcknowledgement(ctx, receiveCnt);
+        } else if (scheduleAcknowledgement) {
+            scheduleAcknowledgement = false;
+
+            ctx.channel().eventLoop().schedule(
+                    () -> {
+                        scheduleAcknowledgement = true;
+
+                        sentAcknowledgement(ctx, descriptor.receivedCount());
+                    },
+                    postponeAckMillis,
+                    TimeUnit.MILLISECONDS
+            );
+        }
+    }
+
+    /**
+     * Sends an acknowledgement message with the given received message count.
+     *
+     * @param ctx Channel handler context.
+     * @param receiveCnt Count of received messages to include in the acknowledgement.
+     */
+    private void sentAcknowledgement(ChannelHandlerContext ctx, long receiveCnt) {
+        AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
+                .receivedMessages(receiveCnt).build();
+
+        ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+
+        lastSentReceivedCount = ackMsg.receivedMessages();
     }
 
     @Override
