@@ -19,11 +19,19 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Exception representing user input error. This is used to differentiate from system errors.
  */
 public class InvalidUserInputException extends IgniteException {
     public InvalidUserInputException(String message) {
         super(ILLEGAL_ARGUMENT_ERR, message);
+    }
+
+    @SuppressWarnings("unused")
+    public InvalidUserInputException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
