@@ -50,6 +50,7 @@ import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -150,7 +150,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void start() {
         LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
-        ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
+        InternalClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
         CompletableFuture<SnapshotContext> metadataSufficiencyFuture;
 
@@ -297,14 +297,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new IncomingSnapshotReader(context == null ? null : context.meta);
     }
 
-    private @Nullable ClusterNode getSnapshotSender(String nodeName) {
+    private @Nullable InternalClusterNode getSnapshotSender(String nodeName) {
         return partitionSnapshotStorage.topologyService().getByConsistentId(nodeName);
     }
 
     /**
      * Requests the snapshot meta.
      */
-    private CompletableFuture<PartitionSnapshotMeta> loadSnapshotMeta(ClusterNode snapshotSender) {
+    private CompletableFuture<PartitionSnapshotMeta> loadSnapshotMeta(InternalClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
@@ -351,7 +351,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link MvPartitionStorage}.
      */
-    private CompletableFuture<?> loadSnapshotMvData(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
+    private CompletableFuture<?> loadSnapshotMvData(SnapshotContext snapshotContext, InternalClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
@@ -409,7 +409,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link TxStatePartitionStorage}.
      */
-    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender) {
+    private CompletableFuture<Void> loadSnapshotTxData(InternalClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
@@ -648,7 +648,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    private CompletableFuture<Void> tryUpdateLowWatermark(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
+    private CompletableFuture<Void> tryUpdateLowWatermark(SnapshotContext snapshotContext, InternalClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }

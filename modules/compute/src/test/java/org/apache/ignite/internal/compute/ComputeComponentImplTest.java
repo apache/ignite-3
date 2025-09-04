@@ -102,7 +102,8 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -111,7 +112,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -149,8 +149,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponent computeComponent;
 
-    private final ClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
-    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
+    private final InternalClusterNode testNode = new InternalClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final InternalClusterNode remoteNode = new InternalClusterNodeImpl(
+            randomUUID(),
+            "remote",
+            new NetworkAddress("remote-host", 1)
+    );
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
@@ -702,7 +706,11 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return requestCaptor.getValue();
     }
 
-    private <T extends NetworkMessage> T sendRequestAndCaptureResponse(NetworkMessage request, ClusterNode sender, long correlationId) {
+    private <T extends NetworkMessage> T sendRequestAndCaptureResponse(
+            NetworkMessage request,
+            InternalClusterNode sender,
+            long correlationId
+    ) {
         AtomicBoolean responseSent = new AtomicBoolean(false);
 
         when(messagingService.respond(eq(sender.name()), any(), eq(correlationId)))

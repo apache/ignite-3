@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata
@@ -117,7 +117,7 @@ class PartitionReplicatorNodeRecovery {
         });
     }
 
-    private void handleHasDataRequest(HasDataRequest msg, ClusterNode sender, Long correlationId) {
+    private void handleHasDataRequest(HasDataRequest msg, InternalClusterNode sender, Long correlationId) {
         int tableId = msg.tableId();
         int partitionId = msg.partitionId();
 
@@ -244,10 +244,10 @@ class PartitionReplicatorNodeRecovery {
                 .map(Peer::consistentId)
                 .collect(toSet());
 
-        Map<String, ClusterNode> peerNodesByConsistentIds = new ConcurrentHashMap<>();
+        Map<String, InternalClusterNode> peerNodesByConsistentIds = new ConcurrentHashMap<>();
 
         for (Peer peer : peers) {
-            ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
+            InternalClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 peerNodesByConsistentIds.put(peer.consistentId(), node);
@@ -262,7 +262,7 @@ class PartitionReplicatorNodeRecovery {
 
         TopologyEventHandler eventHandler = new TopologyEventHandler() {
             @Override
-            public void onAppeared(ClusterNode member) {
+            public void onAppeared(InternalClusterNode member) {
                 if (peerConsistentIds.contains(member.name())) {
                     peerNodesByConsistentIds.put(member.name(), member);
                 }
@@ -278,7 +278,7 @@ class PartitionReplicatorNodeRecovery {
         // Check again for peers that could appear in the topology since last check, but before we installed the handler.
         for (Peer peer : peers) {
             if (!peerNodesByConsistentIds.containsKey(peer.consistentId())) {
-                ClusterNode node = topologyService.getByConsistentId(peer.consistentId());
+                InternalClusterNode node = topologyService.getByConsistentId(peer.consistentId());
 
                 if (node != null) {
                     peerNodesByConsistentIds.put(peer.consistentId(), node);

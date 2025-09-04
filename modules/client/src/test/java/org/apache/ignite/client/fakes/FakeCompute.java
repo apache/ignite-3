@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
@@ -69,7 +70,9 @@ import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.PublicClusterNodeImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancellationToken;
@@ -107,7 +110,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
-            Set<ClusterNode> nodes,
+            Set<InternalClusterNode> nodes,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -193,7 +196,9 @@ public class FakeCompute implements IgniteComputeInternal {
             @Nullable CancellationToken cancellationToken
     ) {
         if (target instanceof AnyNodeJobTarget) {
-            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
+            Set<InternalClusterNode> nodes = ((AnyNodeJobTarget) target).nodes().stream()
+                    .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                    .collect(toUnmodifiableSet());
 
             return executeAsyncWithFailover(
                     nodes,
@@ -341,7 +346,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         @Override
         public ClusterNode node() {
-            return new ClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 1));
+            return new PublicClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 1));
         }
 
         @Override

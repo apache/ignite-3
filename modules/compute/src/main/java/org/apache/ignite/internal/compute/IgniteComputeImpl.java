@@ -71,6 +71,8 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -166,7 +168,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionContext executionContext = new ExecutionContext(descriptor, metadataBuilder, argHolder);
 
         if (target instanceof AnyNodeJobTarget) {
-            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
+            Set<InternalClusterNode> nodes = internalNodesFromPublicNodes(((AnyNodeJobTarget) target).nodes());
 
             return unmarshalResult(
                     executeAsyncWithFailover(nodes, executionContext, cancellationToken),
@@ -235,7 +237,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         if (target instanceof AllNodesBroadcastJobTarget) {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
-            Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
+            Set<InternalClusterNode> nodes = internalNodesFromPublicNodes(allNodesBroadcastTarget.nodes());
 
             return toBroadcastExecution(nodes.stream().map(node -> submitForBroadcast(
                     node,
@@ -249,6 +251,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             return requiredTable(tableJobTarget.tableName())
                     .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
                             .thenCompose(replicas -> toBroadcastExecution(replicas.entrySet().stream()
+                                    .map(entry -> new IgniteBiTuple<>(entry.getKey(), findNodeByConsistentId(entry.getValue())))
+                                    .filter(entry -> entry.getValue() != null)
                                     .map(entry -> submitForBroadcast(
                                             entry.getValue(),
                                             entry.getKey(),
@@ -264,6 +268,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private static Set<InternalClusterNode> internalNodesFromPublicNodes(Set<ClusterNode> nodes) {
+        return nodes.stream()
+                .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                .collect(Collectors.toSet());
+    }
+
+    private @Nullable InternalClusterNode findNodeByConsistentId(ClusterNode clusterNode) {
+        return topologyService.getByConsistentId(clusterNode.name());
     }
 
     private static <R> CompletableFuture<BroadcastExecution<R>> toBroadcastExecution(
@@ -288,7 +302,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
-            ClusterNode node,
+            InternalClusterNode node,
             JobDescriptor<T, R> descriptor,
             UUID taskId,
             @Nullable ComputeJobDataHolder argHolder,
@@ -304,7 +318,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
-            ClusterNode node,
+            InternalClusterNode node,
             Partition partition,
             int zoneId,
             int tableId,
@@ -329,7 +343,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
-            ClusterNode node,
+            InternalClusterNode node,
             JobDescriptor<T, R> descriptor,
             ExecutionOptions options,
             NextWorkerSelector nextWorkerSelector,
@@ -393,22 +407,23 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
-            Set<ClusterNode> nodes,
+            Set<InternalClusterNode> nodes,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
-        Set<ClusterNode> candidates = new HashSet<>();
-        for (ClusterNode node : nodes) {
+        Set<InternalClusterNode> candidates1 = new HashSet<>();
+        for (InternalClusterNode node : nodes) {
             if (topologyService.getByConsistentId(node.name()) != null) {
-                candidates.add(node);
+                candidates1.add(node);
             }
         }
+        Set<InternalClusterNode> candidates = candidates1;
         if (candidates.isEmpty()) {
-            Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+            Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(Collectors.toSet());
             return failedFuture(new NodeNotFoundException(nodeNames));
         }
 
-        ClusterNode targetNode = randomNode(candidates);
+        InternalClusterNode targetNode = randomNode(candidates);
         candidates.remove(targetNode);
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
@@ -416,10 +431,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return executeOnOneNodeWithFailover(targetNode, selector, executionContext, cancellationToken);
     }
 
-    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+    private static InternalClusterNode randomNode(Set<InternalClusterNode> nodes) {
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
-        Iterator<ClusterNode> iterator = nodes.iterator();
+        Iterator<InternalClusterNode> iterator = nodes.iterator();
         for (int i = 0; i < nodesToSkip; i++) {
             iterator.next();
         }
@@ -428,7 +443,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
-            ClusterNode targetNode,
+            InternalClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
@@ -439,7 +454,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<? extends JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailoverInternal(
-            ClusterNode targetNode,
+            InternalClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
@@ -454,14 +469,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private static class DeqNextWorkerSelector implements NextWorkerSelector {
-        private final ConcurrentLinkedDeque<ClusterNode> deque;
+        private final ConcurrentLinkedDeque<InternalClusterNode> deque;
 
-        private DeqNextWorkerSelector(ConcurrentLinkedDeque<ClusterNode> deque) {
+        private DeqNextWorkerSelector(ConcurrentLinkedDeque<InternalClusterNode> deque) {
             this.deque = deque;
         }
 
         @Override
-        public CompletableFuture<ClusterNode> next() {
+        public CompletableFuture<InternalClusterNode> next() {
             try {
                 return completedFuture(deque.pop());
             } catch (NoSuchElementException ex) {
@@ -470,7 +485,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         }
     }
 
-    private boolean isLocal(ClusterNode targetNode) {
+    private boolean isLocal(InternalClusterNode targetNode) {
         return targetNode.name().equals(topologyService.localMember().name());
     }
 
@@ -530,15 +545,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 });
     }
 
-    private CompletableFuture<ClusterNode> primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
+    private CompletableFuture<InternalClusterNode> primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
         return primaryReplicaForPartition(table, table.partitionId(key));
     }
 
-    private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+    private <K> CompletableFuture<InternalClusterNode> primaryReplicaForPartitionByMappedKey(
+            TableViewInternal table,
+            K key,
+            Mapper<K> keyMapper
+    ) {
         return primaryReplicaForPartition(table, table.partitionId(key, keyMapper));
     }
 
-    private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
+    private CompletableFuture<InternalClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
         PartitionGroupId replicationGroupId = nodeProperties.colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partitionIndex)
                 : new TablePartitionId(table.tableId(), partitionIndex);
@@ -642,7 +661,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
-            ClusterNode node,
+            InternalClusterNode node,
             List<DeploymentUnit> deploymentUnits) {
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
                 receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
@@ -663,7 +682,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
-            ClusterNode node,
+            InternalClusterNode node,
             List<DeploymentUnit> deploymentUnits,
             ReceiverExecutionOptions options
     ) {

@@ -56,6 +56,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
@@ -87,7 +88,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -301,7 +301,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlySingleRowPkReplicaRequest(K pk) {
-            ClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
             Row pkRow = marshaller.marshal(pk);
@@ -321,7 +321,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlyMultiRowPkReplicaRequest(K... pk) {
-            ClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
             List<ByteBuffer> buffers = Arrays.stream(pk).map(marshaller::marshal).map(BinaryRow::tupleSlice).collect(Collectors.toList());
@@ -342,7 +342,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         }
 
         Request readOnlyScanRetrieveBatchReplicaRequest() {
-            ClusterNode clusterNode = node.clusterService().topologyService().localMember();
+            InternalClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
 
@@ -377,7 +377,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             IgniteBiTuple<K, V> invokeAndGetFirstRow() {
                 PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
 
-                ClusterNode sender = node.clusterService().topologyService().localMember();
+                InternalClusterNode sender = node.clusterService().topologyService().localMember();
                 CompletableFuture<ReplicaResult> fut = replicaListener.invoke(request, sender.id());
 
                 assertThat(fut, willCompleteSuccessfully());
