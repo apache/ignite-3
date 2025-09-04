@@ -97,7 +97,7 @@ include(':ignite-system-disaster-recovery-api')
 include(':ignite-compatibility-tests')
 include(':ignite-configuration-storage')
 
-project(":ignite-examples").projectDir = file('examples')
+project(":ignite-examples").projectDir = file('examples/java')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
 project(":ignite-storage-api").projectDir = file('modules/storage-api')
