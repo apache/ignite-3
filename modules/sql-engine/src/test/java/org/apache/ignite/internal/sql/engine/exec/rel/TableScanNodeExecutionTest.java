@@ -58,8 +58,9 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
@@ -159,7 +159,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         TopologyService topologyService = mock(TopologyService.class);
         when(topologyService.localMember()).thenReturn(
-                new ClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
+                new InternalClusterNodeImpl(new UUID(1, 2), leaseholder, NetworkAddress.from("127.0.0.1:1111"))
         );
 
         ClusterService clusterService = mock(ClusterService.class);
@@ -328,7 +328,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     ZONE_ID,
                     TABLE_ID,
                     PART_CNT,
-                    new SingleClusterNodeResolver(mock(ClusterNode.class)),
+                    new SingleClusterNodeResolver(mock(InternalClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateStorage.class),
@@ -353,7 +353,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 int partId,
                 UUID txId,
                 HybridTimestamp readTime,
-                ClusterNode recipient,
+                InternalClusterNode recipient,
                 @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,

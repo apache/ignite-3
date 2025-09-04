@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -46,8 +47,9 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
@@ -163,7 +165,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
-        Collection<ClusterNode> topologyNodes = node0.cluster().nodes();
+        Collection<InternalClusterNode> topologyNodes = node0.cluster().nodes().stream()
+                .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                .collect(toUnmodifiableList());
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));

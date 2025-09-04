@@ -52,10 +52,10 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -699,13 +699,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .orElseThrow();
     }
 
-    private List<ClusterNode> currentPhysicalTopology() {
+    private List<InternalClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
                 .collect(toList());
     }
 
-    private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {
+    private static LogicalNode[] toLogicalNodes(List<InternalClusterNode> clusterNodes) {
         return clusterNodes.stream().map(LogicalNode::new).toArray(LogicalNode[]::new);
     }
 

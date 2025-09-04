@@ -20,8 +20,10 @@ package org.apache.ignite.internal.network;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.IgniteCluster;
 import org.jetbrains.annotations.Nullable;
@@ -48,16 +50,22 @@ public class IgniteClusterImpl implements IgniteCluster {
 
     @Override
     public Collection<ClusterNode> nodes() {
-        return topologyService.logicalTopologyMembers();
+        return toPublicClusterNodes(topologyService.logicalTopologyMembers());
+    }
+
+    private static List<ClusterNode> toPublicClusterNodes(Collection<InternalClusterNode> nodes) {
+        return nodes.stream()
+                .map(InternalClusterNode::toPublicNode)
+                .collect(Collectors.toList());
     }
 
     @Override
     public CompletableFuture<Collection<ClusterNode>> nodesAsync() {
-        return completedFuture(topologyService.allMembers());
+        return completedFuture(toPublicClusterNodes(topologyService.allMembers()));
     }
 
     @Override
     public @Nullable ClusterNode localNode() {
-        return topologyService.localMember();
+        return topologyService.localMember().toPublicNode();
     }
 }

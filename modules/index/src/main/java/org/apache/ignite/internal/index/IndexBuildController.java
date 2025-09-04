@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -75,7 +76,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -530,7 +530,7 @@ class IndexBuildController implements ManuallyCloseable {
         );
     }
 
-    private ClusterNode localNode() {
+    private InternalClusterNode localNode() {
         return IndexManagementUtils.localNode(clusterService);
     }
 

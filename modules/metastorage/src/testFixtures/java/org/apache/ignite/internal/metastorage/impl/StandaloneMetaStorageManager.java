@@ -48,8 +48,9 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -84,7 +84,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
-    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, new NetworkAddress("host", 3000));
+    private static final InternalClusterNode TEST_NODE = new InternalClusterNodeImpl(
+            TEST_NODE_ID,
+            TEST_NODE_NAME,
+            new NetworkAddress("host", 3000)
+    );
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 

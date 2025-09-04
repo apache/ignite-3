@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 
 import java.util.List;
-import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
 import org.junit.jupiter.api.Test;
 
 class ExclusionsCompleterFilterTest {

@@ -51,6 +51,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
@@ -333,7 +333,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             InternalTableImpl internalTableImpl,
             InternalTransaction roTx,
             int partitionId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         assertTrue(roTx.isReadOnly(), roTx.toString());
 

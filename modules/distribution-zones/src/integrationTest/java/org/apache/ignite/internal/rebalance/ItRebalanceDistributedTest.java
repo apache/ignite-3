@@ -183,6 +183,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
@@ -274,7 +275,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
@@ -309,7 +309,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final int BASE_PORT = 20_000;
 
     /** Filter to determine a primary node identically on any cluster node. */
-    private static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
+    private static final Function<Collection<InternalClusterNode>, InternalClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
             .filter(n -> n.address().port() == BASE_PORT).findFirst().orElse(null);
 
     private static final String HOST = "localhost";
@@ -534,7 +534,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
 
-        ClusterNode leaderClusterNode = ReplicaTestUtils.leaderAssignment(
+        InternalClusterNode leaderClusterNode = ReplicaTestUtils.leaderAssignment(
                 node1.replicaManager,
                 node1.clusterService.topologyService(),
                 colocationEnabled() ? table.zoneId() : table.tableId(),
@@ -1096,7 +1096,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> isReplicationGroupStarted(leaseholderNode, groupId), AWAIT_TIMEOUT_MILLIS));
 
-        ClusterNode leaseholder = leaseholderNode.clusterService
+        InternalClusterNode leaseholder = leaseholderNode.clusterService
                 .topologyService()
                 .localMember();
 

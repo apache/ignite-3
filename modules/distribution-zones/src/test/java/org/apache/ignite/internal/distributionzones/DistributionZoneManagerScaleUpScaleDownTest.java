@@ -53,7 +53,7 @@ import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateE
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -667,7 +667,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
     private void addNodes(Set<Node> nodes) {
         for (Node n : nodes) {
             topology.putNode(new LogicalNode(
-                    new ClusterNodeImpl(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123)),
+                    new InternalClusterNodeImpl(n.nodeId(), n.nodeName(), new NetworkAddress("localhost", 123)),
                     emptyMap(),
                     emptyMap(),
                     List.of("default")

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -262,7 +262,7 @@ public class PlacementDriverManager implements IgniteComponent {
         });
     }
 
-    private void onLeaderChange(ClusterNode leader, long term) {
+    private void onLeaderChange(InternalClusterNode leader, long term) {
         inBusyLock(busyLock, () -> {
             if (leader.equals(clusterService.topologyService().localMember())) {
                 takeOverActiveActorBusy();

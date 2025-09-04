@@ -122,6 +122,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
@@ -160,7 +161,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -812,7 +812,7 @@ public class PartitionReplicaLifecycleManager extends
         );
     }
 
-    private ClusterNode localNode() {
+    private InternalClusterNode localNode() {
         return topologyService.localMember();
     }
 

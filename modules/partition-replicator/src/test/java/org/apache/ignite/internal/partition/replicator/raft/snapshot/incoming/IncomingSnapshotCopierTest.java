@@ -74,6 +74,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -127,7 +128,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStor
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -166,7 +166,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    private final ClusterNode clusterNode = mock(ClusterNode.class);
+    private final InternalClusterNode clusterNode = mock(InternalClusterNode.class);
 
     private final UUID snapshotId = UUID.randomUUID();
 
@@ -565,7 +565,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(any(ClusterNode.class), any(SnapshotMetaRequest.class), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(InternalClusterNode.class), any(SnapshotMetaRequest.class), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();
@@ -604,7 +604,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         MessagingService messagingService = mock(MessagingService.class);
 
         returnSnapshotMetaWhenAskedForIt(messagingService);
-        when(messagingService.invoke(any(ClusterNode.class), any(SnapshotMvDataRequest.class), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(InternalClusterNode.class), any(SnapshotMvDataRequest.class), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();
@@ -796,8 +796,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertEquals(RaftError.EBUSY.getNumber(), snapshotCopier.getCode());
 
-        verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotMvDataRequest.class), anyLong());
-        verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotTxDataRequest.class), anyLong());
+        verify(messagingService, never()).invoke(any(InternalClusterNode.class), any(SnapshotMvDataRequest.class), anyLong());
+        verify(messagingService, never()).invoke(any(InternalClusterNode.class), any(SnapshotTxDataRequest.class), anyLong());
 
         verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).startRebalance();
         verify(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID), never()).abortRebalance();

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -130,7 +130,7 @@ public class ItLozaTest extends IgniteAbstractTest {
      */
     private RaftGroupService startClient(
             TestReplicationGroupId groupId,
-            ClusterNode node,
+            InternalClusterNode node,
             RaftGroupOptionsConfigurer groupOptionsConfigurer) throws Exception {
         RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
@@ -195,7 +195,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                     })
                     // finally call the real method
                     .doCallRealMethod()
-                    .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
+                    .when(messagingServiceMock).invoke(any(InternalClusterNode.class), any(), anyLong());
 
             RaftGroupService client = startClient(
                     new TestReplicationGroupId(Integer.toString(i)),
@@ -206,7 +206,7 @@ public class ItLozaTest extends IgniteAbstractTest {
             assertThat(client.refreshLeader(), willCompleteSuccessfully());
 
             verify(messagingServiceMock, times(3 * (i + 1)))
-                    .invoke(any(ClusterNode.class), any(), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(), anyLong());
         }
     }
 

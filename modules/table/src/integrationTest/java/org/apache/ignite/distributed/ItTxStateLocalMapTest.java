@@ -34,6 +34,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -140,7 +140,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     }
 
     private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
-        ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
+        InternalClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
         UUID coordinatorId = coord.id();
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
