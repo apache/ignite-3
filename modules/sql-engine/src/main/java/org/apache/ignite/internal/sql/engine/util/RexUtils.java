@@ -605,6 +605,10 @@ public class RexUtils {
                 return new MultiBounds(pred, bounds);
             }
 
+            if (!allowRange) {
+                return null;
+            }
+
             // Range bounds.
             boolean lowerBoundBelow = !fc.getDirection().isDescending();
             boolean includeBound = op.kind == GREATER_THAN_OR_EQUAL || op.kind == LESS_THAN_OR_EQUAL;
