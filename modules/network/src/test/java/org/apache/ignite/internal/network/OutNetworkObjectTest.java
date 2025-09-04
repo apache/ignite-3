@@ -29,7 +29,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 class OutNetworkObjectTest extends BaseIgniteAbstractTest {
-    private final OutNetworkObject outObject = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+    private final OutNetworkObject outObject = new OutNetworkObject(mock(NetworkMessage.class), emptyList());
 
     @Test
     void acknowledgementFutureIsIncompleteInitially() {

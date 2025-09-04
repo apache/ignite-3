@@ -59,4 +59,9 @@ public interface ErrorMessage extends NetworkMessage, Serializable {
      */
     @Nullable
     String message();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

@@ -45,4 +45,9 @@ public interface CancelOperationResponse extends NetworkMessage {
      */
     @Marshallable
     @Nullable Throwable error();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }
