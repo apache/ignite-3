@@ -51,6 +51,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.lang.InvalidUserInputException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -148,7 +149,15 @@ public class CmgRaftService implements ManuallyCloseable {
         return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
-                        throw new JoinDeniedException(((ValidationErrorResponse) response).reason());
+                        var validationErrorResponse = (ValidationErrorResponse) response;
+                        if (validationErrorResponse.isUserError()) {
+                            var invalidUserInputException = new InvalidUserInputException(validationErrorResponse.reason());
+
+                            throw new JoinDeniedException(invalidUserInputException.code(),  invalidUserInputException);
+
+                        } else {
+                            throw new JoinDeniedException(validationErrorResponse.reason());
+                        }
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
                     }  else {

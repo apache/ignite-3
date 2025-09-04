@@ -15,32 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
+package org.apache.ignite.lang;
 
-import java.io.Serializable;
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 
 /**
- * Response that indicates that a join request has been rejected.
+ * Exception representing user input error. This is used to differentiate from system errors.
  */
-public class ValidationErrorResponse implements Serializable {
-    private final String reason;
-    private final boolean userError;
-
-    public ValidationErrorResponse(String reason, boolean userError) {
-        this.reason = reason;
-        this.userError = userError;
-    }
-
-    /**
-     * Returns the textual representation of the reason of join rejection.
-     *
-     * @return Textual representation of the reason of join rejection.
-     */
-    public String reason() {
-        return reason;
-    }
-
-    public boolean isUserError() {
-        return userError;
+public class InvalidUserInputException extends IgniteException {
+    public InvalidUserInputException(String message) {
+        super(ILLEGAL_ARGUMENT_ERR, message);
     }
 }

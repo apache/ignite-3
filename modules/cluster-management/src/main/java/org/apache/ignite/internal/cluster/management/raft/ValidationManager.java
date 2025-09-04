@@ -118,7 +118,7 @@ public class ValidationManager {
                     "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
                     isColocationEnabled(node),
                     isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
-            ));
+            ), true);
         } else {
             putValidatedNode(node);
 

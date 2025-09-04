@@ -26,4 +26,8 @@ public class JoinDeniedException extends IgniteInternalException {
     public JoinDeniedException(String msg) {
         super(msg);
     }
+
+    public JoinDeniedException(int code, Throwable cause) {
+        super(code, cause);
+    }
 }
