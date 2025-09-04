@@ -289,10 +289,8 @@ public class IgniteMdRowCount extends RelMdRowCount {
             if (rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.SEMI) {
                 baseRowCount = leftRowCount;
                 percentageAdjustment = mq.getPercentageOriginalRows(rel.getRight());
-            } else if (rel.getJoinType() == JoinRelType.LEFT) {
+            } else if (rel.getJoinType() == JoinRelType.LEFT || rel.getJoinType() == JoinRelType.RIGHT) {
                 baseRowCount = leftRowCount;
-            } else if (rel.getJoinType() == JoinRelType.RIGHT) {
-                baseRowCount = rightRowCount;
             } else if (rel.getJoinType() == JoinRelType.FULL) {
                 Double selectivity = mq.getSelectivity(rel, rel.getCondition());
 
@@ -308,14 +306,12 @@ public class IgniteMdRowCount extends RelMdRowCount {
             if (rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.SEMI) {
                 baseRowCount = rightRowCount;
                 percentageAdjustment = mq.getPercentageOriginalRows(rel.getLeft());
-            } else if (rel.getJoinType() == JoinRelType.LEFT) {
-                baseRowCount = leftRowCount;
-            } else if (rel.getJoinType() == JoinRelType.RIGHT) {
+            } else if (rel.getJoinType() == JoinRelType.RIGHT || rel.getJoinType() == JoinRelType.LEFT) {
                 baseRowCount = rightRowCount;
             } else if (rel.getJoinType() == JoinRelType.FULL) {
                 Double selectivity = mq.getSelectivity(rel, rel.getCondition());
 
-                /// Fall-back to calcite's implementation.
+                // Fall-back to calcite's implementation.
                 if (selectivity == null) {
                     return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
                 }
