@@ -57,6 +57,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -323,13 +323,13 @@ public class LeaseUpdater {
      * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    private @Nullable ClusterNode nextLeaseHolder(
+    private @Nullable InternalClusterNode nextLeaseHolder(
             Set<Assignment> stableAssignments,
             Set<Assignment> pendingAssignments,
             ReplicationGroupId grpId,
             @Nullable String proposedConsistentId
     ) {
-        ClusterNode primaryCandidate =  tryToFindCandidateAmongAssignments(stableAssignments, grpId, proposedConsistentId);
+        InternalClusterNode primaryCandidate =  tryToFindCandidateAmongAssignments(stableAssignments, grpId, proposedConsistentId);
 
         // If there wasn't a candidate among stable assignments set then make attempt to select a candidate among pending set
         if (primaryCandidate == null) {
@@ -339,13 +339,13 @@ public class LeaseUpdater {
         return primaryCandidate;
     }
 
-    private @Nullable ClusterNode tryToFindCandidateAmongAssignments(
+    private @Nullable InternalClusterNode tryToFindCandidateAmongAssignments(
             Set<Assignment> assignments,
             ReplicationGroupId grpId,
             @Nullable String proposedConsistentId
     ) {
         // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        ClusterNode primaryCandidate = null;
+        InternalClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {
             if (!assignment.isPeer()) {
@@ -354,7 +354,7 @@ public class LeaseUpdater {
 
             // Check whether given assignments is actually available in logical topology. It's a best effort check because it's possible
             // for proposed primary candidate to leave the topology at any time. In that case primary candidate will be recalculated.
-            ClusterNode candidateNode = topologyTracker.nodeByConsistentId(assignment.consistentId());
+            InternalClusterNode candidateNode = topologyTracker.nodeByConsistentId(assignment.consistentId());
 
             if (candidateNode == null) {
                 continue;
@@ -507,7 +507,7 @@ public class LeaseUpdater {
                         ? lease.getLeaseholder()
                         : lease.proposedCandidate();
 
-                ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
+                InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
 
                 boolean canBeProlonged = lease.isAccepted()
                         && lease.isProlongable()
@@ -619,7 +619,7 @@ public class LeaseUpdater {
                 proposedCandidate = existingLease.isProlongable() ? existingLease.getLeaseholder() : existingLease.proposedCandidate();
             }
 
-            ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
+            InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
 
             if (candidate == null) {
                 leaseWithoutCandidateCount++;
@@ -645,7 +645,7 @@ public class LeaseUpdater {
          */
         private Lease writeNewLease(
                 ReplicationGroupId grpId,
-                ClusterNode candidate,
+                InternalClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases
         ) {
             HybridTimestamp startTs = clockService.now();
@@ -737,7 +737,7 @@ public class LeaseUpdater {
     /** Message handler to process notification from replica side. */
     private class PlacementDriverActorMessageHandler implements NetworkMessageHandler {
         @Override
-        public void onReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
+        public void onReceived(NetworkMessage msg0, InternalClusterNode sender, @Nullable Long correlationId) {
             if (!(msg0 instanceof PlacementDriverActorMessage)) {
                 return;
             }

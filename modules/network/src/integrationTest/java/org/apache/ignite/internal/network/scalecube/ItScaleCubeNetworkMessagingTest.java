@@ -71,6 +71,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
@@ -97,7 +98,6 @@ import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
@@ -175,7 +175,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
 
-        for (ClusterNode member : alice.topologyService().allMembers()) {
+        for (InternalClusterNode member : alice.topologyService().allMembers()) {
             alice.messagingService().weakSend(member, testMessage);
         }
 
@@ -220,7 +220,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        ClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.topologyService().localMember();
 
         class Data {
             private final TestMessage message;
@@ -268,7 +268,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        ClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.topologyService().localMember();
 
         var requestMessage = testMessage("request");
         var responseMessage = testMessage("response");
@@ -552,8 +552,8 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService notOutcast = testCluster.members.get(0);
         ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
 
-        ClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
-        ClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
+        InternalClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
+        InternalClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
         assertNotNull(outcastNode);
         assertNotNull(notOutcastNode);
 
@@ -1158,7 +1158,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         TopologyEventHandler disappearListener = new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
                     disappeared.countDown();
                 }
@@ -1198,7 +1198,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onAppeared(ClusterNode member) {
+            public void onAppeared(InternalClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
                     reappeared.compareAndSet(false, true);
 
@@ -1254,7 +1254,7 @@ class ItScaleCubeNetworkMessagingTest {
         bob.topologyService().addEventHandler(new TopologyEventHandler() {
             /** {@inheritDoc} */
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 if (aliceName.equals(member.name())) {
                     aliceShutdownLatch.countDown();
                 }
@@ -1270,7 +1270,7 @@ class ItScaleCubeNetworkMessagingTest {
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
         assertTrue(aliceShutdownReceived);
 
-        Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
+        Collection<InternalClusterNode> networkMembers = bob.topologyService().allMembers();
 
         assertEquals(1, networkMembers.size());
     }
@@ -1425,18 +1425,18 @@ class ItScaleCubeNetworkMessagingTest {
     private enum SendOperation {
         SEND {
             @Override
-            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient) {
                 return messagingService.send(recipient, message);
             }
         },
         INVOKE {
             @Override
-            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient) {
                 return messagingService.invoke(recipient, message, Long.MAX_VALUE).thenApply(unused -> null);
             }
         };
 
-        abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient);
+        abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient);
     }
 
     private static class SameRandomClusterIdSupplier implements ClusterIdSupplier {

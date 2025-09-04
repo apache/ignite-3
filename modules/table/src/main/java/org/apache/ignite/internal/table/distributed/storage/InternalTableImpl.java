@@ -86,6 +86,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
@@ -130,7 +131,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
@@ -862,7 +862,7 @@ public class InternalTableImpl implements InternalTable {
 
         Function<ReplicaMeta, CompletableFuture<R>> evaluateClo = primaryReplica -> {
             try {
-                ClusterNode node = getClusterNode(primaryReplica);
+                InternalClusterNode node = getClusterNode(primaryReplica);
 
                 return replicaSvc.invoke(node, op.apply(replicationGroupId, enlistmentConsistencyToken(primaryReplica)));
             } catch (Throwable e) {
@@ -969,7 +969,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
@@ -1058,7 +1058,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -1564,7 +1564,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
@@ -1604,7 +1604,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -1672,7 +1672,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -2065,7 +2065,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
+    public CompletableFuture<InternalClusterNode> partitionLocation(int partitionIndex) {
         return partitionMeta(targetReplicationGroupId(partitionIndex), clockService.current()).thenApply(this::getClusterNode);
     }
 
@@ -2081,10 +2081,10 @@ public class InternalTableImpl implements InternalTable {
                 });
     }
 
-    private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
+    private InternalClusterNode getClusterNode(ReplicaMeta replicaMeta) {
         UUID leaseHolderId = replicaMeta.getLeaseholderId();
 
-        ClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
+        InternalClusterNode node = leaseHolderId == null ? null : clusterNodeResolver.getById(leaseHolderId);
 
         if (node == null) {
             throw new TransactionException(
@@ -2165,7 +2165,7 @@ public class InternalTableImpl implements InternalTable {
      * @param readTimestamp Read timestamp.
      * @return Cluster node to evaluate read-only request.
      */
-    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
+    protected CompletableFuture<InternalClusterNode> evaluateReadOnlyRecipientNode(int partId, HybridTimestamp readTimestamp) {
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
 
         return awaitPrimaryReplica(replicationGroupId, readTimestamp)

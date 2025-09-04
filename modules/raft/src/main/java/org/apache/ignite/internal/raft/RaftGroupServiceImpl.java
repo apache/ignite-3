@@ -60,6 +60,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -1033,8 +1033,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return peers.stream().map(RaftGroupServiceImpl::peerId).collect(toList());
     }
 
-    private CompletableFuture<ClusterNode> resolvePeer(Peer peer) {
-        ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
+    private CompletableFuture<InternalClusterNode> resolvePeer(Peer peer) {
+        InternalClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
 
         if (node == null) {
             return CompletableFuture.failedFuture(new PeerUnavailableException(peer.consistentId()));
@@ -1046,7 +1046,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private TopologyEventHandler topologyEventHandler() {
         return new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 // Peers in throttling context are used for retries, so we use retry timeout here. Also, the retries themselves
                 // also can be delayed for any reasons, so here is the multiplier.
                 if (!busyLock.enterBusy()) {

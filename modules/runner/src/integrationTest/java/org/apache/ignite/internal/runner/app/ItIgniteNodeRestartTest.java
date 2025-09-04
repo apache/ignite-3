@@ -1320,11 +1320,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param tableName Table name.
      */
     private void assertTablePresent(TableManager tableManager, String tableName) {
-        Collection<TableImpl> tables = tableManager.startedTables().values();
+        Collection<TableViewInternal> tables = tableManager.startedTables().values();
 
         boolean isPresent = false;
 
-        for (TableImpl table : tables) {
+        for (TableViewInternal table : tables) {
             if (table.qualifiedName().objectName().equals(tableName)) {
                 isPresent = true;
 

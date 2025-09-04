@@ -32,9 +32,9 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,7 +52,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @return CompletableFuture Job result.
      */
     CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
-            Set<ClusterNode> nodes,
+            Set<InternalClusterNode> nodes,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     );

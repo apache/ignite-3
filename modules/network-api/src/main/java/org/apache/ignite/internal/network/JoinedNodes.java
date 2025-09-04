@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.network;
 
-import org.apache.ignite.network.ClusterNode;
-
 /**
  * Allows reacting to logical topology changes.
  */
@@ -29,12 +27,12 @@ public interface JoinedNodes {
      *
      * @param node Node.
      */
-    void onJoined(ClusterNode node);
+    void onJoined(InternalClusterNode node);
 
     /**
      * Called when the node leaves logical topology.
      *
      * @param node Node.
      */
-    void onLeft(ClusterNode node);
+    void onLeft(InternalClusterNode node);
 }

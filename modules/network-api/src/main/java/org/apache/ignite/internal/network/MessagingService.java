@@ -22,7 +22,6 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.thread.ExecutorChooser;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
@@ -36,7 +35,7 @@ public interface MessagingService {
      * @param recipient Recipient of the message.
      * @param msg Message which should be delivered.
      */
-    void weakSend(ClusterNode recipient, NetworkMessage msg);
+    void weakSend(InternalClusterNode recipient, NetworkMessage msg);
 
     /**
      * Tries to send the given message via default channel asynchronously to the specific cluster member.
@@ -54,14 +53,14 @@ public interface MessagingService {
      * exist.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
      * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
-    default CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
+    default CompletableFuture<Void> send(InternalClusterNode recipient, NetworkMessage msg) {
         return send(recipient, ChannelType.DEFAULT, msg);
     }
 
@@ -81,14 +80,14 @@ public interface MessagingService {
      * exist.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
      * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
+    CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg);
 
     /**
      * Tries to send the given message via specified channel asynchronously to the specific cluster member.
@@ -132,39 +131,39 @@ public interface MessagingService {
 
     /**
      * Sends a response to a {@link #invoke} request.
-     * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     * Guarantees are the same as for the {@link #send(InternalClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient     Recipient of the message.
      * @param msg           Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    default CompletableFuture<Void> respond(ClusterNode recipient, NetworkMessage msg, long correlationId) {
+    default CompletableFuture<Void> respond(InternalClusterNode recipient, NetworkMessage msg, long correlationId) {
         return respond(recipient, ChannelType.DEFAULT, msg, correlationId);
     }
 
     /**
      * Sends a response to a {@link #invoke} request.
-     * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     * Guarantees are the same as for the {@link #send(InternalClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient     Recipient of the message.
      * @param msg           Message which should be delivered.
      * @param correlationId Correlation id when replying to the request.
      * @return Future of the send operation.
      */
-    CompletableFuture<Void> respond(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId);
+    CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId);
 
     /**
      * Sends a response to a {@link #invoke} request via default channel.
-     * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     * Guarantees are the same as for the {@link #send(InternalClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient cannot be resolved (because it has already left the physical topology), the returned future is resolved
      * with the corresponding exception ({@link UnresolvableConsistentIdException}).
@@ -180,7 +179,7 @@ public interface MessagingService {
 
     /**
      * Sends a response to a {@link #invoke} request via specified channel.
-     * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     * Guarantees are the same as for the {@link #send(InternalClusterNode, NetworkMessage)}.
      *
      * <p>If the recipient cannot be resolved (because it has already left the physical topology), the returned future is resolved
      * with the corresponding exception ({@link UnresolvableConsistentIdException}).
@@ -195,30 +194,30 @@ public interface MessagingService {
 
     /**
      * Sends a message via default channel asynchronously with same guarantees as
-     * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * {@link #send(InternalClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
      * @param msg       The message.
      * @param timeout   Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    default CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout) {
+    default CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, NetworkMessage msg, long timeout) {
         return invoke(recipient, ChannelType.DEFAULT, msg, timeout);
     }
 
     /**
      * Sends a message asynchronously  via specified channel with same guarantees as
-     * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * {@link #send(InternalClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
      * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
-     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
-     * object is found on the other side of the channel.
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in
+     * the {@link InternalClusterNode} object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
      * @param channelType Channel which will be used to message transfer.
@@ -226,11 +225,11 @@ public interface MessagingService {
      * @param timeout Waiting for response timeout in milliseconds.
      * @return A future holding the response or error if the expected response was not received.
      */
-    CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout);
+    CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout);
 
     /**
      * Sends a message via default channel asynchronously with same guarantees as
-     * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * {@link #send(InternalClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
@@ -244,7 +243,7 @@ public interface MessagingService {
 
     /**
      * Sends a message via specified channel asynchronously with same guarantees as
-     * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * {@link #send(InternalClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.

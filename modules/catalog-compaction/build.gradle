@@ -61,6 +61,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))

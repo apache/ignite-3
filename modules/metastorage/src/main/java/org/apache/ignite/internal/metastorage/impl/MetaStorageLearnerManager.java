@@ -31,11 +31,11 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -70,7 +70,7 @@ class MetaStorageLearnerManager {
         return metaStorageSvcFut.thenCompose(service -> resetLearners(service.raftGroupService(), term));
     }
 
-    CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
+    CompletableFuture<Void> addLearner(RaftGroupService raftService, InternalClusterNode learner) {
         if (!learnersAdditionEnabled) {
             return nullCompletedFuture();
         }
@@ -80,11 +80,11 @@ class MetaStorageLearnerManager {
                 : raftService.addLearners(List.of(new Peer(learner.name()))));
     }
 
-    private static boolean isPeer(RaftGroupService raftService, ClusterNode node) {
+    private static boolean isPeer(RaftGroupService raftService, InternalClusterNode node) {
         return raftService.peers().stream().anyMatch(peer -> peer.consistentId().equals(node.name()));
     }
 
-    CompletableFuture<Void> removeLearner(RaftGroupService raftService, ClusterNode learner) {
+    CompletableFuture<Void> removeLearner(RaftGroupService raftService, InternalClusterNode learner) {
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     if (isPeer(raftService, learner)) {
@@ -107,7 +107,7 @@ class MetaStorageLearnerManager {
                     Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
 
                     Set<String> learners = validatedNodes.stream()
-                            .map(ClusterNode::name)
+                            .map(InternalClusterNode::name)
                             .filter(name -> !peers.contains(name))
                             .collect(toSet());
 

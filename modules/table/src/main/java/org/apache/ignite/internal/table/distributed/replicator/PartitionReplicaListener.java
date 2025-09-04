@@ -97,6 +97,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
 import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
@@ -228,7 +229,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -406,7 +406,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             LeasePlacementDriver placementDriver,
@@ -507,7 +507,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
+    private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(InternalClusterNode node) {
         assert !nodeProperties.colocationEnabled() : "Unexpected method call within colocation enabled.";
         // Enlistment consistency token is not required for the rollback, so it is 0L.
         // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.

@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.netty.ChannelKey;
-import org.apache.ignite.network.ClusterNode;
 import reactor.util.annotation.Nullable;
 
 /**
@@ -199,7 +199,7 @@ public class HandshakeEventLoopSwitcher {
      *
      * @param node The node that left the topology.
      */
-    public synchronized void nodeLeftTopology(ClusterNode node) {
+    public synchronized void nodeLeftTopology(InternalClusterNode node) {
         channelReservationMap.entrySet().removeIf(entry -> entry.getKey().launchId().equals(node.id()));
     }
 }

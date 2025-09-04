@@ -73,6 +73,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
@@ -111,7 +112,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -144,7 +144,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
     private static final UUID DEAD_NODE_ID = new UUID(-1, -1);
 
-    private ClusterNode node;
+    private InternalClusterNode node;
 
     private InternalTableImpl table;
 
@@ -297,7 +297,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
-            ClusterNode node,
+            InternalClusterNode node,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,

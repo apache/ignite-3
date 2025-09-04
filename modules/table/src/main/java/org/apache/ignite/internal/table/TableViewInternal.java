@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
+import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -83,6 +87,12 @@ public interface TableViewInternal extends Table {
      * @return The partition ID.
      */
     <K> int partitionId(K key, Mapper<K> keyMapper);
+
+    /** Returns a supplier of index storage wrapper factories for given partition. */
+    TableIndexStoragesSupplier indexStorageAdapters(int partitionId);
+
+    /** Returns a supplier of index locker factories for given partition. */
+    Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId);
 
     /**
      * Registers the index with given id in a table.

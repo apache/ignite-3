@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -113,7 +113,7 @@ public interface InternalTable extends ManuallyCloseable {
     default CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         return get(keyRow, readTimestamp, null, null, recipientNode);
     }
@@ -133,7 +133,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     );
 
     /**
@@ -161,7 +161,7 @@ public interface InternalTable extends ManuallyCloseable {
     default CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         return getAll(keyRows, readTimestamp, null, null, recipientNode);
     }
@@ -183,7 +183,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
             @Nullable UUID coordinatorId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     );
 
     /**
@@ -345,7 +345,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             UUID txCoordinatorId
     ) {
         return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
@@ -370,7 +370,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -444,7 +444,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode,
+            InternalClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude,
@@ -521,12 +521,12 @@ public interface InternalTable extends ManuallyCloseable {
     ScheduledExecutorService streamerFlushExecutor();
 
     /**
-     * Returns {@link ClusterNode} where primary replica of replication group is located.
+     * Returns {@link InternalClusterNode} where primary replica of replication group is located.
      *
      * @param partitionIndex Partition index.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(int partitionIndex);
+    CompletableFuture<InternalClusterNode> partitionLocation(int partitionIndex);
 
     /**
      * Returns the <em>estimated size</em> of this table.

@@ -102,8 +102,9 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -148,7 +149,6 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
@@ -174,7 +174,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
     private static final int PARTITIONS = 8;
-    private static final ClusterNode node = new ClusterNodeImpl(UUID.randomUUID(), NODE_NAME, new NetworkAddress("127.0.0.1", 2245));
+    private static final InternalClusterNode node = new InternalClusterNodeImpl(
+            UUID.randomUUID(),
+            NODE_NAME,
+            new NetworkAddress("127.0.0.1", 2245)
+    );
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 
     // Configuration
@@ -386,7 +390,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         }
 
         try (MockedStatic<PartitionDistributionUtils> partitionDistributionServiceMock = mockStatic(PartitionDistributionUtils.class)) {
-            ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+            ArrayList<List<InternalClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
             for (int part = 0; part < PARTITIONS; part++) {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));

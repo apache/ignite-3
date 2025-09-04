@@ -90,7 +90,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
         DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
 
-        try (TestJobClassLoader jobClassLoader = new TestJobClassLoader(List.of(unit1, unit2), parentClassLoader)) {
+        try (JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader)) {
             jobClassLoader.close();
             verify(unit1, times(1)).release();
             verify(unit2, times(1)).release();
@@ -104,7 +104,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         RuntimeException toBeThrown = new RuntimeException("Expected exception");
         doThrow(toBeThrown).when(unit1).release();
 
-        TestJobClassLoader jobClassLoader = new TestJobClassLoader(List.of(unit1, unit2), parentClassLoader);
+        JobClassLoader jobClassLoader = new JobClassLoader(List.of(unit1, unit2), parentClassLoader);
         IgniteException igniteException = assertThrows(IgniteException.class, jobClassLoader::close);
         assertThat(igniteException.getSuppressed(), arrayContaining(toBeThrown));
     }
@@ -117,12 +117,6 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
         @Override
         public Class<?> findClass(String name) throws ClassNotFoundException {
             return super.findClass(name);
-        }
-    }
-
-    private static class TestJobClassLoader extends JobClassLoader {
-        TestJobClassLoader(List<DisposableDeploymentUnit> units, ClassLoader parent) {
-            super(units, parent);
         }
     }
 }

@@ -50,8 +50,8 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -131,7 +131,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             @Override
             public TopologyService topologyService() {
                 TopologyService topologyService = mock(TopologyService.class);
-                when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(
+                when(topologyService.localMember()).thenReturn(new InternalClusterNodeImpl(
                         UUID.randomUUID(),
                         "node",
                         null
