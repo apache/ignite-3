@@ -237,7 +237,10 @@ std::string result = exec.get_result()->get<std::string>();
 
 In Ignite 3, you can execute colocated computations by specifying a job target that directs the task to run on the node holding the required data.
 
-In the example below, the job runs on the node storing data for the `Person` table by using a key, ensuring the compute task executes on the node that holds the partition for key `k` = "John".
+In the example below, the job runs on the node that owns the partition for the row in the `accounts` table identified by the primary key `accountNumber`.
+
+Pass the key both to `JobTarget.colocated()` to select the node and as the
+job argument, so the job knows which record to read.
 
 
 [tabs]
@@ -467,7 +470,7 @@ tab:Java[]
 ----
 QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
 
-client.compute().execute(table(customSchemaTable), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+client.compute().execute(BroadcastJobTarget.table(customSchemaTable), JobDescriptor.builder(HelloMessageJob.class).build(), null);
 ----
 --
 
@@ -480,7 +483,7 @@ tab:Java[]
 ----
 QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
 
-client.compute().execute(table(customSchemaTableName), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+client.compute().execute(BroadcastJobTarget.table(customSchemaTableName), JobDescriptor.builder(HelloMessageJob.class).build(), null);
 ----
 --
 
