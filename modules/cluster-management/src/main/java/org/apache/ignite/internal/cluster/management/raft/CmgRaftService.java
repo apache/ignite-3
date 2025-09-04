@@ -150,11 +150,11 @@ public class CmgRaftService implements ManuallyCloseable {
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         var validationErrorResponse = (ValidationErrorResponse) response;
+
                         if (validationErrorResponse.isUserError()) {
                             var invalidUserInputException = new InvalidUserInputException(validationErrorResponse.reason());
 
                             throw new JoinDeniedException(invalidUserInputException.code(),  invalidUserInputException);
-
                         } else {
                             throw new JoinDeniedException(validationErrorResponse.reason());
                         }

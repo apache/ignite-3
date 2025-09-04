@@ -1696,7 +1696,7 @@ public class IgniteImpl implements Ignite {
 
         var rootEx = unwrapRootCause(e);
         if (rootEx instanceof InvalidUserInputException) {
-            LOG.warn(String.format("%s. Reason: %s", errMsg,  rootEx.getMessage()));
+            LOG.warn("{}. Reason: {]", errMsg,  rootEx.getMessage());
         } else {
             // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
             LOG.error(errMsg, igniteException);

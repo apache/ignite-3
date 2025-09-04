@@ -35,22 +35,22 @@ public class ValidationResult {
     /**
      * Creates a successful validation result.
      */
-    public static ValidationResult successfulResult() {
+    static ValidationResult successfulResult() {
         return new ValidationResult(null, false);
     }
 
     /**
      * Creates a failed validation result with a flag denoting whether caused by user error.
      */
-    public static ValidationResult errorResult(String errorDescription, boolean userError) {
+    static ValidationResult errorResult(String errorDescription, boolean userError) {
         return new ValidationResult(errorDescription, userError);
     }
 
     /**
      * Creates a failed validation result.
      */
-    public static ValidationResult errorResult(String errorDescription) {
-        return new ValidationResult(errorDescription, false);
+    static ValidationResult errorResult(String errorDescription) {
+        return errorResult(errorDescription, false);
     }
 
     /**
@@ -70,9 +70,9 @@ public class ValidationResult {
     }
 
     /**
-     * Returns flag denoting whether errorneous result is caused by user error.
+     * Returns flag denoting whether erroneous result is caused by user error.
      */
-    public boolean isUserError() {
+    boolean isUserError() {
         return userError;
     }
 }
