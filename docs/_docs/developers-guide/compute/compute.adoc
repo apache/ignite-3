@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 = Distributed Computing
 
 Ignite 3 lets you run your own code on the cluster in a distributed, balanced, and fault-tolerant way. Before submitting a compute job, ensure that your code is link:developers-guide/code-deployment/code-deployment[deployed] to the nodes where it will execute. Tasks can run on a single node, multiple nodes, or across the entire cluster, and you can choose between synchronous and asynchronous execution.
@@ -256,7 +257,8 @@ try (IgniteClient client = IgniteClient.builder()
 
     int accountNumber = ThreadLocalRandom.current().nextInt(ACCOUNTS_COUNT);
 
-    JobTarget jobTarget = JobTarget.colocated("accounts", accountKey(accountNumber));;
+    JobTarget jobTarget = JobTarget.colocated("accounts", accountKey(accountNumber));
+    client.compute().execute(jobTarget, job, accountNumber);
 }
 ----
 
@@ -515,7 +517,7 @@ execution.get().stateAsync().thenApply(state -> {
                 }
                 return null;
             });
-    System.out.println(execution.resultAsync().get());
+            System.out.println(execution.resultAsync().get());
 }
 ----
 
@@ -635,7 +637,7 @@ tab:Java[]
 [source, java]
 ----
 public static void example() throws ExecutionException, InterruptedException {
-IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
 
     // Create job execution options
     JobExecutionOptions options = JobExecutionOptions.builder().priority(1).build();
@@ -645,6 +647,7 @@ IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build(
     );
 
     System.out.println(executionResult);
+    }
 }
 ----
 
@@ -682,7 +685,7 @@ std::string result = execution.get_result()->get<std::string>();
 
 === Job Retries
 
-You can set the number the job will be retried on failure by setting the `JobExecutionOptions.maxRetries` property. If set, the failed job will be retried the specified number of times before movbing to `Failed` state.
+You can set the number the job will be retried on failure by setting the `JobExecutionOptions.maxRetries` property. If set, the failed job will be retried the specified number of times before moving to `Failed` state.
 
 [tabs]
 --
@@ -690,10 +693,10 @@ tab:Java[]
 [source, java]
 ----
 public static void example() throws ExecutionException, InterruptedException {
-IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
 
    // Create job execution options with maxRetries set to 5.
-        JobExecutionOptions options = JobExecutionOptions.builder()
+    JobExecutionOptions options = JobExecutionOptions.builder()
                                                           .maxRetries(5)
                                                           .build();
 
@@ -702,6 +705,7 @@ IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build(
     );
 
     System.out.println(executionResult);
+    }
 }
 ----
 
