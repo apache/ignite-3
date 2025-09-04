@@ -1694,7 +1694,7 @@ public class IgniteImpl implements Ignite {
         String errMsg = "Unable to start [node=" + name + "]";
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
-        var rootEx = unwrapRootCause(e);
+        Throwable rootEx = unwrapRootCause(e);
         if (rootEx instanceof InvalidUserInputException) {
             LOG.warn("{}. Reason: {]", errMsg,  rootEx.getMessage());
         } else {
