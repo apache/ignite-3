@@ -37,10 +37,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.Test;
@@ -66,7 +66,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         ExecutionException e = assertThrows(
                 ExecutionException.class,
                 () -> service.messagingService()
-                        .send(mock(ClusterNode.class), mock(NetworkMessage.class))
+                        .send(mock(InternalClusterNode.class), mock(NetworkMessage.class))
                         .get(5, TimeUnit.SECONDS)
         );
 
@@ -102,7 +102,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
     private static void checkLocalMeta(ClusterService service, NodeMetadata expectedMeta) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            ClusterNode localMember = service.topologyService().localMember();
+            InternalClusterNode localMember = service.topologyService().localMember();
             return expectedMeta.equals(localMember.nodeMetadata());
         }, 1000));
     }
@@ -110,13 +110,13 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
     private static void checkRemoteMeta(
             ClusterService localService, ClusterService remoteService, NodeMetadata expectedMeta
     ) throws InterruptedException {
-        ClusterNode localMember = localService.topologyService().localMember();
+        InternalClusterNode localMember = localService.topologyService().localMember();
         assertTrue(waitForCondition(() -> {
-            ClusterNode remoteMember = remoteService.topologyService().getByConsistentId(localMember.name());
+            InternalClusterNode remoteMember = remoteService.topologyService().getByConsistentId(localMember.name());
             return expectedMeta.equals(remoteMember.nodeMetadata());
         }, 1000));
         assertTrue(waitForCondition(() -> {
-            ClusterNode remoteMember = remoteService.topologyService().getByAddress(localMember.address());
+            InternalClusterNode remoteMember = remoteService.topologyService().getByAddress(localMember.address());
             return expectedMeta.equals(remoteMember.nodeMetadata());
         }, 1000));
     }
@@ -125,7 +125,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             Set<NodeMetadata> actualMeta = service.topologyService().allMembers()
                     .stream()
-                    .map(ClusterNode::nodeMetadata)
+                    .map(InternalClusterNode::nodeMetadata)
                     .collect(Collectors.toSet());
             return expectedMeta.equals(actualMeta);
         }, 1000));

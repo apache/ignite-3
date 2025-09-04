@@ -98,9 +98,9 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -120,21 +120,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_1 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_2 = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -1372,7 +1372,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             LogicalNode node,
             Set<LogicalNode> expectedTopology
     ) throws Exception {
-        Set<String> nodeNames = expectedTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = expectedTopology.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1405,7 +1405,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             Set<LogicalNode> nodes,
             Set<LogicalNode> expectedTopology
     ) throws Exception {
-        Set<String> nodeNames = expectedTopology.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = expectedTopology.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1428,7 +1428,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @throws Exception If failed.
      */
     private RevWithTimestamp fireTopologyLeapAndGetTimestamp(Set<LogicalNode> nodes) throws Exception {
-        Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<RevWithTimestamp> revisionFut = new CompletableFuture<>();
 
@@ -1561,7 +1561,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @return Future with timestamp.
      */
     private CompletableFuture<HybridTimestamp> getZoneDataNodesTimestamp(int zoneId, Set<LogicalNode> nodes) {
-        Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(toSet());
 
         CompletableFuture<HybridTimestamp> revisionFut = new CompletableFuture<>();
 

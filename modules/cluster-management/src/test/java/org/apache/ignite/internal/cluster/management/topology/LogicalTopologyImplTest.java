@@ -56,12 +56,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -218,7 +218,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
         storage.restoreSnapshot(snapshotDir);
 
         List<String> namesInTopology = topology.getLogicalTopology().nodes().stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .collect(toList());
         assertThat(namesInTopology, contains("node"));
     }
@@ -231,7 +231,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         assertThat(topologyCaptor.getValue().version(), is(1L));
 
-        ClusterNode appearedNode = nodeCaptor.getValue();
+        InternalClusterNode appearedNode = nodeCaptor.getValue();
 
         assertThat(appearedNode.id(), is(nodeId(1)));
         assertThat(appearedNode.name(), is("node"));
@@ -260,13 +260,13 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
         assertThat(topologyCaptor.getValue().version(), is(2L));
         assertThat(topologyCaptor2.getValue().version(), is(3L));
 
-        ClusterNode disappearedNode = nodeCaptor.getValue();
+        InternalClusterNode disappearedNode = nodeCaptor.getValue();
 
         assertThat(disappearedNode.id(), is(nodeId(1)));
         assertThat(disappearedNode.name(), is("node"));
         assertThat(disappearedNode.address(), is(new NetworkAddress("host", 1000)));
 
-        ClusterNode appearedNode = nodeCaptor2.getValue();
+        InternalClusterNode appearedNode = nodeCaptor2.getValue();
 
         assertThat(appearedNode.id(), is(nodeId(2)));
         assertThat(appearedNode.name(), is("node"));
@@ -294,7 +294,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         assertThat(topologyCaptor.getValue().version(), is(2L));
 
-        ClusterNode disappearedNode = nodeCaptor.getValue();
+        InternalClusterNode disappearedNode = nodeCaptor.getValue();
 
         assertThat(disappearedNode.id(), is(nodeId(1)));
         assertThat(disappearedNode.name(), is("node"));
@@ -326,8 +326,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
         assertThat(capturedSnapshots.get(0).version(), is(3L));
         assertThat(capturedSnapshots.get(1).version(), is(4L));
 
-        ClusterNode disappearedNode1 = nodeCaptor.getAllValues().get(0);
-        ClusterNode disappearedNode2 = nodeCaptor.getAllValues().get(1);
+        InternalClusterNode disappearedNode1 = nodeCaptor.getAllValues().get(0);
+        InternalClusterNode disappearedNode2 = nodeCaptor.getAllValues().get(1);
 
         assertAll(
                 () -> assertThat(disappearedNode1.id(), is(nodeId(1))),

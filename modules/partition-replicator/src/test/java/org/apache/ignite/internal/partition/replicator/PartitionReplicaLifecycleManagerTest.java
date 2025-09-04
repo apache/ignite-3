@@ -82,8 +82,8 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -184,7 +184,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
+        when(topologyService.localMember())
+                .thenReturn(new InternalClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyAwareRaftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 

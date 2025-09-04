@@ -35,8 +35,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -762,7 +762,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryInitiatorHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
+                new InternalClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
                 new NoOpHandshakeEventLoopSwitcher(),
@@ -798,7 +798,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryAcceptorHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
+                new InternalClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
                 new NoOpHandshakeEventLoopSwitcher(),

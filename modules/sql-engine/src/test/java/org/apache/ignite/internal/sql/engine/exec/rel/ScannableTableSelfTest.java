@@ -55,6 +55,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -125,11 +125,11 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+            InternalClusterNode clusterNode = tx.clusterNode();
 
             verify(internalTable).scan(partitionId, tx.id(), timestamp, clusterNode, tx.coordinatorId());
         } else {
-            ClusterNode clusterNode = tx.clusterNode();
+            InternalClusterNode clusterNode = tx.clusterNode();
 
             verify(internalTable).scan(
                     partitionId,
@@ -203,7 +203,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+            InternalClusterNode clusterNode = tx.clusterNode();
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -278,7 +278,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+            InternalClusterNode clusterNode = tx.clusterNode();
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -399,7 +399,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         if (tx.isReadOnly()) {
             HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
+            InternalClusterNode clusterNode = tx.clusterNode();
 
             verify(internalTable).scan(
                     eq(partitionId),
@@ -598,7 +598,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             if (tx.isReadOnly()) {
                 doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), any(UUID.class));
+                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(InternalClusterNode.class), any(UUID.class));
             } else {
                 doAnswer(invocation -> input.publisher).when(internalTable).scan(
                         anyInt(),
@@ -641,7 +641,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         anyInt(),
                         any(UUID.class),
                         any(HybridTimestamp.class),
-                        any(ClusterNode.class),
+                        any(InternalClusterNode.class),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
                         nullable(BinaryTuplePrefix.class),
@@ -691,7 +691,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         anyInt(),
                         any(UUID.class),
                         any(HybridTimestamp.class),
-                        any(ClusterNode.class),
+                        any(InternalClusterNode.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
                         isNull(),

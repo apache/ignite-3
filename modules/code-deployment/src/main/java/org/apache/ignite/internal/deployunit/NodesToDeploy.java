@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Nodes for initial deploy.
@@ -68,7 +68,7 @@ public class NodesToDeploy {
             case ALL:
                 return cmgManager.logicalTopology()
                         .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
+                                .map(InternalClusterNode::name)
                                 .collect(Collectors.toUnmodifiableSet()));
             case MAJORITY:
             default:
@@ -87,7 +87,7 @@ public class NodesToDeploy {
         return cmgManager.majority()
                 .thenCompose(majority -> cmgManager.logicalTopology()
                         .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(ClusterNode::name)
+                                .map(InternalClusterNode::name)
                                 .collect(Collectors.toUnmodifiableSet()))
                         .thenApply(allNodes -> {
                             Set<String> result = new HashSet<>(majority);

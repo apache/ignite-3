@@ -49,6 +49,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -120,17 +120,17 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         clusterNodeResolver = new ClusterNodeResolver() {
 
-            private final ClusterNode singleNode = DummyInternalTableImpl.LOCAL_NODE;
+            private final InternalClusterNode singleNode = DummyInternalTableImpl.LOCAL_NODE;
 
             @Override
-            public @Nullable ClusterNode getByConsistentId(String consistentId) {
+            public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
                 return singleNode.name().equals(consistentId)
                         ? singleNode
                         : null;
             }
 
             @Override
-            public @Nullable ClusterNode getById(UUID id) {
+            public @Nullable InternalClusterNode getById(UUID id) {
                 return singleNode.id().equals(id)
                         ? singleNode
                         : null;
@@ -565,9 +565,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * Resolves primary replica node for given replication group.
      *
      * @param replicationGroupId Desired replication group ID.
-     * @return Primary replica {@link ClusterNode} for the group.
+     * @return Primary replica {@link InternalClusterNode} for the group.
      */
-    protected ClusterNode getPrimaryReplica(ReplicationGroupId replicationGroupId) {
+    protected InternalClusterNode getPrimaryReplica(ReplicationGroupId replicationGroupId) {
         return placementDriver.awaitPrimaryReplica(
                         replicationGroupId,
                         DummyInternalTableImpl.CLOCK.now(),

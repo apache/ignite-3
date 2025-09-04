@@ -73,6 +73,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
@@ -129,7 +130,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -250,7 +250,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -351,7 +351,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaRequest request;
 
@@ -443,7 +443,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             }
         }
 
-        ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
+        InternalClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaRequest request;
 

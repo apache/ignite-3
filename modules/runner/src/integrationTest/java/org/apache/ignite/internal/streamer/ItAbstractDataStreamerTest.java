@@ -537,8 +537,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         for (int i = 0; i < count; i++) {
-            var expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
-            var actualNode = view.get(null, tupleKey(i)).stringValue("name");
+            ClusterNode expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            String actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
             assertEquals(expectedNode.name(), actualNode);
         }

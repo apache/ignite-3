@@ -32,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.table.RecordView;
@@ -86,7 +86,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     }
 
     @Override
-    protected HybridClock createClock(ClusterNode node) {
+    protected HybridClock createClock(InternalClusterNode node) {
         int idx = NODE_PORT_BASE - node.address().port() + 1;
 
         // Physical time is frozen.
