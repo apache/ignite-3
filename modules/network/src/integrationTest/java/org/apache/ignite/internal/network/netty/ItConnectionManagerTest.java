@@ -423,7 +423,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    public CompletableFuture<Void> ackFuture(ConnectionManagerWrapper connectionManager, NetworkMessage msg) {
+    private CompletableFuture<Void> ackFuture(ConnectionManagerWrapper connectionManager, NetworkMessage msg) {
         for (NettySender sender : connectionManager.channels().values()) {
             for (OutNetworkObject outMsgWrapper : sender.recoveryDescriptor().unacknowledgedMessages()) {
                 if (outMsgWrapper.networkMessage() == msg) {
