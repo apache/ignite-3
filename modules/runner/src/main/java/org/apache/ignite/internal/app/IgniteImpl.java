@@ -251,6 +251,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
+import org.apache.ignite.internal.sql.engine.statistic.PartitionModificationCounterFactoryImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -259,6 +260,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -1110,6 +1112,9 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
+        PartitionModificationCounterFactory partitionModificationCounterFactory =
+                new PartitionModificationCounterFactoryImpl(clockService);
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -1148,7 +1153,9 @@ public class IgniteImpl implements Ignite {
                 partitionReplicaLifecycleManager,
                 nodeProperties,
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                metricManager,
+                partitionModificationCounterFactory
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
