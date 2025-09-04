@@ -70,6 +70,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -94,7 +95,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -227,7 +227,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     /** Updates the local view of the node with new compaction coordinator. */
-    public void updateCoordinator(ClusterNode newCoordinator) {
+    public void updateCoordinator(InternalClusterNode newCoordinator) {
         compactionCoordinatorNodeName = newCoordinator.name();
 
         triggerCompaction(lowWatermark);
@@ -364,21 +364,21 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     @TestOnly
     CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
-            Collection<? extends ClusterNode> nodes,
+            Collection<? extends InternalClusterNode> nodes,
             long localMinimumRequiredTime) {
 
         return determineGlobalMinimumRequiredTime(nodes, localMinimumRequiredTime, Int2ObjectMaps.emptyMap());
     }
 
     private CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
-            Collection<? extends ClusterNode> nodes,
+            Collection<? extends InternalClusterNode> nodes,
             long localMinimumRequiredTime,
             Int2ObjectMap<BitSet> localPartitions
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
         List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
 
-        for (ClusterNode node : nodes) {
+        for (InternalClusterNode node : nodes) {
             if (localNodeName.equals(node.name())) {
                 continue;
             }
@@ -419,7 +419,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }, executor);
     }
 
-    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
+    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends InternalClusterNode> nodes) {
         CatalogCompactionPrepareUpdateTxBeginTimeMessage request = COMPACTION_MESSAGES_FACTORY
                 .catalogCompactionPrepareUpdateTxBeginTimeMessage()
                 .timestamp(timestamp)
@@ -427,7 +427,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         List<CompletableFuture<?>> sendFutures = new ArrayList<>(nodes.size());
 
-        for (ClusterNode node : nodes) {
+        for (InternalClusterNode node : nodes) {
             sendFutures.add(messagingService.send(node, request));
         }
 
@@ -638,7 +638,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
         Set<String> logicalNodeIds = logicalTopologyNodes
                 .stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .collect(Collectors.toSet());
 
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
@@ -695,7 +695,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private class CatalogCompactionMessageHandler implements NetworkMessageHandler {
         @Override
-        public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
             assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
 
             switch (message.messageType()) {
@@ -716,7 +716,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             }
         }
 
-        private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
+        private void handleMinimumTimesRequest(InternalClusterNode sender, Long correlationId) {
             HybridTimestamp lwm = lowWatermark;
             LocalMinTime minLocalTime;
 

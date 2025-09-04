@@ -37,6 +37,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -71,7 +71,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
@@ -100,7 +100,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
 
     /** Remote node. */
-    private ClusterNode remoteNode;
+    private InternalClusterNode remoteNode;
 
     /** Netty pipeline channel handler context. */
     private ChannelHandlerContext ctx;
@@ -117,13 +117,13 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     /**
      * Constructor.
      *
-     * @param localNode {@link ClusterNode} representing this node.
+     * @param localNode {@link InternalClusterNode} representing this node.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
      */
     public RecoveryInitiatorHandshakeManager(
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
@@ -514,7 +514,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     @TestOnly
-    void setRemoteNode(ClusterNode remoteNode) {
+    void setRemoteNode(InternalClusterNode remoteNode) {
         this.remoteNode = remoteNode;
     }
 }

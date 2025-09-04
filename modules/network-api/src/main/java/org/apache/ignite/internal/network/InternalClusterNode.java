@@ -18,37 +18,46 @@
 package org.apache.ignite.internal.network;
 
 import java.util.UUID;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A node resolver.
+ * Representation of a node in a cluster.
  */
-public interface ClusterNodeResolver {
+public interface InternalClusterNode {
     /**
-     * Returns a cluster node consistent ID by its node ID.
+     * Returns the node's local ID.
      *
-     * @param id Node ID.
-     * @return The consistent ID; {@code null} if the node has not been discovered or is offline.
+     * @return Node's local ID.
      */
-    default @Nullable String getConsistentIdById(UUID id) {
-        InternalClusterNode node = getById(id);
-
-        return node != null ? node.name() : null;
-    }
+    UUID id();
 
     /**
-     * Returns a cluster node specified by its consistent ID.
+     * Returns the unique name (consistent ID) of the node in the cluster. Does not change between restarts.
      *
-     * @param consistentId Consistent ID.
-     * @return The node object; {@code null} if the node has not been discovered or is offline.
+     * @return Unique name of a cluster member.
      */
-    @Nullable InternalClusterNode getByConsistentId(String consistentId);
+    String name();
 
     /**
-     * Returns a cluster node specified by its ID.
+     * Returns the network address of the node.
      *
-     * @param id Node ID.
-     * @return The node object; {@code null} if the node has not been discovered or is offline.
+     * @return Network address of the node.
      */
-    @Nullable InternalClusterNode getById(UUID id);
+    NetworkAddress address();
+
+    /**
+     * Returns the metadata of the node.
+     *
+     * @return Metadata of the node.
+     */
+    @Nullable
+    NodeMetadata nodeMetadata();
+
+    /**
+     * Converts this node to its public representation.
+     */
+    ClusterNode toPublicNode();
 }

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Replica server.
@@ -63,7 +63,7 @@ public class ReplicaImpl implements Replica {
     private final TopologyAwareRaftGroupService raftClient;
 
     /** Instance of the local node. */
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final PlacementDriver placementDriver;
 
@@ -93,7 +93,7 @@ public class ReplicaImpl implements Replica {
     public ReplicaImpl(
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             PlacementDriver placementDriver,
             Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
             FailureProcessor failureProcessor,

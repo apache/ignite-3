@@ -74,6 +74,7 @@ dependencies {
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-core')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-compute')

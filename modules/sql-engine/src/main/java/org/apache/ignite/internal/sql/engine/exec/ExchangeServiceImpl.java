@@ -27,6 +27,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -143,7 +143,7 @@ public class ExchangeServiceImpl implements ExchangeService {
         );
     }
 
-    private void onMessage(ClusterNode node, QueryBatchRequestMessage msg) {
+    private void onMessage(InternalClusterNode node, QueryBatchRequestMessage msg) {
         ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
         CompletableFuture<Outbox<?>> outboxFut = mailboxRegistry.outbox(executionId, msg.exchangeId());
 
@@ -169,7 +169,7 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    private void onMessage(ClusterNode node, QueryBatchMessage msg) {
+    private void onMessage(InternalClusterNode node, QueryBatchMessage msg) {
         ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
         Inbox<?> inbox = mailboxRegistry.inbox(executionId, msg.exchangeId());
 

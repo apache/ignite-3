@@ -31,9 +31,9 @@ import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job
@@ -73,7 +73,7 @@ class ComputeJobFailover {
      * The node where the job is being executed at a given moment. If node leaves the cluster, then the job is restarted on one of the
      * worker node returned by {@link #nextWorkerSelector} and the reference is CASed to the new node.
      */
-    private final AtomicReference<ClusterNode> runningWorkerNode;
+    private final AtomicReference<InternalClusterNode> runningWorkerNode;
 
     /**
      * The selector that returns the next worker node to execute job on.
@@ -114,7 +114,7 @@ class ComputeJobFailover {
             TopologyService topologyService,
             Executor executor,
             EventLog eventLog,
-            ClusterNode workerNode,
+            InternalClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext
     ) {
@@ -138,7 +138,7 @@ class ComputeJobFailover {
             TopologyService topologyService,
             Executor executor,
             EventLog eventLog,
-            ClusterNode workerNode,
+            InternalClusterNode workerNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext
     ) {
@@ -173,7 +173,7 @@ class ComputeJobFailover {
                 });
     }
 
-    private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> launchJobOn(ClusterNode runningWorkerNode) {
+    private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> launchJobOn(InternalClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(jobContext, null);
         } else {

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -79,7 +79,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final Map<String, Object> params;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final String originatingNodeName;
     private final UUID originatingNodeId;
@@ -132,7 +132,7 @@ public class ExecutionContext<RowT> implements DataContext {
             ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             String originatingNodeName,
             UUID originatingNodeId,
             FragmentDescription description,
@@ -254,7 +254,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Get local node.
      */
-    public ClusterNode localNode() {
+    public InternalClusterNode localNode() {
         return localNode;
     }
 

@@ -93,6 +93,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -129,7 +130,6 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNot
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
@@ -1236,7 +1236,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof LocalPartitionStatesRequest) {
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
         } else if (message instanceof LocalTablePartitionStateRequest) {
@@ -1244,7 +1244,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private void handleLocalTableStateRequest(LocalTablePartitionStateRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleLocalTableStateRequest(
+            LocalTablePartitionStateRequest request,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
@@ -1278,7 +1282,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }, threadPool);
     }
 
-    private void handleLocalPartitionStatesRequest(LocalPartitionStatesRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleLocalPartitionStatesRequest(
+            LocalPartitionStatesRequest request,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
@@ -1801,7 +1809,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 
-    ClusterNode localNode() {
+    InternalClusterNode localNode() {
         return topologyService.localMember();
     }
 
