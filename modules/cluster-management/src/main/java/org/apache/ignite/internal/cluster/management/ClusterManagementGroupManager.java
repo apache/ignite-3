@@ -86,8 +86,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
@@ -104,7 +105,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -288,31 +288,39 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CmgMessageHandler createMessageHandler() {
         var messageCallback = new CmgMessageCallback() {
             @Override
-            public void onClusterStateMessageReceived(ClusterStateMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            public void onClusterStateMessageReceived(
+                    ClusterStateMessage message,
+                    InternalClusterNode sender,
+                    @Nullable Long correlationId
+            ) {
                 assert correlationId != null : sender;
 
                 handleClusterState(message, sender, correlationId);
             }
 
             @Override
-            public void onCancelInitMessageReceived(CancelInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            public void onCancelInitMessageReceived(CancelInitMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
                 handleCancelInit(message);
             }
 
             @Override
-            public void onRefuseJoinMessageReceived(RefuseJoinMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            public void onRefuseJoinMessageReceived(RefuseJoinMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
                 handleRefuseJoin(message);
             }
 
             @Override
-            public void onCmgInitMessageReceived(CmgInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            public void onCmgInitMessageReceived(CmgInitMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
                 assert correlationId != null : sender;
 
                 handleInit(message, sender, correlationId);
             }
 
             @Override
-            public void onCmgPrepareInitMessageReceived(CmgPrepareInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
+            public void onCmgPrepareInitMessageReceived(
+                    CmgPrepareInitMessage message,
+                    InternalClusterNode sender,
+                    @Nullable Long correlationId
+            ) {
                 assert correlationId != null : sender;
 
                 handlePrepareInit(message, sender, correlationId);
@@ -600,7 +608,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     we simply check that the Raft state and the received message are the same.</li>
      * </ol>
      */
-    private void handleInit(CmgInitMessage msg, ClusterNode sender, long correlationId) {
+    private void handleInit(CmgInitMessage msg, InternalClusterNode sender, long correlationId) {
         synchronized (raftServiceLock) {
             CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
@@ -665,7 +673,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * <p>If both initiator node and recipient have the same colocation mode, a PrepareInitCompleteMessage is sent,
      * otherwise an InitErrorMessage is sent.
      */
-    private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
+    private void handlePrepareInit(CmgPrepareInitMessage msg, InternalClusterNode sender, long correlationId) {
         LOG.info("CmgPrepareInitMessage message received [sender={}, colocationEnabled={}]", sender.name(),
                 msg.initInitiatorColocationEnabled());
 
@@ -747,9 +755,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                             // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                             // because being unable to send ClusterState messages should not fail the CMG service startup.
-                            ClusterNode thisNode = topologyService.localMember();
+                            InternalClusterNode thisNode = topologyService.localMember();
 
-                            Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()
+                            Collection<InternalClusterNode> otherNodes = topologyService.allMembers().stream()
                                     .filter(node -> !thisNode.equals(node))
                                     .collect(toList());
 
@@ -799,10 +807,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .thenCompose(logicalTopology -> inBusyLock(() -> {
                     Set<UUID> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
-                            .map(ClusterNode::id)
+                            .map(InternalClusterNode::id)
                             .collect(toSet());
 
-                    Set<ClusterNode> nodesToRemove = logicalTopology.nodes().stream()
+                    Set<InternalClusterNode> nodesToRemove = logicalTopology.nodes().stream()
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
@@ -868,7 +876,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /**
      * Handler for the {@link ClusterStateMessage}.
      */
-    private void handleClusterState(ClusterStateMessage msg, ClusterNode sender, long correlationId) {
+    private void handleClusterState(ClusterStateMessage msg, InternalClusterNode sender, long correlationId) {
         clusterService.messagingService().respond(sender, msgFactory.successResponseMessage().build(), correlationId);
 
         ClusterState state = msg.clusterState();
@@ -1070,7 +1078,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private TopologyEventHandler cmgLeaderTopologyEventHandler(CmgRaftService raftService) {
         return new TopologyEventHandler() {
             @Override
-            public void onAppeared(ClusterNode member) {
+            public void onAppeared(InternalClusterNode member) {
                 raftService.isCurrentNodeLeader()
                         .thenAccept(isLeader -> {
                             if (isLeader) {
@@ -1080,25 +1088,25 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             }
 
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 raftService.removeFromCluster(Set.of(member));
             }
         };
     }
 
-    private void sendClusterState(CmgRaftService raftService, ClusterNode node) {
+    private void sendClusterState(CmgRaftService raftService, InternalClusterNode node) {
         sendClusterState(raftService, List.of(node));
     }
 
-    private void sendClusterState(CmgRaftService raftService, Collection<ClusterNode> nodes) {
+    private void sendClusterState(CmgRaftService raftService, Collection<InternalClusterNode> nodes) {
         raftService.logicalTopology()
                 .thenCompose(topology -> {
                     // TODO https://issues.apache.org/jira/browse/IGNITE-24769
-                    Set<ClusterNode> logicalTopology = topology.nodes().stream()
-                            .map(node -> new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
+                    Set<InternalClusterNode> logicalTopology = topology.nodes().stream()
+                            .map(node -> new InternalClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
                             .collect(toSet());
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
-                    Set<ClusterNode> recipients = nodes.stream()
+                    Set<InternalClusterNode> recipients = nodes.stream()
                             .filter(node -> !logicalTopology.contains(node))
                             .collect(toSet());
 
@@ -1106,8 +1114,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         return nullCompletedFuture();
                     }
 
-                    Set<ClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(logicalTopology, recipients);
-                    for (ClusterNode duplicate : duplicates) {
+                    Set<InternalClusterNode> duplicates = findDuplicateConsistentIdsOfExistingNodes(logicalTopology, recipients);
+                    for (InternalClusterNode duplicate : duplicates) {
                         RefuseJoinMessage msg = msgFactory.refuseJoinMessage()
                                 .reason("Duplicate node name \"" + duplicate.name() + "\"")
                                 .build();
@@ -1131,7 +1139,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                         .clusterState(state)
                                         .build();
 
-                                for (ClusterNode node : recipients) {
+                                for (InternalClusterNode node : recipients) {
                                     sendWithRetry(node, msg);
                                 }
                             });
@@ -1143,12 +1151,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 });
     }
 
-    private static Set<ClusterNode> findDuplicateConsistentIdsOfExistingNodes(
-            Set<ClusterNode> existingTopology,
-            Collection<ClusterNode> candidatesForAddition
+    private static Set<InternalClusterNode> findDuplicateConsistentIdsOfExistingNodes(
+            Set<InternalClusterNode> existingTopology,
+            Collection<InternalClusterNode> candidatesForAddition
     ) {
         Set<String> existingConsistentIds = existingTopology.stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .collect(toSet());
 
         return candidatesForAddition.stream()
@@ -1156,7 +1164,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .collect(toSet());
     }
 
-    private CompletableFuture<Void> sendWithRetry(ClusterNode node, NetworkMessage msg) {
+    private CompletableFuture<Void> sendWithRetry(InternalClusterNode node, NetworkMessage msg) {
         var result = new CompletableFuture<Void>();
 
         sendWithRetry(node, msg, result, 5);
@@ -1168,7 +1176,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         });
     }
 
-    private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
+    private void sendWithRetry(InternalClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
         clusterService.messagingService().invoke(node, msg, NETWORK_INVOKE_TIMEOUT_MS)
                 .whenComplete((response, e) -> {
                     if (e == null) {
@@ -1313,7 +1321,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
      * Logical Topology as well as nodes that only have passed the validation step.
      */
-    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+    public CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }

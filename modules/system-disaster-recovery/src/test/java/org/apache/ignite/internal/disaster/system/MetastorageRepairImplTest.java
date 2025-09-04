@@ -49,10 +49,10 @@ import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeade
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairRequest;
 import org.apache.ignite.internal.disaster.system.message.StartMetastorageRepairResponse;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,10 +89,10 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
-    private final ClusterNode node1 = new ClusterNodeImpl(randomUUID(), "node1", new NetworkAddress("host", 1001));
-    private final ClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
-    private final ClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
-    private final ClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
+    private final InternalClusterNode node1 = new InternalClusterNodeImpl(randomUUID(), "node1", new NetworkAddress("host", 1001));
+    private final InternalClusterNode node2 = new InternalClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final InternalClusterNode node3 = new InternalClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final InternalClusterNode node4 = new InternalClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
 
     @BeforeEach
     void configureMocks() {
@@ -126,7 +126,7 @@ class MetastorageRepairImplTest extends BaseIgniteAbstractTest {
         assertThat(becomeLeaderMessageCaptor.getValue().targetVotingSet(), is(Set.of(node1.name())));
     }
 
-    private void willRespondWithIndexAndTerm(ClusterNode node, int raftIndex, int raftTerm) {
+    private void willRespondWithIndexAndTerm(InternalClusterNode node, int raftIndex, int raftTerm) {
         when(messagingService.invoke(eq(node.name()), any(StartMetastorageRepairRequest.class), anyLong()))
                 .thenReturn(completedFuture(indexTermResponse(raftIndex, raftTerm)));
     }

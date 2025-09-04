@@ -45,6 +45,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.InvalidUserInputException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -195,7 +195,7 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
+    public CompletableFuture<Void> removeFromCluster(Set<InternalClusterNode> nodes) {
         NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
                 .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
@@ -218,7 +218,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
      * Logical Topology as well as nodes that only have passed the validation step.
      */
-    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+    public CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
         return raftService.run(msgFactory.readValidatedNodesCommand().build());
     }
 
@@ -269,7 +269,7 @@ public class CmgRaftService implements ManuallyCloseable {
         return completedFuture(result);
     }
 
-    private ClusterNodeMessage nodeMessage(ClusterNode node, NodeAttributes attributes) {
+    private ClusterNodeMessage nodeMessage(InternalClusterNode node, NodeAttributes attributes) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
@@ -281,7 +281,7 @@ public class CmgRaftService implements ManuallyCloseable {
                 .build();
     }
 
-    private ClusterNodeMessage nodeMessage(ClusterNode node) {
+    private ClusterNodeMessage nodeMessage(InternalClusterNode node) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
@@ -326,7 +326,7 @@ public class CmgRaftService implements ManuallyCloseable {
         Set<String> currentPeers = nodeNames();
 
         Set<String> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .filter(name -> !currentPeers.contains(name))
                 .collect(toSet());
 

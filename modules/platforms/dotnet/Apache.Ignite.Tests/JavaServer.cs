@@ -23,6 +23,8 @@ namespace Apache.Ignite.Tests
     using System.Globalization;
     using System.IO;
     using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
@@ -35,10 +37,6 @@ namespace Apache.Ignite.Tests
     {
         private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
         private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
-
-        private const int DefaultClientPort = 10942;
-
-        private const int DefaultClientPortOldServer = 10800;
 
         private const int ConnectTimeoutSeconds = 4 * 60;
 
@@ -66,13 +64,12 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: []);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: [], defaultPort: 10942);
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir)
         {
-            // Calculate port offset based on the server version (minor + patch) to avoid conflicts with other tests.
-            // This way we can have multiple active nodes with different versions (separate clusters).
-            var portOffset = 20_000 + int.Parse(version[2..].Replace(".", string.Empty));
+            // Get random unused ports to avoid conflicts with other tests.
+            var ports = GetUnusedPorts(3);
 
             return await StartInternalAsync(
                 old: true,
@@ -80,9 +77,10 @@ namespace Apache.Ignite.Tests
                 {
                     { "IGNITE_OLD_SERVER_VERSION", version },
                     { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
-                    { "IGNITE_OLD_SERVER_PORT_OFFSET", portOffset.ToString(CultureInfo.InvariantCulture) }
-                },
-                portOffset: portOffset);
+                    { "IGNITE_OLD_SERVER_PORT", ports[0].ToString(CultureInfo.InvariantCulture) },
+                    { "IGNITE_OLD_SERVER_HTTP_PORT", ports[1].ToString(CultureInfo.InvariantCulture) },
+                    { "IGNITE_OLD_SERVER_CLIENT_PORT", ports[2].ToString(CultureInfo.InvariantCulture) },
+                });
         }
 
         public void Dispose()
@@ -109,17 +107,16 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int portOffset = 0)
+        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int? defaultPort = null)
         {
             string gradleCommand = old ? GradleCommandExecOldServer : GradleCommandExec;
-            int defaultPort = (old ? DefaultClientPortOldServer : DefaultClientPort) + portOffset;
 
-            if (await TryConnect(defaultPort) == null)
+            if (defaultPort != null && await TryConnect(defaultPort.Value) == null)
             {
                 // Server started from outside.
                 Log(">>> Java server is already started on port " + defaultPort + ".");
 
-                return new JavaServer([defaultPort], null);
+                return new JavaServer([defaultPort.Value], null);
             }
 
             if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
@@ -133,8 +130,7 @@ namespace Apache.Ignite.Tests
 
             var process = CreateProcess(gradleCommand, env);
 
-            var evt = new ManualResetEventSlim(false);
-            int[]? ports = null;
+            var tcs = new TaskCompletionSource<int[]>();
 
             DataReceivedEventHandler handler = (_, eventArgs) =>
             {
@@ -148,8 +144,14 @@ namespace Apache.Ignite.Tests
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
-                    ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
-                    evt.Set();
+                    var ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
+                    tcs.SetResult(ports);
+                }
+
+                if (line.StartsWith("Exception in thread \"main\"", StringComparison.OrdinalIgnoreCase))
+                {
+                    process.Kill(entireProcessTree: true);
+                    tcs.SetException(new Exception($"Java server failed: {line}"));
                 }
             };
 
@@ -158,37 +160,32 @@ namespace Apache.Ignite.Tests
 
             process.Start();
 
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            try
+            {
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
 
-            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)))
+                var ports = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(ConnectTimeoutSeconds));
+                var port = ports.FirstOrDefault();
+
+                if (!WaitForServer(port))
+                {
+                    process.Kill(entireProcessTree: true);
+                    KillProcessesOnPorts(ports);
+
+                    throw new InvalidOperationException(
+                        $"Failed to wait for the server to start (can't connect the client on port {port}). Check logs for details.");
+                }
+
+                Log($">>> Java server started on port {port}.");
+
+                return new JavaServer(ports, process);
+            }
+            catch (Exception)
             {
                 process.Kill(entireProcessTree: true);
-
-                throw new InvalidOperationException("Failed to wait for THIN_CLIENT_PORTS. Check logs for details.");
+                throw;
             }
-
-            if (ports == null)
-            {
-                process.Kill(entireProcessTree: true);
-
-                throw new InvalidOperationException("Failed to get ports. Check logs for details.");
-            }
-
-            var port = ports.FirstOrDefault();
-
-            if (!WaitForServer(port))
-            {
-                process.Kill(entireProcessTree: true);
-                KillProcessesOnPorts(ports);
-
-                throw new InvalidOperationException(
-                    $"Failed to wait for the server to start (can't connect the client on port {port}). Check logs for details.");
-            }
-
-            Log($">>> Java server started on port {port}.");
-
-            return new JavaServer(ports, process);
         }
 
         private static Process CreateProcess(string gradleCommand, IDictionary<string, string?> env)
@@ -330,6 +327,33 @@ namespace Apache.Ignite.Tests
 
             using var process = Process.Start(psi);
             process?.WaitForExit();
+        }
+
+        private static int[] GetUnusedPorts(int count)
+        {
+            var ports = new int[count];
+            var listeners = new List<TcpListener>();
+
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    var listener = new TcpListener(IPAddress.Loopback, 0);
+                    listeners.Add(listener);
+
+                    listener.Start();
+                    ports[i] = ((IPEndPoint)listener.LocalEndpoint).Port;
+                }
+
+                return ports;
+            }
+            finally
+            {
+                foreach (var listener in listeners)
+                {
+                    listener.Stop();
+                }
+            }
         }
     }
 }

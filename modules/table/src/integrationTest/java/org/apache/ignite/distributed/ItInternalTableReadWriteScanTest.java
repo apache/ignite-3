@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -89,7 +89,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         tx.assignCommitPartition(tblPartId);
 
-        ClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
+        InternalClusterNode primaryReplicaNode = getPrimaryReplica(tblPartId);
 
         tx.enlist(tblPartId, internalTbl.tableId(), primaryReplicaNode.name(), term);
 

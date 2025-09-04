@@ -1145,7 +1145,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .zoneName(customZoneName)
                 .partitions(42)
                 .replicas(15)
-                .dataNodesAutoAdjust(73)
                 .filter("expression")
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();

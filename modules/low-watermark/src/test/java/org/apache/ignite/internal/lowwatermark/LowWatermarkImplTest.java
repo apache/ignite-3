@@ -69,13 +69,13 @@ import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessageGroup;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -254,12 +254,12 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         verify(messagingService).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
-        ClusterNode sender = mock(ClusterNode.class);
+        InternalClusterNode sender = mock(InternalClusterNode.class);
         long correlationId = 0;
 
         ArgumentCaptor<NetworkMessage> networkMessageArgumentCaptor = ArgumentCaptor.forClass(NetworkMessage.class);
 
-        when(messagingService.respond(any(ClusterNode.class), networkMessageArgumentCaptor.capture(), anyLong()))
+        when(messagingService.respond(any(InternalClusterNode.class), networkMessageArgumentCaptor.capture(), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
         // Let's check any message except GetLowWatermarkRequest.

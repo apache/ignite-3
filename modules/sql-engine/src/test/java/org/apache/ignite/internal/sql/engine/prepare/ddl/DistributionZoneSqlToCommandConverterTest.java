@@ -55,11 +55,10 @@ import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -77,7 +76,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             ZoneOptionEnum.PARTITIONS,
             ZoneOptionEnum.REPLICAS,
             ZoneOptionEnum.QUORUM_SIZE,
-            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST,
             ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP,
             ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN
     );
@@ -686,8 +684,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         if (obsolete) {
             expectOptionValidationError(format(sql, option.name()), option.name());
         } else {
-            Assumptions.assumeFalse(option == ZoneOptionEnum.DATA_NODES_AUTO_ADJUST);
-
             String sqlName = option.sqlName;
             String prefix = "ALTER ZONE test SET (";
             assertThrowsWithPos(format(sql, sqlName, "-100"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
@@ -717,8 +713,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         if (withPresent) {
             expectInvalidOptionType(format(sql, option, "'bar'"), option.name());
         } else {
-            Assumptions.assumeFalse(option == ZoneOptionEnum.DATA_NODES_AUTO_ADJUST);
-
             String sqlName = option.sqlName;
             String prefix = "create zone test_zone (";
             int errorPos = prefix.length() + sqlName.length() + 1 /* start pos*/ + 1 /* first symbol after bracket*/;
@@ -834,7 +828,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     private static LogicalNode createLocalNode(int nodeIdx, List<String> storageProfiles) {
         return new LogicalNode(
-                new ClusterNodeImpl(
+                new InternalClusterNodeImpl(
                         UUID.randomUUID(),
                         "node" + nodeIdx,
                         new NetworkAddress("127.0.0.1", 3344 + nodeIdx)

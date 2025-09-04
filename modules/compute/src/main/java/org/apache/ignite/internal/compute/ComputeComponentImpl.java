@@ -54,6 +54,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -126,11 +126,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
@@ -138,14 +134,12 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(units);
+            CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(executionContext.units());
 
             CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> future =
-                    mapClassLoaderExceptions(classLoaderFut, jobClassName)
+                    mapClassLoaderExceptions(classLoaderFut, executionContext.jobClassName())
                             .thenApply(context -> {
-                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(
-                                        context, options, jobClassName, metadataBuilder, arg
-                                );
+                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(context, executionContext);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
 
@@ -180,7 +174,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            I input
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -192,7 +187,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             CompletableFuture<TaskExecutionInternal<I, M, T, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<I, M, T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
+                                TaskExecutionInternal<I, M, T, R> execution = execTask(
+                                        context,
+                                        jobSubmitter,
+                                        taskClassName,
+                                        metadataBuilder,
+                                        arg
+                                );
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -214,12 +215,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
-            ClusterNode remoteNode,
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            InternalClusterNode remoteNode,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
@@ -227,14 +224,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
-            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(
-                    remoteNode,
-                    options,
-                    units,
-                    jobClassName,
-                    metadataBuilder,
-                    arg
-            );
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(remoteNode, executionContext);
 
             inFlightFutures.registerFuture(jobIdFuture);
 
@@ -258,18 +248,14 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg,
+            ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
         return ComputeJobFailover.failSafeExecute(
                         this, logicalTopologyService, topologyService, failoverExecutor, eventLog,
-                        remoteNode, nextWorkerSelector, options, units, jobClassName, metadataBuilder, arg
+                        remoteNode, nextWorkerSelector, executionContext
                 )
                 .thenApply(execution -> {
                     // Do not add cancel action to the underlying jobs, let the FailSafeJobExecution handle it.
@@ -322,8 +308,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
-        messaging.start((options, units, jobClassName, metadataBuilder, arg) ->
-                executeLocally(options, units, jobClassName, metadataBuilder, arg, null));
+        messaging.start(executionContext -> executeLocally(executionContext, null));
         executionManager.start();
         computeViewProvider.init(executionManager);
 
@@ -349,15 +334,15 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         return nullCompletedFuture();
     }
 
-    private JobExecutionInternal<ComputeJobDataHolder> execJob(
-            JobContext context,
-            ExecutionOptions options,
-            String jobClassName,
-            ComputeEventMetadataBuilder metadataBuilder,
-            @Nullable ComputeJobDataHolder arg
-    ) {
+    private JobExecutionInternal<ComputeJobDataHolder> execJob(JobContext context, ExecutionContext executionContext) {
         try {
-            return executor.executeJob(options, jobClassName, context.classLoader(), metadataBuilder, arg);
+            return executor.executeJob(
+                    executionContext.options(),
+                    executionContext.jobClassName(),
+                    context.classLoader(),
+                    executionContext.metadataBuilder(),
+                    executionContext.arg()
+            );
         } catch (Throwable e) {
             context.close();
             throw e;
@@ -368,10 +353,11 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobContext context,
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            I input
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), input);
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), metadataBuilder, arg);
         } catch (Throwable e) {
             context.close();
             throw e;

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Factory producing {@link RecoveryInitiatorHandshakeManager} instances.
@@ -33,7 +33,7 @@ public interface RecoveryInitiatorHandshakeManagerFactory {
      * @return Created manager.
      */
     RecoveryInitiatorHandshakeManager create(
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider
     );

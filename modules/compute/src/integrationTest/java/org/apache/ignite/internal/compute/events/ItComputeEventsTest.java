@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.events;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.BROADCAST;
+import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.MAP_REDUCE;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.SINGLE;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_CANCELED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_CANCELING;
@@ -27,6 +28,10 @@ import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JO
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_EXECUTING;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_FAILED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JOB_QUEUED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_COMPLETED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_EXECUTING;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_FAILED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_QUEUED;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.values;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -37,15 +42,19 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInRelativeOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -54,13 +63,22 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
 import org.apache.ignite.internal.compute.FailingJob;
+import org.apache.ignite.internal.compute.FailingJobMapReduceTask;
+import org.apache.ignite.internal.compute.FailingReduceMapReduceTask;
+import org.apache.ignite.internal.compute.FailingSplitMapReduceTask;
 import org.apache.ignite.internal.compute.GetNodeNameJob;
+import org.apache.ignite.internal.compute.MapReduce;
 import org.apache.ignite.internal.compute.SilentSleepJob;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.EventMatcher.Event;
+import org.apache.ignite.internal.compute.utils.InteractiveJobs;
+import org.apache.ignite.internal.compute.utils.InteractiveTasks;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
 import org.apache.ignite.lang.CancelHandle;
@@ -78,15 +96,19 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 @ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
-    private final EventLogInspector logInspector = new EventLogInspector();
+    final EventLogInspector logInspector = new EventLogInspector();
 
     @BeforeEach
-    void startLogInspector() {
+    void setUp() {
+        InteractiveJobs.clearState();
+        InteractiveTasks.clearState();
+        InteractiveJobs.initChannels(CLUSTER.runningNodes().map(Ignite::name).collect(Collectors.toList()));
+
         logInspector.start();
     }
 
     @AfterEach
-    void afterEach() {
+    void tearDown() {
         logInspector.stop();
         dropAllTables();
     }
@@ -95,7 +117,7 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         String allEvents = Arrays.stream(values())
                 .map(IgniteEventType::name)
-                .filter(name -> name.startsWith("COMPUTE_JOB"))
+                .filter(name -> name.startsWith("COMPUTE"))
                 .collect(Collectors.joining(", ", "[", "]"));
 
         builder.clusterConfiguration("ignite.eventlog {"
@@ -318,6 +340,53 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    @Test
+    void taskCompleted() {
+        TaskExecution<Integer> execution = compute().submitMapReduce(TaskDescriptor.builder(MapReduce.class).build(), null);
+
+        assertThat(execution.resultAsync(), willCompleteSuccessfully());
+
+        UUID taskId = execution.idAsync().join(); // Safe to join since execution is complete.
+        String taskClassName = MapReduce.class.getName();
+
+        List<UUID> jobIds = execution.idsAsync().join();
+        UUID firstJobId = jobIds.get(0);
+        List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(Collectors.toList());
+
+        await().until(logInspector::events, hasSize(3 + 3 * 3)); // 3 task events and 3 job events per node
+        assertThat(logInspector.events(), containsInRelativeOrder(
+                taskEvent(COMPUTE_TASK_QUEUED, taskClassName, taskId),
+                taskEvent(COMPUTE_TASK_EXECUTING, taskClassName, taskId),
+                taskJobEvent(COMPUTE_JOB_QUEUED, firstJobId, in(nodeNames)),
+                taskJobEvent(COMPUTE_JOB_EXECUTING, firstJobId, in(nodeNames)),
+                taskJobEvent(COMPUTE_JOB_COMPLETED, firstJobId, in(nodeNames)),
+                taskEvent(COMPUTE_TASK_COMPLETED, taskClassName, taskId)
+        ));
+
+        jobIds.forEach(jobId -> assertThat(logInspector.events(), containsInRelativeOrder(
+                taskJobEvent(COMPUTE_JOB_QUEUED, jobId, in(nodeNames)),
+                taskJobEvent(COMPUTE_JOB_EXECUTING, jobId, in(nodeNames)),
+                taskJobEvent(COMPUTE_JOB_COMPLETED, jobId, in(nodeNames))
+        )));
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {FailingSplitMapReduceTask.class, FailingJobMapReduceTask.class, FailingReduceMapReduceTask.class})
+    void taskFailed(Class<? extends MapReduceTask<Void, Void, Void, Void>> mapReduceClass) {
+        TaskExecution<Void> execution = compute().submitMapReduce(TaskDescriptor.builder(mapReduceClass).build(), null);
+
+        assertThat(execution.resultAsync(), willThrow(ComputeException.class));
+
+        UUID taskId = execution.idAsync().join(); // Safe to join since execution is complete.
+
+        // Skip checking possible job events.
+        await().until(logInspector::events, containsInRelativeOrder(
+                taskEvent(COMPUTE_TASK_QUEUED, mapReduceClass.getName(), taskId),
+                taskEvent(COMPUTE_TASK_EXECUTING, mapReduceClass.getName(), taskId),
+                taskEvent(COMPUTE_TASK_FAILED, mapReduceClass.getName(), taskId)
+        ));
+    }
+
     private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
         return submit(target, descriptor, null, arg);
     }
@@ -370,8 +439,19 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
             String targetNode
     );
 
+    EventMatcher taskEvent(IgniteEventType eventType, String taskClassName, @Nullable UUID taskId) {
+        return jobEvent(eventType, MAP_REDUCE, null, taskClassName, node(0).name())
+                .withTaskId(taskId)
+                .withInitiatorNode(nullValue());
+    }
+
+    private EventMatcher taskJobEvent(IgniteEventType eventType, @Nullable UUID jobId, Matcher<? super String> targetNodeMatcher) {
+        return jobEvent(eventType, MAP_REDUCE, jobId, GetNodeNameJob.class.getName(), "")
+                .withTargetNode(targetNodeMatcher);
+    }
+
     @SafeVarargs
-    private void assertEvents(Matcher<String>... matchers) {
+    final void assertEvents(Matcher<String>... matchers) {
         await().until(logInspector::events, contains(matchers));
     }
 

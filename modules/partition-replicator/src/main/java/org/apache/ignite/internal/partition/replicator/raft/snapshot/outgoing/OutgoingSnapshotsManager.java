@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -166,7 +166,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void handleMessage(NetworkMessage networkMessage, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage networkMessage, InternalClusterNode sender, @Nullable Long correlationId) {
         // Ignore all messages that we can't handle.
         if (!(networkMessage instanceof SnapshotRequestMessage)) {
             return;
@@ -204,7 +204,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(@Nullable NetworkMessage response, @Nullable Throwable throwable, ClusterNode sender, long correlationId) {
+    private void respond(@Nullable NetworkMessage response, @Nullable Throwable throwable, InternalClusterNode sender, long correlationId) {
         if (throwable != null) {
             if (!hasCause(throwable, NodeStoppingException.class, StorageClosedException.class)) {
                 failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));

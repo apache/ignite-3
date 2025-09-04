@@ -102,10 +102,6 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
             addFuture(futures, onFilterUpdate(parameters, oldZone.filter()));
         }
 
-        if (newZone.dataNodesAutoAdjust() != oldZone.dataNodesAutoAdjust()) {
-            addFuture(futures, onAutoAdjustUpdate(parameters, oldZone.dataNodesAutoAdjust()));
-        }
-
         if (newZone.dataNodesAutoAdjustScaleUp() != oldZone.dataNodesAutoAdjustScaleUp()) {
             addFuture(futures, onAutoAdjustScaleUpUpdate(parameters, oldZone.dataNodesAutoAdjustScaleUp()));
         }
@@ -165,18 +161,6 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
-        return nullCompletedFuture();
-    }
-
-    /**
-     * Called when the zone changes via {@link CatalogManager#execute(CatalogCommand)} with a non-null
-     * {@link CatalogZoneDescriptor#dataNodesAutoAdjust()}.
-     *
-     * @param parameters Zone update parameters.
-     * @param oldAutoAdjust Old value.
-     * @return Future that signifies the end of the callback execution.
-     */
-    protected CompletableFuture<Void> onAutoAdjustUpdate(AlterZoneEventParameters parameters, int oldAutoAdjust) {
         return nullCompletedFuture();
     }
 

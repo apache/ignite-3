@@ -23,17 +23,16 @@ import static org.hamcrest.Matchers.equalTo;
 import java.util.Base64;
 import java.util.UUID;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.Test;
 
-class ClusterNodeSerializerTest {
+class InternalClusterNodeSerializerTest {
     private final ClusterNodeSerializer serializer = new ClusterNodeSerializer();
 
     @Test
     void serializationAndDeserialization() {
-        ClusterNode originalNode = new ClusterNodeImpl(
+        InternalClusterNode originalNode = new InternalClusterNodeImpl(
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),
@@ -41,7 +40,7 @@ class ClusterNodeSerializerTest {
         );
 
         byte[] bytes = VersionedSerialization.toBytes(originalNode, serializer);
-        ClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
+        InternalClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredNode.id(), equalTo(originalNode.id()));
         assertThat(restoredNode.name(), equalTo("test"));
@@ -53,7 +52,7 @@ class ClusterNodeSerializerTest {
     void v1CanBeDeserialized() {
         byte[] bytes = Base64.getDecoder().decode("Ae++Q+/Nq5B4VjQSIUNlhwm63P4FdGVzdAVob3N0uRcBCWV4dC1ob3N0uhe7Fw==");
 
-        ClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
+        InternalClusterNode restoredNode = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredNode.id(), equalTo(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredNode.name(), equalTo("test"));

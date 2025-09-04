@@ -121,7 +121,6 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             replicas,
             1000,
             1000,
-            1000,
             "",
             storageProfilesDescriptor,
             ConsistencyMode.STRONG_CONSISTENCY

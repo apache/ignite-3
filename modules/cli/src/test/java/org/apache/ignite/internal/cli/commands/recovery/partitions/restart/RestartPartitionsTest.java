@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
@@ -38,10 +39,12 @@ import org.mockserver.model.MediaType;
 /** Unit tests for {@link RestartPartitionsCommand}. */
 public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     private static String PARTITIONS_RESTART_ENDPOINT;
+    private static String PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP;
 
     @BeforeAll
     public static void beforeAll() {
         PARTITIONS_RESTART_ENDPOINT = "partitions/restart";
+        PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP = "partitions/restartWithCleanup";
     }
 
     @Test
@@ -121,6 +124,67 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 RECOVERY_TABLE_NAME_OPTION, "table_NAME",
                 RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
                 RECOVERY_NODE_NAMES_OPTION, "node_NAME,node_NAME_2"
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
+    }
+
+    @Test
+    @DisplayName("Restart all partitions with cleanup")
+    void restartAllPartitionsWithCleanup() {
+        String expectedSentContent;
+
+        if (colocationEnabled()) {
+            expectedSentContent = "{"
+                    + "     \"zoneName\" : \"zone_NAME\""
+                    + "}";
+
+        } else {
+            expectedSentContent = "{"
+                    + "     \"tableName\" : \"table_NAME\","
+                    + "     \"zoneName\" : \"zone_NAME\""
+                    + "}";
+        }
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                        .withBody(json(expectedSentContent))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputIs("Successfully restarted partitions.");
+    }
+
+    @Test
+    @DisplayName("Restart specified partitions with cleanup")
+    void restartSpecifiedPartitionsWithCleanup() {
+        String expectedSentContent = "{\"partitionIds\" : [1,2]}";
+
+        clientAndServer
+                .when(request()
+                        .withMethod("POST")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT_WITH_CLEANUP)
+                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
+                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
+                )
+                .respond(response(null));
+
+        execute(CLUSTER_URL_OPTION, mockUrl,
+                RECOVERY_TABLE_NAME_OPTION, "table_NAME",
+                RECOVERY_ZONE_NAME_OPTION, "zone_NAME",
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_WITH_CLEANUP_OPTION
         );
 
         assertErrOutputIsEmpty();

@@ -66,22 +66,6 @@ public class CatalogParamsValidationUtils {
     }
 
     /**
-     * Validates correctness of the auto adjust params.
-     */
-    public static void validateZoneDataNodesAutoAdjustParametersCompatibility(
-            @Nullable Integer autoAdjust,
-            @Nullable Integer scaleUp,
-            @Nullable Integer scaleDown
-    ) {
-        if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
-            throw new CatalogValidationException(
-                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}].",
-                    autoAdjust, scaleUp, scaleDown
-            );
-        }
-    }
-
-    /**
      * Validates correctness of the filter.
      */
     public static void validateZoneFilter(@Nullable String filter) {

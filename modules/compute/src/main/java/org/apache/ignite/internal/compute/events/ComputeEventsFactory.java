@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_JO
 import java.util.Map;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
-import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +40,7 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobQueuedEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobQueuedEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_QUEUED, eventMetadata);
     }
 
@@ -51,7 +50,7 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobExecutingEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobExecutingEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_EXECUTING, eventMetadata);
     }
 
@@ -61,7 +60,7 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobFailedEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobFailedEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_FAILED, eventMetadata);
     }
 
@@ -71,7 +70,7 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobCompletedEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobCompletedEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_COMPLETED, eventMetadata);
     }
 
@@ -81,7 +80,7 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobCancelingEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobCancelingEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_CANCELING, eventMetadata);
     }
 
@@ -91,28 +90,37 @@ public class ComputeEventsFactory {
      * @param eventLog Event log.
      * @param eventMetadata Event metadata.
      */
-    public static void logJobCanceledEvent(EventLog eventLog, ComputeEventMetadata eventMetadata) {
+    public static void logJobCanceledEvent(EventLog eventLog, @Nullable ComputeEventMetadata eventMetadata) {
         logEvent(eventLog, COMPUTE_JOB_CANCELED, eventMetadata);
     }
 
-    private static void logEvent(EventLog eventLog, IgniteEventType eventType, ComputeEventMetadata eventMetadata) {
+    /**
+     * Logs compute job event.
+     *
+     * @param eventLog Event log.
+     * @param eventType Event type.
+     * @param eventMetadata Event metadata.
+     */
+    public static void logEvent(EventLog eventLog, IgniteEventType eventType, @Nullable ComputeEventMetadata eventMetadata) {
+        if (eventMetadata == null) {
+            return;
+        }
+
         eventLog.log(eventType.name(), () -> {
             Map<String, Object> fields = IgniteUtils.newLinkedHashMap(8);
 
             fields.put(FieldNames.TYPE, eventMetadata.type());
             fields.put(FieldNames.CLASS_NAME, eventMetadata.jobClassName());
-            fields.put(FieldNames.JOB_ID, eventMetadata.jobId());
             fields.put(FieldNames.TARGET_NODE, eventMetadata.targetNode());
             fields.put(FieldNames.INITIATOR_NODE, eventMetadata.initiatorNode());
 
+            putIfNotNull(fields, FieldNames.JOB_ID, eventMetadata.jobId()); // Could be null for map reduce tasks
             putIfNotNull(fields, FieldNames.TASK_ID, eventMetadata.taskId());
             putIfNotNull(fields, FieldNames.TABLE_NAME, eventMetadata.tableName());
             putIfNotNull(fields, FieldNames.CLIENT_ADDRESS, eventMetadata.clientAddress());
 
-            EventUser user = eventMetadata.eventUser();
-
             return eventType.builder()
-                    .user(user != null ? user : EventUser.system())
+                    .user(eventMetadata.eventUser())
                     .timestamp(System.currentTimeMillis())
                     .fields(fields)
                     .build();
