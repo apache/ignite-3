@@ -164,7 +164,8 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                PartitionModificationCounter.NOOP
         );
     }
 

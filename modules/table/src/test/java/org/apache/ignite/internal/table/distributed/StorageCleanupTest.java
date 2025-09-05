@@ -172,7 +172,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                PartitionModificationCounter.NOOP
         );
     }
 
