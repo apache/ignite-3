@@ -133,4 +133,12 @@ public class IgniteDbCommandTests : IgniteTestsBase
 
         Assert.AreEqual("dml1", (await TupleView.GetAsync(null, GetTuple(1))).Value["val"]);
     }
+
+    [Test]
+    public async Task TestAllParameterTypes()
+    {
+        // TODO: Why do we even need DbType in parameters? We infer type from Value.
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
 }
