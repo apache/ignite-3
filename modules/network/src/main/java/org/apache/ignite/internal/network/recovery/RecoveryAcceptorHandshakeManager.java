@@ -36,7 +36,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AcknowledgeConfiguration;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -103,7 +103,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
 
     private final IgniteProductVersionSource productVersionSource;
 
-    private final AcknowledgeConfiguration acknowledgeConfiguration;
+    private final AckConfiguration ackConfiguration;
 
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
@@ -116,7 +116,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
-     * @param acknowledgeConfiguration Acknowledgement configuration.
+     * @param ackConfiguration Acknowledgement configuration.
      */
     public RecoveryAcceptorHandshakeManager(
             ClusterNode localNode,
@@ -128,7 +128,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
             IgniteProductVersionSource productVersionSource,
-            AcknowledgeConfiguration acknowledgeConfiguration
+            AckConfiguration ackConfiguration
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -138,7 +138,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
-        this.acknowledgeConfiguration = acknowledgeConfiguration;
+        this.ackConfiguration = ackConfiguration;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -383,7 +383,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), messageFactory, acknowledgeConfiguration.value());
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), messageFactory, ackConfiguration.value());
 
         HandshakeFinishMessage response = messageFactory.handshakeFinishMessage()
                 .receivedCount(descriptor.receivedCount())

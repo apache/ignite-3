@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.configuration.AcknowledgeConfiguration;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -143,10 +143,10 @@ public class NettyBootstrapFactory implements IgniteComponent {
     /**
      * Retrieves the acknowledgment configuration.
      *
-     * @return The {@link AcknowledgeConfiguration} instance representing the acknowledgment configuration.
+     * @return The {@link AckConfiguration} instance representing the acknowledgment configuration.
      */
-    public AcknowledgeConfiguration acknowledgeConfiguration() {
-        return networkConfiguration.acknowledgeConfigurationSchema();
+    public AckConfiguration ackConfiguration() {
+        return networkConfiguration.ackConfigurationSchema();
     }
 
     /**

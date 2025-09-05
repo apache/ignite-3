@@ -46,7 +46,7 @@ import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AcknowledgeConfiguration;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -105,7 +105,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
 
     @InjectConfiguration
-    private AcknowledgeConfiguration acknowledgeConfiguration;
+    private AckConfiguration ackConfiguration;
 
     @Test
     public void testHandshake() throws Exception {
@@ -795,7 +795,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 channel -> {},
                 () -> false,
                 new DefaultIgniteProductVersionSource(),
-                acknowledgeConfiguration
+                ackConfiguration
         );
     }
 
@@ -832,7 +832,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 channel -> {},
                 () -> false,
                 new DefaultIgniteProductVersionSource(),
-                acknowledgeConfiguration
+                ackConfiguration
         );
     }
 

@@ -86,5 +86,5 @@ public class NetworkConfigurationSchema {
 
     /** Configuration for sending acknowledgement. */
     @ConfigValue
-    public AcknowledgeConfigurationSchema acknowledgeConfigurationSchema;
+    public AckConfigurationSchema ackConfigurationSchema;
 }

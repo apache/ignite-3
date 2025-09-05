@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.validation.Range;
  * This class defines the configuration properties related to acknowledgment thresholds and delays.
  */
 @Config
-public class AcknowledgeConfigurationSchema {
+public class AckConfigurationSchema {
     /**
      * The threshold for determining when acknowledgements should be sent synchronously.
      * When the number of unacknowledged messages exceeds this value,

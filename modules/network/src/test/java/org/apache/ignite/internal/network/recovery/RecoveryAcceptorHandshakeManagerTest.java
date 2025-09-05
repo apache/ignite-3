@@ -52,7 +52,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AcknowledgeConfiguration;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -117,7 +117,7 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final AtomicBoolean acceptorHandshakeManagerStopping = new AtomicBoolean(false);
 
     @InjectConfiguration
-    private AcknowledgeConfiguration acknowledgeConfiguration;
+    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void initMocks() {
@@ -189,7 +189,7 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 channelCreationListener,
                 stopping,
                 new DefaultIgniteProductVersionSource(),
-                acknowledgeConfiguration
+                ackConfiguration
         );
 
         manager.onInit(context);

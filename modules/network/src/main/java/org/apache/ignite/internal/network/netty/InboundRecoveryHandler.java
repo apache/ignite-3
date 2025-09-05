@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
-import org.apache.ignite.internal.network.configuration.AcknowledgeView;
+import org.apache.ignite.internal.network.configuration.AckView;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
@@ -61,13 +61,13 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
      *
      * @param descriptor Recovery descriptor.
      * @param factory Message factory.
-     * @param acknowledgeCfg Acknowledgement configuration.
+     * @param ackCfg Acknowledgement configuration.
      */
-    public InboundRecoveryHandler(RecoveryDescriptor descriptor, NetworkMessagesFactory factory, AcknowledgeView acknowledgeCfg) {
+    public InboundRecoveryHandler(RecoveryDescriptor descriptor, NetworkMessagesFactory factory, AckView ackCfg) {
         this.descriptor = descriptor;
         this.factory = factory;
-        this.syncAckThreshold = acknowledgeCfg.syncAckThreshold();
-        this.postponeAckMillis = acknowledgeCfg.postponeAckMillis();
+        this.syncAckThreshold = ackCfg.syncAckThreshold();
+        this.postponeAckMillis = ackCfg.postponeAckMillis();
     }
 
     /** {@inheritDoc} */

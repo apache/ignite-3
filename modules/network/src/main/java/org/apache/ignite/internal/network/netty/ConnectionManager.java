@@ -536,7 +536,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     this,
                     stopping::get,
                     productVersionSource,
-                    bootstrapFactory.acknowledgeConfiguration()
+                    bootstrapFactory.ackConfiguration()
             );
         }
 
@@ -561,7 +561,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 this,
                 stopping::get,
                 productVersionSource,
-                bootstrapFactory.acknowledgeConfiguration()
+                bootstrapFactory.ackConfiguration()
         );
     }
 

@@ -62,7 +62,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.configuration.AcknowledgeConfiguration;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -143,7 +143,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final UUID clusterId = randomUUID();
 
     @InjectConfiguration
-    private AcknowledgeConfiguration acknowledgeConfiguration;
+    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void setUp() {
@@ -674,7 +674,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         channel -> {},
                         () -> false,
                         new DefaultIgniteProductVersionSource(),
-                        acknowledgeConfiguration
+                        ackConfiguration
                 ) {
                     @Override
                     protected void finishHandshake() {

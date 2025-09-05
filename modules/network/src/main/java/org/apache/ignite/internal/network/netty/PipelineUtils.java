@@ -24,7 +24,7 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NaiveMessageFormat;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.configuration.AcknowledgeView;
+import org.apache.ignite.internal.network.configuration.AckView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.serialization.MessageFormat;
@@ -80,18 +80,18 @@ public class PipelineUtils {
      * @param descriptor Recovery descriptor.
      * @param messageHandler Message handler.
      * @param factory Message factory.
-     * @param acknowledgeCfg Acknowledgement configuration.
+     * @param ackCfg Acknowledgement configuration.
      */
     public static void afterHandshake(
             ChannelPipeline pipeline,
             RecoveryDescriptor descriptor,
             MessageHandler messageHandler,
             NetworkMessagesFactory factory,
-            AcknowledgeView acknowledgeCfg
+            AckView ackCfg
     ) {
         pipeline.addAfter(OutboundEncoder.NAME, OutboundRecoveryHandler.NAME, new OutboundRecoveryHandler(descriptor));
         pipeline.addBefore(
-                HandshakeHandler.NAME, InboundRecoveryHandler.NAME, new InboundRecoveryHandler(descriptor, factory, acknowledgeCfg)
+                HandshakeHandler.NAME, InboundRecoveryHandler.NAME, new InboundRecoveryHandler(descriptor, factory, ackCfg)
         );
         pipeline.addAfter(HandshakeHandler.NAME, MessageHandler.NAME, messageHandler);
     }
