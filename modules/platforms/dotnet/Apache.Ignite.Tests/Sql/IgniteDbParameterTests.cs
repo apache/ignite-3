@@ -57,9 +57,7 @@ public class IgniteDbParameterTests
         AssertMapping(DbType.String, ColumnType.String);
         AssertMapping(DbType.Time, ColumnType.Time);
 
-        // TODO: This is wrong?
-        AssertMapping(DbType.DateTimeOffset, ColumnType.Timestamp);
-
+        AssertUnsupported(DbType.DateTimeOffset);
         AssertUnsupported(DbType.AnsiString);
         AssertUnsupported(DbType.Currency);
         AssertUnsupported(DbType.Object);
