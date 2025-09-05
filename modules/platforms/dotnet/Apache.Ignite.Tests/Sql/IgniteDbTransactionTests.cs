@@ -17,12 +17,65 @@
 
 namespace Apache.Ignite.Tests.Sql;
 
+using System.Threading.Tasks;
 using Ignite.Sql;
+using Ignite.Transactions;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="IgniteDbTransaction"/>.
 /// </summary>
 public class IgniteDbTransactionTests
 {
-    // TODO
+    [Test]
+    public void TestCommit()
+    {
+        var tx = new TestIgniteTx();
+        var dbTx = new IgniteDbTransaction(tx, System.Data.IsolationLevel.ReadCommitted, null!);
+
+        Assert.AreEqual(System.Data.IsolationLevel.ReadCommitted, dbTx.IsolationLevel);
+        Assert.AreSame(tx, dbTx.IgniteTransaction);
+
+        dbTx.Commit();
+
+        Assert.IsTrue(tx.IsCommitted);
+        Assert.IsFalse(tx.IsRolledback);
+        Assert.IsFalse(tx.IsDisposed);
+    }
+
+    private class TestIgniteTx : ITransaction
+    {
+        public bool IsDisposed { get; set; }
+
+        public bool IsCommitted { get; set; }
+
+        public bool IsRolledback { get; set; }
+
+        public bool IsReadOnly => false;
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
+
+        public Task CommitAsync()
+        {
+            IsCommitted = true;
+            return Task.CompletedTask;
+        }
+
+        public Task RollbackAsync()
+        {
+            IsRolledback = true;
+            return Task.CompletedTask;
+        }
+    }
 }
+
+
