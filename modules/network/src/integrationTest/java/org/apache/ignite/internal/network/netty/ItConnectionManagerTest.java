@@ -407,7 +407,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
 
-            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()));
 
             assertThat(sendFuture, willCompleteSuccessfully());
 
@@ -462,9 +462,9 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             List<Integer> ordinals = new CopyOnWriteArrayList<>();
 
-            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()))
                     .whenComplete((res, ex) -> ordinals.add(1));
-            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList()))
                     .whenComplete((res, ex) -> ordinals.add(2));
 
             assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
@@ -484,7 +484,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             dropAcksFrom(manager2);
 
             HandshakeFinishMessage messageNotNeedingAck = new NetworkMessagesFactory().handshakeFinishMessage().build();
-            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList(), true));
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList()));
             assertThat(sendFuture, willCompleteSuccessfully());
         }
     }
@@ -503,7 +503,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void provokeAckFor(NettySender sender1) {
-        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList()));
     }
 
     /**

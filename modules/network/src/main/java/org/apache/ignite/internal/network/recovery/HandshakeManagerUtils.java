@@ -68,7 +68,7 @@ class HandshakeManagerUtils {
                 .message(messageText)
                 .build();
 
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList()));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, ex) -> {
             // Ignoring ex as it's more important to tell the other side about the rejection reason.
