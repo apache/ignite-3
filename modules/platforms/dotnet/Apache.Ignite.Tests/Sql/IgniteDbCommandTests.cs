@@ -27,6 +27,12 @@ using NUnit.Framework;
 /// </summary>
 public class IgniteDbCommandTests : IgniteTestsBase
 {
+    private const string TestTable = nameof(IgniteDbCommandTests);
+
+    [TearDown]
+    public async Task DropTestTable() =>
+        await Client.Sql.ExecuteScriptAsync("DROP TABLE IF EXISTS " + TestTable);
+
     [Test]
     public async Task TestSelect()
     {
@@ -77,6 +83,14 @@ public class IgniteDbCommandTests : IgniteTestsBase
     [Test]
     public async Task TestDdl()
     {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
+
+        var result = await cmd.ExecuteNonQueryAsync();
+        Assert.AreEqual(-1, result); // DDL returns -1
     }
 
     [Test]
