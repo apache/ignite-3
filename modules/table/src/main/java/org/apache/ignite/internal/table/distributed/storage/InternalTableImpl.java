@@ -85,6 +85,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
@@ -139,6 +141,8 @@ import org.jetbrains.annotations.Nullable;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
+
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
@@ -679,6 +683,9 @@ public class InternalTableImpl implements InternalTable {
                     if (tx.isRolledBackWithTimeoutExceeded()) {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
                     }
+
+                    LOG.info("#### trackingInvoke: transaction is already finished [tableName={}, partId={}, txState={}, code={}]",
+                            tableName, partId, tx.state(), code);
 
                     return failedFuture(
                             new TransactionException(code, format(
