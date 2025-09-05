@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExceptionFactory;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -99,7 +99,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     private final boolean notifyOnSubscription;
 
     /**
-     * Map that has a set of alive peer nodes as a key set, and {@link #sendSubscribeMessage(ClusterNode, SubscriptionLeaderChangeRequest)}
+     * Map that has a set of alive peer nodes as a key set, and
+     * {@link #sendSubscribeMessage(InternalClusterNode, SubscriptionLeaderChangeRequest)}
      * futures as values.
      * When a node, that is a peer, joins or leaves the topology, we modify the map correspondingly.
      * We also modify it when raft group is reconfigured. In this case we should aso unsubscribe from nodes that we remove from the map,
@@ -239,7 +240,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param msg Subscribe message.
      * @return A future that completes with true when the message sent and false value when the node left the cluster.
      */
-    private CompletableFuture<Boolean> sendSubscribeMessage(ClusterNode node, SubscriptionLeaderChangeRequest msg) {
+    private CompletableFuture<Boolean> sendSubscribeMessage(InternalClusterNode node, SubscriptionLeaderChangeRequest msg) {
         var msgSendFut = new CompletableFuture<Boolean>();
 
         sendWithRetry(node, msg, msgSendFut);
@@ -255,7 +256,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param msgSendFut Future that completes with true when the message sent and with false when the node left topology and cannot
      *         get a cluster.
      */
-    private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
+    private void sendWithRetry(InternalClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
 
         clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
@@ -343,7 +344,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         for (int i = 0; i < peers; i++) {
             Peer peer = peers().get(i);
 
-            ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+            InternalClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 futs[i] = subscribeToNode(node, peer);
@@ -364,7 +365,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                     if (!leaderWithTerm.isEmpty()) {
-                        ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+                        InternalClusterNode leaderHost = clusterService.topologyService()
+                                .getByConsistentId(leaderWithTerm.leader().consistentId());
 
                         if (leaderHost != null) {
                             eventsClientListener.onLeaderElected(
@@ -411,7 +413,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         for (int i = 0; i < peers.size(); i++) {
             Peer peer = peers.get(i);
 
-            ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+            InternalClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 futs.add(sendSubscribeMessage(node, subscriptionLeaderChangeRequest(false)));
@@ -554,7 +556,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          * @param term Term.
          */
         @Override
-        public synchronized void onLeaderElected(ClusterNode node, long term) {
+        public synchronized void onLeaderElected(InternalClusterNode node, long term) {
             if (onLeaderElectedCallback != null && term > this.term) {
                 this.term = term;
                 this.leaderPeer = new Peer(node.name());
@@ -599,7 +601,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         for (Peer peer : peers()) {
             // Subscribe to all new peers in configuration.
             if (!subscribersMap.containsKey(peer)) {
-                ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+                InternalClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
                 if (node != null) {
                     futures.add(subscribeToNode(node, peer));
@@ -610,7 +612,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         for (Peer peer : subscribersMap.keySet()) {
             // Unsubscribe from all peers that were removed from configuration.
             if (!peers().contains(peer)) {
-                ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
+                InternalClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
                 CompletableFuture<?> fut = subscribersMap.remove(peer);
 
@@ -624,7 +626,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         allOf(futures.toArray(CompletableFuture[]::new)).thenAcceptAsync(unused -> {
             if (notifyOnSubscription) {
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+                    InternalClusterNode leaderHost = clusterService.topologyService()
+                            .getByConsistentId(leaderWithTerm.leader().consistentId());
 
                     if (leaderHost != null) {
                         serverEventHandler.onLeaderElected(
@@ -646,7 +649,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 .build();
     }
 
-    private synchronized CompletableFuture<Boolean> subscribeToNode(ClusterNode node, Peer peer) {
+    private synchronized CompletableFuture<Boolean> subscribeToNode(InternalClusterNode node, Peer peer) {
         CompletableFuture<Boolean> fut = sendSubscribeMessage(node, subscriptionLeaderChangeRequest(true));
 
         subscribersMap.put(peer, fut);

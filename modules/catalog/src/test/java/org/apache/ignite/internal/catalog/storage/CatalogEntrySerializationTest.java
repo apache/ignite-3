@@ -515,7 +515,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 partitions,
                 3,
                 2, // default
-                1,
                 2,
                 3,
                 DEFAULT_FILTER,

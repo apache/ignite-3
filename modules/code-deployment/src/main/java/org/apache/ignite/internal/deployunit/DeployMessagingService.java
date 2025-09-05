@@ -34,7 +34,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Messaging service for deploy actions.
@@ -115,14 +115,14 @@ public class DeployMessagingService {
                 .version(version.render())
                 .build();
 
-        ClusterNode clusterNode = resolveClusterNode(nodes);
+        InternalClusterNode clusterNode = resolveClusterNode(nodes);
 
         return clusterService.messagingService()
                 .invoke(clusterNode, DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
                 .thenApply(message -> ((DownloadUnitResponse) message).unitContent());
     }
 
-    private ClusterNode resolveClusterNode(Collection<String> nodes) {
+    private InternalClusterNode resolveClusterNode(Collection<String> nodes) {
         return nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
                 .filter(Objects::nonNull)
                 .findAny()
@@ -157,13 +157,13 @@ public class DeployMessagingService {
                 });
     }
 
-    private void processStopDeployRequest(StopDeployRequest request, ClusterNode sender, long correlationId) {
+    private void processStopDeployRequest(StopDeployRequest request, InternalClusterNode sender, long correlationId) {
         tracker.cancelIfDownloading(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
                 .respond(sender, messageFactory.stopDeployResponse().build(), correlationId);
     }
 
-    private void processDownloadRequest(DownloadUnitRequest request, ClusterNode sender, long correlationId) {
+    private void processDownloadRequest(DownloadUnitRequest request, InternalClusterNode sender, long correlationId) {
         deployerService.getUnitContent(request.id(), Version.parseVersion(request.version()))
                 .thenApply(content -> clusterService.messagingService()
                         .respond(sender,

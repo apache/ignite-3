@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJob;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
@@ -31,10 +32,10 @@ import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
@@ -71,7 +72,7 @@ public class ClientComputeExecuteColocatedRequest {
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        Job job = ClientComputeJobUnpacker.unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
+        Job job = unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
         unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID)); // Placeholder for a possible future usage
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
@@ -84,11 +85,13 @@ public class ClientComputeExecuteColocatedRequest {
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,
                             keyTuple,
-                            job.deploymentUnits(),
-                            job.jobClassName(),
-                            job.options(),
-                            metadataBuilder,
-                            job.arg(),
+                            new ExecutionContext(
+                                    job.options(),
+                                    job.deploymentUnits(),
+                                    job.jobClassName(),
+                                    metadataBuilder,
+                                    job.arg()
+                            ),
                             null
                     );
 

@@ -79,7 +79,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     @BeforeEach
     public void beforeEach() {
-        publicSchema = createSchemaFrom(tableA("TEST"));
+        publicSchema = createSchemaFrom(tableWithSortedIndex("TEST"));
     }
 
     /** Simple case on one field, without multi tuple SEARCH/SARG. */
@@ -182,7 +182,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with DESC ordering. */
     @Test
     public void testBoundsDescOrdering() throws Exception {
-        publicSchema = createSchemaFrom(tableA("TEST")
+        publicSchema = createSchemaFrom(tableWithSortedIndex("TEST")
                 .andThen(t -> t.sortedIndex()
                         .name("C4")
                         .addColumn("C4", Collation.DESC_NULLS_LAST)
@@ -380,7 +380,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds merge. */
     @Test
     public void testBoundsMerge() throws Exception {
-        IgniteSchema publicSchema = createSchemaFrom(tableA("TEST")
+        IgniteSchema publicSchema = createSchemaFrom(tableWithSortedIndex("TEST")
                 .andThen(t -> t.sortedIndex()
                         .name("C4")
                         .addColumn("C4", Collation.DESC_NULLS_LAST)
@@ -724,6 +724,51 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @Test
+    void testHashIndexBounds() throws Exception {
+        publicSchema = createSchemaFrom(tableWithHashIndex("TEST"));
+
+        // Index is not used when predicate covers only prefix of search key. 
+        assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM test WHERE c1=1", publicSchema, isTableScan("TEST"));
+        assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM test WHERE c1=1 AND c2='2'", publicSchema, isTableScan("TEST"));
+
+        assertBounds("SELECT * FROM test WHERE c1=1 AND c2='2' AND c3=3",
+                exact(1), exact("2"), exact(3)
+        );
+
+        assertBounds("SELECT * FROM test WHERE (c1=1 OR c1=10) AND c2='2' AND c3=3",
+                multi(exact(1), exact(10)), exact("2"), exact(3)
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1 IN (1,10) AND c2='2' AND c3=3",
+                multi(exact(1), exact(10)), exact("2"), exact(3)
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1=1 AND (c2='2' OR c2='20') AND c3=3",
+                exact(1), multi(exact("2"), exact("20")), exact(3)
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1=1 AND c2 IN ('2','20') AND c3=3",
+                exact(1), multi(exact("2"), exact("20")), exact(3)
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1=1 AND c2='2' AND (c3=3 OR c3=30)",
+                exact(1), exact("2"), multi(exact(3), exact(30))
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1=1 AND c2='2' AND c3 IN (3,30)",
+                exact(1), exact("2"), multi(exact(3), exact(30))
+        );
+
+        assertBounds("SELECT * FROM test WHERE (c1=1 OR c1=10) AND c2='2' AND (c3=3 OR c3=30)",
+                multi(exact(1), exact(10)), exact("2"), multi(exact(3), exact(30))
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1 IN (1,10) AND c2='2' AND c3 IN (3,30)",
+                multi(exact(1), exact(10)), exact("2"), multi(exact(3), exact(30))
+        );
+    }
+
     private static Predicate<SearchBounds> exact(Object val) {
         Predicate<SearchBounds> p = b -> b instanceof ExactBounds && matchValue(val, ((ExactBounds) b).bound());
         return named(p, format("={}", val));
@@ -832,13 +877,39 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .addColumn("C4", NativeTypes.INT32)
                 .addColumn("C5", NativeTypes.INT8)
                 .distribution(IgniteDistributions.single())
-                .size(100)
-                .sortedIndex()
-                .name("C1C2C3")
-                .addColumn("C1", Collation.ASC_NULLS_LAST)
-                .addColumn("C2", Collation.ASC_NULLS_LAST)
-                .addColumn("C3", Collation.ASC_NULLS_LAST)
-                .end();
+                .size(100);
+    }
+
+    private static UnaryOperator<TableBuilder> tableWithSortedIndex(String tableName) {
+        return tableBuilder -> {
+            tableA(tableName).apply(tableBuilder);
+
+            tableBuilder
+                    .sortedIndex()
+                    .name("C1C2C3")
+                    .addColumn("C1", Collation.ASC_NULLS_LAST)
+                    .addColumn("C2", Collation.ASC_NULLS_LAST)
+                    .addColumn("C3", Collation.ASC_NULLS_LAST)
+                    .end();
+
+            return tableBuilder;
+        };
+    }
+
+    private static UnaryOperator<TableBuilder> tableWithHashIndex(String tableName) {
+        return tableBuilder -> {
+            tableA(tableName).apply(tableBuilder);
+
+            tableBuilder
+                    .hashIndex()
+                    .name("C1C2C3")
+                    .addColumn("C1")
+                    .addColumn("C2")
+                    .addColumn("C3")
+                    .end();
+
+            return tableBuilder;
+        };
     }
 
     private static UnaryOperator<TableBuilder> tableB(String tableName, String column, RelDataType type) {

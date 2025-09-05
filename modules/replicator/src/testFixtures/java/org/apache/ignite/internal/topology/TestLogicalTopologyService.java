@@ -28,7 +28,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Test implementation of {@link LogicalTopologyService}.
@@ -71,7 +71,7 @@ public class TestLogicalTopologyService implements LogicalTopologyService {
     }
 
     @Override
-    public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+    public CompletableFuture<Set<InternalClusterNode>> validatedNodesOnLeader() {
         return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
     }
 }

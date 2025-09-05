@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimi
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -164,6 +165,7 @@ public class PrepareServiceImpl implements PrepareService {
                 cacheFactory,
                 ddlSqlToCommandConverter,
                 clusterCfg.planner().maxPlanningTimeMillis().value(),
+                clusterCfg.planner().planCacheExpiresAfterSeconds().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
                 schemaManager
@@ -188,6 +190,7 @@ public class PrepareServiceImpl implements PrepareService {
             DdlSqlToCommandConverter ddlConverter,
             long plannerTimeout,
             int plannerThreadCount,
+            int planExpirySeconds,
             MetricManager metricManager,
             SqlSchemaManager schemaManager
     ) {
@@ -199,7 +202,7 @@ public class PrepareServiceImpl implements PrepareService {
         this.schemaManager = schemaManager;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
-        cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource);
+        cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
     }
 
     /** {@inheritDoc} */
@@ -327,7 +330,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+        return ddlConverter.convert((SqlDdl) sqlNode, ctx).thenApply(command -> new DdlPlan(nextPlanId(), command));
     }
 
     private CompletableFuture<QueryPlan> prepareKill(ParsedResult parsedResult) {

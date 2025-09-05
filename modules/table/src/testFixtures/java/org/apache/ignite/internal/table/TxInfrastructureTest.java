@@ -36,6 +36,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -186,7 +186,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 replicationConfiguration
         ) {
             @Override
-            protected HybridClock createClock(ClusterNode node) {
+            protected HybridClock createClock(InternalClusterNode node) {
                 return TxInfrastructureTest.this.createClock(node);
             }
 
@@ -205,7 +205,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         log.info("Tables have been started");
     }
 
-    protected HybridClock createClock(ClusterNode node) {
+    protected HybridClock createClock(InternalClusterNode node) {
         return new HybridClockImpl();
     }
 
@@ -317,7 +317,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         InternalTable internalTable = accounts.internalTable();
         ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
         Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((String) any(), any());
-        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((InternalClusterNode) any(), any());
     }
 
     protected Collection<TxManager> txManagers() {

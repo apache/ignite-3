@@ -47,6 +47,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.TestInfo;
 
@@ -201,7 +201,7 @@ public class MockNode {
         assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
-    public ClusterNode localMember() {
+    public InternalClusterNode localMember() {
         return clusterService.topologyService().localMember();
     }
 
@@ -229,7 +229,7 @@ public class MockNode {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 
-    CompletableFuture<Set<ClusterNode>> validatedNodes() {
+    CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
         return clusterManager().validatedNodes();
     }
 }

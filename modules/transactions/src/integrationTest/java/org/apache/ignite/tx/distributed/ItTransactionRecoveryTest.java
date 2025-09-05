@@ -66,6 +66,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -98,7 +100,6 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -1079,7 +1080,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                             : new TablePartitionId(tbl.tableId(), PART_ID)
             );
 
-            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
+            InternalClusterNode primaryNode = InternalClusterNodeImpl.fromPublicClusterNode(
+                    node(0).cluster().nodes().stream().filter(node -> node.name().equals(primary)).findAny().get()
+            );
 
             publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
         } else {

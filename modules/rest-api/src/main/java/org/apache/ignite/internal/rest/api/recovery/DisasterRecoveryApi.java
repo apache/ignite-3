@@ -106,6 +106,20 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command);
 
+    @Post("partitions/restartWithCleanup")
+    @Operation(
+            operationId = "restartPartitionsWithCleanup",
+            description = "Restarts replica service and raft group of passed partitions with cleaning up of the storage."
+    )
+    @ApiResponse(responseCode = "200", description = "Partitions restarted.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
+    CompletableFuture<Void> restartPartitionsWithCleanup(@Body RestartPartitionsRequest command);
+
     @Post("zone/partitions/reset")
     @Operation(
             operationId = "resetZonePartitions",
@@ -134,6 +148,20 @@ public interface DisasterRecoveryApi {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> restartZonePartitions(@Body RestartZonePartitionsRequest command);
+
+    @Post("zone/partitions/restartWithCleanup")
+    @Operation(
+            operationId = "restartZonePartitionsWithCleanup",
+            description = "Restarts replica service and raft group of passed zone partitions with cleaning up of the storage."
+    )
+    @ApiResponse(responseCode = "200", description = "Zone partitions restarted.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
+    CompletableFuture<Void> restartZonePartitionsWithCleanup(@Body RestartZonePartitionsRequest command);
 
     @Get("zone/state/local")
     @Operation(operationId = "getZoneLocalPartitionStates", description = "Returns local zone partition states.")

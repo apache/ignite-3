@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirtyFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
 
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
@@ -116,9 +118,13 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 boolean dirty = PageHeader.dirty(absPageAddr);
 
+                DirtyFullPageId dirtyFullId = dirtyFullPageId(absPageAddr);
+
                 CheckpointPages checkpointPages = seg.checkpointPages();
 
-                if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !checkpointPages.contains(fullId)))) {
+                if (relRmvAddr == rndAddr || pinned || skip
+                        || (dirty && (checkpointPages == null || !checkpointPages.contains(dirtyFullId)))
+                ) {
                     i--;
 
                     continue;

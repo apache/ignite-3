@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,7 +64,7 @@ public class PersistentTxStateVacuumizer {
 
     private final ReplicaService replicaService;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final ClockService clockService;
 
@@ -83,7 +83,7 @@ public class PersistentTxStateVacuumizer {
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             ClockService clockService,
             PlacementDriver placementDriver,
             FailureProcessor failureProcessor
@@ -180,6 +180,7 @@ public class PersistentTxStateVacuumizer {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
+                ComponentStoppingException.class,
                 GroupOverloadedException.class,
                 // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
                 // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
@@ -189,8 +190,7 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class,
-                ComponentStoppingException.class
+                AwaitReplicaTimeoutException.class
         );
     }
 

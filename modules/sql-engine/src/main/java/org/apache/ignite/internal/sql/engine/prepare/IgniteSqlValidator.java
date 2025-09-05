@@ -1229,7 +1229,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private void validateAggregateFunction(SqlCall call, SqlAggFunction aggFunction) {
-        if (!SqlKind.AGGREGATE.contains(aggFunction.kind)) {
+        if (!aggFunction.isAggregator()) {
             throw newValidationError(call,
                     IgniteResource.INSTANCE.unsupportedAggregationFunction(aggFunction.getName()));
         }
@@ -1247,6 +1247,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             case MAX:
             case ANY_VALUE:
 
+                return;
+            case GROUPING:
+                if (call.operandCount() > 63) {
+                    // Function result of BIGINT can fit only bitmask of length less than 64;
+                    throw newValidationError(call, IgniteResource.INSTANCE.invalidArgCount(aggFunction.getName(), 1, 63));
+                }
                 return;
             default:
                 throw newValidationError(call,

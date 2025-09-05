@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ public class CheckpointTest extends BaseIgniteAbstractTest {
 
         DirtyPagesAndPartitions dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
                 mock(PersistentPageMemory.class),
-                new FullPageId(0, 1)
+                new DirtyFullPageId(0, 1, 1)
         );
 
         assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(dirtyPagesAndPartitions)), progress).hasDelta());

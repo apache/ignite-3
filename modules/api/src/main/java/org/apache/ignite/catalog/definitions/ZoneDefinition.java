@@ -140,10 +140,12 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns timeout in seconds between node added or node left topology event itself and data nodes switch.
+     * Deprecated, should not be used anymore. Returns timeout in seconds between node added or node left topology event itself and data
+     * nodes switch.
      *
      * @return Timeout.
      */
+    @Deprecated
     public Integer dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }
@@ -347,11 +349,13 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
+         * Deprecated, should not be used anymore. Sets timeout in seconds between node added or node left topology event itself and data
+         * nodes switch.
          *
          * @param adjust Timeout.
          * @return This builder instance.
          */
+        @Deprecated
         public Builder dataNodesAutoAdjust(Integer adjust) {
             Objects.requireNonNull(
                     adjust,

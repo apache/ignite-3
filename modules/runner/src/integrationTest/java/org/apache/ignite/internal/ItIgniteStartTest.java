@@ -34,8 +34,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
@@ -127,8 +127,8 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
         );
     }
 
-    private static Set<ClusterNode> validatedNodes(IgniteImpl ignite) {
-        CompletableFuture<Set<ClusterNode>> validatedNodesFuture = ignite.clusterManagementGroupManager().validatedNodes();
+    private static Set<InternalClusterNode> validatedNodes(IgniteImpl ignite) {
+        CompletableFuture<Set<InternalClusterNode>> validatedNodesFuture = ignite.clusterManagementGroupManager().validatedNodes();
         assertThat(validatedNodesFuture, willCompleteSuccessfully());
         return validatedNodesFuture.join();
     }

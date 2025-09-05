@@ -52,10 +52,10 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -588,7 +588,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(
                 secondNode.startFuture(),
-                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
+                willThrow(JoinDeniedException.class, "Cluster tags do not match")
         );
     }
 
@@ -699,13 +699,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .orElseThrow();
     }
 
-    private List<ClusterNode> currentPhysicalTopology() {
+    private List<InternalClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
                 .collect(toList());
     }
 
-    private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {
+    private static LogicalNode[] toLogicalNodes(List<InternalClusterNode> clusterNodes) {
         return clusterNodes.stream().map(LogicalNode::new).toArray(LogicalNode[]::new);
     }
 
@@ -762,7 +762,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 () -> initCluster(cmgNodes, cmgNodes),
                 InitException.class,
                 "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException: IGN-CMN-65535"
-                        + " Got error response from node \"icmt_tifodecmwcn_10001\": Colocation modes do not match"
+                        + " Initialization of node \"icmt_tifodecmwcn_10001\" failed: Colocation modes do not match"
                         + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
                         + ", recipientColocationMode=" + !colocationEnabled + "]."
         );

@@ -20,11 +20,11 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.
@@ -36,7 +36,7 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
 
-    private final ClusterNode remoteNode;
+    private final InternalClusterNode remoteNode;
 
     private final short connectionIndex;
 
@@ -52,7 +52,7 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      */
     public MessageHandler(
             Consumer<InNetworkObject> messageListener,
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             short connectionIndex,
             PerSessionSerializationService serializationService
     ) {

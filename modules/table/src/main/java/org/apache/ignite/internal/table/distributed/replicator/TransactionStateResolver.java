@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -212,7 +212,7 @@ public class TransactionStateResolver {
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
-        ClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
+        InternalClusterNode coordinator = coordinatorId == null ? null : clusterNodeResolver.getById(coordinatorId);
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.

@@ -140,6 +140,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -162,7 +163,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -325,7 +325,11 @@ public class ClientInboundMessageHandler
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
-        this.cluster = new IgniteClusterImpl(clusterService.topologyService());
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService(), () -> {
+            ClusterInfo clusterInfo = clusterInfoSupplier.get();
+            List<UUID> idHistory = clusterInfo.idHistory();
+            return (idHistory.isEmpty()) ? null : idHistory.get(idHistory.size() - 1);
+        });
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
@@ -564,7 +568,7 @@ public class ClientInboundMessageHandler
 
         packer.packLong(configuration.idleTimeoutMillis());
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        InternalClusterNode localMember = clusterService.topologyService().localMember();
         packer.packUuid(localMember.id());
         packer.packString(localMember.name());
 
@@ -646,12 +650,14 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (isNotification) {
-            LOG.warn("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
-        } else {
-            LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+        if (LOG.isDebugEnabled()) {
+            if (isNotification) {
+                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+            } else {
+                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
+                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
+            }
         }
 
         ClientMessagePacker packer = getPacker(ctx.alloc());
@@ -930,7 +936,7 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
-                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId));
+                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId), clientContext);
 
             case ClientOp.COMPUTE_GET_STATE:
                 return ClientComputeGetStateRequest.process(in, compute);
@@ -1324,8 +1330,12 @@ public class ClientInboundMessageHandler
 
     private class ComputeConnection implements PlatformComputeConnection {
         @Override
-        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(long jobId, List<String> deploymentUnitPaths, String jobClassName,
-                ComputeJobDataHolder arg) {
+        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+                long jobId,
+                List<String> deploymentUnitPaths,
+                String jobClassName,
+                @Nullable ComputeJobDataHolder arg
+        ) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
                     packer -> {
                         packer.packLong(jobId);

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -75,7 +77,7 @@ public class ClientComputeExecuteRequest {
             NotificationSender notificationSender,
             ClientContext clientContext
     ) {
-        Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
+        Set<InternalClusterNode> candidates = unpackCandidateNodes(in, cluster);
 
         Job job = unpackJob(in, clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
         UUID taskId = unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID));
@@ -86,7 +88,7 @@ public class ClientComputeExecuteRequest {
                 .clientAddress(clientContext.remoteAddress().toString());
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), metadataBuilder, job.arg(), null
+                candidates, new ExecutionContext(job.options(), job.deploymentUnits(), job.jobClassName(), metadataBuilder, job.arg()), null
         );
         sendResultAndState(executionFut, notificationSender);
 
@@ -96,7 +98,7 @@ public class ClientComputeExecuteRequest {
         );
     }
 
-    private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
+    private static Set<InternalClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
 
         if (size < 1) {
@@ -104,12 +106,12 @@ public class ClientComputeExecuteRequest {
         }
 
         Set<String> nodeNames = new HashSet<>(size);
-        Set<ClusterNode> nodes = new HashSet<>(size);
+        Set<InternalClusterNode> nodes = new HashSet<>(size);
 
         for (int i = 0; i < size; i++) {
             String nodeName = in.unpackString();
             nodeNames.add(nodeName);
-            ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
+            InternalClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
             if (node != null) {
                 nodes.add(node);
             }

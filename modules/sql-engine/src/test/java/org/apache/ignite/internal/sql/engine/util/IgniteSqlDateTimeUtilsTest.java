@@ -40,7 +40,7 @@ import java.util.TimeZone;
 import java.util.stream.Stream;
 import org.apache.calcite.DataContext;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -82,7 +82,7 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
     })
     public void testCurrentDate(String currentUtcTime, String expectedDateString, String timeZone) {
         ZoneId zoneId = TimeZone.getTimeZone(timeZone).toZoneId();
-        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), "N1", new NetworkAddress("localhost", 1234));
+        InternalClusterNodeImpl node = new InternalClusterNodeImpl(randomUUID(), "N1", new NetworkAddress("localhost", 1234));
 
         ExecutionContext<?> ctx = TestBuilders.executionContext()
                 .fragment(Mockito.mock(FragmentDescription.class))

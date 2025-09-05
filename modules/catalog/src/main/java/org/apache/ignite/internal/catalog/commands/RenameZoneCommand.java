@@ -81,7 +81,6 @@ public class RenameZoneCommand extends AbstractZoneCommand {
                 zone.partitions(),
                 zone.replicas(),
                 zone.quorumSize(),
-                zone.dataNodesAutoAdjust(),
                 zone.dataNodesAutoAdjustScaleUp(),
                 zone.dataNodesAutoAdjustScaleDown(),
                 zone.filter(),

@@ -93,6 +93,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -119,7 +120,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
@@ -129,7 +129,6 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNot
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
@@ -638,6 +637,46 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     nodeNames,
                     catalog.time(),
                     false
+            ));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
+    }
+
+    /**
+     * Restart partitions of a zone with cleanup. This method destroys partition storage during restart.
+     *
+     * @param nodeNames Names of nodes to restart partitions on. If empty, restart on all nodes.
+     * @param zoneName Zone name. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
+     * @return Future that completes when partitions are restarted.
+     */
+    public CompletableFuture<Void> restartPartitionsWithCleanup(
+            Set<String> nodeNames,
+            String zoneName,
+            Set<Integer> partitionIds
+    ) {
+        try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
+            Catalog catalog = catalogLatestVersion();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    // We pass here -1 as table id because it is not used for zone-based partitions.
+                    // We expect that the field will be removed once colocation track is finished.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522
+                    -1,
+                    partitionIds,
+                    nodeNames,
+                    catalog.time(),
+                    true
             ));
         } catch (Throwable t) {
             return failedFuture(t);
@@ -1196,7 +1235,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof LocalPartitionStatesRequest) {
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
         } else if (message instanceof LocalTablePartitionStateRequest) {
@@ -1204,7 +1243,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private void handleLocalTableStateRequest(LocalTablePartitionStateRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleLocalTableStateRequest(
+            LocalTablePartitionStateRequest request,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
@@ -1238,7 +1281,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }, threadPool);
     }
 
-    private void handleLocalPartitionStatesRequest(LocalPartitionStatesRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleLocalPartitionStatesRequest(
+            LocalPartitionStatesRequest request,
+            InternalClusterNode sender,
+            @Nullable Long correlationId
+    ) {
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
@@ -1334,7 +1381,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private Map<TablePartitionIdMessage, Long> estimatedSizeMap(ZonePartitionId zonePartitionId) {
         Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap = new HashMap<>();
 
-        for (TableImpl tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
+        for (TableViewInternal tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
             MvPartitionStorage mvPartitionStorage = tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId());
 
             if (mvPartitionStorage != null) {
@@ -1761,7 +1808,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 
-    ClusterNode localNode() {
+    InternalClusterNode localNode() {
         return topologyService.localMember();
     }
 
