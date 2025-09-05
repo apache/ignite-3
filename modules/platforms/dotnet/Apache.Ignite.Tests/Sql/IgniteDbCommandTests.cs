@@ -25,13 +25,13 @@ using NUnit.Framework;
 /// <summary>
 /// Tests for <see cref="IgniteDbCommand"/>.
 /// </summary>
-public class IgniteDbCommandTests
+public class IgniteDbCommandTests : IgniteTestsBase
 {
     [Test]
     public async Task TestSelect()
     {
-        await using var conn = new IgniteDbConnection(TestUtils.GetTestConfiguration());
-        await conn.OpenAsync();
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
@@ -45,8 +45,8 @@ public class IgniteDbCommandTests
     [Test]
     public async Task TestSelectWithParameter()
     {
-        await using var conn = new IgniteDbConnection(TestUtils.GetTestConfiguration());
-        await conn.OpenAsync();
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT @p";
@@ -63,10 +63,10 @@ public class IgniteDbCommandTests
     }
 
     [Test]
-    public void TestPrepareNotSupported()
+    public async Task TestPrepareNotSupported()
     {
-        using var conn = new IgniteDbConnection(TestUtils.GetTestConfiguration());
-        conn.Open();
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
