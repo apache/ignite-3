@@ -30,7 +30,6 @@ public class InvalidUserInputException extends IgniteException {
         super(ILLEGAL_ARGUMENT_ERR, message);
     }
 
-    @SuppressWarnings("unused")
     public InvalidUserInputException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }

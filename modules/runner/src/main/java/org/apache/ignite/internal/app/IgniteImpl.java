@@ -1692,6 +1692,7 @@ public class IgniteImpl implements Ignite {
 
     private RuntimeException handleStartException(Throwable e) {
         String errMsg = "Unable to start [node=" + name + "]";
+
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
         Throwable rootEx = unwrapRootCause(e);
