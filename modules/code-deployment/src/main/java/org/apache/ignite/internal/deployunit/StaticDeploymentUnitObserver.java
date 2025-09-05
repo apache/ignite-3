@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -34,15 +32,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
+/**
+ * Observes a predefined directory with statically provisioned deployment units and
+ * registers their presence in the deployment store.
+ *
+ * <p>The observer scans the {@code deploymentUnitsRoot} directory, expecting the following structure:
+ * {@code <unitId>/<version>/}
+ * For every discovered {@code unitId}-{@code version} pair that is not yet registered for this node,
+ * the observer creates (or reuses) a cluster status and then creates the node status marked as
+ * {@link DeploymentStatus#DEPLOYED}.
+ */
 public class StaticDeploymentUnitObserver {
     private static final IgniteLogger LOG = Loggers.forClass(StaticDeploymentUnitObserver.class);
 
@@ -52,6 +60,9 @@ public class StaticDeploymentUnitObserver {
 
     private final Path deploymentUnitsRoot;
 
+    /**
+     * Constructor.
+     */
     public StaticDeploymentUnitObserver(
             DeploymentUnitStore deploymentUnitStore,
             String nodeName,
@@ -62,10 +73,14 @@ public class StaticDeploymentUnitObserver {
         this.deploymentUnitsRoot = deploymentUnitsRoot;
     }
 
+    /**
+     * Scans the filesystem for statically deployed units and registers their cluster and node statuses
+     * if they are not yet present in the store.
+     *
+     * <p>Already registered unit versions for this node are skipped. New ones are registered as DEPLOYED.
+     */
     public CompletableFuture<Void> observeAndRegisterStaticUnits() {
         Map<String, List<Version>> staticUnits = collectStaticUnits();
-
-
 
         return deploymentUnitStore.getNodeStatuses(nodeName).thenCompose(statuses -> {
             List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -90,15 +105,15 @@ public class StaticDeploymentUnitObserver {
                                     return deploymentUnitStore.createNodeStatus(nodeName, id, version, status.opId(), DEPLOYED);
                                 }
                             })
-                            .whenComplete((result, t) -> LOG.info("Finished static status creating {}:{} with result {}", t, id, version, result));
+                            .whenComplete((result, t) ->
+                                    LOG.info("Finished static status creating {}:{} with result {}", t, id, version, result)
+                            );
                     futures.add(future);
                 });
             });
 
             return allOf(futures);
         });
-
-
     }
 
     private Map<String, List<Version>> collectStaticUnits() {
@@ -129,7 +144,8 @@ public class StaticDeploymentUnitObserver {
                 }
             });
         } catch (IOException e) {
-
+            LOG.error("Failed to collect static deployment unit folders.", e);
+            throw new DeploymentUnitReadException(e);
         }
         return subfolders;
     }

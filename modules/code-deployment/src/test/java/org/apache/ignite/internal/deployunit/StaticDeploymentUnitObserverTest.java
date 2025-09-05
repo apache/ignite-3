@@ -36,6 +36,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Test suite for {@link StaticDeploymentUnitObserver}.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 public class StaticDeploymentUnitObserverTest {
     private StaticDeploymentUnitObserver observer;
