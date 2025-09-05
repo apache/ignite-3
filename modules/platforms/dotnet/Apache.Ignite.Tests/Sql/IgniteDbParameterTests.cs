@@ -56,8 +56,8 @@ public class IgniteDbParameterTests
         AssertMapping(DbType.Single, ColumnType.Float);
         AssertMapping(DbType.String, ColumnType.String);
         AssertMapping(DbType.Time, ColumnType.Time);
+        AssertMapping(DbType.DateTime2, ColumnType.Timestamp);
 
-        // TODO: It is up to the provider to do type mapping so we can and must support Timestamp.
         AssertUnsupported(DbType.DateTimeOffset);
         AssertUnsupported(DbType.AnsiString);
         AssertUnsupported(DbType.Currency);
@@ -70,7 +70,6 @@ public class IgniteDbParameterTests
         AssertUnsupported(DbType.VarNumeric);
         AssertUnsupported(DbType.AnsiStringFixedLength);
         AssertUnsupported(DbType.StringFixedLength);
-        AssertUnsupported(DbType.DateTime2);
 
         return;
 

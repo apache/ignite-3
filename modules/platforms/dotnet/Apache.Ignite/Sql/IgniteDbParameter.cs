@@ -63,7 +63,8 @@ public sealed class IgniteDbParameter : DbParameter
             ColumnType.Datetime => DbType.DateTime,
             ColumnType.Date => DbType.Date,
             ColumnType.ByteArray => DbType.Binary,
-            ColumnType.Period or ColumnType.Duration or ColumnType.Timestamp
+            ColumnType.Timestamp => DbType.DateTime2,
+            ColumnType.Period or ColumnType.Duration
                 => throw new NotSupportedException($"Unsupported Ignite column type: {IgniteColumnType}"),
             _ => throw new InvalidOperationException($"Unexpected Ignite column type: {IgniteColumnType}")
         };
@@ -83,8 +84,9 @@ public sealed class IgniteDbParameter : DbParameter
             DbType.DateTime => ColumnType.Datetime,
             DbType.Date => ColumnType.Date,
             DbType.Binary => ColumnType.ByteArray,
+            DbType.DateTime2 => ColumnType.Timestamp,
             DbType.AnsiString or DbType.Currency or DbType.Object or DbType.SByte or DbType.UInt16 or DbType.UInt32 or DbType.UInt64
-                or DbType.VarNumeric or DbType.AnsiStringFixedLength or DbType.StringFixedLength or DbType.Xml or DbType.DateTime2
+                or DbType.VarNumeric or DbType.AnsiStringFixedLength or DbType.StringFixedLength or DbType.Xml
                 or DbType.DateTimeOffset
                 => throw new NotSupportedException($"Unsupported Db type: {value}"),
             _ => throw new InvalidOperationException($"Unexpected Db type: {value}")
