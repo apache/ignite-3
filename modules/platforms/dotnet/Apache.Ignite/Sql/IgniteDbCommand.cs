@@ -128,6 +128,7 @@ public sealed class IgniteDbCommand : DbCommand
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, _cancellationTokenSource.Token);
 
+        // TODO: Wrap exceptions.
         await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
             transaction: GetIgniteTx(),
             statement,
@@ -171,6 +172,7 @@ public sealed class IgniteDbCommand : DbCommand
         var args = GetArgs();
         var statement = GetStatement();
 
+        // TODO: Wrap exceptions.
         return await GetSql().ExecuteReaderAsync(
             transaction: GetIgniteTx(),
             statement,
