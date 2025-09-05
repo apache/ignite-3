@@ -56,10 +56,9 @@ public class IgniteDbCommandTests : IgniteTestsBase
         conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT @p";
+        cmd.CommandText = "SELECT ?";
 
         var param = cmd.CreateParameter();
-        param.ParameterName = "p";
         param.Value = 42;
         cmd.Parameters.Add(param);
 
