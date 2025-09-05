@@ -81,7 +81,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestDdl()
+    public async Task TestDdl([Values(true, false)] bool tx)
     {
         await using var conn = new IgniteDbConnection(null);
         conn.Open(Client);
@@ -89,8 +89,11 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
 
+        await using var transaction = tx ? await conn.BeginTransactionAsync() : null;
+        cmd.Transaction = transaction;
+
         var result = await cmd.ExecuteNonQueryAsync();
-        Assert.AreEqual(-1, result); // DDL returns -1
+        Assert.AreEqual(1, result); // DDL returns -1
     }
 
     [Test]
