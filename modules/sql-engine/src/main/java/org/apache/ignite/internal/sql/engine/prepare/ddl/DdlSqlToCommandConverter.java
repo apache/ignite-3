@@ -767,8 +767,7 @@ public class DdlSqlToCommandConverter {
     @Nullable
     private String extractLiteralOptionValueFromZoneOptionList(List<IgniteSqlZoneOption> options, String optionName) {
         return options.stream()
-                .map(opt -> (IgniteSqlZoneOption) opt)
-                .filter(opt -> opt.key().isSimple() && opt.key().getSimple().toUpperCase().equals(optionName))
+                .filter(opt -> opt.key().isSimple() && opt.key().getSimple().equalsIgnoreCase(optionName))
                 .map(opt -> {
                     DdlOptionInfo optInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
                     return (String) ((SqlLiteral) opt.value()).getValueAs(optInfo.type);
