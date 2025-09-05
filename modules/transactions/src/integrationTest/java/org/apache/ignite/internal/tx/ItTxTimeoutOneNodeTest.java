@@ -32,6 +32,8 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.Test;
 
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "TEST";
+    private static final IgniteLogger LOG = Loggers.forClass(ItTxTimeoutOneNodeTest.class);
 
     @Override
     protected int initialNodes() {
@@ -115,8 +118,11 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     void timeoutExceptionHasCorrectCause() throws InterruptedException {
         Table table = createTestTable();
 
+        LOG.info("#### Test started");
+
         Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
 
+        LOG.info("#### Test before wait");
         // Wait for an exception.
         assertTrue(
                 waitForCondition(() -> timeoutExceeded(table, rwTx), 1_000, 10_000),
@@ -124,6 +130,8 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         );
 
         assertThrows(TransactionException.class, () -> doGetOn(table, rwTx));
+
+        LOG.info("#### Test finished");
     }
 
     private static boolean timeoutExceeded(Table table, Transaction rwTx) {
