@@ -101,6 +101,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.InternalClusterNodeImpl;
@@ -498,7 +499,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionReplicaLifecycleManager,
                 new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                new NoOpMetricManager()
         ) {
 
             @Override

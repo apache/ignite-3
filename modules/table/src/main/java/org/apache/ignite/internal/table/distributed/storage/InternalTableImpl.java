@@ -119,6 +119,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -211,6 +212,8 @@ public class InternalTableImpl implements InternalTable {
 
     private final boolean colocationEnabled;
 
+    private final TableMetricSource metrics;
+
     /**
      * Constructor.
      *
@@ -249,7 +252,8 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
-            boolean colocationEnabled
+            boolean colocationEnabled,
+            TableMetricSource metrics
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -269,6 +273,7 @@ public class InternalTableImpl implements InternalTable {
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
         this.colocationEnabled = colocationEnabled;
+        this.metrics = metrics;
     }
 
     /** {@inheritDoc} */
@@ -2403,5 +2408,10 @@ public class InternalTableImpl implements InternalTable {
                 Long enlistmentConsistencyToken,
                 Boolean full
         );
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return metrics;
     }
 }

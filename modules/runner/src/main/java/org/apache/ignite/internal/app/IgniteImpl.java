@@ -1148,7 +1148,8 @@ public class IgniteImpl implements Ignite {
                 partitionReplicaLifecycleManager,
                 nodeProperties,
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                metricManager
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
