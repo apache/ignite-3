@@ -106,19 +106,21 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var transaction = await conn.BeginTransactionAsync();
         cmd.Transaction = transaction;
 
-        // TODO: Wrap exceptions in DbException
-        var ex = Assert.ThrowsAsync<DbException>(async () => await cmd.ExecuteNonQueryAsync());
+        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteNonQueryAsync());
         Assert.AreEqual("DDL doesn't support transactions.", ex?.Message);
     }
 
     [Test]
-    public async Task TestDml()
+    public async Task TestDml([Values(true, false)] bool tx)
     {
         await using var conn = new IgniteDbConnection(null);
         conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = $"INSERT INTO {TableName} (id, val) VALUES (1, 'val1')";
+
+        await using var transaction = tx ? await conn.BeginTransactionAsync() : null;
+        cmd.Transaction = transaction;
 
         var result = await cmd.ExecuteNonQueryAsync();
         Assert.AreEqual(1, result); // One row inserted

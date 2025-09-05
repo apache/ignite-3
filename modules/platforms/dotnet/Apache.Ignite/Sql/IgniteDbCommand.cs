@@ -150,7 +150,7 @@ public sealed class IgniteDbCommand : DbCommand
     /// <inheritdoc />
     public override void Prepare()
     {
-        // No-op.
+        throw new NotSupportedException("Prepare is not supported.");
     }
 
     /// <inheritdoc />
