@@ -76,11 +76,7 @@ public sealed class IgniteDbCommand : DbCommand
         _parameters ??= new IgniteDbParameterCollection();
 
     /// <inheritdoc />
-    protected override DbTransaction? DbTransaction
-    {
-        get => Transaction;
-        set => Transaction = (IgniteDbTransaction?)value;
-    }
+    protected override DbTransaction? DbTransaction { get; set; }
 
     /// <inheritdoc />
     public override void Cancel() => _cancellationTokenSource.Cancel();
