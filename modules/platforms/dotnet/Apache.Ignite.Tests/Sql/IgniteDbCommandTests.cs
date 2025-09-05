@@ -113,16 +113,25 @@ public class IgniteDbCommandTests : IgniteTestsBase
     [Test]
     public async Task TestDml([Values(true, false)] bool tx)
     {
+        await Client.Sql.ExecuteScriptAsync($"DELETE FROM {TableName}");
+
         await using var conn = new IgniteDbConnection(null);
         conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"INSERT INTO {TableName} (id, val) VALUES (1, 'val1')";
+
+        cmd.CommandText = $"INSERT INTO {TableName} (key, val) VALUES (?, ?)";
+        cmd.Parameters.Add(new IgniteDbParameter { Value = 1 });
+        cmd.Parameters.Add(new IgniteDbParameter { Value = "dml1" });
 
         await using var transaction = tx ? await conn.BeginTransactionAsync() : null;
         cmd.Transaction = transaction;
 
         var result = await cmd.ExecuteNonQueryAsync();
         Assert.AreEqual(1, result); // One row inserted
+
+        transaction?.Commit();
+
+        Assert.AreEqual("dml1", (await TupleView.GetAsync(null, GetTuple(1))).Value["val"]);
     }
 }
