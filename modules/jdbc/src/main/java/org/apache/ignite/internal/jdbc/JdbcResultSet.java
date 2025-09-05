@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.sql.Array;
@@ -1797,25 +1796,9 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public URL getURL(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
+        ensureNotClosed();
 
-        if (val == null) {
-            return null;
-        }
-
-        Class<?> cls = val.getClass();
-
-        if (cls == URL.class) {
-            return (URL) val;
-        } else if (cls == String.class) {
-            try {
-                return new URL(val.toString());
-            } catch (MalformedURLException e) {
-                throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
+        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
     }
 
     /** {@inheritDoc} */
