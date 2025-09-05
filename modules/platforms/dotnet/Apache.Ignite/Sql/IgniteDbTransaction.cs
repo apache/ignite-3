@@ -75,4 +75,11 @@ public sealed class IgniteDbTransaction : DbTransaction
     /// <inheritdoc />
     public override async Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
         await IgniteTransaction.RollbackAsync().ConfigureAwait(false);
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        IgniteTransaction.Dispose();
+        base.Dispose(disposing);
+    }
 }
