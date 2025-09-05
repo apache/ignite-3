@@ -96,5 +96,13 @@ public class IgniteDbCommandTests : IgniteTestsBase
     [Test]
     public async Task TestDml()
     {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"INSERT INTO {TableName} (id, val) VALUES (1, 'val1')";
+
+        var result = await cmd.ExecuteNonQueryAsync();
+        Assert.AreEqual(1, result); // One row inserted
     }
 }
