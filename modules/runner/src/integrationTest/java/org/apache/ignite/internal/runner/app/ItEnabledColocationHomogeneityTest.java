@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import org.apache.ignite.internal.BaseIgniteRestartTest;
-import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.InvalidUserInputException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,7 +58,7 @@ public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
         assertThrowsWithCause(
                 () -> startNode(1),
-                JoinDeniedException.class,
+                InvalidUserInputException.class,
                 IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
                         + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
         );

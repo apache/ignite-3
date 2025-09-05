@@ -24,14 +24,17 @@ import java.io.Serializable;
  */
 public class ValidationErrorResponse implements Serializable {
     private final String reason;
+    private final boolean userError;
 
     /**
      * Creates a new response.
      *
      * @param reason Textual representation of the reason of join rejection.
+     * @param userError Flag denoting whether erroneous result is caused by user error.
      */
-    public ValidationErrorResponse(String reason) {
+    public ValidationErrorResponse(String reason, boolean userError) {
         this.reason = reason;
+        this.userError = userError;
     }
 
     /**
@@ -41,5 +44,14 @@ public class ValidationErrorResponse implements Serializable {
      */
     public String reason() {
         return reason;
+    }
+
+    /**
+     * Flag marking this error as being caused by bad user input.
+     *
+     * @return flag denoting whether erroneous result is caused by user error.
+     */
+    public boolean isUserError() {
+        return userError;
     }
 }

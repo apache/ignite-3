@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -290,6 +291,7 @@ import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.InvalidUserInputException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -1693,20 +1695,26 @@ public class IgniteImpl implements Ignite {
 
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
-        // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
-        LOG.error(errMsg, igniteException);
+        Throwable rootEx = unwrapRootCause(e);
+        if (rootEx instanceof InvalidUserInputException) {
+            LOG.warn("{}. Reason: {]", errMsg,  rootEx.getMessage());
+        } else {
+            // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
+            LOG.error(errMsg, igniteException);
 
-        ExecutorService lifecycleExecutor = stopExecutor();
+            ExecutorService lifecycleExecutor = stopExecutor();
 
-        try {
-            lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
-        } catch (Throwable ex) {
-            // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
-            LOG.error("Node stop failed after node start failure", ex);
+            try {
+                lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
+            } catch (Throwable ex) {
+                // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
+                LOG.error("Node stop failed after node start failure", ex);
 
-            igniteException.addSuppressed(ex);
-        } finally {
-            lifecycleExecutor.shutdownNow();
+                igniteException.addSuppressed(ex);
+            } finally {
+                lifecycleExecutor.shutdownNow();
+            }
+
         }
 
         return igniteException;

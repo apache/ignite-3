@@ -25,23 +25,32 @@ import org.jetbrains.annotations.Nullable;
 public class ValidationResult {
     @Nullable
     private final String errorDescription;
+    private final boolean userError;
 
-    private ValidationResult(@Nullable String errorDescription) {
+    private ValidationResult(@Nullable String errorDescription, boolean userError) {
         this.errorDescription = errorDescription;
+        this.userError = userError;
     }
 
     /**
      * Creates a successful validation result.
      */
-    public static ValidationResult successfulResult() {
-        return new ValidationResult(null);
+    static ValidationResult successfulResult() {
+        return new ValidationResult(null, false);
+    }
+
+    /**
+     * Creates a failed validation result with a flag denoting whether caused by user error.
+     */
+    static ValidationResult errorResult(String errorDescription, boolean userError) {
+        return new ValidationResult(errorDescription, userError);
     }
 
     /**
      * Creates a failed validation result.
      */
-    public static ValidationResult errorResult(String errorDescription) {
-        return new ValidationResult(errorDescription);
+    static ValidationResult errorResult(String errorDescription) {
+        return errorResult(errorDescription, false);
     }
 
     /**
@@ -58,5 +67,12 @@ public class ValidationResult {
         assert errorDescription != null;
 
         return errorDescription;
+    }
+
+    /**
+     * Returns flag denoting whether erroneous result is caused by user error.
+     */
+    boolean isUserError() {
+        return userError;
     }
 }

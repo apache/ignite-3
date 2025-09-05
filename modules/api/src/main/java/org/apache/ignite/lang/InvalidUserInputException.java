@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.lang;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+
+import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception thrown if a node was unable to pass the validation step.
+ * Exception representing user input error. This is used to differentiate from system errors.
  */
-public class JoinDeniedException extends IgniteInternalException {
-    public JoinDeniedException(String msg) {
-        super(msg);
+public class InvalidUserInputException extends IgniteException {
+    public InvalidUserInputException(String message) {
+        super(ILLEGAL_ARGUMENT_ERR, message);
     }
 
-    public JoinDeniedException(int code, Throwable cause) {
-        super(code, cause);
+    public InvalidUserInputException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
