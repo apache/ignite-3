@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -53,12 +54,19 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Compatibility tests to ensure that both JDBC result set adapters behave identically for core java.sql.ResultSet methods (excluding
@@ -90,6 +98,1213 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     private ResultSet createMultiRow(ColumnDefinition[] columns, Object[] values) throws SQLException {
         return createMultiRow(null, columns, values);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getBoolean(boolean boolValue) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), boolValue)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = boolValue ? BigDecimal.ONE : BigDecimal.ZERO;
+            BigDecimal decimalScaledVal = boolValue ? new BigDecimal("1.00") : new BigDecimal("0.00");
+            String strVal = boolValue ? "true" : "false";
+            int value = boolValue ? 1 : 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            assertEquals(value, rs.getByte(1));
+            assertEquals(value, rs.getByte("C"));
+
+            assertEquals(value, rs.getShort(1));
+            assertEquals(value, rs.getShort("C"));
+
+            assertEquals(value, rs.getInt(1));
+            assertEquals(value, rs.getInt("C"));
+
+            assertEquals(value, rs.getLong(1));
+            assertEquals(value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(boolValue, rs.getObject(1));
+            assertEquals(boolValue, rs.getObject("C"));
+
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            assertEquals(Short.valueOf((short) value), rs.getObject(1, Short.class));
+            assertEquals(Short.valueOf((short) value), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -100, true",
+            "true, -1, true",
+            "true, 0, false",
+            "true, 1, true",
+            "true, 100, true",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getBooleanFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getBoolean(1), "Cannot convert to boolean: " + value);
+                expectSqlException(() -> rs.getBoolean("C"), "Cannot convert to boolean: " + value);
+            } else {
+                assertEquals("true".equals(result), rs.getBoolean(1));
+                assertEquals("true".equals(result), rs.getBoolean("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(bytes = {Byte.MIN_VALUE, -42, 0, 42, Byte.MAX_VALUE})
+    public void getByte(byte value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT8, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = BigDecimal.valueOf(value);
+            BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value != 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            assertEquals(value, rs.getByte(1));
+            assertEquals(value, rs.getByte("C"));
+
+            assertEquals(value, rs.getShort(1));
+            assertEquals(value, rs.getShort("C"));
+
+            assertEquals(value, rs.getInt(1));
+            assertEquals(value, rs.getInt("C"));
+
+            assertEquals(value, rs.getLong(1));
+            assertEquals(value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            assertEquals(Byte.valueOf(value), rs.getObject(1, Byte.class));
+            assertEquals(Byte.valueOf(value), rs.getObject("C", Byte.class));
+
+            assertEquals(Short.valueOf(value), rs.getObject(1, Short.class));
+            assertEquals(Short.valueOf(value), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -128, -128",
+            "true, 127, 127",
+            "true, -42, -42",
+            "true, 42, 42",
+            "false, -129, ",
+            "false, 128, ",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getByteFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getByte(1), "Cannot convert to byte: " + value);
+                expectSqlException(() -> rs.getByte("C"), "Cannot convert to byte: " + value);
+            } else {
+                assertEquals(Byte.parseByte(result), rs.getByte(1));
+                assertEquals(Byte.parseByte(result), rs.getByte("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getByteFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getByte(1));
+                assertEquals(1, rs.getByte("C"));
+            } else {
+                assertEquals(0, rs.getByte(1));
+                assertEquals(0, rs.getByte("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {Short.MIN_VALUE, -42, 0, 42, Short.MAX_VALUE})
+    public void getShort(short value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT16, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = BigDecimal.valueOf(value);
+            BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value != 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte("C"));
+
+            assertEquals(value, rs.getShort(1));
+            assertEquals(value, rs.getShort("C"));
+
+            assertEquals(value, rs.getInt(1));
+            assertEquals(value, rs.getInt("C"));
+
+            assertEquals(value, rs.getLong(1));
+            assertEquals(value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            assertEquals(Short.valueOf(value), rs.getObject(1, Short.class));
+            assertEquals(Short.valueOf(value), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -32768, -32768",
+            "true, 32767, 32767",
+            "true, -42, -42",
+            "true, 42, 42",
+            "false, -32769, ",
+            "false, 32768, ",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getShortFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getShort(1), "Cannot convert to short: " + value);
+                expectSqlException(() -> rs.getShort("C"), "Cannot convert to short: " + value);
+            } else {
+                assertEquals(Short.parseShort(result), rs.getShort(1));
+                assertEquals(Short.parseShort(result), rs.getShort("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getShortFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getShort(1));
+                assertEquals(1, rs.getShort("C"));
+            } else {
+                assertEquals(0, rs.getShort(1));
+                assertEquals(0, rs.getShort("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {Integer.MIN_VALUE, -42, 0, 42, Integer.MAX_VALUE})
+    public void getInt(int value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT32, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = BigDecimal.valueOf(value);
+            BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value != 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort("C"));
+
+            assertEquals(value, rs.getInt(1));
+            assertEquals(value, rs.getInt("C"));
+
+            assertEquals(value, rs.getLong(1));
+            assertEquals(value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject(1, Short.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -2147483648, -2147483648",
+            "true, 2147483647, 2147483647",
+            "true, -42, -42",
+            "true, 42, 42",
+            "false, -2147483649, ",
+            "false, 2147483648, ",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getIntFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getInt(1), "Cannot convert to int: " + value);
+                expectSqlException(() -> rs.getInt("C"), "Cannot convert to int: " + value);
+            } else {
+                assertEquals(Integer.parseInt(result), rs.getInt(1));
+                assertEquals(Integer.parseInt(result), rs.getInt("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getIntFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getInt(1));
+                assertEquals(1, rs.getInt("C"));
+            } else {
+                assertEquals(0, rs.getInt(1));
+                assertEquals(0, rs.getInt("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {Long.MIN_VALUE, -42, 0, 42, Long.MAX_VALUE})
+    public void getLong(long value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT64, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = BigDecimal.valueOf(value);
+            BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value != 0L;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt("C"));
+
+            assertEquals(value, rs.getLong(1));
+            assertEquals(value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject(1, Short.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject("C", Short.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject(1, Integer.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -9223372036854775808, -9223372036854775808",
+            "true, 9223372036854775807, 9223372036854775807",
+            "true, -42, -42",
+            "true, 42, 42",
+            "false, -9223372036854775809, ",
+            "false, 9223372036854775808, ",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getLongFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getLong(1), "Cannot convert to long: " + value);
+                expectSqlException(() -> rs.getLong("C"), "Cannot convert to long: " + value);
+            } else {
+                assertEquals(Long.parseLong(result), rs.getLong(1));
+                assertEquals(Long.parseLong(result), rs.getLong("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getLongFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getLong(1));
+                assertEquals(1, rs.getLong("C"));
+            } else {
+                assertEquals(0, rs.getLong(1));
+                assertEquals(0, rs.getLong("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(floats = {Float.MIN_VALUE, -42.3f, 42.9f, Float.MAX_VALUE})
+    public void getFloat(float value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.FLOAT, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = new BigDecimal(value);
+            BigDecimal decimalScaledVal = new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue;
+
+            if (Float.compare(Float.MIN_VALUE, value) == 0) {
+                boolValue = false;
+            } else {
+                boolValue = value != 0.0f;
+            }
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((long) value, rs.getLong(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((long) value, rs.getLong("C"));
+
+            assertEquals(value, rs.getFloat(1));
+            assertEquals(value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject(1, Short.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject("C", Short.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject(1, Integer.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject("C", Integer.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Long.valueOf((long) value), rs.getObject(1, Long.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Long.valueOf((long) value), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -9223372036854775808, -9223372036854775808",
+            "true, 9223372036854775807, 9223372036854775807",
+            "true, -42.43, -42.43",
+            "true, 42.43, 42.43",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getFloatFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getFloat(1), "Cannot convert to float: " + value);
+                expectSqlException(() -> rs.getFloat("C"), "Cannot convert to float: " + value);
+            } else {
+                assertEquals(Float.parseFloat(result), rs.getFloat(1));
+                assertEquals(Float.parseFloat(result), rs.getFloat("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getFloatFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getFloat(1));
+                assertEquals(1, rs.getFloat("C"));
+            } else {
+                assertEquals(0, rs.getFloat(1));
+                assertEquals(0, rs.getFloat("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.MIN_VALUE, -42.3d, 0, 42.9d, Double.MAX_VALUE})
+    public void getDouble(double value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DOUBLE, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalVal = new BigDecimal(value);
+            BigDecimal decimalScaledVal = new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue;
+
+            if (Double.compare(Double.MIN_VALUE, value) == 0) {
+                boolValue = false;
+            } else {
+                boolValue = value != 0.0d;
+            }
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((byte) value, rs.getByte("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((short) value, rs.getShort("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((int) value, rs.getInt("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((long) value, rs.getLong(1));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals((long) value, rs.getLong("C"));
+
+            assertEquals((float) value, rs.getFloat(1));
+            assertEquals((float) value, rs.getFloat("C"));
+
+            assertEquals(value, rs.getDouble(1));
+            assertEquals(value, rs.getDouble("C"));
+
+            assertEquals(decimalVal, rs.getBigDecimal(1));
+            assertEquals(decimalVal, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject(1, Byte.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Byte.valueOf((byte) value), rs.getObject("C", Byte.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject(1, Short.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Short.valueOf((short) value), rs.getObject("C", Short.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject(1, Integer.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Integer.valueOf((int) value), rs.getObject("C", Integer.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Long.valueOf((long) value), rs.getObject(1, Long.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Long.valueOf((long) value), rs.getObject("C", Long.class));
+
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Float.valueOf((float) value), rs.getObject(1, Float.class));
+            //noinspection NumericCastThatLosesPrecision
+            assertEquals(Float.valueOf((float) value), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+
+            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
+            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -9223372036854775808, -9223372036854775808",
+            "true, 9223372036854775807, 9223372036854775807",
+            "true, -42.43, -42.43",
+            "true, 42.43, 42.43",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getDoubleFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getDouble(1), "Cannot convert to double: " + value);
+                expectSqlException(() -> rs.getDouble("C"), "Cannot convert to double: " + value);
+            } else {
+                assertEquals(Double.parseDouble(result), rs.getDouble(1));
+                assertEquals(Double.parseDouble(result), rs.getDouble("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getDoubleFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(1, rs.getDouble(1));
+                assertEquals(1, rs.getDouble("C"));
+            } else {
+                assertEquals(0, rs.getDouble(1));
+                assertEquals(0, rs.getDouble("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getBigDecimalValues")
+    public void getBigDecimal(BigDecimal value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DECIMAL, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalScaledVal = value.setScale(2, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value.compareTo(BigDecimal.ZERO) != 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            assertEquals(value.byteValue(), rs.getByte(1));
+            assertEquals(value.byteValue(), rs.getByte("C"));
+
+            assertEquals(value.shortValue(), rs.getShort(1));
+            assertEquals(value.shortValue(), rs.getShort("C"));
+
+            assertEquals(value.intValue(), rs.getInt(1));
+            assertEquals(value.intValue(), rs.getInt("C"));
+
+            assertEquals(value.longValue(), rs.getLong(1));
+            assertEquals(value.longValue(), rs.getLong("C"));
+
+            assertEquals(value.floatValue(), rs.getFloat(1));
+            assertEquals(value.floatValue(), rs.getFloat("C"));
+
+            assertEquals(value.doubleValue(), rs.getDouble(1));
+            assertEquals(value.doubleValue(), rs.getDouble("C"));
+
+            assertEquals(value, rs.getBigDecimal(1));
+            assertEquals(value, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            assertEquals(Byte.valueOf(value.byteValue()), rs.getObject(1, Byte.class));
+            assertEquals(Byte.valueOf(value.byteValue()), rs.getObject("C", Byte.class));
+
+            assertEquals(Short.valueOf(value.shortValue()), rs.getObject(1, Short.class));
+            assertEquals(Short.valueOf(value.shortValue()), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value.intValue()), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value.intValue()), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value.longValue()), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value.longValue()), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value.floatValue()), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value.floatValue()), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value.doubleValue()), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value.doubleValue()), rs.getObject("C", Double.class));
+
+            assertEquals(value, rs.getObject(1, BigDecimal.class));
+            assertEquals(value, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    private static Stream<BigDecimal> getBigDecimalValues() {
+        return Stream.of(
+                new BigDecimal("-9223372036854775808"),
+                new BigDecimal("6786576121.098912301287").negate(),
+                new BigDecimal("121.234").negate(),
+                BigDecimal.ONE.negate(),
+                BigDecimal.ZERO,
+                BigDecimal.ONE,
+                new BigDecimal("121.234"),
+                new BigDecimal("6786576121.098912301287"),
+                new BigDecimal("9223372036854775807")
+        );
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, -9223372036854775808, -9223372036854775808",
+            "true, 9223372036854775807, 9223372036854775807",
+            "true, -42, -42",
+            "true, 42, 42",
+            "true, -9223372036854775809, -9223372036854775809",
+            "true, 9223372036854775808, 9223372036854775808",
+            "true, 10223372036854775808.34954375423432, 10223372036854775808.34954375423432",
+            "true, -10223372036854775808.34954375423432, -10223372036854775808.34954375423432",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getBigDecimalFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getBigDecimal(1), "Cannot convert to BigDecimal: " + value);
+                expectSqlException(() -> rs.getBigDecimal("C"), "Cannot convert to BigDecimal: " + value);
+            } else {
+                assertEquals(new BigDecimal(result), rs.getBigDecimal(1));
+                assertEquals(new BigDecimal(result), rs.getBigDecimal("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void getBigDecimalFromBoolean(boolean value) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                assertEquals(BigDecimal.ONE, rs.getBigDecimal(1));
+                assertEquals(BigDecimal.ONE, rs.getBigDecimal("C"));
+            } else {
+                assertEquals(BigDecimal.ZERO, rs.getBigDecimal(1));
+                assertEquals(BigDecimal.ZERO, rs.getBigDecimal("C"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getBigDecimalScaledValues")
+    public void getBigDecimalScaled(BigDecimal value, int scale) throws SQLException {
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DECIMAL, value.precision(), scale, false), value)) {
+            assertTrue(rs.next());
+
+            BigDecimal decimalScaledVal = value.setScale(scale, RoundingMode.HALF_UP);
+            String strVal = String.valueOf(value);
+            boolean boolValue = value.compareTo(BigDecimal.ZERO) != 0;
+
+            assertEquals(boolValue, rs.getBoolean(1));
+            assertEquals(boolValue, rs.getBoolean("C"));
+
+            assertEquals(value.byteValue(), rs.getByte(1));
+            assertEquals(value.byteValue(), rs.getByte("C"));
+
+            assertEquals(value.shortValue(), rs.getShort(1));
+            assertEquals(value.shortValue(), rs.getShort("C"));
+
+            assertEquals(value.intValue(), rs.getInt(1));
+            assertEquals(value.intValue(), rs.getInt("C"));
+
+            assertEquals(value.longValue(), rs.getLong(1));
+            assertEquals(value.longValue(), rs.getLong("C"));
+
+            assertEquals(value.floatValue(), rs.getFloat(1));
+            assertEquals(value.floatValue(), rs.getFloat("C"));
+
+            assertEquals(value.doubleValue(), rs.getDouble(1));
+            assertEquals(value.doubleValue(), rs.getDouble("C"));
+
+            assertEquals(value, rs.getBigDecimal(1));
+            assertEquals(value, rs.getBigDecimal("C"));
+
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal(1, scale));
+            //noinspection deprecation
+            assertEquals(decimalScaledVal, rs.getBigDecimal("C", scale));
+
+            assertEquals(strVal, rs.getString(1));
+            assertEquals(strVal, rs.getString("C"));
+
+            assertEquals(strVal, rs.getNString(1));
+            assertEquals(strVal, rs.getNString("C"));
+
+            // getObject
+
+            assertEquals(value, rs.getObject(1));
+            assertEquals(value, rs.getObject("C"));
+
+            assertEquals(Byte.valueOf(value.byteValue()), rs.getObject(1, Byte.class));
+            assertEquals(Byte.valueOf(value.byteValue()), rs.getObject("C", Byte.class));
+
+            assertEquals(Short.valueOf(value.shortValue()), rs.getObject(1, Short.class));
+            assertEquals(Short.valueOf(value.shortValue()), rs.getObject("C", Short.class));
+
+            assertEquals(Integer.valueOf(value.intValue()), rs.getObject(1, Integer.class));
+            assertEquals(Integer.valueOf(value.intValue()), rs.getObject("C", Integer.class));
+
+            assertEquals(Long.valueOf(value.longValue()), rs.getObject(1, Long.class));
+            assertEquals(Long.valueOf(value.longValue()), rs.getObject("C", Long.class));
+
+            assertEquals(Float.valueOf(value.floatValue()), rs.getObject(1, Float.class));
+            assertEquals(Float.valueOf(value.floatValue()), rs.getObject("C", Float.class));
+
+            assertEquals(Double.valueOf(value.doubleValue()), rs.getObject(1, Double.class));
+            assertEquals(Double.valueOf(value.doubleValue()), rs.getObject("C", Double.class));
+
+            assertEquals(value, rs.getObject(1, BigDecimal.class));
+            assertEquals(value, rs.getObject("C", BigDecimal.class));
+
+            assertEquals(strVal, rs.getObject(1, String.class));
+            assertEquals(strVal, rs.getObject("C", String.class));
+
+            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
+            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
+        }
+    }
+
+    private static Stream<Arguments> getBigDecimalScaledValues() {
+        return Stream.of(
+                Arguments.of(new BigDecimal("-9223372036854775808"), 0),
+                Arguments.of(new BigDecimal("6786576121.098912301287").negate(), 13),
+                Arguments.of(new BigDecimal("121.234").negate(), 3),
+                Arguments.of(BigDecimal.ZERO, 0),
+                Arguments.of(new BigDecimal("121.234"), 3),
+                Arguments.of(new BigDecimal("6786576121.098912301287"), 13),
+                Arguments.of(new BigDecimal("9223372036854775807"), 0)
+        );
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, 0, -9223372036854775808, -9223372036854775808",
+            "true, 0, 9223372036854775807, 9223372036854775807",
+            "true, 0, -42, -42",
+            "true, 0, 42, 42",
+            "true, 0, -9223372036854775809, -9223372036854775809",
+            "true, 0, 9223372036854775808, 9223372036854775808",
+            "true, 14, 10223372036854775808.34954375423432, 10223372036854775808.34954375423432",
+            "true, 14, -10223372036854775808.34954375423432, -10223372036854775808.34954375423432",
+            "false, 2, xyz, ",
+            "false, 2, , "
+    })
+    public void getBigDecimalScaledFromString(boolean valid, int scale, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                //noinspection deprecation
+                expectSqlException(() -> rs.getBigDecimal(1, scale), "Cannot convert to BigDecimal: " + value);
+                //noinspection deprecation
+                expectSqlException(() -> rs.getBigDecimal("C", scale), "Cannot convert to BigDecimal: " + value);
+            } else {
+                //noinspection deprecation
+                assertEquals(new BigDecimal(result), rs.getBigDecimal(1, scale));
+                //noinspection deprecation
+                assertEquals(new BigDecimal(result), rs.getBigDecimal("C", scale));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "true, 0",
+            "true, 3",
+            "false, 0",
+            "false, 3",
+    })
+    public void getBigDecimalScaledFromBoolean(boolean value, int scale) throws SQLException {
+        BigDecimal one = BigDecimal.ONE.setScale(scale, RoundingMode.HALF_UP);
+        BigDecimal zero = BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (value) {
+                //noinspection deprecation
+                assertEquals(one, rs.getBigDecimal(1, scale));
+                //noinspection deprecation
+                assertEquals(one, rs.getBigDecimal("C", scale));
+            } else {
+                //noinspection deprecation
+                assertEquals(zero, rs.getBigDecimal(1, scale));
+                //noinspection deprecation
+                assertEquals(zero, rs.getBigDecimal("C", scale));
+            }
+        }
     }
 
     @Test
@@ -1117,12 +2332,18 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static void expectNotSupported(ResultSetMethod m) {
-        assertThrows(SQLFeatureNotSupportedException.class, m::call);
+    private static void expectSqlConversionError(Executable call, String typeName) {
+        SQLException err = assertThrows(SQLException.class, call);
+        assertThat(err.getMessage(), containsString("Cannot convert to " + typeName));
+        assertEquals(SqlStateCode.CONVERSION_FAILED, err.getSQLState());
     }
 
-    protected static void expectSqlException(ResultSetMethod m, String message) {
-        SQLException err = assertThrows(SQLException.class, m::call);
+    private static void expectNotSupported(Executable call) {
+        assertThrows(SQLFeatureNotSupportedException.class, call);
+    }
+
+    private static void expectSqlException(Executable m, String message) {
+        SQLException err = assertThrows(SQLException.class, m);
         assertThat(err.getMessage(), containsString(message));
     }
 
@@ -1136,19 +2357,13 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         assertThat(err.getMessage(), containsString("Column not found: " + column));
     }
 
-    private static void expectPositioned(ResultSetMethod m) {
-        SQLException err = assertThrows(SQLException.class, m::call);
+    private static void expectPositioned(Executable call) {
+        SQLException err = assertThrows(SQLException.class, call);
         assertThat(err.getMessage(), containsString("Result set is not positioned on a row."));
     }
 
-    private static void expectClosed(ResultSetMethod method) {
+    private static void expectClosed(Executable method) {
         expectSqlException(method, "Result set is closed.");
-    }
-
-    /** Result set function. */
-    @FunctionalInterface
-    protected interface ResultSetMethod {
-        void call() throws SQLException;
     }
 
     /** Result set function. */
