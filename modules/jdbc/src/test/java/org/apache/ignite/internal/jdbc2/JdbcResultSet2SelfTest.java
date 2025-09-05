@@ -74,6 +74,8 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
  */
 public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
+    private static final int FETCH_SIZE = 10;
+
     // getXXX are not implemented yet
     // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
     // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
@@ -141,6 +143,10 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         ) {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
+        }
+
+        try (ResultSet rs = createResultSet(null, List.of(), List.of())) {
+            expectSqlException(rs::getMetaData, "ResultSet doesn't have metadata");
         }
     }
 
@@ -283,7 +289,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement);
     }
 
-    private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
+    protected static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
         private List<Object> current;
