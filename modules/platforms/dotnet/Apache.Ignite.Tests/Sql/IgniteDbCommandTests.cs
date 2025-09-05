@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql;
 
+using System;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -59,5 +60,27 @@ public class IgniteDbCommandTests
         Assert.IsTrue(await reader.ReadAsync());
         Assert.AreEqual(42, reader.GetInt32(0));
         Assert.IsFalse(await reader.ReadAsync());
+    }
+
+    [Test]
+    public void TestPrepareNotSupported()
+    {
+        using var conn = new IgniteDbConnection(TestUtils.GetTestConfiguration());
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+
+        Assert.Throws<NotSupportedException>(() => cmd.Prepare());
+    }
+
+    [Test]
+    public async Task TestDdl()
+    {
+    }
+
+    [Test]
+    public async Task TestDml()
+    {
     }
 }
