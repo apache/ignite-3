@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Data.Common;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -81,7 +82,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestDdl([Values(true, false)] bool tx)
+    public async Task TestDdl()
     {
         await using var conn = new IgniteDbConnection(null);
         conn.Open(Client);
@@ -89,11 +90,25 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
 
-        await using var transaction = tx ? await conn.BeginTransactionAsync() : null;
-        cmd.Transaction = transaction;
-
         var result = await cmd.ExecuteNonQueryAsync();
         Assert.AreEqual(1, result); // DDL returns -1
+    }
+
+    [Test]
+    public async Task TestDdlWithTxThrows()
+    {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
+
+        await using var transaction = await conn.BeginTransactionAsync();
+        cmd.Transaction = transaction;
+
+        // TODO: Wrap exceptions in DbException
+        var ex = Assert.ThrowsAsync<DbException>(async () => await cmd.ExecuteNonQueryAsync());
+        Assert.AreEqual("DDL doesn't support transactions.", ex?.Message);
     }
 
     [Test]
