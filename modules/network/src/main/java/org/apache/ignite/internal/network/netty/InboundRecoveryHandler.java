@@ -96,7 +96,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
         long receiveCnt = descriptor.onReceive();
 
         if (receiveCnt - lastSentReceivedCount > syncAckThreshold) {
-            sentAcknowledgement(ctx, receiveCnt);
+            sendAcknowledgement(ctx, receiveCnt);
         } else if (scheduleAcknowledgement) {
             scheduleAcknowledgement = false;
 
@@ -104,7 +104,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
                     () -> {
                         scheduleAcknowledgement = true;
 
-                        sentAcknowledgement(ctx, descriptor.receivedCount());
+                        sendAcknowledgement(ctx, descriptor.receivedCount());
                     },
                     postponeAckMillis,
                     TimeUnit.MILLISECONDS
@@ -118,7 +118,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
      * @param ctx Channel handler context.
      * @param receiveCnt Count of received messages to include in the acknowledgement.
      */
-    private void sentAcknowledgement(ChannelHandlerContext ctx, long receiveCnt) {
+    private void sendAcknowledgement(ChannelHandlerContext ctx, long receiveCnt) {
         AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
                 .receivedMessages(receiveCnt).build();
 

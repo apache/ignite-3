@@ -722,12 +722,12 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         Queue<?> evtLoop2Queue = getFieldValue(channel2.eventLoop(), AbstractScheduledEventExecutor.class, "scheduledTaskQueue");
 
         try {
-            IgniteTestUtils.waitForCondition(() -> {
+            assertTrue(IgniteTestUtils.waitForCondition(() -> {
                 channel1.runPendingTasks();
                 channel2.runPendingTasks();
 
                 return nullOrEmpty(evtLoop1Queue) && nullOrEmpty(evtLoop2Queue);
-            }, 10_000);
+            }, 10_000));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
