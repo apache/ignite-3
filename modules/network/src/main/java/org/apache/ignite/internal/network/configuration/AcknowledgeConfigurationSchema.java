@@ -28,10 +28,19 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class AcknowledgeConfigurationSchema {
+    /**
+     * The threshold for determining when acknowledgements should be sent synchronously.
+     * When the number of unacknowledged messages exceeds this value,
+     * acknowledgements will be sent synchronously to prevent excessive message buildup.
+     */
     @Range(min = 0)
     @Value(hasDefault = true)
     public final long syncAckThreshold = 10_000;
 
+    /**
+     * Delay in milliseconds before sending acknowledgement batch.
+     * Allows batching multiple acknowledgements for better network efficiency.
+     */
     @Range(min = 0)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "postponeAck")

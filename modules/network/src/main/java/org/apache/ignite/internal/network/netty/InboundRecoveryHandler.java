@@ -81,7 +81,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
             descriptor.acknowledge(receivedMessages);
         } else if (message.needAck()) {
-            sentOrScheduleAcknowledgement(ctx);
+            sendOrScheduleAcknowledgement(ctx);
         }
 
         super.channelRead(ctx, message);
@@ -92,7 +92,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
      *
      * @param ctx Channel handler context.
      */
-    private void sentOrScheduleAcknowledgement(ChannelHandlerContext ctx) {
+    private void sendOrScheduleAcknowledgement(ChannelHandlerContext ctx) {
         long receiveCnt = descriptor.onReceive();
 
         if (receiveCnt - lastSentReceivedCount > syncAckThreshold) {
