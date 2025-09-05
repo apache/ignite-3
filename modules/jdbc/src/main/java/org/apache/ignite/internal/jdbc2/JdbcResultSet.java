@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc2;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.Array;
 import java.sql.Blob;
@@ -37,10 +38,12 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.temporal.Temporal;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -136,178 +139,303 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
         ensureHasCurrentRow();
 
-        throw new UnsupportedOperationException();
+        Object value = getValue(colIdx);
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Temporal || value instanceof byte[] || value instanceof UUID) {
+            throw new UnsupportedOperationException();
+        } else {
+            return String.valueOf(value);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public String getString(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getString(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean getBoolean(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return false;
+        }
+
+        if (val instanceof Boolean) {
+            return ((Boolean) val);
+        } else if (val instanceof BigDecimal) {
+            return BigDecimal.ZERO.compareTo((BigDecimal) val) != 0;
+        } else if (val instanceof Number) {
+            return ((Number) val).longValue() != 0L;
+        } else if (val instanceof String) {
+            try {
+                return Integer.parseInt(val.toString()) != 0;
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean getBoolean(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getBoolean(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte getByte(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0;
+        }
+
+        if (val instanceof Number) {
+            return ((Number) val).byteValue();
+        } else if (val instanceof Boolean) {
+            return (Boolean) val ? (byte) 1 : (byte) 0;
+        } else if (val instanceof String) {
+            try {
+                return Byte.parseByte(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public byte getByte(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getByte(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public short getShort(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0;
+        }
+
+        if (val instanceof Number) {
+            return ((Number) val).shortValue();
+        } else if (val instanceof Boolean) {
+            return (Boolean) val ? (short) 1 : (short) 0;
+        } else if (val instanceof String) {
+            try {
+                return Short.parseShort(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public short getShort(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getShort(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public int getInt(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0;
+        }
+
+        if (val instanceof Number) {
+            return ((Number) val).intValue();
+        } else if (val instanceof Boolean) {
+            return (Boolean) val ? 1 : 0;
+        } else if (val instanceof String) {
+            try {
+                return Integer.parseInt(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public int getInt(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getInt(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public long getLong(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0;
+        }
+        if (val instanceof Number) {
+            return ((Number) val).longValue();
+        } else if (val instanceof Boolean) {
+            return ((Boolean) val ? 1 : 0);
+        } else if (val instanceof String) {
+            try {
+                return Long.parseLong(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public long getLong(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getLong(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public float getFloat(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0;
+        }
+
+        if (val instanceof Number) {
+            return ((Number) val).floatValue();
+        } else if (val instanceof Boolean) {
+            return ((Boolean) val ? 1 : 0);
+        } else if (val instanceof String) {
+            try {
+                return Float.parseFloat(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public float getFloat(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getFloat(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public double getDouble(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return 0.0d;
+        }
+
+        if (val instanceof Number) {
+            return ((Number) val).doubleValue();
+        } else if (val instanceof Boolean) {
+            return ((Boolean) val ? 1.0d : 0.0d);
+        } else if (val instanceof String) {
+            try {
+                return Double.parseDouble(val.toString());
+            } catch (NumberFormatException e) {
+                throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public double getDouble(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getDouble(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public BigDecimal getBigDecimal(int colIdx, int scale) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        BigDecimal val = getBigDecimal(colIdx);
 
-        throw new UnsupportedOperationException();
+        return val == null ? null : val.setScale(scale, RoundingMode.HALF_UP);
     }
 
     /** {@inheritDoc} */
     @Override
     public BigDecimal getBigDecimal(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof BigDecimal) {
+            return (BigDecimal) val;
+        } else if (val instanceof Float || val instanceof Double) {
+            // Perform conversion from double for floating point numbers
+            return new BigDecimal(((Number) val).doubleValue());
+        } else if (val instanceof Number) {
+            // Perform exact conversion from integer types
+            return new BigDecimal(((Number) val).longValue());
+        } else if (val instanceof Boolean) {
+            return new BigDecimal((Boolean) val ? 1 : 0);
+        } else if (val instanceof String) {
+            try {
+                return new BigDecimal(val.toString());
+            } catch (Exception e) {
+                throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED, e);
+            }
+        } else {
+            throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getBigDecimal(colIdx, scale);
     }
 
     /** {@inheritDoc} */
     @Override
     public BigDecimal getBigDecimal(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getBigDecimal(colIdx);
     }
 
     /** {@inheritDoc} */

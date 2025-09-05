@@ -71,32 +71,28 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
  */
 public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
-    private static final int FETCH_SIZE = 10;
-
-    // getXXX are not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
-    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    // getXXX Temporal / ByteArray are not implemented yet
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
+    @EnumSource(names = {"PERIOD", "DURATION", "DATE", "TIME", "TIMESTAMP", "BYTE_ARRAY"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         super.wasNullPositional(columnType);
-        ;
     }
 
-    // getXXX are not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
-    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
+    // getXXX Temporal / ByteArray are not implemented yet
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
+    @EnumSource(names = {"PERIOD", "DURATION", "DATE", "TIME", "TIMESTAMP", "DATETIME", "BYTE_ARRAY"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
         super.wasNullNamed(columnType);
-        ;
     }
 
     // getXXX are not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Test
     @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
     public void getUnknownColumn() throws SQLException {
         super.getUnknownColumn();
     }
@@ -130,8 +126,8 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     @Test
     @Override
     public void getMetadata() throws SQLException {
-        try (ResultSet rs = createResultSet(null, 
-                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)), 
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)),
                 List.of(List.of(true)))
         ) {
             ResultSetMetaData metaData = rs.getMetaData();
@@ -263,7 +259,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement);
     }
 
-    protected static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
+    private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
         private List<Object> current;
