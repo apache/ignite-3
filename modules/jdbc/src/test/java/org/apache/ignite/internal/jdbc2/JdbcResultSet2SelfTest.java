@@ -47,6 +47,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.ColumnDefinition;
 import org.apache.ignite.internal.jdbc.JdbcResultSetBaseSelfTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
@@ -151,7 +152,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             RuntimeException cause = new RuntimeException("Some error");
             when(igniteRs.hasNext()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement);
+            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -169,7 +170,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             when(igniteRs.hasNext()).thenReturn(true);
             when(igniteRs.next()).thenThrow(cause);
 
-            ResultSet rs = new JdbcResultSet(igniteRs, statement);
+            ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault);
 
             SQLException err = assertThrows(SQLException.class, rs::next);
             assertEquals("Some error", err.getMessage());
@@ -188,7 +189,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         RuntimeException cause = new RuntimeException("Some error");
         doAnswer(new ThrowsException(cause)).when(igniteRs).close();
 
-        ResultSet rs = new JdbcResultSet(igniteRs, statement);
+        ResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault);
 
         SQLException err = assertThrows(SQLException.class, rs::close);
         assertEquals("Some error", err.getMessage());
@@ -212,7 +213,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         RuntimeException cause = new RuntimeException("Corrupted value");
         when(row.value(0)).thenThrow(cause);
 
-        JdbcResultSet rs = new JdbcResultSet(igniteRs, statement);
+        JdbcResultSet rs = new JdbcResultSet(igniteRs, statement, ZoneId::systemDefault);
         assertTrue(rs.next());
 
         SQLException err = assertThrows(SQLException.class, () -> rs.getValue(1));
@@ -236,12 +237,20 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             List<List<Object>> rows
     ) {
 
+        Supplier<ZoneId> zoneIdSupplier = () -> {
+            if (zoneId != null) {
+                return zoneId;
+            } else {
+                return ZoneId.systemDefault();
+            }
+        };
+        
         // ResultSet has no metadata
         if (cols.isEmpty() && rows.isEmpty()) {
             org.apache.ignite.sql.ResultSet<SqlRow> rs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
             when(rs.metadata()).thenReturn(null);
 
-            return new JdbcResultSet(rs, statement);
+            return new JdbcResultSet(rs, statement, zoneIdSupplier);
         }
 
         List<ColumnMetadata> apiCols = new ArrayList<>();
@@ -256,7 +265,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         ResultSetMetadata apiMeta = new ResultSetMetadataImpl(apiCols);
 
-        return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement);
+        return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement, zoneIdSupplier);
     }
 
     private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {

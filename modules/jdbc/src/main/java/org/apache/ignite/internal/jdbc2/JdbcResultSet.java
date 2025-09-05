@@ -22,6 +22,8 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -38,16 +40,28 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC ResultSet adapter backed by {@link org.apache.ignite.sql.ResultSet}.
@@ -61,6 +75,8 @@ public class JdbcResultSet implements ResultSet {
     private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED = "SQL-specific types are not supported.";
 
     private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
+    
+    private final Supplier<ZoneId> zoneIdSupplier;
 
     private final Statement statement;
 
@@ -68,7 +84,7 @@ public class JdbcResultSet implements ResultSet {
 
     private int fetchSize;
 
-    private SqlRow currentRow;
+    private @Nullable SqlRow currentRow;
 
     private int currentPosition;
 
@@ -83,9 +99,11 @@ public class JdbcResultSet implements ResultSet {
      */
     public JdbcResultSet(
             org.apache.ignite.sql.ResultSet<SqlRow> rs,
-            Statement statement
+            Statement statement,
+            Supplier<ZoneId> zoneIdSupplier
     ) {
         this.rs = rs;
+        this.zoneIdSupplier = zoneIdSupplier;
         this.statement = statement;
         this.currentRow = null;
         this.closed = false;
@@ -140,12 +158,26 @@ public class JdbcResultSet implements ResultSet {
         ensureHasCurrentRow();
 
         Object value = getValue(colIdx);
+
         if (value == null) {
             return null;
-        }
+        } else if (value instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
+            JdbcResultSetMetadata jdbcMetadata = initMetadata();
 
-        if (value instanceof Temporal || value instanceof byte[] || value instanceof UUID) {
-            throw new UnsupportedOperationException();
+            return Formatters.formatDateTime(localDateTime, colIdx, jdbcMetadata);
+        } else if (value instanceof LocalTime) {
+            JdbcResultSetMetadata jdbcMetadata = initMetadata();
+            
+            return Formatters.formatTime((LocalTime) value, colIdx, jdbcMetadata);
+        } else if (value instanceof LocalDateTime) {
+            JdbcResultSetMetadata jdbcMetadata = initMetadata();
+            
+            return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMetadata);
+        } else if (value instanceof LocalDate) {
+            return Formatters.formatDate((LocalDate) value);
+        } else if (value instanceof byte[]) {
+            return StringUtils.toHexString((byte[]) value);
         } else {
             return String.valueOf(value);
         }
@@ -441,127 +473,202 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public byte[] getBytes(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof byte[]) {
+            return (byte[]) val;
+        } else if (val instanceof Byte) {
+            return new byte[]{(byte) val};
+        } else if (val instanceof Short) {
+            short x = (short) val;
+            
+            return ByteBuffer.allocate(2).putShort(x).array();
+        } else if (val instanceof Integer) {
+            int x = (int) val;
+            
+            return ByteBuffer.allocate(4).putInt(x).array();
+        } else if (val instanceof Long) {
+            long x = (long) val;
+            
+            return ByteBuffer.allocate(8).putLong(x).array();
+        } else if (val instanceof Float) {
+            
+            return ByteBuffer.allocate(4).putFloat(((Float) val)).array();
+        } else if (val instanceof Double) {
+            
+            return ByteBuffer.allocate(8).putDouble(((Double) val)).array();
+        } else if (val instanceof String) {
+            
+            return ((String) val).getBytes(StandardCharsets.UTF_8);
+        } else if (val instanceof UUID) {
+            ByteBuffer bb = ByteBuffer.allocate(16);
+
+            bb.putLong(((UUID) val).getMostSignificantBits());
+            bb.putLong(((UUID) val).getLeastSignificantBits());
+
+            return bb.array();
+        } else {
+            throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] getBytes(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getBytes(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Date getDate(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof LocalDate) {
+            return Date.valueOf((LocalDate) val);
+        } else if (val instanceof LocalTime) {
+            return new Date(Time.valueOf((LocalTime) val).getTime());
+        } else if (val instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Date.valueOf(localDateTime.toLocalDate());
+        } else if (val instanceof LocalDateTime) {
+            return Date.valueOf(((LocalDateTime) val).toLocalDate());
+        } else {
+            throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
+    }
+    
+    private LocalDateTime instantWithLocalTimeZone(Instant val) {
+        ZoneId zoneId = zoneIdSupplier.get();;
+        if (zoneId == null) {
+            zoneId = ZoneId.systemDefault();
+        }
+        return LocalDateTime.ofInstant(val, zoneId);
     }
 
     /** {@inheritDoc} */
     @Override
     public Date getDate(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getDate(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Date getDate(int colIdx, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
-
-        throw new UnsupportedOperationException();
+        return getDate(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Date getDate(String colLb, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getDate(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Time getTime(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof LocalTime) {
+            return Time.valueOf((LocalTime) val);
+        } else if (val instanceof LocalDate) {
+            return new Time(Date.valueOf((LocalDate) val).getTime());
+        } else if (val instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+            LocalTime localTime = localDateTime.toLocalTime();
+
+            return Time.valueOf(localTime);
+        } else if (val instanceof LocalDateTime) {
+            return Time.valueOf(((LocalDateTime) val).toLocalTime());
+        } else {
+            throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public Time getTime(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getTime(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Time getTime(int colIdx, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
-
-        throw new UnsupportedOperationException();
+        return getTime(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Time getTime(String colLb, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getTime(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Timestamp getTimestamp(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof LocalTime) {
+            return new Timestamp(Time.valueOf((LocalTime) val).getTime());
+        } else if (val instanceof LocalDate) {
+            return new Timestamp(Date.valueOf((LocalDate) val).getTime());
+        } else if (val instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Timestamp.valueOf(localDateTime);
+        } else if (val instanceof LocalDateTime) {
+            return Timestamp.valueOf((LocalDateTime) val);
+        } else {
+            throw new SQLException("Cannot convert to timestamp: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public Timestamp getTimestamp(int colIdx, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
-
         return getTimestamp(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Timestamp getTimestamp(String colLb, Calendar cal) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getTimestamp(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Timestamp getTimestamp(String colLb) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        int colIdx = findColumn(colLb);
 
-        throw new UnsupportedOperationException();
+        return getTimestamp(colIdx);
     }
 
     /** {@inheritDoc} */
@@ -1937,5 +2044,90 @@ public class JdbcResultSet implements ResultSet {
             meta = new JdbcResultSetMetadata(metadata);
         }
         return meta;
+    }
+
+    private static class Formatters {
+        static final DateTimeFormatter TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+        static final DateTimeFormatter DATE = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR, 4)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .toFormatter();
+
+        static final DateTimeFormatter DATE_TIME = new DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR, 4)
+                .appendLiteral('-')
+                .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+                .appendLiteral('-')
+                .appendValue(ChronoField.DAY_OF_MONTH, 2)
+                .appendLiteral(' ')
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .toFormatter();
+
+        static String formatTime(LocalTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDateTime(LocalDateTime value, int colIdx, JdbcResultSetMetadata jdbcMeta) throws SQLException {
+            return formatWithPrecision(DATE_TIME, value, colIdx, jdbcMeta);
+        }
+
+        static String formatDate(LocalDate value) {
+            return DATE.format(value);
+        }
+
+        private static String formatWithPrecision(
+                DateTimeFormatter formatter,
+                TemporalAccessor value,
+                int colIdx,
+                JdbcResultSetMetadata jdbcMeta
+        ) throws SQLException {
+
+            StringBuilder sb = new StringBuilder();
+
+            formatter.formatTo(value, sb);
+
+            int precision = jdbcMeta.getPrecision(colIdx);
+            if (precision <= 0) {
+                return sb.toString();
+            }
+
+            assert precision <= 9 : "Precision is out of range. Precision: " + precision + ". Column: " + colIdx;
+
+            // Append nano seconds according to the specified precision.
+            long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
+            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+
+            sb.append('.');
+            for (int i = 0; i < precision; i++) {
+                sb.append('0');
+            }
+
+            int pos = precision - 1;
+            int start = sb.length() - precision;
+
+            do {
+                int digit = (int) (scaled % 10);
+                char c = (char) ('0' + digit);
+                sb.setCharAt(start + pos, c);
+                scaled /= 10;
+                pos--;
+            } while (scaled != 0 && pos >= 0);
+
+            return sb.toString();
+        }
     }
 }
