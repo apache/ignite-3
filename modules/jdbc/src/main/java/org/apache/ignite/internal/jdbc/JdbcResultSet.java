@@ -79,6 +79,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Jdbc result set implementation.
@@ -236,6 +237,27 @@ public class JdbcResultSet implements ResultSet {
         initColumnOrder(jdbcMeta);
     }
 
+    /**
+     * Creates new result set.
+     *
+     * @exception SQLException if a database access error occurs
+     */
+    @TestOnly
+    JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta, JdbcStatement stmt) throws SQLException {
+        this.stmt = stmt;
+        cursorId = null;
+
+        finished = true;
+        hasResultSet = true;
+        hasNextResult = false;
+        holdsResource = false;
+
+        this.rowsIter = rows.iterator();
+        this.jdbcMeta = new JdbcResultSetMetadata(meta);
+
+        initColumnOrder(jdbcMeta);
+    }
+
     boolean holdResults() {
         return rows != null;
     }
@@ -287,6 +309,7 @@ public class JdbcResultSet implements ResultSet {
     @Override
     public boolean next() throws SQLException {
         ensureNotClosed();
+
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             try {
                 JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
@@ -383,7 +406,6 @@ public class JdbcResultSet implements ResultSet {
     @Override
     public boolean wasNull() throws SQLException {
         ensureNotClosed();
-        ensureHasCurrentRow();
 
         return wasNull;
     }
@@ -1807,24 +1829,32 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void updateRef(int colIdx, Ref x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateRef(String colLb, Ref x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateBlob(int colIdx, Blob x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateBlob(String colLb, Blob x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
@@ -1863,12 +1893,16 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void updateClob(int colIdx, Clob x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateClob(String colLb, Clob x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
@@ -1907,12 +1941,16 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void updateArray(int colIdx, Array x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void updateArray(String colLb, Array x) throws SQLException {
+        ensureNotClosed();
+
         throw new SQLFeatureNotSupportedException("Updates are not supported.");
     }
 
