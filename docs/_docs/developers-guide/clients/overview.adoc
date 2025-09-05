@@ -107,42 +107,71 @@ NOTE: Partition awareness assumes that the cluster is stable. Client receives in
 
 === Limitations
 
-* Equality on affinity columns required
-    Partition awareness works only if the SQL query contains an equality condition on all colocated (affinity) columns. This is required for the client to route SQL query to the node where the partition with the data resides.
+* Equality condition on colocation columns is required. +
+Partition awareness works only if the SQL query contains an equality condition on all colocated columns. This is required for the client to route SQL query to the node where the partition with the data resides. +
 
-* Explicit transactions are not supported
-    Partition awareness may not be applied inside the explicit transactions. In this case, SQL queries must go through the transaction coordinator node, which avoids direct partition-based routing.
+* Explicit transactions are not supported. +
+Partition awareness may not be applied inside the explicit transactions. In this case, SQL queries must go through the transaction coordinator node, which avoids direct partition-based routing.
 
-* Partition awareness cache on client may miss required metadata
- Client node do not parse or executed query by itself, it require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies.
+* DML query, which can **not** be rewritten to key-value operation, are not supported yet.
+Partition awareness works only if the SQL query could be rewritten to a single key-value operation. The explain plan contains `KeyValueGet` or `KeyValueModify` nodes in that case.
+
+* Partition awareness cache on client may miss required metadata +
+Client node do not parse or executed query by itself, it require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies.
+
+NOTE: As for now, Partition awareness is supported for queries over single partition of a single table.
 
 === How to Check if Partition Awareness is Applicable
 
 You can verify whether partition awareness is used for a given SQL query by inspecting the EXPLAIN command results.
 
-The resulting plan should contain a TableScan or IndexScan node with conditions on all colocation (affinity) columns of the table.
-TableScan(table=T, filters=[region_id = 10, customer_id = 200])
+* The resulting plan should contain a `TableScan` node with equality conditions on all colocation columns of the table.
+----
+TableScan
+      table: PUBLIC.T
+      predicate: AND(=(COLOCATION_COL_1, ?), =(COLOCATION_COL_2, ?))
+----
+* or similar `IndexScan` that search bound has a prefix of all the colocation columns.
+----
+IndexScan
+      table: PUBLIC.T
+      predicate: AND(=(COLOCATION_COL_1, ?), =(COLOCATION_COL_2, ?))
+      searchBounds: [ExactBounds [bound=?], ExactBounds [bound=?]]
+----
+* or `KeyValueGet` node
+----
+KeyValueGet
+    table: PUBLIC.T
+    key: [?0]
+----
+* or `KeyValueModify` node
+----
+KeyValueModify
+    table: PUBLIC.T
+    key: [?0]
+----
+
+NOTE: SQL engine allows both literals and dynamic parameters in equality conditions for partition awareness purposes.
+
 
 === Examples
-Assume there is a table defined as:
+Assumed a table `T` is defined as:
 [source, sql]
 ----
 CREATE TABLE T (
+    id INT NOT NULL,
     region_id INT NOT NULL,
     customer_id INT NOT NULL,
-    value VARCHAR,
-    PRIMARY KEY (region_id, customer_id)
-) WITH (
-    AFFINITY_KEY = (region_id, customer_id)
-);
+    val VARCHAR,
+    PRIMARY KEY (id, region_id, customer_id)
+) COLOCATE BY (region_id, customer_id);
 ----
 Next queries can utilize partition awareness optimization:
 ----
 SELECT * FROM T WHERE region_id =? AND customer_id = ?
 
-UPDATE T
-SET value = 'updated'
-WHERE region_id = ? AND customer_id = ?;
+DELETE FROM T
+WHERE id = ? AND region_id = ? AND customer_id = ?;
 
 INSERT INTO T (region_id, customer_id, value)
 VALUES (?, ?, ?);
@@ -150,14 +179,14 @@ VALUES (?, ?, ?);
 
 Next, queries can NOT utilize partition awareness.
 ----
-// Missed colocation information for `customer_id`
+// Missed condition for colocation column `customer_id`
 SELECT * FROM T WHERE region_id =?
 
-// Non-equality conditions
-SELECT * FROM T WHERE region_id > ? AND customer_id > ?
+// Non-equality condition on colocation column
+SELECT * FROM T WHERE region_id = ? AND customer_id > ?
 ----
 
-In other more complex cases (nested queries, IN condition, JOINS), partition awareness may work or may not work that depends whether the query can be rewritten in form that contains colocation information.
+In other more complex cases (nested queries, IN condition, JOINS), partition awareness may work or may not work. It depends whether the query can be rewritten in a form, which contains sufficient information to locate the data.
 
 == Client Features
 The following table outlines features supported by each client.
