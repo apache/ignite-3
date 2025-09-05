@@ -136,7 +136,24 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         );
     }
 
+    @Test
+    void testCreateZoneFailsIfFilterIsInvalid() {
+        String filter = "$[?(@.region == \"non-existing\")]";
+
+        assertThrowsWithCode(
+                SqlException.class,
+                STMT_VALIDATION_ERR,
+                () -> createZoneQueryWithFilter(0, filter),
+                format("Node filter does not match any node in the cluster [filter='{}'].", filter)
+        );
+    }
+
     private  List<List<Object>> createZoneQuery(int nodeIdx, String storageProfile) {
         return executeSql(nodeIdx, format("CREATE ZONE IF NOT EXISTS {} STORAGE PROFILES ['{}']", ZONE_MANE, storageProfile));
+    }
+
+    private  List<List<Object>> createZoneQueryWithFilter(int nodeIdx, String filter) {
+        return executeSql(nodeIdx, format("CREATE ZONE IF NOT EXISTS {} (NODES FILTER '{}') "
+                + "STORAGE PROFILES ['default']", ZONE_MANE, filter));
     }
 }

@@ -750,7 +750,7 @@ public class TestBuilders {
                     clusterName,
                     0,
                     CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null)),
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null)),
                     planningTimeout,
                     PLANNING_THREAD_COUNT,
                     PLAN_EXPIRATION_SECONDS,

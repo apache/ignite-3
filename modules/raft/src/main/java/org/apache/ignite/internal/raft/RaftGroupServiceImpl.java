@@ -979,8 +979,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19466
-        // assert !availablePeers.isEmpty();
         if (availablePeers.isEmpty()) {
             throw new IgniteInternalException(INTERNAL_ERR, "No peers available [groupId=" + groupId + ']');
         }

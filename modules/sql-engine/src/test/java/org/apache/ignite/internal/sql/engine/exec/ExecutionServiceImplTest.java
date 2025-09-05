@@ -245,7 +245,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
+        DdlSqlToCommandConverter converter =
+                new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()

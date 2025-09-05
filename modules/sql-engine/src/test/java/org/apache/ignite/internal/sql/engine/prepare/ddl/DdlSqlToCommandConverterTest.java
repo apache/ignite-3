@@ -111,7 +111,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @BeforeEach
     void setUp() {
-        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
+        converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
     }
 
     @Test

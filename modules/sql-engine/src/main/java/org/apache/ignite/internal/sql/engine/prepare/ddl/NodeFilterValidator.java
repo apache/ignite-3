@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 
 /**
- * Common validator for storage profile names. This is the best-effort validation because the topology may change before the actual
+ * Common validator for node filter. This is the best-effort validation because the topology may change before the actual
  * data nodes calculation that is done during the zone creation.
  */
 @FunctionalInterface
-public interface StorageProfileValidator {
-
+public interface NodeFilterValidator {
     /**
-     * Checks that provided storage profile names are existing and valid.
+     * Checks that provided node filter doesn't exclude all topology nodes from the set of zone's data nodes.
      *
-     * @param storageProfiles Storage profile names to check.
+     * @param nodeFilter Node filter to check.
+     * @return A future that will be completed when validation is done.
      */
-    CompletableFuture<Void> validate(Collection<String> storageProfiles);
+    CompletableFuture<Void> validate(@Nullable String nodeFilter);
 }

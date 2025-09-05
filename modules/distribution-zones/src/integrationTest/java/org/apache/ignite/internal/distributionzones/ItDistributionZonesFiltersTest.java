@@ -241,68 +241,6 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     }
 
     /**
-     * Tests the scenario when empty data nodes are not propagated to stable after filter is altered, because there are no node that
-     * matches the new filter.
-     *
-     * @throws Exception If failed.
-     */
-    @ParameterizedTest
-    @EnumSource(ConsistencyMode.class)
-    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter(ConsistencyMode consistencyMode) throws Exception {
-        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
-
-        IgniteImpl node0 = unwrapIgniteImpl(node(0));
-
-        node0.sql().execute(
-                null,
-                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
-        );
-
-        node0.sql().execute(null, createTableSql());
-
-        MetaStorageManager metaStorageManager = node0.metaStorageManager();
-
-        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
-
-        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes()
-                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                Set.of(node(0).name()),
-                TIMEOUT_MILLIS
-        );
-
-        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
-
-        // This node pass the filter
-        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
-
-        int zoneId = getZoneId(node0);
-
-        // Expected size is 2 because we have timers equals to 10000, so no scale up will be propagated.
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
-
-        // There is no node that match the filter
-        String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
-
-        node0.sql().execute(null, alterZoneSql(newFilter));
-
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartitionAssignmentsKey(partId),
-                (v) -> Assignments.fromBytes(v).nodes()
-                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                Set.of(node(0).name()),
-                TIMEOUT_MILLIS
-        );
-    }
-
-    /**
      * Tests the scenario when removal node from the logical topology leads to empty data nodes, but this empty data nodes do not trigger
      * rebalance. Data nodes become empty after applying corresponding filter.
      *
