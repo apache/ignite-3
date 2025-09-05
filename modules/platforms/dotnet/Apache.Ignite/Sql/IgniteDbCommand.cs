@@ -48,7 +48,7 @@ public sealed class IgniteDbCommand : DbCommand
     }
 
     /// <inheritdoc />
-    public override int CommandTimeout { get; set; }
+    public override int CommandTimeout { get; set; } // TODO: Support timeouts.
 
     /// <inheritdoc />
     public override CommandType CommandType { get; set; }
@@ -100,7 +100,6 @@ public sealed class IgniteDbCommand : DbCommand
             cancellationToken, _cancellationTokenSource.Token);
 
         // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
-        // TODO: Use ExecuteBatch for multiple statements.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
             transaction: GetIgniteTx(),
             statement,
