@@ -91,7 +91,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
 
         var result = await cmd.ExecuteNonQueryAsync();
-        Assert.AreEqual(1, result); // DDL returns -1
+        Assert.AreEqual(1, result);
     }
 
     [Test]
