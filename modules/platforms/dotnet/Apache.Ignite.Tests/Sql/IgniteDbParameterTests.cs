@@ -42,33 +42,39 @@ public class IgniteDbParameterTests
     [Test]
     public void TestDbTypeIgniteColumnTypeMapping()
     {
-        AssertMapping(DbType.AnsiString, ColumnType.String);
         AssertMapping(DbType.Binary, ColumnType.ByteArray);
         AssertMapping(DbType.Byte, ColumnType.Int8);
         AssertMapping(DbType.Boolean, ColumnType.Boolean);
-        AssertMapping(DbType.Currency, ColumnType.Decimal);
         AssertMapping(DbType.Date, ColumnType.Date);
-        AssertMapping(DbType.DateTime, ColumnType.Timestamp);
+        AssertMapping(DbType.DateTime, ColumnType.Datetime);
         AssertMapping(DbType.Decimal, ColumnType.Decimal);
         AssertMapping(DbType.Double, ColumnType.Double);
         AssertMapping(DbType.Guid, ColumnType.Uuid);
         AssertMapping(DbType.Int16, ColumnType.Int16);
         AssertMapping(DbType.Int32, ColumnType.Int32);
         AssertMapping(DbType.Int64, ColumnType.Int64);
-        AssertMapping(DbType.Object, ColumnType.Null);
-        AssertMapping(DbType.SByte, ColumnType.Int8);
         AssertMapping(DbType.Single, ColumnType.Float);
         AssertMapping(DbType.String, ColumnType.String);
         AssertMapping(DbType.Time, ColumnType.Time);
-        AssertMapping(DbType.UInt16, ColumnType.Int16);
-        AssertMapping(DbType.UInt32, ColumnType.Int32);
-        AssertMapping(DbType.UInt64, ColumnType.Int64);
-        AssertMapping(DbType.VarNumeric, ColumnType.Decimal);
-        AssertMapping(DbType.AnsiStringFixedLength, ColumnType.String);
-        AssertMapping(DbType.StringFixedLength, ColumnType.String);
-        AssertMapping(DbType.Xml, ColumnType.String);
-        AssertMapping(DbType.DateTime2, ColumnType.Timestamp);
+
+        // TODO: This is wrong?
         AssertMapping(DbType.DateTimeOffset, ColumnType.Timestamp);
+
+        AssertUnsupported(DbType.AnsiString);
+        AssertUnsupported(DbType.Currency);
+        AssertUnsupported(DbType.Object);
+        AssertUnsupported(DbType.UInt16);
+        AssertUnsupported(DbType.UInt32);
+        AssertUnsupported(DbType.UInt64);
+        AssertUnsupported(DbType.SByte);
+        AssertUnsupported(DbType.Xml);
+        AssertUnsupported(DbType.VarNumeric);
+        AssertUnsupported(DbType.AnsiStringFixedLength);
+        AssertUnsupported(DbType.StringFixedLength);
+        AssertUnsupported(DbType.DateTime2);
+
+        return;
+
         static void AssertMapping(DbType dbType, ColumnType columnType)
         {
             var param = new IgniteDbParameter { DbType = dbType };
@@ -76,6 +82,12 @@ public class IgniteDbParameterTests
 
             param.IgniteColumnType = columnType;
             Assert.AreEqual(dbType, param.DbType);
+        }
+
+        static void AssertUnsupported(DbType dbType)
+        {
+            var param = new IgniteDbParameter();
+            Assert.Throws<NotSupportedException>(() => param.DbType = dbType);
         }
     }
 
