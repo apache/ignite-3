@@ -19,7 +19,7 @@
 assertj = "3.27.4"
 asm = "9.8"
 bouncycastle = "1.81"
-compileTesting = "0.21.0"
+compileTesting = "0.22.0"
 commons-collections4 = "4.5.0"
 commons-lang3 = "3.18.0"
 fliptables = "1.1.1"
