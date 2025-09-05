@@ -29,7 +29,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
 
     @BeforeEach
     void setup() {
-        execute("sql", "create table mytable(id int primary key, name varchar)", "--jdbc-url", JDBC_URL);
+        execute("create table mytable(id int primary key, name varchar)", "--jdbc-url", JDBC_URL);
     }
 
     /**
@@ -41,7 +41,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
         String expectedOutput = "Updated 1 rows.\n"
                 + "Updated 2 rows.";
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -72,9 +72,9 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
                 + "║ 3  │ null  ║\n"
                 + "╚════╧═══════╝";
 
-        execute("sql", "insert into mytable(id, name) values (1, 'Name1'), (2, 'Name2')", "--jdbc-url", JDBC_URL);
+        execute("insert into mytable(id, name) values (1, 'Name1'), (2, 'Name2')", "--jdbc-url", JDBC_URL);
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -90,7 +90,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
                 + "Updated 2 rows.\n"
                 + "Updated 3 rows.";
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -106,7 +106,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
                 + "Updated 2 rows.\n"
                 + "Updated 3 rows.";
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -121,7 +121,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
         String expectedOutput = "Updated 0 rows.\n"
                 + "Updated 0 rows.";
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -143,7 +143,7 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
                 + "║ (empty)   ║\n"
                 + "╚═══════════╝\n" + System.lineSeparator();
 
-        execute("sql", testQuery, "--jdbc-url", JDBC_URL);
+        execute(testQuery, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,

@@ -21,12 +21,15 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 /** Base class for testing CLI REPL sql command in the connected state. */
 class CliSqlConnectCommandTestBase extends CliIntegrationTest {
+    static final String[] SQL_EXEC_COMMAND = {"sql", "exec"};
+
     @Inject
     private SessionDefaultValueProvider defaultValueProvider;
 
@@ -48,5 +51,9 @@ class CliSqlConnectCommandTestBase extends CliIntegrationTest {
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
+    }
+
+    protected void executeSql(String... args) {
+        execute(ArrayUtils.concat(SQL_EXEC_COMMAND, args));
     }
 }

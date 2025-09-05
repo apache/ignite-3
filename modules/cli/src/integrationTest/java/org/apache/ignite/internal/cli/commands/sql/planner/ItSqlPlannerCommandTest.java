@@ -20,16 +20,23 @@ package org.apache.ignite.internal.cli.commands.sql.planner;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 
 import org.apache.ignite.internal.cli.commands.sql.CliSqlCommandTestBase;
-import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link SqlCommand}.
+ * Tests for {@link SqlPlannerCommand}.
  */
 class ItSqlPlannerCommandTest extends CliSqlCommandTestBase {
+    private static final String[] INVALIDATE_CACHE_COMMAND = {"invalidate-cache"};
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return SqlPlannerCommand.class;
+    }
+
     @Test
     void clearCache() {
-        execute("sql-query", "planner", "invalidate-cache", CLUSTER_URL_OPTION, NODE_URL);
+        execute(ArrayUtils.concat(INVALIDATE_CACHE_COMMAND, CLUSTER_URL_OPTION, NODE_URL));
 
         assertErrOutputIsEmpty();
         assertExitCodeIs(0);
@@ -38,7 +45,7 @@ class ItSqlPlannerCommandTest extends CliSqlCommandTestBase {
 
     @Test
     void clearCacheFiltered() {
-        execute("sql-query", "planner", "invalidate-cache", CLUSTER_URL_OPTION, NODE_URL, "--tables", "PUBLIC.\"test\"");
+        execute(ArrayUtils.concat(INVALIDATE_CACHE_COMMAND, CLUSTER_URL_OPTION, NODE_URL, "--tables", "PUBLIC.\"test\""));
 
         assertErrOutputIsEmpty();
         assertExitCodeIs(0);

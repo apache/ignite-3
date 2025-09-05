@@ -26,11 +26,11 @@ import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** Tests for {@link SqlReplCommand}. */
-class ItSqlReplCommandTest extends CliIntegrationTest {
+/** Tests for {@link SqlExecReplCommand}. */
+class ItSqlExecReplCommandTest extends CliIntegrationTest {
     @Override
     protected Class<?> getCommandClass() {
-        return SqlReplCommand.class;
+        return SqlExecReplCommand.class;
     }
 
     @Test

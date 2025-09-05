@@ -19,25 +19,28 @@ package org.apache.ignite.internal.cli.commands.sql.planner;
 
 import jakarta.inject.Inject;
 import java.util.List;
-import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.sql.InvalidateCacheCallInput;
 import org.apache.ignite.internal.cli.call.sql.InvalidatePlannerCacheCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * Sql planner cache invalidation command.
+ * Sql planner cache invalidation command in REPL mode.
  */
 @Command(name = "invalidate-cache", description = "Invalidates SQL planner cache")
-public class InvalidateCacheCommand extends BaseCommand implements Callable<Integer> {
+public class InvalidateCacheReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrl;
+
+    @Inject
+    private ConnectToClusterQuestion question;
 
     @Inject
     private InvalidatePlannerCacheCall call;
@@ -47,10 +50,13 @@ public class InvalidateCacheCommand extends BaseCommand implements Callable<Inte
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> InvalidateCacheCallInput.of(clusterUrl.getClusterUrl(), tables, List.of()))
+    public void run() {
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(url -> InvalidateCacheCallInput.of(url, tables, List.of()))
+
+                .then(Flows.fromCall(call))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Failed to invalidate SQL planner cache"))
+                .print()
         );
     }
 }

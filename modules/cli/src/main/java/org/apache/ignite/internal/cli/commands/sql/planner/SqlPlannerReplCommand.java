@@ -19,16 +19,14 @@ package org.apache.ignite.internal.cli.commands.sql.planner;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.ScopeType;
 
 /**
- * SQL planner command.
+ * SQL planner command in REPL mode.
  */
 @Command(name = "planner",
         subcommands = {
-                InvalidateCacheCommand.class
+                InvalidateCacheReplCommand.class
         },
-        scope = ScopeType.LOCAL,
         description = "SQL planner operations.")
-public class PlanCommand extends BaseCommand {
+public class SqlPlannerReplCommand extends BaseCommand {
 }
