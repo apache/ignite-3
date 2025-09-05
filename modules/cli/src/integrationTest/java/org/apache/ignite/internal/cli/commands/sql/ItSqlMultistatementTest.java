@@ -26,6 +26,10 @@ import org.junit.jupiter.api.Test;
  * Tests for sql multi statement queries.
  */
 public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
+    @Override
+    protected Class<?> getCommandClass() {
+        return SqlExecCommand.class;
+    }
 
     @BeforeEach
     void setup() {
