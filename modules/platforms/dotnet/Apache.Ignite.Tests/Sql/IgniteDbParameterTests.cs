@@ -71,7 +71,7 @@ public class IgniteDbParameterTests
         AssertMapping(DbType.DateTimeOffset, ColumnType.Timestamp);
         static void AssertMapping(DbType dbType, ColumnType columnType)
         {
-            var param = new IgniteDbParameter(dbType: dbType);
+            var param = new IgniteDbParameter { DbType = dbType };
             Assert.AreEqual(columnType, param.IgniteColumnType);
 
             param.IgniteColumnType = columnType;
