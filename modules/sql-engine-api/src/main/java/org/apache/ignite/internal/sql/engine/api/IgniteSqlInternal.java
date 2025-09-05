@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.sql.engine.api;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerCommand;
-import picocli.CommandLine.Command;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.IgniteSql;
 
 /**
- * Command for sql component management.
+ * Internal SQL facade.
  */
-@Command(name = "sql",
-        subcommands = {
-                SqlExecCommand.class,
-                SqlPlannerCommand.class
-        },
-        description = "SQL query engine operations."
-)
-public class SqlCommand extends BaseCommand {
+public interface IgniteSqlInternal extends IgniteSql {
+
+    /**
+     * Invalidates planner cache.
+     *
+     * @return Operation completion future.
+     */
+    CompletableFuture<Void> invalidatePlannerCache(Set<String> strings);
 }

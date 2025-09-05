@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -70,4 +72,13 @@ public interface QueryProcessor extends IgniteComponent {
             String qry,
             Object... params
     );
+
+    /**
+     * Invalidates planner cache.
+     *
+     * @return Operation completion future.
+     */
+    default CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
+        return CompletableFutures.nullCompletedFuture();
+    }
 }

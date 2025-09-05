@@ -28,6 +28,7 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +61,7 @@ public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTes
     @Test
     @DisplayName("Should throw error because cluster not initialized.")
     void nonExistingFile() {
-        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
+        executeSql("--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
 
         assertAll(
                 this::assertOutputIsEmpty,
@@ -78,7 +79,7 @@ public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTes
                 .build()
         );
 
-        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
+        executeSql("--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
 
         assertAll(
                 this::assertOutputIsEmpty,
@@ -89,11 +90,15 @@ public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTes
                 .cmgNodes(node0, node1, node2)
                 .metaStorageNodes(node0, node1, node2).build());
 
-        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
+        executeSql("--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
 
         assertAll(
                 this::assertOutputIsNotEmpty,
                 this::assertErrOutputIsEmpty
         );
+    }
+
+    protected void executeSql(String... args) {
+        execute(ArrayUtils.concat(CliSqlConnectCommandTestBase.SQL_EXEC_COMMAND, args));
     }
 }

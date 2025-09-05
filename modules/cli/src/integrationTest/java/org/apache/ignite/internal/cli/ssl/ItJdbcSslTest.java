@@ -58,7 +58,7 @@ public class ItJdbcSslTest extends CliIntegrationTest {
                 + "&keyStorePassword=" + NodeConfig.keyStorePassword;
 
         // When
-        execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
+        executeJdbc(jdbcUrl, "select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -80,7 +80,7 @@ public class ItJdbcSslTest extends CliIntegrationTest {
                 + "&keyStorePassword=" + NodeConfig.keyStorePassword;
 
         // When
-        execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
+        executeJdbc(jdbcUrl, "select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -104,7 +104,7 @@ public class ItJdbcSslTest extends CliIntegrationTest {
                 + "&clientAuth=require";
 
         // When
-        execute("sql", "--jdbc-url", jdbcUrl, "select * from person");
+        executeJdbc(jdbcUrl, "select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -115,4 +115,7 @@ public class ItJdbcSslTest extends CliIntegrationTest {
         );
     }
 
+    private void executeJdbc(String jdbcUrl, String query) {
+        execute("sql", "exec", "--jdbc-url", jdbcUrl, query);
+    }
 }

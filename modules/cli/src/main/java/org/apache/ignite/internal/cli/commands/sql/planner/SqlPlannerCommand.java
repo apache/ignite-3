@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.commands.sql.planner;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Command for sql component management.
+ * SQL planner command.
  */
-@Command(name = "sql",
+@Command(name = "planner",
         subcommands = {
-                SqlExecCommand.class,
-                SqlPlannerCommand.class
+                InvalidateCacheCommand.class
         },
-        description = "SQL query engine operations."
-)
-public class SqlCommand extends BaseCommand {
+        description = "SQL planner operations.")
+public class SqlPlannerCommand extends BaseCommand {
 }

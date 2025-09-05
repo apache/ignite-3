@@ -24,14 +24,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link SqlCommand}.
+ * Tests for {@link SqlExecCommand}.
  */
-class ItSqlCommandTest extends CliSqlCommandTestBase {
+class ItSqlExecCommandTest extends CliSqlCommandTestBase {
+    @Override
+    protected Class<?> getCommandClass() {
+        return SqlExecCommand.class;
+    }
 
     @Test
     @DisplayName("Should throw error if executed with non-existing file")
     void nonExistingFile() {
-        execute("sql", "--file", "nonexisting", "--jdbc-url", JDBC_URL);
+        execute("--file", "nonexisting", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -43,7 +47,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should execute select * from table and display table when jdbc-url is correct")
     void selectFromTable() {
-        execute("sql", "select * from person", "--jdbc-url", JDBC_URL);
+        execute("select * from person", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -55,14 +59,14 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Output should show aliases for columns in sql output")
     void showColumnAliases() {
-        execute("sql", "select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
+        execute("select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
         assertAll(
                 this::assertExitCodeIsZero,
                 () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "SALARY + 1"),
                 this::assertErrOutputIsEmpty
         );
 
-        execute("sql", "select id as col_1, name as col_2, salary as col_3, salary + 1 as col_4 from person", "--jdbc-url", JDBC_URL);
+        execute("select id as col_1, name as col_2, salary as col_3, salary + 1 as col_4 from person", "--jdbc-url", JDBC_URL);
         assertAll(
                 this::assertExitCodeIsZero,
                 () -> assertOutputIsSqlResultWithColumns("COL_1", "COL_2", "COL_3", "COL_4"),
@@ -82,7 +86,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         };
 
         for (String statement : statements) {
-            execute("sql", statement, "--jdbc-url", JDBC_URL);
+            execute(statement, "--jdbc-url", JDBC_URL);
 
             assertAll(
                     this::assertExitCodeIsZero,
@@ -95,7 +99,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when wrong jdbc is given")
     void wrongJdbcUrl() {
-        execute("sql", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
+        execute("select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -107,7 +111,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when wrong query is given")
     void incorrectQueryTest() {
-        execute("sql", "select", "--jdbc-url", JDBC_URL);
+        execute("select", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -119,7 +123,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when not SQL expression given")
     void notSqlExpression() {
-        execute("sql", "asdf", "--jdbc-url", JDBC_URL);
+        execute("asdf", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -131,7 +135,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when select from non existent table")
     void noSuchTableSelect() {
-        execute("sql", "select * from nosuchtable", "--jdbc-url", JDBC_URL);
+        execute("select * from nosuchtable", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -143,7 +147,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should display readable error when create table without PK")
     void createTableWithoutPk() {
-        execute("sql", "create table mytable(i int)", "--jdbc-url", JDBC_URL);
+        execute("create table mytable(i int)", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -156,7 +160,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @DisplayName("Should execute multiline sql script from file")
     void multilineScript() {
         String filePath = getClass().getResource("/multiline.sql").getPath();
-        execute("sql", "--file", filePath, "--jdbc-url", JDBC_URL);
+        execute("--file", filePath, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -165,7 +169,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         );
 
         // test_table is created in multiline.sql and populated with 3 records.
-        execute("sql", "select count(*) from test_table", "--jdbc-url", JDBC_URL);
+        execute("select count(*) from test_table", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -176,7 +180,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
 
     @Test
     void exceptionHandler() {
-        execute("sql", "SELECT 1/0;", "--jdbc-url", JDBC_URL);
+        execute("SELECT 1/0;", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,
@@ -185,7 +189,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
 
-        execute("sql", "SELECT * FROM NOTEXISTEDTABLE;", "--jdbc-url", JDBC_URL);
+        execute("SELECT * FROM NOTEXISTEDTABLE;", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,
@@ -201,7 +205,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
 
         {
-            execute("sql", "START TRANSACTION;", "--jdbc-url", JDBC_URL);
+            execute("START TRANSACTION;", "--jdbc-url", JDBC_URL);
 
             assertAll(
                     this::assertOutputIsEmpty,
@@ -212,7 +216,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         }
 
         {
-            execute("sql", "START TRANSACTION; SELECT 1;", "--jdbc-url", JDBC_URL);
+            execute("START TRANSACTION; SELECT 1;", "--jdbc-url", JDBC_URL);
 
             assertAll(
                     this::assertOutputIsEmpty,
@@ -223,7 +227,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         }
 
         {
-            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+            execute("START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
 
             assertAll(
                     this::assertOutputIsEmpty,
@@ -234,7 +238,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         }
 
         {
-            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+            execute("START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
 
             assertAll(
                     this::assertOutputIsEmpty,

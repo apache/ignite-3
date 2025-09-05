@@ -44,7 +44,7 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
         execute("connect");
 
         // When
-        execute("sql", "select * from person");
+        executeSql("select * from person");
 
         // Then the query is executed successfully
         assertAll(
@@ -63,7 +63,7 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
         execute("connect");
 
         // When
-        execute("sql", "select * from person");
+        executeSql("select * from person");
 
         // Then the query is failed
         assertAll(
