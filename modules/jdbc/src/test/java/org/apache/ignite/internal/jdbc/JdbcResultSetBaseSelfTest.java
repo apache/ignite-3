@@ -31,9 +31,6 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -169,9 +166,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            expectSqlConversionError(() -> rs.getBytes(1), "byte[]");
-            expectSqlConversionError(() -> rs.getBytes("C"), "byte[]");
-
             // getObject
 
             assertEquals(boolValue, rs.getObject(1));
@@ -209,12 +203,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            expectSqlConversionError(() -> rs.getObject(1, byte[].class), "byte[]");
-            expectSqlConversionError(() -> rs.getObject("C", byte[].class), "byte[]");
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -255,7 +243,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0;
-            byte[] bytes = {value};
 
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
@@ -308,9 +295,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -348,12 +332,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -412,11 +390,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0;
 
-            byte[] bytes = ByteBuffer.allocate(2)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putShort(value)
-                    .array();
-
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
 
@@ -468,9 +441,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -508,12 +478,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -572,11 +536,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0;
 
-            byte[] bytes = ByteBuffer.allocate(4)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putInt(value)
-                    .array();
-
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
 
@@ -628,9 +587,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -668,12 +624,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -732,11 +682,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0L;
 
-            byte[] bytes = ByteBuffer.allocate(8)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putLong(value)
-                    .array();
-
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
 
@@ -788,9 +733,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -828,12 +770,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -891,11 +827,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalScaledVal = new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0.0f;
-            
-            byte[] bytes = ByteBuffer.allocate(4)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putFloat(value)
-                    .array();
 
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
@@ -948,9 +879,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -988,12 +916,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1050,11 +972,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             String strVal = String.valueOf(value);
             boolean boolValue = value != 0.0f;
 
-            byte[] bytes = ByteBuffer.allocate(8)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putDouble(value)
-                    .array();
-
             assertEquals(boolValue, rs.getBoolean(1));
             assertEquals(boolValue, rs.getBoolean("C"));
 
@@ -1106,9 +1023,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -1146,12 +1060,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1256,10 +1164,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTime("C", Calendar.getInstance()), "time");
 
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
-            expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
-
-            expectSqlConversionError(() -> rs.getBytes(1), "byte[]");
-            expectSqlConversionError(() -> rs.getBytes("C"), "byte[]");
 
             // getObject
 
@@ -1298,12 +1202,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            expectSqlConversionError(() -> rs.getObject(1, byte[].class), "byte[]");
-            expectSqlConversionError(() -> rs.getObject("C", byte[].class), "byte[]");
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1438,9 +1336,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             assertEquals(strVal, rs.getObject(1, String.class));
             assertEquals(strVal, rs.getObject("C", String.class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1570,9 +1465,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
             expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
 
-            assertArrayEquals(value.getBytes(StandardCharsets.UTF_8), rs.getBytes(1));
-            assertArrayEquals(value.getBytes(StandardCharsets.UTF_8), rs.getBytes("C"));
-
             // getObject
 
             assertEquals(value, rs.getObject(1));
@@ -1610,12 +1502,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
             expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(value.getBytes(StandardCharsets.UTF_8), rs.getObject(1, byte[].class));
-            assertArrayEquals(value.getBytes(StandardCharsets.UTF_8), rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1678,9 +1564,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(Timestamp.valueOf(LocalDateTime.of(value, LocalTime.of(0, 0, 0))), rs.getTimestamp(1, Calendar.getInstance()));
             assertEquals(Timestamp.valueOf(LocalDateTime.of(value, LocalTime.of(0, 0, 0))), rs.getTimestamp("C", Calendar.getInstance()));
 
-            expectSqlConversionError(() -> rs.getBytes(1), "byte[]");
-            expectSqlConversionError(() -> rs.getBytes("C"), "byte[]");
-
             // getObject
 
             expectSqlConversionError(() -> rs.getObject(1, Boolean.class), "boolean");
@@ -1709,12 +1592,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             assertEquals(Timestamp.valueOf(LocalDateTime.of(value, LocalTime.of(0, 0, 0))), rs.getObject(1, Timestamp.class));
             assertEquals(Timestamp.valueOf(LocalDateTime.of(value, LocalTime.of(0, 0, 0))), rs.getObject("C", Timestamp.class));
-
-            expectSqlConversionError(() -> rs.getObject(1, byte[].class), "byte[]");
-            expectSqlConversionError(() -> rs.getObject("C", byte[].class), "byte[]");
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1837,9 +1714,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(Timestamp.valueOf(LocalDateTime.of(LocalDate.of(1970, 1, 1), value.withNano(0))),
                     rs.getTimestamp("C", Calendar.getInstance()));
 
-            expectSqlConversionError(() -> rs.getBytes(1), "byte[]");
-            expectSqlConversionError(() -> rs.getBytes("C"), "byte[]");
-
             // getObject
 
             expectSqlConversionError(() -> rs.getObject(1, Boolean.class), "boolean");
@@ -1870,12 +1744,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                     rs.getObject(1, Timestamp.class));
             assertEquals(Timestamp.valueOf(LocalDateTime.of(LocalDate.of(1970, 1, 1), value.withNano(0))),
                     rs.getObject("C", Timestamp.class));
-
-            expectSqlConversionError(() -> rs.getObject(1, byte[].class), "byte[]");
-            expectSqlConversionError(() -> rs.getObject("C", byte[].class), "byte[]");
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -1996,9 +1864,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(Timestamp.valueOf(value), rs.getTimestamp(1, Calendar.getInstance()));
             assertEquals(Timestamp.valueOf(value), rs.getTimestamp("C", Calendar.getInstance()));
 
-            expectSqlConversionError(() -> rs.getBytes(1), "byte[]");
-            expectSqlConversionError(() -> rs.getBytes("C"), "byte[]");
-
             // getObject
 
             expectSqlConversionError(() -> rs.getObject(1, Boolean.class), "boolean");
@@ -2027,12 +1892,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             assertEquals(Timestamp.valueOf(value), rs.getObject(1, Timestamp.class));
             assertEquals(Timestamp.valueOf(value), rs.getObject("C", Timestamp.class));
-
-            expectSqlConversionError(() -> rs.getObject(1, byte[].class), "byte[]");
-            expectSqlConversionError(() -> rs.getObject("C", byte[].class), "byte[]");
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
         }
     }
 
@@ -2240,219 +2099,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 Timestamp ts = rs.getTimestamp(4);
                 assertEquals(LocalDateTime.ofInstant(instant, zoneId), ts.toLocalDateTime());
             }
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("getBytesValues")
-    public void getBytes(byte[] value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BYTE_ARRAY, 3, 0, false), value)) {
-            assertTrue(rs.next());
-            
-            String strVal = StringUtils.toHexString(value);
-
-            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
-
-            expectSqlConversionError(() -> rs.getByte(1), "byte");
-            expectSqlConversionError(() -> rs.getByte("C"), "byte");
-
-            expectSqlConversionError(() -> rs.getShort(1), "short");
-            expectSqlConversionError(() -> rs.getShort("C"), "short");
-
-            expectSqlConversionError(() -> rs.getInt(1), "int");
-            expectSqlConversionError(() -> rs.getInt("C"), "int");
-
-            expectSqlConversionError(() -> rs.getLong(1), "long");
-            expectSqlConversionError(() -> rs.getLong("C"), "long");
-
-            expectSqlConversionError(() -> rs.getFloat(1), "float");
-            expectSqlConversionError(() -> rs.getFloat("C"), "float");
-
-            expectSqlConversionError(() -> rs.getDouble(1), "double");
-            expectSqlConversionError(() -> rs.getDouble("C"), "double");
-
-            expectSqlConversionError(() -> rs.getBigDecimal(1), "BigDecimal");
-            expectSqlConversionError(() -> rs.getBigDecimal("C"), "BigDecimal");
-
-            expectSqlConversionError(() -> rs.getBigDecimal(1, 2), "BigDecimal");
-            expectSqlConversionError(() -> rs.getBigDecimal("C", 4), "BigDecimal");
-
-            assertEquals(strVal, rs.getString(1));
-            assertEquals(strVal, rs.getString("C"));
-
-            assertEquals(strVal, rs.getNString(1));
-            assertEquals(strVal, rs.getNString("C"));
-
-            expectSqlConversionError(() -> rs.getDate(1), "date");
-            expectSqlConversionError(() -> rs.getDate("C"), "date");
-
-            expectSqlConversionError(() -> rs.getTime(1), "time");
-            expectSqlConversionError(() -> rs.getTime("C"), "time");
-
-            expectSqlConversionError(() -> rs.getTimestamp(1), "timestamp");
-            expectSqlConversionError(() -> rs.getTimestamp("C"), "timestamp");
-
-            expectSqlConversionError(() -> rs.getDate(1, Calendar.getInstance()), "date");
-            expectSqlConversionError(() -> rs.getDate("C", Calendar.getInstance()), "date");
-
-            expectSqlConversionError(() -> rs.getTime(1, Calendar.getInstance()), "time");
-            expectSqlConversionError(() -> rs.getTime("C", Calendar.getInstance()), "time");
-
-            expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
-            expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
-
-            assertArrayEquals(value, rs.getBytes(1));
-            assertArrayEquals(value, rs.getBytes("C"));
-
-            // getObject
-
-            expectSqlConversionError(() -> rs.getObject(1, Boolean.class), "boolean");
-            expectSqlConversionError(() -> rs.getObject("C", Boolean.class), "boolean");
-
-            expectSqlConversionError(() -> rs.getObject(1, Byte.class), "byte");
-            expectSqlConversionError(() -> rs.getObject("C", Byte.class), "byte");
-
-            expectSqlConversionError(() -> rs.getObject(1, Short.class), "short");
-            expectSqlConversionError(() -> rs.getObject("C", Short.class), "short");
-
-            expectSqlConversionError(() -> rs.getObject(1, Integer.class), "int");
-            expectSqlConversionError(() -> rs.getObject("C", Integer.class), "int");
-
-            expectSqlConversionError(() -> rs.getObject(1, Long.class), "long");
-            expectSqlConversionError(() -> rs.getObject("C", Long.class), "long");
-
-            expectSqlConversionError(() -> rs.getObject(1, BigDecimal.class), "BigDecimal");
-            expectSqlConversionError(() -> rs.getObject("C", BigDecimal.class), "BigDecimal");
-
-            expectSqlConversionError(() -> rs.getObject(1, Date.class), "date");
-            expectSqlConversionError(() -> rs.getObject("C", Date.class), "date");
-
-            expectSqlConversionError(() -> rs.getObject(1, Time.class), "time");
-            expectSqlConversionError(() -> rs.getObject("C", Time.class), "time");
-
-            expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
-            expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(value, rs.getObject(1, byte[].class));
-            assertArrayEquals(value, rs.getObject("C", byte[].class));
-
-            expectSqlConversionError(() -> rs.getObject(1, UUID.class), "java.util.UUID");
-            expectSqlConversionError(() -> rs.getObject("C", UUID.class), "java.util.UUID");
-        }
-    }
-    
-    private static Stream<Arguments> getBytesValues() {
-        return Stream.of(
-                Arguments.of((Object) new byte[0]),
-                Arguments.of((Object) new byte[]{1, 2}),
-                Arguments.of((Object) new byte[]{1, 2, 3, 4})
-        );
-    }
-
-    @Test
-    public void getObjectUuid() throws SQLException {
-        UUID value = UUID.randomUUID();
-
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.UUID, 3, 0, false), value)) {
-            assertTrue(rs.next());
-            
-            String strVal = value.toString();
-
-            byte[] bytes = ByteBuffer.allocate(16)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putLong(value.getMostSignificantBits())
-                    .putLong(value.getLeastSignificantBits())
-                    .array();
-
-            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
-
-            expectSqlConversionError(() -> rs.getByte(1), "byte");
-            expectSqlConversionError(() -> rs.getByte("C"), "byte");
-
-            expectSqlConversionError(() -> rs.getShort(1), "short");
-            expectSqlConversionError(() -> rs.getShort("C"), "short");
-
-            expectSqlConversionError(() -> rs.getInt(1), "int");
-            expectSqlConversionError(() -> rs.getInt("C"), "int");
-
-            expectSqlConversionError(() -> rs.getLong(1), "long");
-            expectSqlConversionError(() -> rs.getLong("C"), "long");
-
-            expectSqlConversionError(() -> rs.getFloat(1), "float");
-            expectSqlConversionError(() -> rs.getFloat("C"), "float");
-
-            expectSqlConversionError(() -> rs.getDouble(1), "double");
-            expectSqlConversionError(() -> rs.getDouble("C"), "double");
-
-            expectSqlConversionError(() -> rs.getBigDecimal(1), "BigDecimal");
-            expectSqlConversionError(() -> rs.getBigDecimal("C"), "BigDecimal");
-
-            expectSqlConversionError(() -> rs.getBigDecimal(1, 2), "BigDecimal");
-            expectSqlConversionError(() -> rs.getBigDecimal("C", 4), "BigDecimal");
-
-            assertEquals(strVal, rs.getString(1));
-            assertEquals(strVal, rs.getString("C"));
-
-            assertEquals(strVal, rs.getNString(1));
-            assertEquals(strVal, rs.getNString("C"));
-
-            expectSqlConversionError(() -> rs.getDate(1), "date");
-            expectSqlConversionError(() -> rs.getDate("C"), "date");
-
-            expectSqlConversionError(() -> rs.getTime(1), "time");
-            expectSqlConversionError(() -> rs.getTime("C"), "time");
-
-            expectSqlConversionError(() -> rs.getTimestamp(1), "timestamp");
-            expectSqlConversionError(() -> rs.getTimestamp("C"), "timestamp");
-
-            expectSqlConversionError(() -> rs.getDate(1, Calendar.getInstance()), "date");
-            expectSqlConversionError(() -> rs.getDate("C", Calendar.getInstance()), "date");
-
-            expectSqlConversionError(() -> rs.getTime(1, Calendar.getInstance()), "time");
-            expectSqlConversionError(() -> rs.getTime("C", Calendar.getInstance()), "time");
-
-            expectSqlConversionError(() -> rs.getTimestamp(1, Calendar.getInstance()), "timestamp");
-            expectSqlConversionError(() -> rs.getTimestamp("C", Calendar.getInstance()), "timestamp");
-
-            assertArrayEquals(bytes, rs.getBytes(1));
-            assertArrayEquals(bytes, rs.getBytes("C"));
-
-            // getObject
-
-            expectSqlConversionError(() -> rs.getObject(1, Boolean.class), "boolean");
-            expectSqlConversionError(() -> rs.getObject("C", Boolean.class), "boolean");
-
-            expectSqlConversionError(() -> rs.getObject(1, Byte.class), "byte");
-            expectSqlConversionError(() -> rs.getObject("C", Byte.class), "byte");
-
-            expectSqlConversionError(() -> rs.getObject(1, Short.class), "short");
-            expectSqlConversionError(() -> rs.getObject("C", Short.class), "short");
-
-            expectSqlConversionError(() -> rs.getObject(1, Integer.class), "int");
-            expectSqlConversionError(() -> rs.getObject("C", Integer.class), "int");
-
-            expectSqlConversionError(() -> rs.getObject(1, Long.class), "long");
-            expectSqlConversionError(() -> rs.getObject("C", Long.class), "long");
-
-            expectSqlConversionError(() -> rs.getObject(1, BigDecimal.class), "BigDecimal");
-            expectSqlConversionError(() -> rs.getObject("C", BigDecimal.class), "BigDecimal");
-
-            expectSqlConversionError(() -> rs.getObject(1, Date.class), "date");
-            expectSqlConversionError(() -> rs.getObject("C", Date.class), "date");
-
-            expectSqlConversionError(() -> rs.getObject(1, Time.class), "time");
-            expectSqlConversionError(() -> rs.getObject("C", Time.class), "time");
-
-            expectSqlConversionError(() -> rs.getObject(1, Timestamp.class), "timestamp");
-            expectSqlConversionError(() -> rs.getObject("C", Timestamp.class), "timestamp");
-
-            assertArrayEquals(bytes, rs.getObject(1, byte[].class));
-            assertArrayEquals(bytes, rs.getObject("C", byte[].class));
-
-            assertEquals(value, rs.getObject(1, UUID.class));
-            assertEquals(value, rs.getObject("C", UUID.class));
         }
     }
     

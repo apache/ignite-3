@@ -22,8 +22,6 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -204,6 +202,10 @@ public class JdbcResultSet implements ResultSet {
             return ((Boolean) val);
         } else if (val instanceof BigDecimal) {
             return BigDecimal.ZERO.compareTo((BigDecimal) val) != 0;
+        } else if (val instanceof Double) {
+            return ((Number) val).doubleValue() != 0L;
+        } else if (val instanceof Float) {
+            return ((Number) val).floatValue() != 0L;
         } else if (val instanceof Number) {
             return ((Number) val).longValue() != 0L;
         } else if (val instanceof String) {
@@ -473,47 +475,10 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public byte[] getBytes(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
+        ensureNotClosed();
+        ensureHasCurrentRow();
 
-        if (val == null) {
-            return null;
-        }
-
-        if (val instanceof byte[]) {
-            return (byte[]) val;
-        } else if (val instanceof Byte) {
-            return new byte[]{(byte) val};
-        } else if (val instanceof Short) {
-            short x = (short) val;
-            
-            return ByteBuffer.allocate(2).putShort(x).array();
-        } else if (val instanceof Integer) {
-            int x = (int) val;
-            
-            return ByteBuffer.allocate(4).putInt(x).array();
-        } else if (val instanceof Long) {
-            long x = (long) val;
-            
-            return ByteBuffer.allocate(8).putLong(x).array();
-        } else if (val instanceof Float) {
-            
-            return ByteBuffer.allocate(4).putFloat(((Float) val)).array();
-        } else if (val instanceof Double) {
-            
-            return ByteBuffer.allocate(8).putDouble(((Double) val)).array();
-        } else if (val instanceof String) {
-            
-            return ((String) val).getBytes(StandardCharsets.UTF_8);
-        } else if (val instanceof UUID) {
-            ByteBuffer bb = ByteBuffer.allocate(16);
-
-            bb.putLong(((UUID) val).getMostSignificantBits());
-            bb.putLong(((UUID) val).getLeastSignificantBits());
-
-            return bb.array();
-        } else {
-            throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
