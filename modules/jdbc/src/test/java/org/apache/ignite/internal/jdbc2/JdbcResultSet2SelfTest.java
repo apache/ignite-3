@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -186,6 +189,21 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    public void closeClosesResultSet() throws SQLException {
+        Statement statement = Mockito.mock(Statement.class);
+
+        org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+        ResultSet rs = new JdbcResultSet(igniteRs, statement);
+
+        rs.close();
+        rs.close();
+
+        verify(igniteRs, times(1)).close();
+        verifyNoMoreInteractions(igniteRs);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void closeExceptionIsWrapped() {
         Statement statement = Mockito.mock(Statement.class);
 
@@ -299,6 +317,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
         @Override
         public void close() {
+            // Does nothing, checked separately.
         }
 
         @Override
