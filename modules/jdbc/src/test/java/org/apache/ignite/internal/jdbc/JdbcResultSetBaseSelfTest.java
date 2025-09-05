@@ -128,6 +128,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(() -> rs.getSQLXML(1));
             expectNotSupported(() -> rs.getSQLXML("C"));
 
+            expectNotSupported(() -> rs.getURL(1));
+            expectNotSupported(() -> rs.getURL("C"));
+
             expectNotSupported(() -> rs.getObject(1, Map.of()));
             expectNotSupported(() -> rs.getObject("C", Map.of()));
         }
@@ -737,9 +740,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectPositioned(() -> rs.getBytes(1));
             expectPositioned(() -> rs.getBytes("C"));
 
-            expectPositioned(() -> rs.getURL(1));
-            expectPositioned(() -> rs.getURL("C"));
-
             // Do not require positioning
             assertThat(rs.getType(), any(Integer.class));
 
@@ -1058,7 +1058,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         assertThrows(SQLFeatureNotSupportedException.class, m::call);
     }
 
-    private static void expectSqlException(ResultSetMethod m, String message) {
+    protected static void expectSqlException(ResultSetMethod m, String message) {
         SQLException err = assertThrows(SQLException.class, m::call);
         assertThat(err.getMessage(), containsString(message));
     }
