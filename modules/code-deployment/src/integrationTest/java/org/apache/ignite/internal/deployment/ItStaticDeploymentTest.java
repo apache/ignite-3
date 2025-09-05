@@ -31,6 +31,9 @@ import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatche
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test suite for static unit deployment mechanism.
+ */
 public class ItStaticDeploymentTest extends ClusterPerClassIntegrationTest {
     private DeployFiles files;
 
@@ -76,5 +79,7 @@ public class ItStaticDeploymentTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<DeploymentStatus> unit1 = node0.nodeStatusAsync("unit1", parseVersion("1.0.0"));
 
         assertThat(unit1, CompletableFutureMatcher.willBe(DeploymentStatus.DEPLOYED));
+
+        CLUSTER.shutdown();
     }
 }
