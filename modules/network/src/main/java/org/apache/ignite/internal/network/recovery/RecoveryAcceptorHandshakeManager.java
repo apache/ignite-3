@@ -179,7 +179,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 .productVersion(productVersionSource.productVersion().toString())
                 .build();
 
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList()));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
@@ -390,7 +390,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 .build();
 
         CompletableFuture<Void> sendFuture = NettyUtils.toCompletableFuture(
-                channel.write(new OutNetworkObject(response, emptyList(), false))
+                channel.write(new OutNetworkObject(response, emptyList()))
         );
 
         descriptor.acknowledge(receivedCount);

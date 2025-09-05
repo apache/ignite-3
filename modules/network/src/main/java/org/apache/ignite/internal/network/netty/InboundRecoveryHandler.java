@@ -122,7 +122,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
         AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
                 .receivedMessages(receiveCnt).build();
 
-        ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+        ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList()));
 
         lastSentReceivedCount = ackMsg.receivedMessages();
     }
