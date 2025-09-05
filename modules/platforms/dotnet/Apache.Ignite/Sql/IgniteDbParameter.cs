@@ -38,6 +38,11 @@ public sealed class IgniteDbParameter : DbParameter
         // No-op.
     }
 
+    public IgniteDbParameter(DbType dbType) : this()
+    {
+        DbType = dbType;
+    }
+
     /// <summary>
     /// Gets or sets the Ignite column type.
     /// </summary>

@@ -40,16 +40,43 @@ public class IgniteDbParameterTests
     }
 
     [Test]
-    public void DbTypeIgniteColumnTypeMapping()
+    public void TestDbTypeIgniteColumnTypeMapping()
     {
-        // TODO: Test all types.
-        var param = new IgniteDbParameter
+        AssertMapping(DbType.AnsiString, ColumnType.String);
+        AssertMapping(DbType.Binary, ColumnType.ByteArray);
+        AssertMapping(DbType.Byte, ColumnType.Int8);
+        AssertMapping(DbType.Boolean, ColumnType.Boolean);
+        AssertMapping(DbType.Currency, ColumnType.Decimal);
+        AssertMapping(DbType.Date, ColumnType.Date);
+        AssertMapping(DbType.DateTime, ColumnType.Timestamp);
+        AssertMapping(DbType.Decimal, ColumnType.Decimal);
+        AssertMapping(DbType.Double, ColumnType.Double);
+        AssertMapping(DbType.Guid, ColumnType.Uuid);
+        AssertMapping(DbType.Int16, ColumnType.Int16);
+        AssertMapping(DbType.Int32, ColumnType.Int32);
+        AssertMapping(DbType.Int64, ColumnType.Int64);
+        AssertMapping(DbType.Object, ColumnType.Null);
+        AssertMapping(DbType.SByte, ColumnType.Int8);
+        AssertMapping(DbType.Single, ColumnType.Float);
+        AssertMapping(DbType.String, ColumnType.String);
+        AssertMapping(DbType.Time, ColumnType.Time);
+        AssertMapping(DbType.UInt16, ColumnType.Int16);
+        AssertMapping(DbType.UInt32, ColumnType.Int32);
+        AssertMapping(DbType.UInt64, ColumnType.Int64);
+        AssertMapping(DbType.VarNumeric, ColumnType.Decimal);
+        AssertMapping(DbType.AnsiStringFixedLength, ColumnType.String);
+        AssertMapping(DbType.StringFixedLength, ColumnType.String);
+        AssertMapping(DbType.Xml, ColumnType.String);
+        AssertMapping(DbType.DateTime2, ColumnType.Timestamp);
+        AssertMapping(DbType.DateTimeOffset, ColumnType.Timestamp);
+        static void AssertMapping(DbType dbType, ColumnType columnType)
         {
-            DbType = DbType.Int64
-        };
-        Assert.AreEqual(ColumnType.Int64, param.IgniteColumnType);
-        param.IgniteColumnType = ColumnType.Double;
-        Assert.AreEqual(DbType.Double, param.DbType);
+            var param = new IgniteDbParameter(dbType: dbType);
+            Assert.AreEqual(columnType, param.IgniteColumnType);
+
+            param.IgniteColumnType = columnType;
+            Assert.AreEqual(dbType, param.DbType);
+        }
     }
 
     [Test]
