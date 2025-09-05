@@ -95,21 +95,27 @@ public sealed class IgniteDbCommand : DbCommand
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, _cancellationTokenSource.Token);
 
-        // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
-        await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
-            transaction: GetIgniteTx(),
-            statement,
-            linkedCts.Token,
-            args).ConfigureAwait(false);
-
-        Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
-
-        if (resultSet.AffectedRows < 0)
+        try
         {
-            return resultSet.WasApplied ? 1 : 0;
-        }
+            await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
+                transaction: GetIgniteTx(),
+                statement,
+                linkedCts.Token,
+                args).ConfigureAwait(false);
 
-        return (int)resultSet.AffectedRows;
+            Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
+
+            if (resultSet.AffectedRows < 0)
+            {
+                return resultSet.WasApplied ? 1 : 0;
+            }
+
+            return (int)resultSet.AffectedRows;
+        }
+        catch (SqlException sqlEx)
+        {
+            throw new IgniteDbException(sqlEx.Message, sqlEx);
+        }
     }
 
     /// <inheritdoc />
