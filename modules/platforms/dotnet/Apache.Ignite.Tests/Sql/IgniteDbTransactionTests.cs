@@ -43,6 +43,56 @@ public class IgniteDbTransactionTests
         Assert.IsFalse(tx.IsDisposed);
     }
 
+    [Test]
+    public void TestRollback()
+    {
+        var tx = new TestIgniteTx();
+        var dbTx = new IgniteDbTransaction(tx, System.Data.IsolationLevel.ReadCommitted, null!);
+
+        dbTx.Rollback();
+
+        Assert.IsFalse(tx.IsCommitted);
+        Assert.IsTrue(tx.IsRolledback);
+        Assert.IsFalse(tx.IsDisposed);
+    }
+
+    [Test]
+    public async Task TestCommitAsync()
+    {
+        var tx = new TestIgniteTx();
+        var dbTx = new IgniteDbTransaction(tx, System.Data.IsolationLevel.ReadCommitted, null!);
+
+        await dbTx.CommitAsync();
+
+        Assert.IsTrue(tx.IsCommitted);
+        Assert.IsFalse(tx.IsRolledback);
+        Assert.IsFalse(tx.IsDisposed);
+    }
+
+    [Test]
+    public async Task TestRollbackAsync()
+    {
+        var tx = new TestIgniteTx();
+        var dbTx = new IgniteDbTransaction(tx, System.Data.IsolationLevel.ReadCommitted, null!);
+
+        await dbTx.RollbackAsync(string.Empty);
+
+        Assert.IsFalse(tx.IsCommitted);
+        Assert.IsTrue(tx.IsRolledback);
+        Assert.IsFalse(tx.IsDisposed);
+    }
+
+    [Test]
+    public void TestDispose()
+    {
+        var tx = new TestIgniteTx();
+        var dbTx = new IgniteDbTransaction(tx, System.Data.IsolationLevel.ReadCommitted, null!);
+
+        dbTx.Dispose();
+
+        Assert.IsTrue(tx.IsDisposed);
+    }
+
     private class TestIgniteTx : ITransaction
     {
         public bool IsDisposed { get; set; }
@@ -59,10 +109,7 @@ public class IgniteDbTransactionTests
             return ValueTask.CompletedTask;
         }
 
-        public void Dispose()
-        {
-            IsDisposed = true;
-        }
+        public void Dispose() => IsDisposed = true;
 
         public Task CommitAsync()
         {
@@ -77,5 +124,3 @@ public class IgniteDbTransactionTests
         }
     }
 }
-
-
