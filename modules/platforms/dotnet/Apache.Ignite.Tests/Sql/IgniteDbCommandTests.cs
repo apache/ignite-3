@@ -138,6 +138,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
     public async Task TestAllParameterTypes()
     {
         // TODO: Why do we even need DbType in parameters? We infer type from Value.
+        // Test in EF branch if all the extra props can be removed / replaced with throw.
         await Task.Delay(1);
         Assert.Fail("TODO");
     }

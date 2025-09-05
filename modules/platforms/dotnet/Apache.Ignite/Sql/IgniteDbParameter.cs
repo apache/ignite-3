@@ -41,11 +41,11 @@ public sealed class IgniteDbParameter : DbParameter
     /// <summary>
     /// Gets or sets the Ignite column type.
     /// </summary>
-    public ColumnType IgniteColumnType { get; set; } = ColumnType.String;
+    public ColumnType IgniteColumnType { get; set; } = ColumnType.String; // TODO: This does not do anything - remove?
 
     /// <inheritdoc />
     [SuppressMessage("ReSharper", "PatternIsRedundant", Justification = "For clarity.")]
-    public override DbType DbType
+    public override DbType DbType // TODO: This does not do anything - throw?
     {
         get => IgniteColumnType switch
         {
@@ -110,11 +110,11 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <inheritdoc />
-    public override bool IsNullable { get; set; }
+    public override bool IsNullable { get; set; } // TODO: Not used in Ignite - remove?
 
     /// <inheritdoc />
     [AllowNull]
-    public override string ParameterName
+    public override string ParameterName // TODO: Ignite does not support named parameters - throw?
     {
         get => _parameterName;
         set => _parameterName = value ?? string.Empty;
@@ -122,7 +122,7 @@ public sealed class IgniteDbParameter : DbParameter
 
     /// <inheritdoc />
     [AllowNull]
-    public override string SourceColumn
+    public override string SourceColumn // TODO: Not used in Ignite - remove?
     {
         get => _sourceColumn;
         set => _sourceColumn = value ?? string.Empty;
@@ -132,10 +132,10 @@ public sealed class IgniteDbParameter : DbParameter
     public override object? Value { get; set; }
 
     /// <inheritdoc />
-    public override bool SourceColumnNullMapping { get; set; }
+    public override bool SourceColumnNullMapping { get; set; } // TODO: Not used in Ignite - remove?
 
     /// <inheritdoc />
-    public override int Size { get; set; }
+    public override int Size { get; set; } // TODO: Not used in Ignite - remove?
 
     /// <inheritdoc />
     public override void ResetDbType() => IgniteColumnType = ColumnType.String;
