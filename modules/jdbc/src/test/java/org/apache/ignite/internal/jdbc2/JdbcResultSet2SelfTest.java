@@ -71,29 +71,31 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
  */
 public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
-    private static final int FETCH_SIZE = 10;
-
     // getXXX are not implemented yet
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         super.wasNullPositional(columnType);
-        ;
     }
 
     // getXXX are not implemented yet
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
     @ParameterizedTest
     @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
         super.wasNullNamed(columnType);
-        ;
     }
 
     // getXXX are not implemented yet
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
+    // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Test
     @Override
@@ -235,6 +237,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     @SuppressWarnings("unchecked")
     private static ResultSet createResultSet(
             Statement statement,
+            @SuppressWarnings("unused")
             @Nullable ZoneId zoneId,
             List<ColumnDefinition> cols,
             List<List<Object>> rows
@@ -263,7 +266,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         return new JdbcResultSet(new ResultSetStub(apiMeta, rows), statement);
     }
 
-    protected static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
+    private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
         private List<Object> current;
