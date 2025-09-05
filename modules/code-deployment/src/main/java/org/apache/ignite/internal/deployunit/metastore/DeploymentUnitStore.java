@@ -25,6 +25,7 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metastore for deployment units.
@@ -114,10 +115,10 @@ public interface DeploymentUnitStore {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @return Future with {@code true} result if status created successfully
-     *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
+     * @return Future with cluster status object if status created successfully
+     *          or with {@code null} if status with provided {@param id} and {@param version} already existed.
      */
-    CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
+    CompletableFuture<@Nullable UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
 
     /**
      * Create new node status for deployment unit.
