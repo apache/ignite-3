@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPE
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.net.URL;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
@@ -359,8 +358,8 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     }
 
     @Test
-    public void getURL() {
-        checkErrorState(() -> {
+    public void getUrlIsNotSupported() {
+        checkNotSupported(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
                 ResultSet rs = stmt.executeQuery();
 
@@ -368,7 +367,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
                 rs.getURL(1);
             }
-        }, CONVERSION_FAILED, "SQL-specific types are not supported");
+        });
     }
 
     /**
