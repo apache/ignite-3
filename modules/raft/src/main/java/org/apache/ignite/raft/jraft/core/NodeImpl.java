@@ -343,7 +343,7 @@ public class NodeImpl implements Node, RaftServerService {
         public void onEvent(final ILogEntryAndClosure event, final long sequence, final boolean endOfBatch) throws Exception {
             if (event.getShutdownLatch() != null) {
                 if (!this.tasks.isEmpty()) {
-                    executeApplyingTasks(this.tasks);
+                    executeApplyingTasks(this.tasks, false);
                     reset();
                 }
                 event.getShutdownLatch().countDown();
@@ -369,7 +369,7 @@ public class NodeImpl implements Node, RaftServerService {
 
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
-                executeApplyingTasks(this.tasks);
+                executeApplyingTasks(this.tasks, false);
                 reset();
             }
         }
@@ -1786,7 +1786,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    private void executeApplyingTasks(final List<ILogEntryAndClosure> tasks) {
+    private void executeApplyingTasks(final List<ILogEntryAndClosure> tasks, boolean patch) {
         if (!this.logManager.hasAvailableCapacityToAppendEntries(1)) {
                 	// It's overload, fail-fast
                 	final List<Closure> dones = tasks.stream().map(ILogEntryAndClosure::getDone).filter(Objects::nonNull)
@@ -1799,6 +1799,7 @@ public class NodeImpl implements Node, RaftServerService {
                 	return;
         }
 
+        // TODO FIXME can we parallelize it ?
         this.writeLock.lock();
         try {
             final int size = tasks.size();
@@ -1818,6 +1819,10 @@ public class NodeImpl implements Node, RaftServerService {
             final List<LogEntry> entries = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 final ILogEntryAndClosure task = tasks.get(i);
+                if (patch) {
+                    patch(task);
+                }
+
                 if (task.getExpectedTerm() != -1 && task.getExpectedTerm() != this.currTerm) {
                     LOG.debug("Node {} can't apply task whose expectedTerm={} doesn't match currTerm={}.", getNodeId(),
                         task.getExpectedTerm(), this.currTerm);
@@ -2218,6 +2223,36 @@ public class NodeImpl implements Node, RaftServerService {
                     }
             }
             break;
+        }
+    }
+
+    @Override
+    public void applySync(Task task) {
+        final LogEntry entry = new LogEntry();
+        entry.setData(task.getData());
+
+        LogEntryAndClosure event = new LogEntryAndClosure();
+        event.setSrcType(DisruptorEventSourceType.APPLY_TASK);
+        event.setNodeId(getNodeId());
+        event.setDone(task.getDone());
+        event.setEntry(entry);
+        event.setExpectedTerm(task.getExpectedTerm());
+
+        executeApplyingTasks(List.of(event), true);
+    }
+
+    private void patch(ILogEntryAndClosure event) {
+        if (event.getDone() instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.getDone();
+            WriteCommand command = clo.command();
+            HybridTimestamp timestamp = command.initiatorTime();
+
+            if (timestamp != null) {
+                synchronized (this) {
+                    // Atomically generate and set id, so it's monotonic
+                    clo.safeTimestamp(clock.update(timestamp));
+                }
+            }
         }
     }
 

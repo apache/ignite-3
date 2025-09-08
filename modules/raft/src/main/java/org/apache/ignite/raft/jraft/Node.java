@@ -99,6 +99,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      */
     void apply(final Task task);
 
+    void applySync(final Task task);
+
     /**
      * [Thread-safe and wait-free]
      *

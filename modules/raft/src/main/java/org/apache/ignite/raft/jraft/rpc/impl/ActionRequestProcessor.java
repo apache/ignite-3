@@ -177,7 +177,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      */
     private void applyWrite(Node node, WriteActionRequest request, WriteCommand command, RpcContext rpcCtx) {
         ByteBuffer wrapper = ByteBuffer.wrap(request.command());
-        node.apply(new Task(wrapper, new LocalAwareWriteCommandClosure() {
+        node.applySync(new Task(wrapper, new LocalAwareWriteCommandClosure() {
             private HybridTimestamp safeTs;
 
             @Override
