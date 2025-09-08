@@ -362,7 +362,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             LocalPartitionStateEnum state = entry.getValue().state();
 
             if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
-                partAssignments.add(Assignment.forPeer(nodeName));
+                if (entry.getValue().isLearner()) {
+                    partAssignments.add(Assignment.forLearner(nodeName));
+                } else {
+                    partAssignments.add(Assignment.forPeer(nodeName));
+                }
             }
         }
 

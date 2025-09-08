@@ -130,6 +130,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
@@ -1027,6 +1028,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                                     .state(localPartitionStateMessage.state())
                                     .logIndex(localPartitionStateMessage.logIndex())
                                     .estimatedRows(estimatedRows)
+                                    .isLearner(localPartitionStateMessage.isLearner())
                                     .build();
 
                     tableLocalPartitionStateMessageByNode.put(nodeName, tableLocalPartitionStateMessage);
@@ -1352,14 +1354,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return null;
         }
 
+        Node raftNode = raftGroupService.getRaftNode();
+
         LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
-                LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
+                LocalPartitionStateEnumWithLogIndex.of(raftNode);
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
                 .zonePartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
                 .state(localPartitionStateWithLogIndex.state)
                 .logIndex(localPartitionStateWithLogIndex.logIndex)
                 .estimatedRows(calculateEstimatedSize(zonePartitionId))
+                .isLearner(raftNode.isLearner())
                 .build();
     }
 
@@ -1423,14 +1428,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return null;
         }
 
+        Node raftNode = raftGroupService.getRaftNode();
+
         LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
-                LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
+                LocalPartitionStateEnumWithLogIndex.of(raftNode);
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
                 .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                 .state(localPartitionStateWithLogIndex.state)
                 .logIndex(localPartitionStateWithLogIndex.logIndex)
                 .estimatedRows(partitionStorage.estimatedSize())
+                .isLearner(raftNode.isLearner())
                 .build();
     }
 
