@@ -212,13 +212,13 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.put(null, key, "value_42");
 
         // Remove existing key and non-matching value.
-        testKeyValueViewOperation(WRITES, 0, view -> view.remove(null, key, "wrong-value"));
+        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "wrong-value"));
 
         // Remove existing key and matching value.
-        testKeyValueViewOperation(WRITES, 1, view -> view.remove(null, key, "value_42"));
+        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 1L), view -> view.remove(null, key, "value_42"));
 
         // Remove non existing key.
-        testKeyValueViewOperation(WRITES, 0, view -> view.remove(null, key, "value_42"));
+        testKeyValueViewOperation(of(RW_READS, WRITES), of(1L, 0L), view -> view.remove(null, key, "value_42"));
     }
 
     @Test
@@ -233,7 +233,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void exactRemoveAll() {
+    void removeCollectionKeys() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
         KeyValueView<Integer, String> kvView = keyValueView(0);
@@ -396,6 +396,47 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         recordView(0).upsertAll(null, nonUniqueRecs);
 
         testRecordViewOperation(WRITES, 2L, view -> view.deleteAll(null, nonUniqueKeys));
+    }
+
+    @Test
+    void deleteAllExact() {
+        List<Tuple> keys = of(Tuple.create().set("id", 12), Tuple.create().set("id", 42));
+        List<Tuple> recs = keys.stream().map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id"))).collect(toList());
+
+        recordView(0).upsertAll(null, recs);
+
+        // Delete existing keys.
+        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), (long) recs.size()), view -> view.deleteAllExact(null, recs));
+
+        // Delete non-existing keys.
+        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, recs));
+
+        recordView(0).insert(null, recs.get(0));
+
+        // Delete one non-existing key.
+        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 1L), view -> view.deleteAllExact(null, recs));
+
+        recordView(0).upsertAll(null, recs);
+        List<Tuple> nonExact = keys.stream().map(t -> Tuple.copy(t).set("val", "value_xyz_" + t.intValue("id"))).collect(toList());
+
+        testRecordViewOperation(of(RW_READS, WRITES), of((long) recs.size(), 0L), view -> view.deleteAllExact(null, nonExact));
+
+        // Non-unique keys.
+        List<Tuple> nonUniqueKeys = of(
+                Tuple.create().set("id", 12),
+                Tuple.create().set("id", 42),
+                Tuple.create().set("id", 12));
+        List<Tuple> nonUniqueRecs = nonUniqueKeys
+                .stream()
+                .map(t -> Tuple.copy(t).set("val", "value_" + t.intValue("id")))
+                .collect(toList());
+
+        recordView(0).upsertAll(null, nonUniqueRecs);
+
+        testRecordViewOperation(
+                of(RW_READS, WRITES),
+                of((long) nonUniqueRecs.size(), 2L),
+                view -> view.deleteAllExact(null, nonUniqueRecs));
     }
 
     @Test

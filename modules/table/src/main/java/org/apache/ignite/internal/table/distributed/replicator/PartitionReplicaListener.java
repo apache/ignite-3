@@ -2141,6 +2141,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
+                        metrics.onRead(searchRows.size(), false);
+
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
@@ -2154,7 +2156,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             leaseStartTime
                                     )
                             )
-                            .thenApply(res -> new ReplicaResult(result, res));
+                            .thenApply(res -> {
+                                metrics.onRead(searchRows.size(), false);
+                                metrics.onWrite(rowIdsToDelete.size());
+
+                                return new ReplicaResult(result, res);
+                            });
                 });
             }
             case RW_INSERT_ALL: {
@@ -2828,6 +2835,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
                             .thenCompose(validatedRowId -> {
                                 if (validatedRowId == null) {
+                                    metrics.onRead(false);
+
                                     return completedFuture(new ReplicaResult(false, null));
                                 }
 

@@ -92,6 +92,12 @@ import org.apache.ignite.table.QualifiedName;
  *     <td>Yes, it is incremented by the number of keys removed</td>
  *   </tr>
  *   <tr>
+ *     <td>conditional remove, deleteExact, deleteAllExact</td>
+ *     <td>No</td>
+ *     <td>Yes, it is incremented by the number of keys read, which is equal to the number of keys provided</td>
+ *     <td>Yes, it is incremented by the number of keys removed</td>
+ *   </tr>
+ *   <tr>
  *     <td>getAndRemove</td>
  *     <td>No</td>
  *     <td>Yes</td>
