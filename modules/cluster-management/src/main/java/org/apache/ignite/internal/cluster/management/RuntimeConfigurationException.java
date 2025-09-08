@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATION_VALIDATION_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
@@ -26,6 +26,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
  */
 public class RuntimeConfigurationException extends IgniteInternalException {
     public RuntimeConfigurationException(String message) {
-        super(ILLEGAL_ARGUMENT_ERR, message);
+        super(CONFIGURATION_VALIDATION_ERR, message);
     }
 }
