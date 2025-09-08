@@ -25,11 +25,11 @@ import org.jetbrains.annotations.Nullable;
 public class ValidationResult {
     @Nullable
     private final String errorDescription;
-    private final boolean userError;
+    private final boolean configError;
 
-    private ValidationResult(@Nullable String errorDescription, boolean userError) {
+    private ValidationResult(@Nullable String errorDescription, boolean configError) {
         this.errorDescription = errorDescription;
-        this.userError = userError;
+        this.configError = configError;
     }
 
     /**
@@ -70,9 +70,9 @@ public class ValidationResult {
     }
 
     /**
-     * Returns flag denoting whether erroneous result is caused by user error.
+     * Returns flag denoting whether erroneous result is caused by config error.
      */
-    boolean isUserError() {
-        return userError;
+    boolean isConfigError() {
+        return configError;
     }
 }
