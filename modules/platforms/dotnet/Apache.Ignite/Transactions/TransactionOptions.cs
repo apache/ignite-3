@@ -27,6 +27,6 @@ namespace Apache.Ignite.Transactions;
 /// </param>
 /// <param name="TimeoutMillis">
 /// Transaction timeout. 0 means 'use default timeout'.
-/// the default timeout is configured via ignite.transaction.timeout configuration property
+/// the default timeout is configured via ignite.transaction.timeout configuration property.
 /// </param>
 public readonly record struct TransactionOptions(bool ReadOnly, long TimeoutMillis = 0);
