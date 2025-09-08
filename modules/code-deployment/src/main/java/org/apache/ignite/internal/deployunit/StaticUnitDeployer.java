@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static java.util.Collections.emptyList;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -138,6 +139,9 @@ public class StaticUnitDeployer {
 
     private static List<Path> allSubdirectories(Path folder) {
         List<Path> subfolders = new ArrayList<>();
+        if (Files.notExists(folder)) {
+            return emptyList();
+        }
         try {
             Files.walkFileTree(folder, Set.of(), 1, new SimpleFileVisitor<>() {
                 @Override

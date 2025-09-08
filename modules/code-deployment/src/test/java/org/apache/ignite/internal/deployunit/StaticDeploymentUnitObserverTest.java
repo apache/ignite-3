@@ -38,6 +38,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link StaticUnitDeployer}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class StaticDeploymentUnitObserverTest {
+public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
     private StaticUnitDeployer observer;
 
     private DeploymentUnitStore deploymentUnitStore;
