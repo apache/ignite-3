@@ -173,8 +173,8 @@ SELECT * FROM T WHERE region_id =? AND customer_id = ?
 DELETE FROM T
 WHERE id = ? AND region_id = ? AND customer_id = ?;
 
-INSERT INTO T (region_id, customer_id, value)
-VALUES (?, ?, ?);
+INSERT INTO T (id, region_id, customer_id, val)
+VALUES (?, ?, ?, ?);
 ----
 
 Next, queries can NOT utilize partition awareness.
