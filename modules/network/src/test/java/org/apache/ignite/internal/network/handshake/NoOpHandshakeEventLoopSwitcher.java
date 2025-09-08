@@ -20,9 +20,9 @@ package org.apache.ignite.internal.network.handshake;
 import io.netty.channel.Channel;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * A no-operation implementation of the HandshakeEventLoopSwitcher.
@@ -50,7 +50,7 @@ public class NoOpHandshakeEventLoopSwitcher extends HandshakeEventLoopSwitcher {
     }
 
     @Override
-    public synchronized void nodeLeftTopology(ClusterNode node) {
+    public synchronized void nodeLeftTopology(InternalClusterNode node) {
         // No operation for NoOpHandshakeEventLoopSwitcher
     }
 }

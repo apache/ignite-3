@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.message.ClusterNodeMessage;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
-import org.apache.ignite.network.ClusterNode;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);
@@ -68,7 +68,7 @@ class HandshakeManagerUtils {
                 .message(messageText)
                 .build();
 
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList()));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, ex) -> {
             // Ignoring ex as it's more important to tell the other side about the rejection reason.
@@ -76,7 +76,7 @@ class HandshakeManagerUtils {
         });
     }
 
-    static ClusterNodeMessage clusterNodeToMessage(ClusterNode node) {
+    static ClusterNodeMessage clusterNodeToMessage(InternalClusterNode node) {
         return MESSAGE_FACTORY.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())

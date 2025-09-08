@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -44,10 +46,11 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @BeforeAll
     public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']", ZONE, 3, DEFAULT_AIPERSIST_PROFILE_NAME));
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
     @Test
     public void testRestartAllPartitions() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
@@ -160,5 +163,71 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
                 ZONE,
                 DEFAULT_PARTITION_COUNT
         ));
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
+    @Test
+    public void testRestartAllPartitionsWithCleanup() {
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
+    @Test
+    public void testRestartSpecifiedPartitionsWithCleanup() {
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26337")
+    @Test
+    public void testRestartPartitionsByNodesWithCleanup() {
+        String nodeNames = CLUSTER.runningNodes()
+                .limit(initialNodes() - 1)
+                .map(Ignite::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Test
+    public void testRestartPartitionsByNodesWithCleanupNoExecutorInNodes() {
+        String nodeNames = CLUSTER.runningNodes()
+                .skip(1)
+                .map(Ignite::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
     }
 }

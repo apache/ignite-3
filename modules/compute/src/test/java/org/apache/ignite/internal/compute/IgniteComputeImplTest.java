@@ -59,7 +59,9 @@ import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.PublicClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -119,9 +121,15 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private HybridTimestamp jobTimestamp;
 
-    private final ClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
+    private final InternalClusterNode localNode = new InternalClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
+    private final ClusterNode publicLocalNode = localNode.toPublicNode();
 
-    private final ClusterNode remoteNode = new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("remote-host", 1));
+    private final InternalClusterNode remoteNode = new InternalClusterNodeImpl(
+            randomUUID(),
+            "remote",
+            new NetworkAddress("remote-host", 1)
+    );
+    private final ClusterNode publicRemoteNode = remoteNode.toPublicNode();
 
     private final List<DeploymentUnit> testDeploymentUnits = List.of(new DeploymentUnit("test", "1.0.0"));
 
@@ -140,7 +148,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 compute.executeAsync(
-                        JobTarget.node(localNode),
+                        JobTarget.node(publicLocalNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         null),
                 willBe("jobResponse")
@@ -159,7 +167,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 compute.executeAsync(
-                        JobTarget.node(localNode),
+                        JobTarget.node(publicLocalNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         null,
                         cancelHandle.token()
@@ -177,7 +185,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
         // Imitate node restart by changing the id.
-        ClusterNode newNode = new ClusterNodeImpl(randomUUID(), localNode.name(), localNode.address());
+        ClusterNode newNode = new PublicClusterNodeImpl(randomUUID(), localNode.name(), localNode.address());
 
         assertThat(
                 compute.executeAsync(
@@ -198,7 +206,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 compute.executeAsync(
-                        JobTarget.node(remoteNode),
+                        JobTarget.node(publicRemoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         "a"),
                 willBe("remoteResponse")
@@ -217,7 +225,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
         assertThat(
                 compute.executeAsync(
-                        JobTarget.node(localNode),
+                        JobTarget.node(publicLocalNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
                         null),
                 willBe("jobResponse")
@@ -235,7 +243,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 compute.executeAsync(
-                        JobTarget.node(remoteNode),
+                        JobTarget.node(publicRemoteNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
                         "a"),
                 willBe("remoteResponse")
@@ -283,7 +291,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
         CompletableFuture<BroadcastExecution<String>> future = compute.submitAsync(
-                BroadcastJobTarget.nodes(localNode, remoteNode),
+                BroadcastJobTarget.nodes(publicLocalNode, publicRemoteNode),
                 JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                 null
         );
@@ -291,8 +299,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         Collection<JobExecution<String>> executions = future.join().executions();
 
         assertThat(executions, containsInAnyOrder(
-                jobExecutionWithResultAndNode("jobResponse", localNode),
-                jobExecutionWithResultAndNode("remoteResponse", remoteNode)
+                jobExecutionWithResultAndNode("jobResponse", publicLocalNode),
+                jobExecutionWithResultAndNode("remoteResponse", publicRemoteNode)
         ));
 
         assertEquals(jobTimestamp, observableTimestampTracker.get());
@@ -310,20 +318,20 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
         when(computeComponent.executeLocally(argThat(ctxEq(executionOptions)), isNull()))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
-                        "jobResponse", null, jobTimestamp.longValue()), localNode)));
+                        "jobResponse", null, jobTimestamp.longValue()), publicLocalNode)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
         when(computeComponent.executeLocally(argThat(ctxEq(executionOptions)), eq(token)))
                 .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
-                        "jobResponse", null, jobTimestamp.longValue()), localNode)));
+                        "jobResponse", null, jobTimestamp.longValue()), publicLocalNode)));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
                 eq(remoteNode), any(), argThat(ctxEq(options)), isNull()
         )).thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
-                "remoteResponse", null, jobTimestamp.longValue()), remoteNode)));
+                "remoteResponse", null, jobTimestamp.longValue()), publicRemoteNode)));
     }
 
     private void verifyExecuteLocally(ExecutionOptions options) {

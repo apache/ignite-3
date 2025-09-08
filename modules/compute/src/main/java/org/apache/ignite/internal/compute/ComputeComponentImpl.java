@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
-import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -63,7 +63,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -215,7 +214,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
@@ -248,7 +247,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     @Override
     public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
@@ -357,7 +356,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable I arg
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), metadataBuilder, arg);
+            return executor.executeTask(jobSubmitter, taskClassName, context.classLoader(), metadataBuilder, arg);
         } catch (Throwable e) {
             context.close();
             throw e;

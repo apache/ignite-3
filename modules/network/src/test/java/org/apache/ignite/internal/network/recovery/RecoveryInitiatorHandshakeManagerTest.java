@@ -46,11 +46,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
@@ -74,7 +77,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @Timeout(10)
 class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
@@ -126,6 +129,9 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean initiatorHandshakeManagerStopping = new AtomicBoolean(false);
+
+    @InjectConfiguration
+    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void initMocks() {
@@ -185,7 +191,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private RecoveryInitiatorHandshakeManager initiatorHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryInitiatorHandshakeManager manager = new RecoveryInitiatorHandshakeManager(
-                new ClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT)),
+                new InternalClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
                 new NoOpHandshakeEventLoopSwitcher(),
@@ -193,7 +199,8 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                ackConfiguration
         );
 
         manager.onInit(thisContext);
@@ -227,7 +234,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
+        manager.setRemoteNode(new InternalClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         DescriptorAcquiry thisAcquiry = recoveryDescriptor.holder();
@@ -251,7 +258,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
+        manager.setRemoteNode(new InternalClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         manager.onMessage(handshakeRejectedMessageDueToClinchFrom());

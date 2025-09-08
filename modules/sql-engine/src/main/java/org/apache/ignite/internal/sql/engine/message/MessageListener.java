@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Listener interface for receiving messages from other nodes in the cluster.
@@ -31,5 +31,5 @@ public interface MessageListener {
      * @param sender The cluster node that sent the message.
      * @param msg The received message.
      */
-    void onMessage(ClusterNode sender, NetworkMessage msg);
+    void onMessage(InternalClusterNode sender, NetworkMessage msg);
 }

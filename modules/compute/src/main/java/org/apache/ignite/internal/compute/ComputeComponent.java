@@ -27,8 +27,8 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +56,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @return Future of the job execution object which will be completed when the job is submitted.
      */
     CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     );
@@ -72,7 +72,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @return Future of the job execution object which will be completed when the job is submitted.
      */
     CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken

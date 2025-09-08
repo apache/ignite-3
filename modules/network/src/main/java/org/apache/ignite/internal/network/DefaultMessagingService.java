@@ -72,7 +72,6 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -126,8 +125,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final LocalIpAddresses localIpAddresses = new LocalIpAddresses();
 
     /**
-     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link ClusterNode}) by {@link ClusterNode#id} that are in the topology
-     * and not stale.
+     * Cache of {@link RecipientInetAddress} of recipient nodes ({@link InternalClusterNode}) by {@link InternalClusterNode#id} that are in
+     * the topology and not stale.
      *
      * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
      */
@@ -197,18 +196,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+    public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
         send(recipient, msg);
     }
 
     @Override
-    public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+    public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
         return send0(recipient, channelType, msg, null, true);
     }
 
     @Override
     public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -221,24 +220,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
-        ClusterNode recipient = topologyService.getByAddress(recipientNetworkAddress);
+        InternalClusterNode recipient = topologyService.getByAddress(recipientNetworkAddress);
 
         // Create a fake node for nodes that are not in the topology yet.
         if (recipient == null) {
-            recipient = new ClusterNodeImpl(null, null, recipientNetworkAddress);
+            recipient = new InternalClusterNodeImpl(null, null, recipientNetworkAddress);
         }
 
         return send0(recipient, channelType, msg, null, false);
     }
 
     @Override
-    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
+    public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
         return send0(recipient, type, msg, correlationId, true);
     }
 
     @Override
     public CompletableFuture<Void> respond(String recipientConsistentId, ChannelType type, NetworkMessage msg, long correlationId) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -250,14 +249,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+    public CompletableFuture<NetworkMessage> invoke(InternalClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
         return invoke0(recipient, type, msg, timeout, true);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, ChannelType type, NetworkMessage msg, long timeout) {
-        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+        InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
             return failedFuture(
@@ -279,7 +278,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> send0(
-            ClusterNode recipient,
+            InternalClusterNode recipient,
             ChannelType type,
             NetworkMessage msg,
             @Nullable Long correlationId,
@@ -311,7 +310,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
     }
 
-    private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
+    private boolean shouldDropMessage(InternalClusterNode recipient, NetworkMessage msg) {
         BiPredicate<String, NetworkMessage> predicate = dropMessagesPredicate;
 
         return predicate != null && predicate.test(recipient.name(), msg);
@@ -328,7 +327,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @return A future holding the response or error if the expected response was not received.
      */
     private CompletableFuture<NetworkMessage> invoke0(
-            ClusterNode recipient,
+            InternalClusterNode recipient,
             ChannelType type,
             NetworkMessage msg,
             long timeout,
@@ -685,7 +684,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 recipientInetAddrByNodeId.remove(member.id());
             }
         });
@@ -799,7 +798,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param recipientNode Target cluster node.
      */
-    @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+    @Nullable InetSocketAddress resolveRecipientAddress(InternalClusterNode recipientNode) {
         // Node ID is {@code null} if this is a Scalecube request when the node does not know yet whose this address is.
         if (recipientNode.id() != null) {
             return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
@@ -808,7 +807,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return RecipientInetAddress.create(connectionManager.localBindAddress(), recipientNode.address(), localIpAddresses).address();
     }
 
-    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
+    private @Nullable InetSocketAddress getFromCacheOrCreateResolved(InternalClusterNode recipientNode) {
         assert recipientNode.id() != null : "Node has not been added to the topology: " + recipientNode.id();
 
         InetSocketAddress localBindAddress = connectionManager.localBindAddress();

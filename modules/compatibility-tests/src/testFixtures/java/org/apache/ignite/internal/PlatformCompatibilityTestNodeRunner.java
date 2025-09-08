@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTPS_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -59,22 +55,21 @@ public class PlatformCompatibilityTestNodeRunner {
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
-        String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
-        String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");
-        int portOffset = Integer.parseInt(System.getenv().getOrDefault("IGNITE_OLD_SERVER_PORT_OFFSET", "20000"));
+        String version = getEnvOrThrow("IGNITE_OLD_SERVER_VERSION");
+        String workDir = getEnvOrThrow("IGNITE_OLD_SERVER_WORK_DIR");
 
-        if (version == null || workDir == null) {
-            throw new Exception("IGNITE_OLD_SERVER_VERSION and IGNITE_OLD_SERVER_WORK_DIR environment variables are not set.");
-        }
+        int port = Integer.parseInt(getEnvOrThrow("IGNITE_OLD_SERVER_PORT"));
+        int httpPort = Integer.parseInt(getEnvOrThrow("IGNITE_OLD_SERVER_HTTP_PORT"));
+        int clientPort = Integer.parseInt(getEnvOrThrow("IGNITE_OLD_SERVER_CLIENT_PORT"));
 
         System.out.println(">>> Starting test node with version: " + version + " in work directory: " + workDir);
+        System.out.println(">>> Ports: node=" + port + ", http=" + httpPort + ", client=" + clientPort);
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .basePort(DEFAULT_BASE_PORT + portOffset)
-                .baseHttpPort(DEFAULT_BASE_HTTP_PORT + portOffset)
-                .baseHttpsPort(DEFAULT_BASE_HTTPS_PORT + portOffset)
-                .baseClientPort(DEFAULT_BASE_CLIENT_PORT + portOffset)
+                .basePort(port)
+                .baseHttpPort(httpPort)
+                .baseClientPort(clientPort)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
@@ -90,6 +85,16 @@ public class PlatformCompatibilityTestNodeRunner {
         Thread.sleep(60_000);
 
         cluster.stop();
+    }
+
+    private static String getEnvOrThrow(String name) throws Exception {
+        String val = System.getenv(name);
+
+        if (val == null || val.isEmpty()) {
+            throw new Exception(name + " environment variable is not set or empty.");
+        }
+
+        return val;
     }
 
     private static class PlatformTestInfo implements TestInfo {

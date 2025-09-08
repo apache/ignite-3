@@ -527,6 +527,18 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
     }
 
+    /**
+     * Validates a plan for a query with GROUPING aggregate.
+     */
+    @Test
+    public void groupsWithGroupingAggregate() throws Exception {
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1A);
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_28_1B);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_28_2B);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         checkSimpleAggSingle(testCase, hasAggregate());
     }
