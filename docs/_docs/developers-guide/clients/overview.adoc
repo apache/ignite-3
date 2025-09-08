@@ -108,10 +108,7 @@ NOTE: Partition awareness assumes that the cluster is stable. Client receives in
 === Limitations
 
 * Equality condition on colocation columns is required. +
-Partition awareness works only if the SQL query contains an equality condition on all colocated columns. This is required for the client to route SQL query to the node where the partition with the data resides. +
-
-* Explicit transactions are not supported. +
-Partition awareness may not be applied inside the explicit transactions. In this case, SQL queries must go through the transaction coordinator node, which avoids direct partition-based routing.
+Partition awareness optimization can be applied only if the SQL query contains an equality condition on all colocated columns. The mandatory requirement allows the client to route SQL query to the node where the partition with the data resides. +
 
 * DML query, which can **not** be rewritten to key-value operation, are not supported yet.
 Partition awareness works only if the SQL query could be rewritten to a single key-value operation. The explain plan contains `KeyValueGet` or `KeyValueModify` nodes in that case.
