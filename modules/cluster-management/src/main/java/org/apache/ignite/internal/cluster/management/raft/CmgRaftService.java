@@ -32,6 +32,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
+import org.apache.ignite.internal.cluster.management.RuntimeConfigurationException;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.lang.InvalidUserInputException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -151,16 +151,16 @@ public class CmgRaftService implements ManuallyCloseable {
                     if (response instanceof ValidationErrorResponse) {
                         var validationErrorResponse = (ValidationErrorResponse) response;
 
-                        if (validationErrorResponse.isUserError()) {
-                            var invalidUserInputException = new InvalidUserInputException(validationErrorResponse.reason());
+                        if (validationErrorResponse.isConfigError()) {
+                            var runtimeConfigurationException = new RuntimeConfigurationException(validationErrorResponse.reason());
 
-                            throw new JoinDeniedException(invalidUserInputException.code(),  invalidUserInputException);
+                            throw new JoinDeniedException(runtimeConfigurationException.code(), runtimeConfigurationException);
                         } else {
                             throw new JoinDeniedException(validationErrorResponse.reason());
                         }
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
-                    }  else {
+                    } else {
                         LOG.info("JoinRequest command executed successfully");
                     }
                 });

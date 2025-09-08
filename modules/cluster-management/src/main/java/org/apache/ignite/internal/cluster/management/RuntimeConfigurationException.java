@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Exception representing user input error. This is used to differentiate from system errors.
  */
-public class InvalidUserInputException extends IgniteException {
-    public InvalidUserInputException(String message) {
+public class RuntimeConfigurationException extends IgniteInternalException {
+    public RuntimeConfigurationException(String message) {
         super(ILLEGAL_ARGUMENT_ERR, message);
-    }
-
-    public InvalidUserInputException(UUID traceId, int code, String message, @Nullable Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

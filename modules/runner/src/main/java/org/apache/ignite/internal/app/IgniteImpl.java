@@ -81,6 +81,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
+import org.apache.ignite.internal.cluster.management.RuntimeConfigurationException;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
@@ -291,7 +292,6 @@ import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.InvalidUserInputException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -1696,7 +1696,7 @@ public class IgniteImpl implements Ignite {
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
         Throwable rootEx = unwrapRootCause(e);
-        if (rootEx instanceof InvalidUserInputException) {
+        if (rootEx instanceof RuntimeConfigurationException) {
             LOG.warn("{}. Reason: {]", errMsg,  rootEx.getMessage());
         } else {
             // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
