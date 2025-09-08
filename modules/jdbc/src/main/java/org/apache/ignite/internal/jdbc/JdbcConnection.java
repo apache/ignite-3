@@ -58,9 +58,11 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -143,6 +145,26 @@ public class JdbcConnection implements Connection {
 
         try {
             client = buildClient(addrs, observableTimeTracker);
+
+            int supportedChannels = 0;
+
+            for (ClientChannel ch : client.channel().channels()) {
+                if (!ch.protocolContext().isFeatureSupported(ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT)) {
+                    // TODO Check how to handle properly if some channels were closed
+                    // TODO heterogeneous cluster test?
+                    ch.close();
+
+                    continue;
+                }
+
+                ++supportedChannels;
+            }
+
+            if (supportedChannels == 0) {
+                client.channel().close();
+
+                throw new IllegalStateException("No servers supporting new JDBC found");
+            }
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
