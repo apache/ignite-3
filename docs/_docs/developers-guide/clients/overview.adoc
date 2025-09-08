@@ -110,8 +110,10 @@ NOTE: Partition awareness assumes that the cluster is stable. Client receives in
 * Equality condition on colocation columns is required. +
 Partition awareness optimization can be applied only if the SQL query contains an equality condition on all colocated columns. The mandatory requirement allows the client to route SQL query to the node where the partition with the data resides. +
 
-* DML query, which can **not** be rewritten to key-value operation, are not supported yet.
+* DML query, which can **not** be rewritten to key-value operation, are not supported yet. +
+This statement is more stronger comparing to previous one and require equality condition on all key columns.
 Partition awareness works only if the SQL query could be rewritten to a single key-value operation. The explain plan contains `KeyValueGet` or `KeyValueModify` nodes in that case.
+Bulk DML operations (like ```INSERT FROM SELECT``` or multi-values ```INSERT FROM VALUES```) are not supported yet.
 
 * Partition awareness cache on client may miss required metadata +
 Client node do not parse or executed query by itself, it require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies.
