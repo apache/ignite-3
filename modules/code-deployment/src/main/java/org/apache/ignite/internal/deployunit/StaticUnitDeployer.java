@@ -33,13 +33,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Observes a predefined directory with statically provisioned deployment units and
@@ -51,8 +51,8 @@ import org.apache.ignite.internal.logger.Loggers;
  * the observer creates (or reuses) a cluster status and then creates the node status marked as
  * {@link DeploymentStatus#DEPLOYED}.
  */
-public class StaticDeploymentUnitObserver {
-    private static final IgniteLogger LOG = Loggers.forClass(StaticDeploymentUnitObserver.class);
+public class StaticUnitDeployer {
+    private static final IgniteLogger LOG = Loggers.forClass(StaticUnitDeployer.class);
 
     private final DeploymentUnitStore deploymentUnitStore;
 
@@ -63,7 +63,7 @@ public class StaticDeploymentUnitObserver {
     /**
      * Constructor.
      */
-    public StaticDeploymentUnitObserver(
+    public StaticUnitDeployer(
             DeploymentUnitStore deploymentUnitStore,
             String nodeName,
             Path deploymentUnitsRoot
@@ -79,20 +79,21 @@ public class StaticDeploymentUnitObserver {
      *
      * <p>Already registered unit versions for this node are skipped. New ones are registered as DEPLOYED.
      */
-    public CompletableFuture<Void> observeAndRegisterStaticUnits() {
-        Map<String, List<Version>> staticUnits = collectStaticUnits();
+    public CompletableFuture<Void> searchAndDeployStaticUnits() {
+        LOG.info("Start search static deployment units.");
+        Map<String, List<Version>> allUnits = collectStaticUnits();
 
         return deploymentUnitStore.getNodeStatuses(nodeName).thenCompose(statuses -> {
             List<CompletableFuture<?>> futures = new ArrayList<>();
 
             for (UnitNodeStatus status : statuses) {
-                staticUnits.get(status.id()).remove(status.version());
-                if (staticUnits.get(status.id()).isEmpty()) {
-                    staticUnits.remove(status.id());
+                allUnits.get(status.id()).remove(status.version());
+                if (allUnits.get(status.id()).isEmpty()) {
+                    allUnits.remove(status.id());
                 }
             }
 
-            staticUnits.forEach((id, versions) -> {
+            allUnits.forEach((id, versions) -> {
                 versions.forEach(version -> {
                     LOG.info("Start processing unit {}:{}", id, version);
                     CompletableFuture<Boolean> future = deploymentUnitStore.createClusterStatus(id, version, Set.of(nodeName))
@@ -125,7 +126,11 @@ public class StaticDeploymentUnitObserver {
                     unitFolder.getFileName().toString(),
                     versions.stream()
                             .map(versionFolder -> parseVersion(versionFolder.getFileName().toString()))
-                            .collect(Collectors.toList())
+                            .collect(
+                                    ArrayList::new,
+                                    ArrayList::add,
+                                    ArrayList::addAll
+                            )
             );
         }
         return units;
@@ -134,13 +139,13 @@ public class StaticDeploymentUnitObserver {
     private static List<Path> allSubdirectories(Path folder) {
         List<Path> subfolders = new ArrayList<>();
         try {
-            Files.walkFileTree(folder, Set.of(), 2, new SimpleFileVisitor<>() {
+            Files.walkFileTree(folder, Set.of(), 1, new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    if (!dir.equals(folder)) {
-                        subfolders.add(dir);
+                public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
+                    if (attrs.isDirectory()) {
+                        subfolders.add(file);
                     }
-                    return super.preVisitDirectory(dir, attrs);
+                    return super.visitFile(file, attrs);
                 }
             });
         } catch (IOException e) {

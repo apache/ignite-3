@@ -18,63 +18,104 @@
 package org.apache.ignite.internal.deployunit;
 
 import static org.apache.ignite.deployment.version.Version.parseVersion;
+import static org.apache.ignite.internal.deployment.UnitStatusMatchers.any;
+import static org.apache.ignite.internal.deployment.UnitStatusMatchers.deploymentStatusIs;
+import static org.apache.ignite.internal.deployment.UnitStatusMatchers.versionIs;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.create;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Test suite for {@link StaticDeploymentUnitObserver}.
+ * Test suite for {@link StaticUnitDeployer}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class StaticDeploymentUnitObserverTest {
-    private StaticDeploymentUnitObserver observer;
+    private StaticUnitDeployer observer;
 
-    private StubDeploymentUnitStore deploymentUnitStore;
+    private DeploymentUnitStore deploymentUnitStore;
 
     @WorkDirectory
     private Path workDir;
 
     @BeforeEach
     public void setup() {
-        deploymentUnitStore = new StubDeploymentUnitStore();
-        this.observer = new StaticDeploymentUnitObserver(deploymentUnitStore, "node1", workDir);
+        StandaloneMetaStorageManager metastore = create("node1");
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        deploymentUnitStore = new DeploymentUnitStoreImpl(metastore);
+
+        this.observer = new StaticUnitDeployer(deploymentUnitStore, "node1", workDir);
     }
 
     @Test
-    public void test() throws IOException {
+    public void simpleStaticDeployTest() throws IOException {
         Files.createDirectories(workDir.resolve("unit1").resolve("1.0.0"));
         Files.createDirectories(workDir.resolve("unit1").resolve("1.0.1"));
         Files.createDirectories(workDir.resolve("unit1").resolve("1.1.1"));
         Files.createDirectories(workDir.resolve("unit2").resolve("1.0.0"));
         Files.createDirectories(workDir.resolve("unit3").resolve("1.1.0"));
 
-        assertThat(observer.observeAndRegisterStaticUnits(), willCompleteSuccessfully());
+        assertThat(observer.searchAndDeployStaticUnits(), willCompleteSuccessfully());
 
-        CompletableFuture<List<Version>> unit1Statuses = deploymentUnitStore.getNodeStatuses("node1", "unit1")
-                .thenApply(statuses -> statuses.stream().map(UnitStatus::version).collect(Collectors.toList()));
-        assertThat(unit1Statuses, willBe(containsInAnyOrder(parseVersion("1.0.0"), parseVersion("1.0.1"), parseVersion("1.1.1"))));
+        assertThat(
+                deploymentUnitStore.getNodeStatuses("node1", "unit1"),
+                willBe(any(versionIs(parseVersion("1.0.0")), versionIs(parseVersion("1.0.1")), versionIs(parseVersion("1.1.1"))))
+        );
 
-        CompletableFuture<List<Version>> unit2Statuses = deploymentUnitStore.getNodeStatuses("node1", "unit2")
-                .thenApply(statuses -> statuses.stream().map(UnitStatus::version).collect(Collectors.toList()));
+        assertThat(
+                deploymentUnitStore.getNodeStatuses("node1", "unit2"),
+                willBe(any(versionIs(parseVersion("1.0.0"))))
+        );
 
-        assertThat(unit2Statuses, willBe(containsInAnyOrder(parseVersion("1.0.0"))));
+        assertThat(
+                deploymentUnitStore.getNodeStatuses("node1", "unit3"),
+                willBe(any(versionIs(parseVersion("1.1.0"))))
+        );
+    }
 
-        CompletableFuture<List<Version>> unit3Statuses = deploymentUnitStore.getNodeStatuses("node1", "unit3")
-                .thenApply(statuses -> statuses.stream().map(UnitStatus::version).collect(Collectors.toList()));
-        assertThat(unit3Statuses, willBe(containsInAnyOrder(parseVersion("1.1.0"))));
+    @Test
+    public void skipAlreadyDeployedTest() throws Exception {
+        Files.createDirectories(workDir.resolve("unit1").resolve("1.0.0"));
+        CompletableFuture<@Nullable UnitClusterStatus> clusterStatus = deploymentUnitStore.createClusterStatus(
+                "unit1",
+                parseVersion("1.0.0"),
+                Set.of("node1")
+        );
+
+        assertThat(clusterStatus, willBe(notNullValue()));
+        deploymentUnitStore.createNodeStatus("node1", "unit1", parseVersion("1.0.0"), clusterStatus.get().opId(), UPLOADING);
+
+        Files.createDirectories(workDir.resolve("unit1").resolve("1.0.1"));
+        Files.createDirectories(workDir.resolve("unit2").resolve("1.0.0"));
+
+        assertThat(observer.searchAndDeployStaticUnits(), willCompleteSuccessfully());
+
+        assertThat(
+                deploymentUnitStore.getNodeStatuses("node1", "unit1"),
+                willBe(any(versionIs(parseVersion("1.0.0")), versionIs(parseVersion("1.0.1"))))
+        );
+
+        // Due to static deploy process should be skipped
+        assertThat(deploymentUnitStore.getClusterStatus("unit1", parseVersion("1.0.0")), willBe(deploymentStatusIs(UPLOADING)));
+        assertThat(deploymentUnitStore.getNodeStatus("node1", "unit1", parseVersion("1.0.0")), willBe(deploymentStatusIs(UPLOADING)));
     }
 }
