@@ -358,12 +358,8 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
         }, CONVERSION_FAILED, "Cannot convert to timestamp");
     }
 
-    /**
-     * Test error code for the case when user attempts to get {@link URL} value from column whose
-     * value can't be converted to a {@link URL}.
-     */
     @Test
-    public void testInvalidUrlFormat() {
+    public void getURL() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
                 ResultSet rs = stmt.executeQuery();
@@ -372,7 +368,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
                 rs.getURL(1);
             }
-        }, CONVERSION_FAILED, "Cannot convert to URL");
+        }, CONVERSION_FAILED, "SQL-specific types are not supported");
     }
 
     /**

@@ -100,7 +100,7 @@ public class JdbcResultSet implements ResultSet {
             }
             currentRow = rs.next();
             currentPosition += 1;
-            return currentRow != null;
+            return true;
         } catch (Exception e) {
             Throwable cause = IgniteExceptionMapperUtil.mapToPublicException(e);
             throw new SQLException(cause.getMessage(), cause);
