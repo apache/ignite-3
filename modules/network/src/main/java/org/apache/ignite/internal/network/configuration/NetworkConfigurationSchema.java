@@ -83,4 +83,8 @@ public class NetworkConfigurationSchema {
     /** File transferring configuration. */
     @ConfigValue
     public FileTransferConfigurationSchema fileTransfer;
+
+    /** Configuration for sending acknowledgement. */
+    @ConfigValue
+    public AckConfigurationSchema ackConfigurationSchema;
 }
