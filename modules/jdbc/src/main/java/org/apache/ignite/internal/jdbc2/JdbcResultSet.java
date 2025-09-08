@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.jdbc2;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -46,7 +49,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
-import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -73,7 +75,7 @@ public class JdbcResultSet implements ResultSet {
     private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED = "SQL-specific types are not supported.";
 
     private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
-    
+
     private final Supplier<ZoneId> zoneIdSupplier;
 
     private final Statement statement;
@@ -166,11 +168,11 @@ public class JdbcResultSet implements ResultSet {
             return Formatters.formatDateTime(localDateTime, colIdx, jdbcMetadata);
         } else if (value instanceof LocalTime) {
             JdbcResultSetMetadata jdbcMetadata = initMetadata();
-            
+
             return Formatters.formatTime((LocalTime) value, colIdx, jdbcMetadata);
         } else if (value instanceof LocalDateTime) {
             JdbcResultSetMetadata jdbcMetadata = initMetadata();
-            
+
             return Formatters.formatDateTime((LocalDateTime) value, colIdx, jdbcMetadata);
         } else if (value instanceof LocalDate) {
             return Formatters.formatDate((LocalDate) value);
@@ -475,10 +477,44 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public byte[] getBytes(int colIdx) throws SQLException {
-        ensureNotClosed();
-        ensureHasCurrentRow();
+        Object val = getValue(colIdx);
 
-        throw new UnsupportedOperationException();
+        if (val == null) {
+            return null;
+        }
+
+        if (val instanceof byte[]) {
+            return (byte[]) val;
+        } else if (val instanceof Byte) {
+            return new byte[]{(byte) val};
+        } else if (val instanceof Short) {
+            short x = (short) val;
+
+            return ByteBuffer.allocate(2).putShort(x).array();
+        } else if (val instanceof Integer) {
+            int x = (int) val;
+            return ByteBuffer.allocate(4).putInt(x).array();
+        } else if (val instanceof Long) {
+            long x = (long) val;
+            return ByteBuffer.allocate(8).putLong(x).array();
+        } else if (val instanceof Float) {
+            float x = (Float) val;
+            return ByteBuffer.allocate(4).putFloat(x).array();
+        } else if (val instanceof Double) {
+            double x = (Double) val;
+            return ByteBuffer.allocate(8).putDouble(x).array();
+        } else if (val instanceof String) {
+            return ((String) val).getBytes(UTF_8);
+        } else if (val instanceof UUID) {
+            ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+
+            bb.putLong(((UUID) val).getMostSignificantBits());
+            bb.putLong(((UUID) val).getLeastSignificantBits());
+
+            return bb.array();
+        } else {
+            throw new SQLException("Cannot convert to byte[]: " + val, SqlStateCode.CONVERSION_FAILED);
+        }
     }
 
     /** {@inheritDoc} */
@@ -511,14 +547,6 @@ public class JdbcResultSet implements ResultSet {
         } else {
             throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
         }
-    }
-    
-    private LocalDateTime instantWithLocalTimeZone(Instant val) {
-        ZoneId zoneId = zoneIdSupplier.get();;
-        if (zoneId == null) {
-            zoneId = ZoneId.systemDefault();
-        }
-        return LocalDateTime.ofInstant(val, zoneId);
     }
 
     /** {@inheritDoc} */
@@ -2011,6 +2039,15 @@ public class JdbcResultSet implements ResultSet {
         return meta;
     }
 
+    private LocalDateTime instantWithLocalTimeZone(Instant val) {
+        ZoneId zoneId = zoneIdSupplier.get();
+
+        if (zoneId == null) {
+            zoneId = ZoneId.systemDefault();
+        }
+        return LocalDateTime.ofInstant(val, zoneId);
+    }
+
     private static class Formatters {
         static final DateTimeFormatter TIME = new DateTimeFormatterBuilder()
                 .appendValue(ChronoField.HOUR_OF_DAY, 2)
@@ -2074,7 +2111,7 @@ public class JdbcResultSet implements ResultSet {
 
             // Append nano seconds according to the specified precision.
             long nanos = value.getLong(ChronoField.NANO_OF_SECOND);
-            long scaled  = nanos / (long) Math.pow(10, 9 - precision);
+            long scaled = nanos / (long) Math.pow(10, 9 - precision);
 
             sb.append('.');
             for (int i = 0; i < precision; i++) {

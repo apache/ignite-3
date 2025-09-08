@@ -60,7 +60,6 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -74,26 +73,20 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
     @Override
     @ParameterizedTest
-    // getXXX Temporal / ByteArray are not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
-    @EnumSource(names = {"PERIOD", "DURATION", "DATE", "TIME", "TIMESTAMP", "BYTE_ARRAY"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullPositional(ColumnType columnType) throws SQLException {
         super.wasNullPositional(columnType);
     }
 
     @Override
     @ParameterizedTest
-    // getXXX Temporal / ByteArray are not implemented yet
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
-    @EnumSource(names = {"PERIOD", "DURATION", "DATE", "TIME", "TIMESTAMP", "DATETIME", "BYTE_ARRAY"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(names = {"PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void wasNullNamed(ColumnType columnType) throws SQLException {
         super.wasNullNamed(columnType);
     }
 
-    // getXXX are not implemented yet
     @Test
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26379")
     public void getUnknownColumn() throws SQLException {
         super.getUnknownColumn();
     }
@@ -244,7 +237,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
                 return ZoneId.systemDefault();
             }
         };
-        
+
         // ResultSet has no metadata
         if (cols.isEmpty() && rows.isEmpty()) {
             org.apache.ignite.sql.ResultSet<SqlRow> rs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
