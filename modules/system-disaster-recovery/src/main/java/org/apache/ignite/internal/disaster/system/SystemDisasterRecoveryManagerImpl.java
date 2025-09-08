@@ -133,6 +133,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         restartExecutor.execute(() -> {
             storage.saveResetClusterMessage(message);
 
+            // TODO: IGNITE-26396 A node restart might not send a message to the initiator.
             messagingService.respond(sender, successResponseMessage(), correlationId)
                     .thenRunAsync(() -> {
                         if (!thisNodeName.equals(sender.name())) {
