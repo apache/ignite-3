@@ -30,9 +30,11 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.sql.SqlException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -237,6 +240,66 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
                 TIMEOUT_MILLIS * 2
+        );
+    }
+
+    /**
+     * Tests the scenario when empty data nodes are not propagated to stable after filter is altered, because there are no node that
+     * matches the new filter.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter(ConsistencyMode consistencyMode) throws Exception {
+        String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
+
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
+
+        node0.sql().execute(
+                null,
+                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
+        );
+
+        node0.sql().execute(null, createTableSql());
+
+        MetaStorageManager metaStorageManager = node0.metaStorageManager();
+
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
+
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartitionAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
+                TIMEOUT_MILLIS
+        );
+
+        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
+
+        // This node pass the filter
+        startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
+
+        int zoneId = getZoneId(node0);
+
+        // Expected size is 2 because we have timers equals to 10000, so no scale up will be propagated.
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
+
+        // There is no node that match the filter
+        String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
+
+        assertThrowsWithCode(SqlException.class, STMT_VALIDATION_ERR, () -> node0.sql().execute(null, alterZoneSql(newFilter)), null);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartitionAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
+                TIMEOUT_MILLIS
         );
     }
 
