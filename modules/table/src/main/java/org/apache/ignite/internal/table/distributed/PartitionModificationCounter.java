@@ -17,27 +17,54 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Partition modification counter.
+ * Keeps track of the number of modifications of a partition.
+ * When the configured threshold value of the number of modifications is reached, a timestamp corresponding
+ * to the commit time of the transaction that made this update is stored in {@link #lastMilestoneReachedTimestamp}.
+ * The timestamp value is used to determine the staleness of related SQL statistics.
  */
-public interface PartitionModificationCounter {
-    /**
-     * Adds the given value to the current counter value.
-     *
-     * @param delta the value to add.
-     * @param commitTimestamp the commit timestamp of the transaction that made the modification.
-     */
-    void updateValue(int delta, HybridTimestamp commitTimestamp);
+public class PartitionModificationCounter {
+    public static PartitionModificationCounter NOOP =
+            new PartitionModificationCounter(HybridTimestamp.MAX_VALUE, () -> 0, 0, 0);
+
+    private final LongSupplier partitionSizeSupplier;
+    private final double staleRowsFraction;
+    private final long minStaleRowsCount;
+
+    private final AtomicLong counter = new AtomicLong(0);
+    private volatile long nextMilestone;
+    private volatile HybridTimestamp lastMilestoneReachedTimestamp;
+
+    /** Constructor. */
+    public PartitionModificationCounter(
+            HybridTimestamp initTimestamp,
+            LongSupplier partitionSizeSupplier,
+            double staleRowsFraction,
+            long minStaleRowsCount
+    ) {
+        assert staleRowsFraction >= 0 && staleRowsFraction <= 1 : "staleRowsFraction must be in [0, 1] range.";
+
+        this.staleRowsFraction = staleRowsFraction;
+        this.minStaleRowsCount = minStaleRowsCount;
+        this.partitionSizeSupplier = partitionSizeSupplier;
+
+        nextMilestone = computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
+        lastMilestoneReachedTimestamp = initTimestamp;
+    }
 
     /**
      * Gets the current counter value.
      *
      * @return the current counter value
      */
-    long value();
+    public long value() {
+        return counter.get();
+    }
 
     /**
      * Returns a timestamp representing the commit time of the
@@ -45,23 +72,40 @@ public interface PartitionModificationCounter {
      *
      * @return Timestamp of last milestone reached.
      */
-    HybridTimestamp lastMilestoneTimestamp();
+    public HybridTimestamp lastMilestoneTimestamp() {
+        return lastMilestoneReachedTimestamp;
+    }
 
-    /** No-op modification counter. */
-    PartitionModificationCounter NOOP = new PartitionModificationCounter() {
-        @Override
-        public void updateValue(int delta, HybridTimestamp commitTimestamp) {
-            // No-op.
+    /**
+     * Adds the given value to the current counter value.
+     *
+     * @param delta The value to add.
+     * @param commitTimestamp The commit timestamp of the transaction that made the modification.
+     */
+    public void updateValue(int delta, HybridTimestamp commitTimestamp) {
+        Objects.requireNonNull(commitTimestamp, "commitTimestamp");
+
+        if (delta < 0) {
+            throw new IllegalArgumentException("Delta must be non-negative.");
         }
 
-        @Override
-        public long value() {
-            return -1;
+        if (delta == 0) {
+            return;
         }
 
-        @Override
-        public @Nullable HybridTimestamp lastMilestoneTimestamp() {
-            return null;
+        long newCounter = counter.addAndGet(delta);
+
+        if (newCounter >= nextMilestone) {
+            this.nextMilestone = newCounter + computeNextMilestone(partitionSizeSupplier.getAsLong(), staleRowsFraction, minStaleRowsCount);
+            this.lastMilestoneReachedTimestamp = commitTimestamp;
         }
-    };
+    }
+
+    private static long computeNextMilestone(
+            long currentSize,
+            double staleRowsFraction,
+            long minStaleRowsCount
+    ) {
+        return Math.max((long) (currentSize * staleRowsFraction), minStaleRowsCount);
+    }
 }

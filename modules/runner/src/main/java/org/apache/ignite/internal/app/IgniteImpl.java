@@ -251,7 +251,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
-import org.apache.ignite.internal.sql.engine.statistic.PartitionModificationCounterFactoryImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -1113,7 +1112,7 @@ public class IgniteImpl implements Ignite {
         );
 
         PartitionModificationCounterFactory partitionModificationCounterFactory =
-                new PartitionModificationCounterFactoryImpl(clockService);
+                new PartitionModificationCounterFactory(clockService::now);
 
         distributedTblMgr = new TableManager(
                 name,

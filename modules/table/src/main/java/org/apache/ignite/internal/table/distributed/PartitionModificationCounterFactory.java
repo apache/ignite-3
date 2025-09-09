@@ -18,23 +18,39 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Factory for producing {@link PartitionModificationCounter}.
  */
-@FunctionalInterface
-public interface PartitionModificationCounterFactory {
+public class PartitionModificationCounterFactory {
+    /** No-op factory produces no-op modification counter. */
+    public static PartitionModificationCounterFactory NOOP =
+            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE);
+
+    public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
+
+    public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
+
+    private final Supplier<HybridTimestamp> currentTimestampSupplier;
+
+    public PartitionModificationCounterFactory(Supplier<HybridTimestamp> currentTimestampSupplier) {
+        this.currentTimestampSupplier = currentTimestampSupplier;
+    }
+
     /**
      * Creates a new partition modification counter.
      *
      * @param partitionSizeSupplier Partition size supplier.
      * @return New partition modification counter.
      */
-    PartitionModificationCounter create(LongSupplier partitionSizeSupplier);
-
-    /**
-     * No-op factory produces no-op modification counter.
-     */
-    PartitionModificationCounterFactory NOOP =
-            ignore -> PartitionModificationCounter.NOOP;
+    public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
+        return new PartitionModificationCounter(
+                currentTimestampSupplier.get(),
+                partitionSizeSupplier,
+                DEFAULT_STALE_ROWS_FRACTION,
+                DEFAULT_MIN_STALE_ROWS_COUNT
+        );
+    }
 }

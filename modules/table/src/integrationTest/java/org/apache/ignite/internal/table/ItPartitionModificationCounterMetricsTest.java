@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.statistic.PartitionModificationCounterFactoryImpl.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_THRESHOLD_TIMESTAMP;
 import static org.hamcrest.CoreMatchers.is;
