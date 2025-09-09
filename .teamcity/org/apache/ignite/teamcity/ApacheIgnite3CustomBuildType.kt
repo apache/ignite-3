@@ -3,6 +3,7 @@ package org.apache.ignite.teamcity
 import build.build_types.ApacheIgnite3
 import jetbrains.buildServer.configs.kotlin.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.FailureAction
 import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 
@@ -27,13 +28,10 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
          * Use pre-built Apache Ignite 3 artifacts instead of rebuilding project again
          */
         fun ignite3BuildDependency() = apply {
-            buildType.steps {
-                // Order this step to be the first one
-                items.add(0, items[items.lastIndex])
-                items.removeAt(items.lastIndex)
-            }
             buildType.dependencies {
-                ApacheIgnite3
+                snapshot(ApacheIgnite3) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
             }
         }
     }

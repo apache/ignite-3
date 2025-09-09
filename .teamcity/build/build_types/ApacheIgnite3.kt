@@ -19,7 +19,7 @@ object ApacheIgnite3 : BuildType({
         customScript(type = "bash") {
             name = "Check code base"
             id = "CheckCodeBase"
-            workingDir = "%VCSROOT__GRIDGAIN9%"
+            workingDir = "%VCSROOT__IGNITE3%"
 
             conditions {
                 equals("teamcity.build.branch.is_default", "false")
