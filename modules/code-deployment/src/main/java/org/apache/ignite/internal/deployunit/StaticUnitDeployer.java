@@ -34,13 +34,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Observes a predefined directory with statically provisioned deployment units and
@@ -82,57 +82,49 @@ public class StaticUnitDeployer {
      */
     public CompletableFuture<Void> searchAndDeployStaticUnits() {
         LOG.info("Start search static deployment units.");
-        Map<String, List<Version>> allUnits = collectStaticUnits();
+        StaticUnits allUnits = collectStaticUnits();
 
         return deploymentUnitStore.getNodeStatuses(nodeName).thenCompose(statuses -> {
             List<CompletableFuture<?>> futures = new ArrayList<>();
 
             for (UnitNodeStatus status : statuses) {
-                allUnits.get(status.id()).remove(status.version());
-                if (allUnits.get(status.id()).isEmpty()) {
-                    allUnits.remove(status.id());
-                }
+                allUnits.filter(status.id(), status.version());
             }
 
-            allUnits.forEach((id, versions) -> {
-                versions.forEach(version -> {
-                    LOG.info("Start processing unit {}:{}", id, version);
-                    CompletableFuture<Boolean> future = deploymentUnitStore.createClusterStatus(id, version, Set.of(nodeName))
-                            .thenCompose(status -> {
-                                if (status == null) {
-                                    return deploymentUnitStore.getClusterStatus(id, version).thenCompose(it ->
-                                            deploymentUnitStore.createNodeStatus(nodeName, id, version, it.opId(), DEPLOYED)
-                                    );
-                                } else {
-                                    return deploymentUnitStore.createNodeStatus(nodeName, id, version, status.opId(), DEPLOYED);
-                                }
-                            })
-                            .whenComplete((result, t) ->
-                                    LOG.info("Finished static status creating {}:{} with result {}", t, id, version, result)
-                            );
-                    futures.add(future);
-                });
+            allUnits.forEach((id, version) -> {
+                LOG.info("Start processing unit {}:{}", id, version);
+                CompletableFuture<Boolean> future = deploymentUnitStore.createClusterStatus(id, version, Set.of(nodeName))
+                        .thenCompose(status -> {
+                            if (status == null) {
+                                return deploymentUnitStore.getClusterStatus(id, version).thenCompose(it ->
+                                        deploymentUnitStore.createNodeStatus(nodeName, id, version, it.opId(), DEPLOYED)
+                                );
+                            } else {
+                                return deploymentUnitStore.createNodeStatus(nodeName, id, version, status.opId(), DEPLOYED);
+                            }
+                        })
+                        .whenComplete((result, t) ->
+                                LOG.info("Finished static status creating {}:{} with result {}", t, id, version, result)
+                        );
+                futures.add(future);
             });
 
             return allOf(futures);
         });
     }
 
-    private Map<String, List<Version>> collectStaticUnits() {
-        Map<String, List<Version>> units = new HashMap<>();
+    private StaticUnits collectStaticUnits() {
+        StaticUnits units = new StaticUnits();
         List<Path> unitFolders = allSubdirectories(deploymentUnitsRoot);
         for (Path unitFolder : unitFolders) {
             List<Path> versions = allSubdirectories(unitFolder);
-            units.put(
-                    unitFolder.getFileName().toString(),
-                    versions.stream()
-                            .map(versionFolder -> parseVersion(versionFolder.getFileName().toString()))
-                            .collect(
-                                    ArrayList::new,
-                                    ArrayList::add,
-                                    ArrayList::addAll
-                            )
-            );
+            for (Path versionFolder : versions) {
+                units.register(
+                        unitFolder.getFileName().toString(),
+                        parseVersion(versionFolder.getFileName().toString())
+                );
+            }
+
         }
         return units;
     }
@@ -145,7 +137,7 @@ public class StaticUnitDeployer {
         try {
             Files.walkFileTree(folder, Set.of(), 1, new SimpleFileVisitor<>() {
                 @Override
-                public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     if (attrs.isDirectory()) {
                         subfolders.add(file);
                     }
@@ -157,5 +149,28 @@ public class StaticUnitDeployer {
             throw new DeploymentUnitReadException(e);
         }
         return subfolders;
+    }
+
+    private static class StaticUnits {
+        private final Map<String, List<Version>> units = new HashMap<>();
+
+        void filter(String id, Version version) {
+            units.get(id).remove(version);
+            if (units.get(id).isEmpty()) {
+                units.remove(id);
+            }
+        }
+
+        void register(String id, Version version) {
+            units.computeIfAbsent(id, k -> new ArrayList<>()).add(version);
+        }
+
+        void forEach(BiConsumer<String, Version> consumer) {
+            for (Map.Entry<String, List<Version>> entry : units.entrySet()) {
+                for (Version version : entry.getValue()) {
+                    consumer.accept(entry.getKey(), version);
+                }
+            }
+        }
     }
 }

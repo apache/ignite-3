@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.deployunit;
 
 import static org.apache.ignite.deployment.version.Version.parseVersion;
-import static org.apache.ignite.internal.deployment.UnitStatusMatchers.any;
 import static org.apache.ignite.internal.deployment.UnitStatusMatchers.deploymentStatusIs;
 import static org.apache.ignite.internal.deployment.UnitStatusMatchers.versionIs;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
@@ -26,6 +25,8 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,14 +59,20 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
     private Path workDir;
+    private StandaloneMetaStorageManager metastore;
 
     @BeforeEach
     public void setup() {
-        StandaloneMetaStorageManager metastore = create("node1");
+        metastore = create("node1");
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
         deploymentUnitStore = new DeploymentUnitStoreImpl(metastore);
 
         this.observer = new StaticUnitDeployer(deploymentUnitStore, "node1", workDir);
+    }
+
+    @AfterEach
+    public void cleanup() {
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -79,17 +87,21 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit1"),
-                willBe(any(versionIs(parseVersion("1.0.0")), versionIs(parseVersion("1.0.1")), versionIs(parseVersion("1.1.1"))))
+                willBe(containsInAnyOrder(
+                        versionIs(parseVersion("1.0.0")),
+                        versionIs(parseVersion("1.0.1")),
+                        versionIs(parseVersion("1.1.1"))
+                ))
         );
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit2"),
-                willBe(any(versionIs(parseVersion("1.0.0"))))
+                willBe(contains(versionIs(parseVersion("1.0.0"))))
         );
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit3"),
-                willBe(any(versionIs(parseVersion("1.1.0"))))
+                willBe(contains(versionIs(parseVersion("1.1.0"))))
         );
     }
 
@@ -112,7 +124,7 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit1"),
-                willBe(any(versionIs(parseVersion("1.0.0")), versionIs(parseVersion("1.0.1"))))
+                willBe(containsInAnyOrder(versionIs(parseVersion("1.0.0")), versionIs(parseVersion("1.0.1"))))
         );
 
         // Due to static deploy process should be skipped

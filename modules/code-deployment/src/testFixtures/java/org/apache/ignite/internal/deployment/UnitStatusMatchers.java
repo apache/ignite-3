@@ -19,7 +19,6 @@ package org.apache.ignite.internal.deployment;
 
 import static org.hamcrest.Matchers.is;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.deployment.version.Version;
@@ -40,15 +39,15 @@ public class UnitStatusMatchers {
      * Matches replication info with a specified fst progress.
      */
     public static Matcher<UnitStatus> versionIs(Version version) {
-        return replicationInfoMatcher(UnitStatus::version, version, "version");
+        return unitStatusFeatureMatcher(UnitStatus::version, version, "version");
     }
 
     public static Matcher<UnitStatus> deploymentStatusIs(DeploymentStatus status) {
-        return replicationInfoMatcher(UnitStatus::status, status, "status");
+        return unitStatusFeatureMatcher(UnitStatus::status, status, "status");
     }
 
     /**
-     * Matcher fo
+     * Creates a matcher for {@link UnitVersionStatus} with specified version and status.
      */
     public static Matcher<UnitVersionStatus> unitVersionStatusIs(Version version, DeploymentStatus status) {
         return new TypeSafeMatcher<>() {
@@ -65,105 +64,26 @@ public class UnitStatusMatchers {
         };
     }
 
-    public static Matcher<UnitStatuses> containsAll(Matcher<UnitVersionStatus>... unitVersionMatcher) {
-        return new TypeSafeMatcher<>() {
+    /**
+     * Creates a matcher for {@code versionStatuses} of the {@link UnitStatuses}.
+     *
+     * @param matcher A matcher to match the list of {@link UnitVersionStatus}.
+     * @return Created matcher.
+     */
+    public static Matcher<UnitStatuses> versionStatuses(Matcher<Iterable<? extends UnitVersionStatus>> matcher) {
+        return new FeatureMatcher<>(matcher, "unit statuses with versions and statuses list", "versions and statuses") {
             @Override
-            protected boolean matchesSafely(UnitStatuses item) {
-                for (UnitVersionStatus versionStatus : item.versionStatuses()) {
-                    for (Matcher<UnitVersionStatus> unitVersionStatus : unitVersionMatcher) {
-                        if (unitVersionStatus.matches(versionStatus)) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("a list containing elements matching: ");
-                for (int i = 0; i < unitVersionMatcher.length; i++) {
-                    if (i > 0) {
-                        description.appendText(", ");
-                    }
-                    unitVersionMatcher[i].describeTo(description);
-                }
+            protected Iterable<? extends UnitVersionStatus> featureValueOf(UnitStatuses actual) {
+                return actual.versionStatuses();
             }
         };
     }
 
-    private static <T> Matcher<UnitStatus> replicationInfoMatcher(
-            Function<UnitStatus, T> extractor,
-            T actual,
-            String featureName
-    ) {
+    private static <T> Matcher<UnitStatus> unitStatusFeatureMatcher(Function<UnitStatus, T> extractor, T actual, String featureName) {
         return new FeatureMatcher<>(is(actual), "unit status with " + featureName, featureName) {
             @Override
             protected T featureValueOf(UnitStatus actual) {
                 return extractor.apply(actual);
-            }
-        };
-    }
-
-    /**
-     * Matches that any item from list match with all provided matchers.
-     */
-    public static <T extends UnitStatus> Matcher<List<T>> any(Matcher<UnitStatus>... matchers) {
-        return new TypeSafeMatcher<>() {
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("a list containing elements matching: ");
-                for (int i = 0; i < matchers.length; i++) {
-                    if (i > 0) {
-                        description.appendText(", ");
-                    }
-                    matchers[i].describeTo(description);
-                }
-            }
-
-            @Override
-            protected boolean matchesSafely(List<T> item) {
-                for (Matcher<UnitStatus> matcher : matchers) {
-                    for (UnitStatus info : item) {
-                        if (matcher.matches(info)) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
-        };
-    }
-
-    /**
-     * Matches that all items from list match with all provided matchers.
-     */
-    public static <T extends UnitStatus> Matcher<List<T>> all(Matcher<UnitStatus>... matchers) {
-        return new TypeSafeMatcher<>() {
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("a list containing elements matching: ");
-                for (int i = 0; i < matchers.length; i++) {
-                    if (i > 0) {
-                        description.appendText(", ");
-                    }
-                    matchers[i].describeTo(description);
-                }
-            }
-
-            @Override
-            protected boolean matchesSafely(List<T> item) {
-                for (Matcher<UnitStatus> matcher : matchers) {
-                    for (UnitStatus info : item) {
-                        if (!matcher.matches(info)) {
-                            return false;
-                        }
-                    }
-                }
-
-                return true;
             }
         };
     }
