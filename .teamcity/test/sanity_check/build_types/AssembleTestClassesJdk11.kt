@@ -4,19 +4,16 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 
-
-object PMD : BuildType({
+object AssembleTestClasses : BuildType({
     id(getId(this::class))
-    name = "PMD"
-    description = "Check possible bugs on code using PMD"
-
-    artifactRules = "**/build/reports/pmd/*"
+    name = "Assemble testClasses [JDK11]"
+    description = "Assemble testClasses on JDK11"
 
     steps {
         customGradle {
-            name = "PMD check"
-            tasks = "pmdMain pmdTest"
-            workingDir = "%VCSROOT__IGNITE3%"
+            name = "Assemble testClasses on JDK11"
+            tasks = "assemble testClasses"
+            jdkHome = "%env.JDK_ORA_11%"
         }
     }
 })

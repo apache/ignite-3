@@ -4,15 +4,15 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.Teamcity
 
-object LegacyApi: BuildType({
+object Spotbugs: BuildType({
     id(Teamcity.getId(this::class))
-    name = "LegacyApi"
-    description = "Check code for Legacy API with Modernizer"
+    name = "Spotbugs"
+    description = "Static analysis of source code via Spotbugs"
 
     steps {
         customGradle {
-            name = "Check for Legacy API by Modernizer Gradle plugin"
-            tasks = "modernizer"
+            name = "Static analysis of source code via Spotbugs"
+            tasks = "spotbugsMain"
             workingDir = "%VCSROOT__IGNITE3%"
         }
     }

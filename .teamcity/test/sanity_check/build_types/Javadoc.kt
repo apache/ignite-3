@@ -5,7 +5,6 @@ import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.CustomFailureConditions.Companion.failOnExactText
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
-import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 
 object Javadoc : BuildType({
@@ -13,24 +12,20 @@ object Javadoc : BuildType({
     name = "Javadoc"
     description = "Check Javadoc correctness and style"
 
-    params {
-        hiddenText("ERROR_TEXT__INTERNAL_PACKAGES", "[ERROR] Internal packages detected")
-    }
-
     artifactRules = """
-        **/build/docs/javadoc/** => javadoc.zip
+        target/site/apidocs => javadoc.zip
+        target/checkstyle.xml
+        target/site/checkstyle-aggregate.html
     """.trimIndent()
 
     steps {
         customGradle {
-            name = "Check Javadoc style"
-            tasks = "javadoc"
-            workingDir = "%VCSROOT__IGNITE3%"
+            name = "Build Javadoc"
+            tasks = "aggregateJavadoc"
         }
 
         customScript(type = "bash") {
             name = "Check internal packages"
-            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 

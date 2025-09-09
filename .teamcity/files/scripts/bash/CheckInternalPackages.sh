@@ -1,13 +1,6 @@
-set +x
-ERROR_TEXT__INTERNAL_PACKAGES="%ERROR_TEXT__INTERNAL_PACKAGES%"
-set -x
-
-
-PACKAGES="$(grep "org.apache.ignite" "target/site/apidocs/index.html" | \
-              sed -r 's|.*html">(.*)</a.*|\1|' | \
-              grep internal || true)"
+PACKAGES="$(cat target/site/apidocs/index.html | grep org.apache.ignite | sed -r 's|.*html">(.*)</a.*|\1|' | grep internal || true)"
 if [ "${PACKAGES}" != "" ]; then
-	echo "${ERROR_TEXT__INTERNAL_PACKAGES}"
+	echo "[ERROR] Internal packages detected"
     for package in ${PACKAGES}; do
     	echo "    ${package}"
     done
