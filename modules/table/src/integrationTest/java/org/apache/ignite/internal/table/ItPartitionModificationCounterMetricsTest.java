@@ -21,7 +21,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_COUNTER;
-import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_THRESHOLD_TIMESTAMP;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
+import static org.apache.ignite.internal.table.distributed.PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -78,23 +79,21 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         String tab2 = "T2";
 
         sqlScript(
-                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab1, ZONE_1_PART_REPLICAS),
-                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab2, ZONE_1_PART_REPLICAS)
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab1, ZONE_1_PART_NO_REPLICAS),
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab2, ZONE_1_PART_NO_REPLICAS)
         );
 
         sql(format("INSERT INTO {} VALUES(0, 0), (1, 1);", tab1));
 
-        Awaitility.await().untilAsserted(
-                () -> assertThat(metricFromAnyNode(tab1, 0, METRIC_COUNTER), is(2L))
-        );
+        expectModsCount(tab1, 2L);
+        expectNextMilestone(tab1, DEFAULT_MIN_STALE_ROWS_COUNT);
 
         sql(format("INSERT INTO {} VALUES(0, 0), (1, 1), (2, 2);", tab2));
 
-        Awaitility.await().untilAsserted(
-                () -> assertThat(metricFromAnyNode(tab2, 0, METRIC_COUNTER), is(3L))
-        );
+        expectModsCount(tab2, 3L);
+        expectNextMilestone(tab2, DEFAULT_MIN_STALE_ROWS_COUNT);
 
-        assertThat(metricFromAnyNode(tab1, 0, METRIC_COUNTER), is(2L));
+        expectModsCount(tab1, 2L);
     }
 
     /**
@@ -159,6 +158,8 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
             sql("DELETE FROM test_table");
             expectedMods += 6;
             expectModsCount(tabName, expectedMods);
+
+            expectNextMilestone(tabName, DEFAULT_MIN_STALE_ROWS_COUNT);
         }
 
         // Explicit transaction.
@@ -196,6 +197,8 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
                 expectedMods += 6;
                 expectModsCount(tabName, expectedMods);
             }
+
+            expectNextMilestone(tabName, DEFAULT_MIN_STALE_ROWS_COUNT);
         }
     }
 
@@ -220,8 +223,8 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         expectModsCount(tableNoReplicas, 1);
         expectModsCount(tableWithReplicas, replicas);
 
-        long initTsNoReplicas = metricFromAnyNode(tableNoReplicas, 0, METRIC_THRESHOLD_TIMESTAMP);
-        long initTsWithReplicas = metricFromAnyNode(tableWithReplicas, 0, METRIC_THRESHOLD_TIMESTAMP);
+        long initTsNoReplicas = metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP);
+        long initTsWithReplicas = metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP);
 
         long modsCount = DEFAULT_MIN_STALE_ROWS_COUNT / 2;
 
@@ -238,8 +241,11 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
             expectModsCount(tableWithReplicas, expectedModsCount * replicas);
 
             // Timestamp should not change as we did not reach the threshold.
-            assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_THRESHOLD_TIMESTAMP), is(initTsNoReplicas));
-            assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_THRESHOLD_TIMESTAMP), is(initTsWithReplicas));
+            assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), is(initTsNoReplicas));
+            assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), is(initTsWithReplicas));
+
+            assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
+            assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
         }
 
         // Perform another bunch of modifications to reach the milestone.
@@ -256,15 +262,30 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
 
             // Timestamp should change because we reached the threshold.
             Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_THRESHOLD_TIMESTAMP), greaterThan(initTsNoReplicas))
+                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsNoReplicas))
             );
             Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_THRESHOLD_TIMESTAMP), greaterThan(initTsWithReplicas))
+                    assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsWithReplicas))
+            );
+
+            Awaitility.await().untilAsserted(() ->
+                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
+            );
+            Awaitility.await().untilAsserted(() ->
+                    assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
             );
         }
     }
 
     private void expectModsCount(String tableName, long value) {
+        expectLongValue(tableName, value, METRIC_COUNTER);
+    }
+
+    private void expectNextMilestone(String tableName, long value) {
+        expectLongValue(tableName, value, METRIC_NEXT_MILESTONE);
+    }
+
+    private void expectLongValue(String tableName, long value, String metricName) {
         QualifiedName qualifiedName = QualifiedName.parse(tableName);
         CatalogManager manager = unwrapIgniteImpl(node(0)).catalogManager();
         Catalog catalog = manager.catalog(manager.latestCatalogVersion());
@@ -272,7 +293,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
         int partsCount = catalog.zone(tableDesc.zoneId()).partitions();
 
         Awaitility.await().untilAsserted(() -> {
-            long allPartsValue = 0;
+            long summaryValue = 0;
 
             for (int part = 0; part < partsCount; part++) {
                 int tableId = tableIdByName(QualifiedName.parse(tableName));
@@ -283,15 +304,12 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
                 boolean metricFound = false;
 
                 for (int i = 0; i < CLUSTER.nodes().size(); i++) {
-                    MetricManager metricManager = unwrapIgniteImpl(node(i)).metricManager();
-                    MetricSet metrics = metricManager.metricSnapshot().metrics().get(metricSourceName);
+                    long metricValue = metricFromNode(i, tableName, part, metricName);
 
-                    if (metrics != null) {
-                        LongMetric metric = metrics.get(METRIC_COUNTER);
-
+                    if (metricValue != UNDEFINED_METRIC_VALUE) {
                         metricFound = true;
 
-                        allPartsValue += metric.value();
+                        summaryValue += metricValue;
                     }
                 }
 
@@ -300,7 +318,7 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
                 }
             }
 
-            assertThat(allPartsValue, is(value));
+            assertThat(summaryValue, is(value));
         });
     }
 

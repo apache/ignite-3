@@ -3180,7 +3180,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ));
 
         metricSource.addMetric(new LongGauge(
-                PartitionModificationCounterMetricSource.METRIC_THRESHOLD_TIMESTAMP,
+                PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
+                "The value of the next milestone for the number of partition modifications. "
+                        + "This value is used to determine staleness of the related SQL statistics.",
+                counter::nextMilestone
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
                 "The timestamp value representing the commit time of the last modification operation that "
                         + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
                 () -> counter.lastMilestoneTimestamp().longValue()

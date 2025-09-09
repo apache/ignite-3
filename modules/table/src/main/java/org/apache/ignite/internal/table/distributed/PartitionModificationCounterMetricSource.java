@@ -29,8 +29,9 @@ import org.jetbrains.annotations.Nullable;
  * Metrics related to {@link PartitionModificationCounter partition modification counter}.
  */
 public class PartitionModificationCounterMetricSource implements MetricSource {
-    public static final String METRIC_COUNTER = "counter";
-    public static final String METRIC_THRESHOLD_TIMESTAMP = "thresholdTimestamp";
+    public static final String METRIC_COUNTER = "modificationCount";
+    public static final String METRIC_NEXT_MILESTONE = "nextMilestone";
+    public static final String METRIC_LAST_MILESTONE_TIMESTAMP = "lastMilestoneTimestamp";
 
     private final Map<String, Metric> metrics = new HashMap<>();
     private final String metricSourceName;

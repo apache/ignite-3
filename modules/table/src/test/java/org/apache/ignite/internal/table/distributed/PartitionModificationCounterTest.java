@@ -34,14 +34,30 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
 
     @Test
     void initialValues() {
-        PartitionModificationCounter counter = factory.create(() -> 10_000L);
+        // Empty table.
+        {
+            PartitionModificationCounter counter = factory.create(() -> 0L);
 
-        assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
-        assertThat(counter.value(), is(0L));
+            assertThat(counter.value(), is(0L));
+            assertThat(counter.nextMilestone(), is(PartitionModificationCounterFactory.DEFAULT_MIN_STALE_ROWS_COUNT));
+            assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
+        }
 
-        counter.updateValue(0, HybridTimestamp.MAX_VALUE);
-        assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
-        assertThat(counter.value(), is(0L));
+        // Table with 10k rows.
+        {
+            PartitionModificationCounter counter = factory.create(() -> 10_000L);
+
+            assertThat(counter.value(), is(0L));
+            assertThat(counter.nextMilestone(), is(2000L));
+            assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
+
+            // A zero update should not change the counter values.
+            counter.updateValue(0, HybridTimestamp.MAX_VALUE);
+
+            assertThat(counter.value(), is(0L));
+            assertThat(counter.nextMilestone(), is(2000L));
+            assertThat(counter.lastMilestoneTimestamp().longValue(), is(1L));
+        }
     }
 
     @Test
@@ -58,6 +74,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
             counter.updateValue(threshold, commitTime);
 
             assertThat(counter.value(), is(2_000L));
+            assertThat(counter.nextMilestone(), is(4_000L));
             assertThat(counter.lastMilestoneTimestamp().longValue(), is(commitTime.longValue()));
         }
 
@@ -66,6 +83,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
 
             counter.updateValue(threshold, commitTime);
             assertThat(counter.value(), is(4_000L));
+            assertThat(counter.nextMilestone(), is(6_000L));
             assertThat(counter.lastMilestoneTimestamp().longValue(), is(commitTime.longValue()));
         }
     }

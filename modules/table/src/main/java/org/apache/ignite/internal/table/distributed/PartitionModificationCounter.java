@@ -77,6 +77,15 @@ public class PartitionModificationCounter {
     }
 
     /**
+     * Returns the value of the next milestone.
+     *
+     * @return The value of the next milestone.
+     */
+    public long nextMilestone() {
+        return nextMilestone;
+    }
+
+    /**
      * Adds the given value to the current counter value.
      *
      * @param delta The value to add.
