@@ -35,6 +35,6 @@ object Javadoc : BuildType({
     }
 
     failureConditions {
-        failOnExactText("%ERROR_TEXT__INTERNAL_PACKAGES%") {}
+        failOnExactText(pattern = "%ERROR_TEXT__INTERNAL_PACKAGES%", failureMessage = "%ERROR_TEXT__INTERNAL_PACKAGES%") {}
     }
 })
