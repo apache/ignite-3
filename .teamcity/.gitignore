@@ -1,0 +1,5 @@
+target/
+
+# Undo ignoring build directory
+!build/
+
