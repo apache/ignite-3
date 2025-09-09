@@ -28,8 +28,7 @@ object ApacheIgnite3 : BuildType({
 
         customGradle {
             name = "Build Apache Ignite 3"
-            tasks = "build -x test -x javadoc -x integrationTest -x pmdMain -x checkstyleMain -x checkstyleTest " +
-                "-x checkstyleIntegrationTest -x checkstyleTestFixtures"
+            tasks = "assemble integrationTestClasses testClasses"
             executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
             workingDir = "%VCSROOT__IGNITE3%"
         }

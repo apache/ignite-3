@@ -9,7 +9,6 @@ import java.io.File
 class CustomBuildSteps {
     companion object {
 
-
         fun BuildSteps.customGradle(init: GradleBuildStep.() -> Unit): GradleBuildStep {
             val result = GradleBuildStep(init)
 
@@ -76,6 +75,7 @@ class CustomBuildSteps {
                 """.trimIndent()
                     extension = "sh"
                 }
+
                 "cmd" -> {
                     result.scriptContent = "@ECHO ON"
                     extension = "cmd"
@@ -84,29 +84,6 @@ class CustomBuildSteps {
 
             result.scriptContent += "\n\n\n" + File("files/scripts/${type}/${file}.${extension}").readText()
             replacements?.forEach { (k, v) -> result.scriptContent = result.scriptContent?.replace(k, v) }
-
-            step(result)
-            return result
-        }
-
-
-        fun BuildSteps.customVisualStudio(version: Int, init: VisualStudioStep.() -> Unit): VisualStudioStep {
-            val result = VisualStudioStep(init)
-            var vsVersion: VisualStudioStep.VisualStudioVersion? = null
-            var runPlatform: VisualStudioStep.Platform? = null
-            var msBuildVersion: VisualStudioStep.MSBuildVersion? = null
-            var msBuildToolsVersion: VisualStudioStep.MSBuildToolsVersion? = null
-
-            if (version == 2010) {
-                vsVersion = VisualStudioStep.VisualStudioVersion.vs2010
-                runPlatform = VisualStudioStep.Platform.x86
-                msBuildVersion = VisualStudioStep.MSBuildVersion.V4_0
-                msBuildToolsVersion = VisualStudioStep.MSBuildToolsVersion.V4_0
-            }
-            result.version = vsVersion
-            result.runPlatform = runPlatform
-            result.msBuildVersion = msBuildVersion
-            result.msBuildToolsVersion = msBuildToolsVersion
 
             step(result)
             return result

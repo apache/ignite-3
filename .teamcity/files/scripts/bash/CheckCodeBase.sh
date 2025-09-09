@@ -1,10 +1,15 @@
-BRANCH_NAME=%teamcity.build.branch%
+TRIGGER=%teamcity.build.branch%
 
-if [ "$BRANCH_NAME" != "main" ]; then
-    if grep -IER --exclude-dir={.git,.idea} '.' -e ".*${BRANCH_NAME}.*"; then
-        echo
-        echo "Code base contains mention ticket!"
-        echo
-        exit 1
-    fi
+if echo $TRIGGER | grep pull; then
+  PR=${TRIGGER#*/}
+  SOURCE=$(curl -s https://api.github.com/repos/apache/ignite-3/pulls/$PR | jq -r .head.ref)
+else
+  SOURCE=$TRIGGER
+fi
+echo $SOURCE
+
+if grep -IER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*"; then
+    echo
+    echo "Code base contains mention ticket!"
+    echo
 fi
