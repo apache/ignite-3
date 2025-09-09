@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.FileAlreadyExistsException;
@@ -35,6 +36,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>This implementation is thread-safe in terms of concurrent writes.
  */
 class SegmentFile implements ManuallyCloseable {
+    /**
+     * Byte order of the buffers used by {@link WriteBuffer#buffer}.
+     */
+    static final ByteOrder BYTE_ORDER = ByteOrder.nativeOrder();
+
     /**
      * Special value that, when stored in {@link #bufferPosition}, means that the file is closed.
      */
@@ -186,6 +192,9 @@ class SegmentFile implements ManuallyCloseable {
     }
 
     private ByteBuffer slice(int pos, int size) {
-        return buffer.duplicate().position(pos).limit(pos + size);
+        return buffer.duplicate()
+                .order(BYTE_ORDER)
+                .position(pos)
+                .limit(pos + size);
     }
 }
