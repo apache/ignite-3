@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -159,7 +158,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         );
         client = clientBuilder()
                 .connectTimeout(100)
-                .asyncContinuationExecutor(Executors.newFixedThreadPool(3))
                 .build();
 
         assertTrue(
