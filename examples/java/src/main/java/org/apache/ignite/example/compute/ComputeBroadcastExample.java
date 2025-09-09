@@ -18,6 +18,7 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.compute.BroadcastJobTarget.table;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
@@ -27,6 +28,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * This example demonstrates the usage of the
@@ -87,7 +89,7 @@ public class ComputeBroadcastExample {
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
 
-            BroadcastJobTarget target = BroadcastJobTarget.nodes(client.cluster().nodes());
+            BroadcastJobTarget target = table("Person");
 
             //--------------------------------------------------------------------------------------
             //
@@ -100,6 +102,23 @@ public class ComputeBroadcastExample {
             client.compute().execute(target, job, "John");
 
             System.out.println("\nCompute job executed...");
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Executing compute job using a custom by specifying a fully qualified table name .
+            //
+            //
+
+            QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
+            client.compute().execute(table(customSchemaTable),
+                    JobDescriptor.builder(HelloMessageJob.class).build(), null
+            );
+
+
+            QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
+            client.compute().execute(table(customSchemaTableName),
+                    JobDescriptor.builder(HelloMessageJob.class).build(), null
+            );
         }
     }
 

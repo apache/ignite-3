@@ -120,7 +120,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
@@ -1382,7 +1381,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private Map<TablePartitionIdMessage, Long> estimatedSizeMap(ZonePartitionId zonePartitionId) {
         Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap = new HashMap<>();
 
-        for (TableImpl tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
+        for (TableViewInternal tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
             MvPartitionStorage mvPartitionStorage = tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId());
 
             if (mvPartitionStorage != null) {

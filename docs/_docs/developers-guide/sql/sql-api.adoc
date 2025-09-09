@@ -22,7 +22,7 @@ Here is an example of how you can create a new table on a cluster:
 
 [source, java]
 ----
-ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
 ----
 
 NOTE: ResultSet is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep server cursor open.
@@ -33,7 +33,7 @@ With Ignite 3, you can fill the table by adding rows one by one, or in a batch. 
 
 [source, java]
 ----
-long rowsAdded = Arrays.stream(client.sql().executeBatch(null,
+long rowsAdded = Arrays.stream(client.sql().executeBatch(tx,
     "INSERT INTO Person (id, name, age) values (?, ?, ?)",
     BatchedArguments.of(1, "John", 46)
         .add(2, "Jane", 28)

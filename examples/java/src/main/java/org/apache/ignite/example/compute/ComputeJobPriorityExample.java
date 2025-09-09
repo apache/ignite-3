@@ -82,7 +82,7 @@ public class ComputeJobPriorityExample {
             System.out.println("\nConfiguring compute job...");
 
             JobDescriptor<Integer, String> lowPriorityJob = JobDescriptor.builder(LowPriorityJob.class)
-                    .options(JobExecutionOptions.builder().priority(0).build())
+                    .options(JobExecutionOptions.builder().priority(0).maxRetries(5).build())
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
 

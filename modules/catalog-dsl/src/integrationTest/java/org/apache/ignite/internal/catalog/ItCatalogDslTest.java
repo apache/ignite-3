@@ -21,6 +21,7 @@ import static org.apache.ignite.catalog.ColumnType.INTEGER;
 import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -95,7 +96,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Given zone definition
         ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
                 .distributionAlgorithm("rendezvous")
-                .filter("filter")
+                .filter(DEFAULT_FILTER)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .build();
 

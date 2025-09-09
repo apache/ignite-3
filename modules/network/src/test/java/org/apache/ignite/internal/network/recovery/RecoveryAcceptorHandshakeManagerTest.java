@@ -45,11 +45,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -69,7 +72,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
@@ -112,6 +115,9 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
     private final AtomicBoolean acceptorHandshakeManagerStopping = new AtomicBoolean(false);
+
+    @InjectConfiguration
+    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void initMocks() {
@@ -182,7 +188,8 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                ackConfiguration
         );
 
         manager.onInit(context);

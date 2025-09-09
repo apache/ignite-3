@@ -535,7 +535,8 @@ public class ConnectionManager implements ChannelCreationListener {
                     clusterIdSupplier,
                     this,
                     stopping::get,
-                    productVersionSource
+                    productVersionSource,
+                    bootstrapFactory.ackConfiguration()
             );
         }
 
@@ -559,7 +560,8 @@ public class ConnectionManager implements ChannelCreationListener {
                 clusterIdSupplier,
                 this,
                 stopping::get,
-                productVersionSource
+                productVersionSource,
+                bootstrapFactory.ackConfiguration()
         );
     }
 
