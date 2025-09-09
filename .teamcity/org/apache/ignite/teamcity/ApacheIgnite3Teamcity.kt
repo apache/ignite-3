@@ -94,6 +94,10 @@ class ApacheIgnite3Teamcity {
             "Page Memory",
             "ignite-page-memory"
         )
+        private val IGNITE__PLACEMENT_DRIVER = GradleModule(
+            "Placement Driver",
+            "ignite-placement-driver"
+        )
         private val IGNITE__RAFT = GradleModule(
             "Raft",
             "ignite-raft"
@@ -106,10 +110,18 @@ class ApacheIgnite3Teamcity {
             "Rest API",
             "ignite-rest-api"
         )
+        private val IGNITE__REPLICATOR = GradleModule(
+            "Replicator",
+            "ignite-replicator"
+        )
         private val IGNITE__RUNNER = GradleModule(
             "Runner",
             "ignite-runner",
             "-XX:MaxDirectMemorySize=256m"
+        )
+        private val IGNITE__SECURITY = GradleModule(
+            "Security",
+            "ignite-security"
         )
         private val IGNITE__SCHEMA = GradleModule(
             "Schema",
@@ -130,6 +142,10 @@ class ApacheIgnite3Teamcity {
         private val IGNITE__STORAGE_ROCKSDB = GradleModule(
             "Storage RocksDB",
             "ignite-storage-rocksdb"
+        )
+        private val IGNITE__SYSTEM_DISASTER_RECOVERY = GradleModule(
+            "System Disaster Recovery",
+            "ignite-system-disaster-recovery"
         )
         private val IGNITE__TABLE = GradleModule(
             "Table",
@@ -168,15 +184,19 @@ class ApacheIgnite3Teamcity {
             IGNITE__NETWORK,
             IGNITE__NETWORK_API,
             IGNITE__PAGE_MEMORY,
+            IGNITE__PLACEMENT_DRIVER,
             IGNITE__RAFT,
             IGNITE__REST,
             IGNITE__REST_API,
+            IGNITE__REPLICATOR,
             IGNITE__RUNNER,
             IGNITE__SCHEMA,
             IGNITE__SQL_ENGINE,
             IGNITE__STORAGE_API,
             IGNITE__STORAGE_PAGE_MEMORY,
             IGNITE__STORAGE_ROCKSDB,
+            IGNITE__SECURITY,
+            IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
             IGNITE__VAULT
@@ -188,13 +208,20 @@ class ApacheIgnite3Teamcity {
             IGNITE__CLUSTER_MANAGEMENT,
             IGNITE__CONFIGURATION_ANNOTATION_PROCESSOR,
             IGNITE__METASTORAGE,
+            IGNITE__METRICS,
             IGNITE__NETWORK,
             IGNITE__PAGE_MEMORY,
+            IGNITE__PLACEMENT_DRIVER,
             IGNITE__RAFT,
+            IGNITE__REST,
+            IGNITE__REST_API,
+            IGNITE__REPLICATOR,
             IGNITE__RUNNER,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__SQL_ENGINE
+            IGNITE__SQL_ENGINE,
+            IGNITE__SECURITY,
+            IGNITE__SYSTEM_DISASTER_RECOVERY
         )
 
         /**
@@ -214,15 +241,29 @@ class ApacheIgnite3Teamcity {
             integrationTestGradleModulesList
         )
 
-        private val sqlConfiguration = TestConfiguration(
-            "Sql Integration",
-            "sqlIntegrationTest",
-            16,
-            60)
+        private val sqlConfigurationLogic = TestConfiguration(
+            "Sql Integration Logic",
+            "integrationTest --tests org.apache.ignite.internal.sql.sqllogic.ItSqlLogicTest",
+            4,
+            60,
+            "-DsqlTest")
+        private val sqlConfigurationLogic2 = TestConfiguration(
+            "Sql Integration Logic2",
+            "integrationTest --tests org.apache.ignite.internal.sql.sqllogic.ItSqlLogic2Test",
+            4,
+            60,
+            "-DsqlTest")
+        private val sqlConfigurationLogic3 = TestConfiguration(
+            "Sql Integration Logic3",
+            "integrationTest --tests org.apache.ignite.internal.sql.sqllogic.ItSqlLogic3Test",
+            4,
+            60,
+            "-DsqlTest")
 
-        val SQL_LOGIC = Tests(
-            sqlConfiguration,
-            listOf(IGNITE__RUNNER)
+        val SQL_LOGIC: List<Tests> = listOf(
+            Tests(sqlConfigurationLogic, listOf(IGNITE__SQL_ENGINE),false),
+            Tests(sqlConfigurationLogic2, listOf(IGNITE__SQL_ENGINE),false),
+            Tests(sqlConfigurationLogic3, listOf(IGNITE__SQL_ENGINE),false),
         )
     }
 }
