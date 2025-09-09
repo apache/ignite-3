@@ -16,136 +16,136 @@ class ApacheIgnite3Teamcity {
          */
         private val IGNITE__AFFINITY = GradleModule(
             "Affinity",
-            ":ignite-affinity"
+            "ignite-affinity"
         )
         private val IGNITE__API = GradleModule(
             "API",
-            ":ignite-api"
+            "ignite-api"
         )
         private val IGNITE__BINARY_TUPLE = GradleModule(
             "Binary Tuple",
-            ":ignite-binary-tuple"
+            "ignite-binary-tuple"
         )
         private val IGNITE__CLI = GradleModule(
             "CLI",
-            ":ignite-cli"
+            "ignite-cli"
         )
         private val IGNITE__CLIENT = GradleModule(
             "Client",
-            ":ignite-client"
+            "ignite-client"
         )
         private val IGNITE__CLIENT_COMMON = GradleModule(
             "Client Common",
-            ":ignite-client-common"
+            "ignite-client-common"
         )
         private val IGNITE__CLIENT_HANDLER = GradleModule(
             "Client Handler",
-            ":ignite-client-handler"
+            "ignite-client-handler"
         )
         private val IGNITE__CLUSTER_MANAGEMENT = GradleModule(
             "Cluster Management",
-            ":ignite-cluster-management"
+            "ignite-cluster-management"
         )
         private val IGNITE__COMPUTE = GradleModule(
             "Compute",
-            ":ignite-compute"
+            "ignite-compute"
         )
         private val IGNITE__CONFIGURATION = GradleModule(
             "Configuration",
-            ":ignite-configuration"
+            "ignite-configuration"
         )
         private val IGNITE__CONFIGURATION_ANNOTATION_PROCESSOR = GradleModule(
             "Configuration Annotation Processor",
-            ":ignite-configuration-annotation-processor"
+            "ignite-configuration-annotation-processor"
         )
         private val IGNITE__CORE = GradleModule(
             "Ignite Core",
-            ":ignite-core"
+            "ignite-core"
         )
         private val IGNITE__FILE_IO = GradleModule(
             "File IO",
-            ":ignite-file-io"
+            "ignite-file-io"
         )
         private val IGNITE__INDEX = GradleModule(
             "Index",
-            ":ignite-index"
+            "ignite-index"
         )
         private val IGNITE__MARSHALLER_COMMON = GradleModule(
             "Marshaller Common",
-            ":ignite-marshaller-common"
+            "ignite-marshaller-common"
         )
         private val IGNITE__METASTORAGE = GradleModule(
             "Metastorage",
-            ":ignite-metastorage"
+            "ignite-metastorage"
         )
         private val IGNITE__METASTORAGE__API = GradleModule(
             "Metastorage API",
-            ":ignite-metastorage-api"
+            "ignite-metastorage-api"
         )
         private val IGNITE__METRICS = GradleModule(
             "Metrics",
-            ":ignite-metrics"
+            "ignite-metrics"
         )
         private val IGNITE__NETWORK = GradleModule(
             "Network",
-            ":ignite-network"
+            "ignite-network"
         )
         private val IGNITE__NETWORK_API = GradleModule(
             "Network API",
-            ":ignite-network-api"
+            "ignite-network-api"
         )
         private val IGNITE__PAGE_MEMORY = GradleModule(
             "Page Memory",
-            ":ignite-page-memory"
+            "ignite-page-memory"
         )
         private val IGNITE__RAFT = GradleModule(
             "Raft",
-            ":ignite-raft"
+            "ignite-raft"
         )
         private val IGNITE__REST = GradleModule(
             "Rest",
-            ":ignite-rest"
+            "ignite-rest"
         )
         private val IGNITE__REST_API = GradleModule(
             "Rest API",
-            ":ignite-rest-api"
+            "ignite-rest-api"
         )
         private val IGNITE__RUNNER = GradleModule(
             "Runner",
-            ":ignite-runner",
+            "ignite-runner",
             "-XX:MaxDirectMemorySize=256m"
         )
         private val IGNITE__SCHEMA = GradleModule(
             "Schema",
-            ":ignite-schema"
+            "ignite-schema"
         )
         private val IGNITE__SQL_ENGINE = GradleModule(
             "SQL Engine",
-            ":ignite-sql-engine"
+            "ignite-sql-engine"
         )
         private val IGNITE__STORAGE_API = GradleModule(
             "Storage API",
-            ":ignite-storage-api"
+            "ignite-storage-api"
         )
         private val IGNITE__STORAGE_PAGE_MEMORY = GradleModule(
             "Storage Page Memory",
-            ":ignite-storage-page-memory"
+            "ignite-storage-page-memory"
         )
         private val IGNITE__STORAGE_ROCKSDB = GradleModule(
             "Storage RocksDB",
-            ":ignite-storage-rocksdb"
+            "ignite-storage-rocksdb"
         )
         private val IGNITE__TABLE = GradleModule(
             "Table",
-            ":ignite-table"
+            "ignite-table"
         )
         private val IGNITE__TRANSACTIONS = GradleModule(
             "Transactions",
-            ":ignite-transactions"
+            "ignite-transactions"
         )
         private val IGNITE__VAULT = GradleModule(
             "Vault",
-            ":ignite-vault"
+            "ignite-vault"
         )
 
         /**
@@ -184,7 +184,8 @@ class ApacheIgnite3Teamcity {
             IGNITE__STORAGE_ROCKSDB,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__VAULT
+            IGNITE__VAULT,
+            IGNITE__SQL_ENGINE
         )
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
@@ -197,18 +198,20 @@ class ApacheIgnite3Teamcity {
             IGNITE__PAGE_MEMORY,
             IGNITE__RAFT,
             IGNITE__RUNNER,
-            IGNITE__TABLE
+            IGNITE__TABLE,
+            IGNITE__TRANSACTIONS,
+            IGNITE__SQL_ENGINE
         )
 
         /**
          * Tests type settings
          */
-        val UNIT = Tests(TestConfiguration("Unit", ":test"), unitTestGradleModuleList)
+        val UNIT = Tests(TestConfiguration("Unit", "test"), unitTestGradleModuleList)
 
         //JVM_CUSTOM_ARGS to """-XX:MaxDirectMemorySize=256m""".trimIndent()
         private val integrationTestConf = TestConfiguration(
             "Integration",
-            ":integrationTest",
+            "integrationTest",
             16,
             60)
 
@@ -219,7 +222,7 @@ class ApacheIgnite3Teamcity {
 
         private val sqlConfiguration = TestConfiguration(
             "Sql Integration",
-            ":sqlIntegrationTest",
+            "sqlIntegrationTest",
             16,
             60)
 
