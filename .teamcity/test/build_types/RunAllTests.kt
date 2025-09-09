@@ -7,6 +7,8 @@ import jetbrains.buildServer.configs.kotlin.DslContext
 import org.apache.ignite.teamcity.CustomTriggers.Companion.customSchedule
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.INTEGRATION
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.UNIT
+import org.apache.ignite.teamcity.CustomTriggers.Companion.integrationBranchChange
+import org.apache.ignite.teamcity.CustomTriggers.Companion.pullRequestChange
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import test.template_types.RunTests
 
@@ -18,6 +20,8 @@ object RunAllTests : BuildType({
 
     triggers {
         customSchedule(5, "+:<default>", enabled = isActiveProject) {}
+        pullRequestChange(enabled = isActiveProject) {}
+        integrationBranchChange(enabled = isActiveProject) {}
     }
 
     dependencies {

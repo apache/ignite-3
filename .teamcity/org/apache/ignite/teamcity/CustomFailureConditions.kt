@@ -8,15 +8,17 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 class CustomFailureConditions {
     companion object {
         fun FailureConditions.failOnExactText(
-                text: String,
-                init: BuildFailureOnText.() -> Unit
+            pattern: String,
+            failureMessage: String,
+            init: BuildFailureOnText.() -> Unit
         ): BuildFailureOnText {
             val result = BuildFailureOnText(init)
 
             result.conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            result.pattern = text
-            result.failureMessage = text
+            result.pattern = pattern
+            result.failureMessage = failureMessage
             result.reverse = false
+            result.reportOnlyFirstMatch = false
 
             failureCondition(result)
             return result

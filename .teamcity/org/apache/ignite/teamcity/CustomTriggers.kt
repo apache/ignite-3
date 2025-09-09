@@ -15,10 +15,10 @@ class CustomTriggers {
          * @param enabled: enable/disable trigger
          */
         fun Triggers.customSchedule(
-                triggerHour: Int,
-                branchFilter: String,
-                enabled: Boolean = true,
-                init: ScheduleTrigger.() -> Unit
+            triggerHour: Int,
+            branchFilter: String,
+            enabled: Boolean = true,
+            init: ScheduleTrigger.() -> Unit
         ): ScheduleTrigger {
             val result = ScheduleTrigger(init)
 
@@ -26,6 +26,8 @@ class CustomTriggers {
             result.schedulingPolicy = result.daily {
                 hour = triggerHour
             }
+            // Allow to enable/disable trigger
+            result.enabled = enabled
             // Filter branches (run on only specified ones)
             result.branchFilter = branchFilter
             // Run build despite the watching build is not changed
@@ -49,14 +51,41 @@ class CustomTriggers {
          * @param quietPeriod: set custom quiet period time (seconds)
          */
         fun Triggers.pullRequestChange(
-                enabled: Boolean = true,
-                quietPeriod: Int = 300,
-                init: VcsTrigger.() -> Unit
+            enabled: Boolean = true,
+            quietPeriod: Int = 300,
+            init: VcsTrigger.() -> Unit
         ): VcsTrigger {
             val result = VcsTrigger(init)
 
             // Filter pull-requests
             result.branchFilter = "+:pull/*"
+            // Allow to enable/disable trigger
+            result.enabled = enabled
+            result.enableQueueOptimization = true
+            result.quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
+            result.quietPeriod = quietPeriod
+
+            trigger(result)
+            return result
+        }
+
+        /**
+         * Trigger for changes in Integration Branch
+         *
+         * @param enabled: enable/disable trigger
+         * @param integrationBranchName: set custom branch name
+         * @param quietPeriod: set custom quiet period time (seconds)
+         */
+        fun Triggers.integrationBranchChange(
+            enabled: Boolean = true,
+            integrationBranchName: String = "main",
+            quietPeriod: Int = 300,
+            init: VcsTrigger.() -> Unit
+        ): VcsTrigger {
+            val result = VcsTrigger(init)
+
+            // Trigger only on integration branch
+            result.branchFilter = "+:${integrationBranchName}"
             // Allow to enable/disable trigger
             result.enabled = enabled
             result.enableQueueOptimization = true

@@ -3,6 +3,7 @@ package org.apache.ignite.teamcity
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings.Type
 import jetbrains.buildServer.configs.kotlin.CheckoutMode
+import org.apache.ignite.teamcity.CustomFailureConditions.Companion.failOnExactText
 
 @Suppress("unused")
 open class CustomBuildType(open val buildType: BuildType) {
@@ -56,6 +57,19 @@ open class CustomBuildType(open val buildType: BuildType) {
                 baseRule {
                     all(days = 1)
                 }
+            }
+        }
+
+
+        /**
+         * Apply additional failure conditions for tests based on messages in the build log
+         */
+        fun testsFailureCondition() = apply {
+            buildType.failureConditions {
+                failOnExactText(pattern = "LEAK:", failureMessage = "Netty buffer leak detected.") {}
+                failOnExactText(pattern = "java.lang.NullPointerException", failureMessage = "NullPointerException detected.") {}
+                failOnExactText(pattern = "java.lang.AssertionError", failureMessage = "AssertionError detected.") {}
+                failOnExactText(pattern = "Critical system error detected.", failureMessage = "Critical system error detected.") {}
             }
         }
 
