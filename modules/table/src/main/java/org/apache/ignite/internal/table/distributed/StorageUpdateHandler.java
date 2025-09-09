@@ -138,6 +138,8 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
+            } else {
+                modificationCounter.updateValue(1, commitTs);
             }
 
             if (onApplication != null) {
@@ -269,6 +271,8 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
+            } else {
+                modificationCounter.updateValue(processedRowIds.size(), commitTs);
             }
 
             if (entryToProcess == null && onApplication != null) {
@@ -453,8 +457,6 @@ public class StorageUpdateHandler {
 
             assert result.status() == AddWriteCommittedResultStatus.SUCCESS : "rowId=" + rowId + ", result=" + result;
         }
-
-        modificationCounter.updateValue(1, commitTs);
     }
 
     /**
