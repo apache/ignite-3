@@ -125,7 +125,6 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
     @Test
     void differentUpdateTypes() {
         String tabName = "test_table";
-        int partsCount = 8;
         sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tabName, ZONE_8_PART_NO_REPLICAS));
         KeyValueView<Integer, Integer> keyValueView = CLUSTER.aliveNode().tables().table("test_table")
                 .keyValueView(Integer.class, Integer.class);
@@ -158,8 +157,6 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
             sql("DELETE FROM test_table");
             expectedMods += 6;
             expectModsCount(tabName, expectedMods);
-
-            expectNextMilestone(tabName, DEFAULT_MIN_STALE_ROWS_COUNT);
         }
 
         // Explicit transaction.
@@ -197,8 +194,10 @@ public class ItPartitionModificationCounterMetricsTest extends BaseSqlIntegratio
                 expectedMods += 6;
                 expectModsCount(tabName, expectedMods);
             }
+        }
 
-            expectNextMilestone(tabName, DEFAULT_MIN_STALE_ROWS_COUNT);
+        for (int part = 0; part < 8; part++) {
+            assertThat(metricFromAnyNode(tabName, part, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
         }
     }
 

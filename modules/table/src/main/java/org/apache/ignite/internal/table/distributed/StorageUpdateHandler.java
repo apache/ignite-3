@@ -138,7 +138,7 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
-            } else {
+            } else if (commitTs != null) {
                 modificationCounter.updateValue(1, commitTs);
             }
 
@@ -271,7 +271,7 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
-            } else {
+            } else if (commitTs != null && !processedRowIds.isEmpty()) {
                 modificationCounter.updateValue(processedRowIds.size(), commitTs);
             }
 
