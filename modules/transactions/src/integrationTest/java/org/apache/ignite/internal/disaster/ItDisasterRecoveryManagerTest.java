@@ -460,56 +460,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
     }
 
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-    @Test
-    void test() throws Exception {
-        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-
-        cluster.startNode(1);
-        cluster.startNode(2);
-        cluster.startNode(3);
-
-        String testZone = "TEST_ZONE";
-
-        System.out.println("!@# Create zone");
-        createZone(node.catalogManager(), testZone, 1, 4);
-
-        Set<IgniteImpl> runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
-
-        assertEquals(4, runningNodes.size(), "Expected 4 running nodes after zone alteration");
-
-        String tableName = "TABLE_NAME";
-
-        node.sql().executeScript(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
-                tableName,
-                testZone
-        ));
-
-        insert(0, 0, tableName);
-
-        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
-
-        IgniteImpl node4 = unwrapIgniteImpl(cluster.startNode(4));
-
-        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
-
-        assertEquals(5, runningNodes.size(), "Expected 5 running nodes 5th node started");
-
-        System.out.println("!@# Alter zone");
-        alterZone(node.catalogManager(), testZone, 5);
-
-        insert(1, 1, tableName);
-
-        runningNodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toSet());
-
-        assertEquals(5, runningNodes.size(), "Expected 5 running nodes after zone alteration");
-
-        assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
-
-        assertValueOnSpecificNodes(tableName, runningNodes, 1, 1);
-    }
-
     private IgniteImpl findNodeConformingOptions(String tableName, boolean primaryReplica, boolean raftLeader) throws InterruptedException {
         Ignite nodeToCleanup;
 
