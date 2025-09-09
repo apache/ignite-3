@@ -3,11 +3,13 @@ package test
 import jetbrains.buildServer.configs.kotlin.Project
 import org.apache.ignite.teamcity.ApacheIgnite3CustomBuildType
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.INTEGRATION
+import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.SQL_LOGIC
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.UNIT
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import test.build_types.RunAllTests
 import test.build_types.RunSanityCheck
 import test.template_types.RunTests
+import test.template_types.RunTestsList
 
 
 object Project : Project({
@@ -38,6 +40,12 @@ object Project : Project({
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunTests(UNIT))
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(RunTestsList(SQL_LOGIC, SQL_LOGIC[0].configuration.suiteId))
             .ignite3VCS()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
