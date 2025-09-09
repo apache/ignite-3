@@ -184,8 +184,7 @@ class ApacheIgnite3Teamcity {
             IGNITE__STORAGE_ROCKSDB,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__VAULT,
-            IGNITE__SQL_ENGINE
+            IGNITE__VAULT
         )
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
