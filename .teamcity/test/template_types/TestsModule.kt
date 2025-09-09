@@ -1,0 +1,49 @@
+package test.template_types
+
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
+import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
+import org.apache.ignite.teamcity.Teamcity.Companion.getId
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
+
+
+class TestsModule(
+    private val configuration: TestConfiguration,
+    private val module: GradleModule
+): BuildType({
+    id(getId(this::class, "${configuration.suiteId} Tests_${module.displayName}", true))
+    name = configuration.suiteId + " " + module.displayName
+
+    params {
+        hiddenText("XMX", configuration.xmx.toString() + "g")
+        hiddenText("JVM_ARGS", module.jvmArgs)
+    }
+
+    steps {
+        customGradle {
+            name = "Run tests"
+            tasks = module.moduleName + configuration.testTask
+            workingDir = "%VCSROOT__IGNITE3%"
+            jvmArgs = """
+                -Xmx%XMX%
+                %JVM_ARGS%
+            """.trimIndent()
+        }
+    }
+
+    artifactRules = """
+        ignite-3/modules/${module.moduleName}/build/reports/**/index.html
+    """.trimIndent()
+
+    failureConditions {
+        executionTimeoutMin = configuration.executionTimeoutMin
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "[ERROR] Killed"
+            failureMessage = "[ERROR] Killed by OOM killer"
+            reverse = false
+        }
+    }
+})

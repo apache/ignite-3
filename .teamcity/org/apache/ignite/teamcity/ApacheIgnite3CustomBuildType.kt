@@ -1,0 +1,40 @@
+package org.apache.ignite.teamcity
+
+import build.build_types.ApacheIgnite3
+import jetbrains.buildServer.configs.kotlin.AbsoluteId
+import jetbrains.buildServer.configs.kotlin.BuildType
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
+
+
+class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBuildType(buildType) {
+    class Builder(override var buildType: BuildType) : CustomBuildType.Builder(buildType) {
+        /**
+         * Apache Ignite 3 VCS settings
+         */
+        fun ignite3VCS() = apply {
+            buildType.params {
+                hiddenText("VCSROOT__IGNITE3", "ignite-3")
+                hiddenText("env.JAVA_HOME", "%env.JDK_ORA_11%")
+                hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=false")
+            }
+            buildType.vcs {
+                root(AbsoluteId("GitHubApacheIgnite3"), "+:. => %VCSROOT__IGNITE3%")
+            }
+        }
+
+
+        /**
+         * Use pre-built Apache Ignite 3 artifacts instead of rebuilding project again
+         */
+        fun ignite3BuildDependency() = apply {
+            buildType.steps {
+                // Order this step to be the first one
+                items.add(0, items[items.lastIndex])
+                items.removeAt(items.lastIndex)
+            }
+            buildType.dependencies {
+                ApacheIgnite3
+            }
+        }
+    }
+}
