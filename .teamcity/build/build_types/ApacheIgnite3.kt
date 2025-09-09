@@ -1,0 +1,37 @@
+package build.build_types
+
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.BuildStep
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
+import org.apache.ignite.teamcity.Teamcity.Companion.getId
+
+
+object ApacheIgnite3 : BuildType({
+    id(getId(this::class))
+    name = "Apache Ignite 3"
+
+    steps {
+        customScript(type = "bash") {
+            name = "Clean up local maven repository"
+        }
+
+        customScript(type = "bash") {
+            name = "Check code base"
+            id = "CheckCodeBase"
+            workingDir = "%VCSROOT__GRIDGAIN9%"
+
+            conditions {
+                equals("teamcity.build.branch.is_default", "false")
+            }
+        }
+
+        customGradle {
+            name = "Build Apache Ignite 3"
+            tasks = "build -x test -x javadoc -x integrationTest -x pmdMain -x checkstyleMain -x checkstyleTest " +
+                "-x checkstyleIntegrationTest -x checkstyleTestFixtures"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+            workingDir = "%VCSROOT__IGNITE3%"
+        }
+    }
+})

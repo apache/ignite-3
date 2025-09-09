@@ -10,7 +10,6 @@ class ApacheIgnite3Teamcity {
         /*************
          * CONSTANTS *
          *************/
-        
 
         /**
          * Project GradleModules with settings
