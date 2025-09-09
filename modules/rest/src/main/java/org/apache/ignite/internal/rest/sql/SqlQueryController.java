@@ -36,7 +36,7 @@ import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryKillException;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
-import org.apache.ignite.internal.sql.engine.api.IgniteSqlInternal;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -94,7 +94,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     @Override
     public CompletableFuture<Void> clearCache(Optional<Set<String>> tableNames) {
         try {
-            return Wrappers.unwrap(igniteSql, IgniteSqlInternal.class).invalidatePlannerCache(tableNames.orElse(Set.of()));
+            return Wrappers.unwrap(igniteSql, QueryProcessor.class).invalidatePlannerCache(tableNames.orElse(Set.of()));
         } catch (Exception e) {
             LOG.error("Failed to invalidate SQL planner cache.", e);
             return failedFuture(e);

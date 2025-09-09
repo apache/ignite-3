@@ -23,7 +23,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -74,11 +73,12 @@ public interface QueryProcessor extends IgniteComponent {
     );
 
     /**
-     * Invalidates planner cache.
+     * Invalidates planner cache if {@code tableNames} is empty, otherwise invalidates only plans, which refers to the provided tables.
      *
+     * @param tableNames Table names.
      * @return Operation completion future.
      */
     default CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
-        return CompletableFutures.nullCompletedFuture();
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("Planner implementation doesn't support cache."));
     }
 }

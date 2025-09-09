@@ -40,8 +40,9 @@ public interface PrepareService extends LifecycleAware {
     CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, SqlOperationContext ctx);
 
     /**
-     * Invalidates planner cache.
+     * Invalidates planner cache if {@code tableNames} is empty, otherwise invalidates only plans, which refers to the provided tables.
      *
+     * @param tableNames Table names.
      * @return Operation completion future.
      */
     default CompletableFuture<Void> invalidateCache(Set<String> tableNames) {

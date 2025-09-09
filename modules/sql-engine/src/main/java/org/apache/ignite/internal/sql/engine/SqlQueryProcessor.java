@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -123,8 +123,6 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
-    /** Default time-zone ID. */
-    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
 
@@ -542,7 +540,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                             .queryId(UUID.randomUUID())
                             // time zone is used in execution phase,
                             // so we may use any time zone for preparation only
-                            .timeZoneId(DEFAULT_TIME_ZONE_ID)
+                            .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                             .defaultSchemaName(schemaName)
                             .operationTime(timestamp)
                             .cancel(queryCancel)

@@ -321,10 +321,11 @@ public class PrepareServiceImpl implements PrepareService {
         }, planningPool);
     }
 
-    private boolean planMatches(QueryPlan plan, Predicate<String> containsTable) {
+    /** Check if the given query plan matches the given predicate. */
+    public static boolean planMatches(QueryPlan plan, Predicate<String> predicate) {
         assert plan instanceof ExplainablePlan;
 
-        MatchingShuttle shuttle = new MatchingShuttle(containsTable);
+        MatchingShuttle shuttle = new MatchingShuttle(predicate);
 
         ((ExplainablePlan) plan).getRel().accept(shuttle);
 
@@ -845,7 +846,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         for (int i = 0; i < parameterRowType.getFieldCount(); i++) {
             RelDataTypeField field = parameterRowType.getFieldList().get(i);
-            ParameterType parameterType = ParameterType.fromRelDataType(field.getType());
+            ParameterType parameterType = TypeUtils.fromRelDataType(field.getType());
 
             parameterTypes.add(parameterType);
         }
