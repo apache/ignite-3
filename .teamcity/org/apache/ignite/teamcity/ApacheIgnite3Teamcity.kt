@@ -14,10 +14,6 @@ class ApacheIgnite3Teamcity {
         /**
          * Project GradleModules with settings
          */
-        private val IGNITE__AFFINITY = GradleModule(
-            "Affinity",
-            "ignite-affinity"
-        )
         private val IGNITE__API = GradleModule(
             "API",
             "ignite-api"
@@ -152,7 +148,6 @@ class ApacheIgnite3Teamcity {
          * List of GradleModules with Unit tests
          */
         private val unitTestGradleModuleList: List<GradleModule> = listOf(
-            IGNITE__AFFINITY,
             IGNITE__API,
             IGNITE__BINARY_TUPLE,
             IGNITE__CLI,
