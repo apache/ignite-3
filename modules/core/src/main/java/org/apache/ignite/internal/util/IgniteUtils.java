@@ -75,7 +75,6 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -88,8 +87,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-    private static final IgniteLogger LOG = Loggers.forClass(IgniteUtils.class);
-
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
@@ -1349,7 +1346,6 @@ public class IgniteUtils {
                         return igniteComponent.stopAsync(componentContext);
                     } catch (Throwable e) {
                         // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        LOG.warn("Failed to stop component {}", e, igniteComponent.getClass());
                         return failedFuture(e);
                     }
                 })
