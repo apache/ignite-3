@@ -22,6 +22,7 @@ object Javadoc : BuildType({
         customGradle {
             name = "Build Javadoc"
             tasks = "aggregateJavadoc"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
 
         customScript(type = "bash") {
@@ -30,6 +31,6 @@ object Javadoc : BuildType({
     }
 
     failureConditions {
-        failOnExactText(pattern = "%ERROR_TEXT__INTERNAL_PACKAGES%", failureMessage = "%ERROR_TEXT__INTERNAL_PACKAGES%") {}
+        failOnExactText(pattern = "[ERROR] Internal packages detected", failureMessage = "[ERROR] Internal packages detected") {}
     }
 })

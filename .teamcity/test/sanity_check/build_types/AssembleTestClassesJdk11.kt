@@ -14,6 +14,7 @@ object AssembleTestClasses : BuildType({
             name = "Assemble testClasses on JDK11"
             tasks = "assemble testClasses"
             jdkHome = "%env.JDK_ORA_11%"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })
