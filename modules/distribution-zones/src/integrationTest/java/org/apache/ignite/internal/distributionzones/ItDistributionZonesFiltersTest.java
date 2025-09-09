@@ -31,9 +31,11 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +57,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.sql.SqlException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -291,9 +294,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // There is no node that match the filter
         String newFilter = "$[?(@.region == \"FOO\" && @.storage == \"BAR\")]";
 
-        node0.sql().execute(null, alterZoneSql(newFilter));
-
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
+        assertThrowsWithCode(SqlException.class, STMT_VALIDATION_ERR, () -> node0.sql().execute(null, alterZoneSql(newFilter)), null);
 
         assertValueInStorage(
                 metaStorageManager,
