@@ -24,7 +24,7 @@ class TestsModule(
     steps {
         customGradle {
             name = "Run tests"
-            tasks = module.moduleName + configuration.testTask
+            tasks = module.buildTask(configuration.testTask)
             workingDir = "%VCSROOT__IGNITE3%"
             jvmArgs = """
                 -Xmx%XMX%
