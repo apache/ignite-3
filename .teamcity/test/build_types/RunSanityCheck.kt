@@ -12,10 +12,12 @@ object RunSanityCheck : BuildType({
     type = Type.COMPOSITE
 
     dependencies {
+        snapshot(AssembleTestClasses) {}
         snapshot(CodeStyle) {}
-        snapshot(Inspections) {}
-        snapshot(PMD) {}
-        snapshot(LegacyApi) {}
         snapshot(Javadoc) {}
+        snapshot(MavenBuildCheck) {}
+        snapshot(MentionTicket) {}
+        snapshot(PMD) {}
+        snapshot(Spotbugs) {}
     }
 })
