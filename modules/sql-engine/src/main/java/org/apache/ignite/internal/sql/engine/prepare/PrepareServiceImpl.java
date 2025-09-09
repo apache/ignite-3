@@ -39,6 +39,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
@@ -97,6 +98,8 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -314,7 +317,8 @@ public class PrepareServiceImpl implements PrepareService {
             if (tableNames.isEmpty()) {
                 cache.clear();
             } else {
-                cache.removeIfValue(p -> p.isDone() && planMatches(p.join(), tableNames::contains));
+                Set<QualifiedName> qualifiedNames = tableNames.stream().map(QualifiedName::parse).collect(Collectors.toSet());
+                cache.removeIfValue(p -> p.isDone() && planMatches(p.join(), qualifiedNames::contains));
             }
 
             return null;
@@ -322,7 +326,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /** Check if the given query plan matches the given predicate. */
-    public static boolean planMatches(QueryPlan plan, Predicate<String> predicate) {
+    public static boolean planMatches(QueryPlan plan, Predicate<QualifiedName> predicate) {
         assert plan instanceof ExplainablePlan;
 
         MatchingShuttle shuttle = new MatchingShuttle(predicate);
@@ -944,11 +948,11 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private static class MatchingShuttle extends IgniteRelShuttle {
-        private final Predicate<String> containsTable;
-        boolean matches;
+        private final Predicate<QualifiedName> tableNamePredicate;
+        private boolean matches;
 
-        private MatchingShuttle(Predicate<String> containsTable) {
-            this.containsTable = containsTable;
+        private MatchingShuttle(Predicate<QualifiedName> tableNamePredicate) {
+            this.tableNamePredicate = tableNamePredicate;
             matches = false;
         }
 
@@ -958,7 +962,9 @@ public class PrepareServiceImpl implements PrepareService {
         @Override
         protected IgniteRel processNode(IgniteRel rel) {
             if (!matches && rel.getTable() != null) {
-                matches = containsTable.test(rel.getTable().getQualifiedName().toString());
+                List<String> tableName = rel.getTable().getQualifiedName();
+                assert tableName.size() == 2 : "Qualified table name expected.";
+                matches = tableNamePredicate.test(QualifiedNameHelper.fromNormalized(tableName.get(0), tableName.get(1)));
             }
 
             if (matches) {
