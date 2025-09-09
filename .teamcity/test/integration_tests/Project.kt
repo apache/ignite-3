@@ -10,5 +10,5 @@ object Project : Project({
     name = "[Integration Tests]"
 
     INTEGRATION.buildType().forEach { buildType(it) }
-    SQL_LOGIC.buildType().forEach { buildType(it) }
+    SQL_LOGIC.forEach { tests -> tests.buildType().forEach { buildType(it) } }
 })
