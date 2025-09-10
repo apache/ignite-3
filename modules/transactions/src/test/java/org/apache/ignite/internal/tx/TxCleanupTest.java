@@ -49,8 +49,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -79,10 +79,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final InternalClusterNode LOCAL_NODE =
-            new InternalClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
     private static final InternalClusterNode REMOTE_NODE =
-            new InternalClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     @InjectConfiguration
     private TransactionConfiguration transactionConfiguration;

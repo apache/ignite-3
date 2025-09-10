@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -42,28 +42,28 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     private static final String FILTER = "$[?(@.storage == 'SSD' || @.region == 'US')]";
 
     private static final LogicalNode A = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -207,7 +207,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         alterZone(zoneName, null, null, newFilter);
 
         LogicalNode e = new LogicalNode(
-                new InternalClusterNodeImpl(randomUUID(), "E", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
                 Map.of(),
                 List.of(DEFAULT_STORAGE_PROFILE)

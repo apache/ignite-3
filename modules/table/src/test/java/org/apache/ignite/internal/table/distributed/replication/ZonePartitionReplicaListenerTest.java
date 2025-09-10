@@ -115,9 +115,9 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -349,10 +349,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     private final TestTxStatePartitionStorage txStateStorage = spy(new TestTxStatePartitionStorage());
 
     /** Local cluster node. */
-    private final InternalClusterNode localNode = new InternalClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
 
     /** Another (not local) cluster node. */
-    private final InternalClusterNode anotherNode = new InternalClusterNodeImpl(nodeId(2), "node2", NetworkAddress.from("127.0.0.2:127"));
+    private final InternalClusterNode anotherNode = new ClusterNodeImpl(nodeId(2), "node2", NetworkAddress.from("127.0.0.2:127"));
 
     private TransactionStateResolver transactionStateResolver;
 

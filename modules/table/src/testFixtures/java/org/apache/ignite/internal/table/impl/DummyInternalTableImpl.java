@@ -66,10 +66,10 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -159,7 +159,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    public static final InternalClusterNode LOCAL_NODE = new InternalClusterNodeImpl(new UUID(1, 2), "node", ADDR);
+    public static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(new UUID(1, 2), "node", ADDR);
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.

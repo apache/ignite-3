@@ -224,7 +224,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         // Create a fake node for nodes that are not in the topology yet.
         if (recipient == null) {
-            recipient = new InternalClusterNodeImpl(null, null, recipientNetworkAddress);
+            recipient = new ClusterNodeImpl(null, null, recipientNetworkAddress);
         }
 
         return send0(recipient, channelType, msg, null, false);

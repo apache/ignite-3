@@ -102,9 +102,9 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -174,7 +174,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
     private static final int PARTITIONS = 8;
-    private static final InternalClusterNode node = new InternalClusterNodeImpl(
+    private static final InternalClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)

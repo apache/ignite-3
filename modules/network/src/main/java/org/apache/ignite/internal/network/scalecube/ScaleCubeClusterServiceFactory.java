@@ -47,10 +47,10 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -210,7 +210,7 @@ public class ScaleCubeClusterServiceFactory {
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
                 Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
-                InternalClusterNode localNode = new InternalClusterNodeImpl(
+                InternalClusterNode localNode = new ClusterNodeImpl(
                         UUID.fromString(localMember.id()),
                         consistentId,
                         new NetworkAddress(localMember.address().host(), localMember.address().port())

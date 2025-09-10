@@ -46,8 +46,8 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -69,7 +69,7 @@ class TestIndexManagementUtils {
 
     static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
-    static final InternalClusterNode LOCAL_NODE = new InternalClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
+    static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
 
     static final LogicalNode LOGICAL_LOCAL_NODE = new LogicalNode(NODE_ID, NODE_NAME, new NetworkAddress("127.0.0.1", 8888));
 
