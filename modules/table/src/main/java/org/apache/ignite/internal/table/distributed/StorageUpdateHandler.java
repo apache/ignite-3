@@ -275,7 +275,7 @@ public class StorageUpdateHandler {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
             } else
                 // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
-                if (commitTs != null && !processedRowIds.isEmpty()) {
+                if (commitTs != null) {
                     modificationCounter.updateValue(processedRowIds.size(), commitTs);
                 }
 

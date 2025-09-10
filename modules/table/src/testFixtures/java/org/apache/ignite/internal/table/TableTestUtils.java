@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -65,11 +66,16 @@ public class TableTestUtils {
 
     /** No-op partition modification counter. */
     public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
-            new PartitionModificationCounter(HybridTimestamp.MAX_VALUE, () -> 0, 0, 0);
+            new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0, 0, 0);
 
-    /** No-op partition modification counter factory produces no-op modification counter. */
+    /** No-op partition modification counter factory. */
     public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE);
+            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE) {
+                @Override
+                public PartitionModificationCounter create(LongSupplier partitionSizeSupplier) {
+                    return NOOP_PARTITION_MODIFICATION_COUNTER;
+                }
+            };
 
     /**
      * Creates table in the catalog.
