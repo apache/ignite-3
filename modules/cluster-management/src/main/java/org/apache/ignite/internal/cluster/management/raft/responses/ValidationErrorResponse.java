@@ -24,17 +24,17 @@ import java.io.Serializable;
  */
 public class ValidationErrorResponse implements Serializable {
     private final String reason;
-    private final boolean configError;
+    private final boolean invalidNodeConfig;
 
     /**
      * Creates a new response.
      *
      * @param reason Textual representation of the reason of join rejection.
-     * @param configError Flag denoting whether erroneous result is caused by config error.
+     * @param invalidNodeConfig Flag denoting whether erroneous result is caused by invalid node configuration.
      */
-    public ValidationErrorResponse(String reason, boolean configError) {
+    public ValidationErrorResponse(String reason, boolean invalidNodeConfig) {
         this.reason = reason;
-        this.configError = configError;
+        this.invalidNodeConfig = invalidNodeConfig;
     }
 
     /**
@@ -47,11 +47,11 @@ public class ValidationErrorResponse implements Serializable {
     }
 
     /**
-     * Flag marking this error as being caused by bad user input.
+     * Flag marking this error as being caused by invalid node configuration.
      *
-     * @return flag denoting whether erroneous result is caused by config error.
+     * @return flag denoting whether erroneous result is caused by invalid node configuration.
      */
-    public boolean isConfigError() {
-        return configError;
+    public boolean isInvalidNodeConfig() {
+        return invalidNodeConfig;
     }
 }

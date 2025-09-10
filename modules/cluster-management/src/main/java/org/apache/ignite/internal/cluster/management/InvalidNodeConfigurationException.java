@@ -22,10 +22,10 @@ import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATI
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Exception representing user input error. This is used to differentiate from system errors.
+ * Exception representing invalid node configuration. This is used to differentiate from other errors.
  */
-public class RuntimeConfigurationException extends IgniteInternalException {
-    public RuntimeConfigurationException(String message) {
+public class InvalidNodeConfigurationException extends IgniteInternalException {
+    public InvalidNodeConfigurationException(String message) {
         super(CONFIGURATION_VALIDATION_ERR, message);
     }
 }

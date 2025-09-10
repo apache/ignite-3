@@ -32,7 +32,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
-import org.apache.ignite.internal.cluster.management.RuntimeConfigurationException;
+import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
@@ -151,8 +151,8 @@ public class CmgRaftService implements ManuallyCloseable {
                     if (response instanceof ValidationErrorResponse) {
                         var validationErrorResponse = (ValidationErrorResponse) response;
 
-                        if (validationErrorResponse.isConfigError()) {
-                            var runtimeConfigurationException = new RuntimeConfigurationException(validationErrorResponse.reason());
+                        if (validationErrorResponse.isInvalidNodeConfig()) {
+                            var runtimeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
 
                             throw new JoinDeniedException(runtimeConfigurationException.code(), runtimeConfigurationException);
                         } else {

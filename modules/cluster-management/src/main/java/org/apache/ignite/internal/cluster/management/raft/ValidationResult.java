@@ -25,11 +25,11 @@ import org.jetbrains.annotations.Nullable;
 public class ValidationResult {
     @Nullable
     private final String errorDescription;
-    private final boolean configError;
+    private final boolean invalidNodeConfig;
 
-    private ValidationResult(@Nullable String errorDescription, boolean configError) {
+    private ValidationResult(@Nullable String errorDescription, boolean invalidNodeConfig) {
         this.errorDescription = errorDescription;
-        this.configError = configError;
+        this.invalidNodeConfig = invalidNodeConfig;
     }
 
     /**
@@ -70,9 +70,9 @@ public class ValidationResult {
     }
 
     /**
-     * Returns flag denoting whether erroneous result is caused by config error.
+     * Returns flag denoting whether erroneous result is caused by invalid node configuration.
      */
-    boolean isConfigError() {
-        return configError;
+    boolean isInvalidNodeConfig() {
+        return invalidNodeConfig;
     }
 }
