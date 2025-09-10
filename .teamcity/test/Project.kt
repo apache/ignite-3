@@ -41,7 +41,7 @@ object Project : Project({
             .build().buildType
     )
     buildType(
-        ApacheIgnite3CustomBuildType.Builder(MIGRATION_TOOLS_SUITE)
+        ApacheIgnite3CustomBuildType.Builder(RunTests(MIGRATION_TOOLS_INTEGRATION, "Migration Tools Integration"))
             .ignite3VCS()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType

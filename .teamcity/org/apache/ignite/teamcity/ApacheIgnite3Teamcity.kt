@@ -240,17 +240,7 @@ class ApacheIgnite3Teamcity {
             IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__VAULT,
-            MIGRATION_TOOLS_CLI,
-            MIGRATION_TOOLS_COMMONS,
-            MIGRATION_TOOLS_CONFIG_CONVERTER,
-            MIGRATION_TOOLS_PERSISTENCE,
-            MIGRATION_TOOLS_E2E_AI3,
-            MIGRATION_TOOLS_ADAPTER,
-            MIGRATION_TOOLS_ADAPTER_COMPUTE_CORE,
-            MIGRATION_TOOLS_ADAPTER_COMPUTE_BOOTSTRAP,
-            MIGRATION_TOOLS_ADAPTER_SPRING_TESTS,
-            MIGRATION_TOOLS_E2E_AI2
+            IGNITE__VAULT
         )
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
@@ -278,9 +268,6 @@ class ApacheIgnite3Teamcity {
             MIGRATION_TOOLS_CONFIG_CONVERTER,
             MIGRATION_TOOLS_PERSISTENCE,
             MIGRATION_TOOLS_E2E_AI3,
-            MIGRATION_TOOLS_ADAPTER,
-            MIGRATION_TOOLS_ADAPTER_SPRING_TESTS,
-            MIGRATION_TOOLS_E2E_AI2,
         )
 
         /**
@@ -297,7 +284,8 @@ class ApacheIgnite3Teamcity {
 
         val INTEGRATION = Tests(
             integrationTestConf,
-            integrationTestGradleModulesList
+            integrationTestGradleModulesList,
+            excludeOnlyModules = migrationToolsIntegrationModules,
         )
 
         private val sqlConfigurationLogic = TestConfiguration(
@@ -330,7 +318,5 @@ class ApacheIgnite3Teamcity {
             migrationToolsIntegrationModules,
             enableOthers = false
         )
-
-        val MIGRATION_TOOLS_SUITE: RunTests = RunTests(MIGRATION_TOOLS_INTEGRATION, "Migration Tools Integration")
     }
 }
