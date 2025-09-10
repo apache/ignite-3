@@ -28,7 +28,7 @@ class TestsModule(
 
     steps {
         customScript(type = "bash") {
-            name = "Cleanup Remaining Processes"
+            name = "Clean Up Remaining Processes"
         }
         customGradle {
             name = "Run tests"
@@ -40,7 +40,7 @@ class TestsModule(
             """.trimIndent()
         }
         customScript(type = "bash") {
-            name = "Cleanup Remaining Processes"
+            name = "Clean Up Remaining Processes"
         }
     }
 

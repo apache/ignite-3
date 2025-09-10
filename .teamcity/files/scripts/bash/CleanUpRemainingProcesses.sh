@@ -16,3 +16,6 @@ while read string; do
     echo "Kill $process_name with $pid PID"
     kill -9 ${pid}
 done < <(ps a | grep '[b]in/java' | grep -v '/opt/java/openjdk/bin/java' | tr -s ' ' || true)
+
+# Force correct permissions
+sudo chown -R teamcity:teamcity .

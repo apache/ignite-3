@@ -28,7 +28,7 @@ class OtherTestsModule(
 
     steps {
         customScript(type = "bash") {
-            name = "Cleanup Remaining Processes"
+            name = "Clean Up Remaining Processes"
         }
 
         customGradle {
@@ -44,7 +44,7 @@ class OtherTestsModule(
         }
 
         customScript(type = "bash") {
-            name = "Cleanup Remaining Processes"
+            name = "Clean Up Remaining Processes"
         }
     }
 
