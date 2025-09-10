@@ -1103,8 +1103,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertPendingAssignments(node0, partId, assignmentPending);
 
-        Set<Assignment> peers = allAssignments.nodes().stream()
-                .filter(a -> nodesNamesForFinalAssignments.contains(a.consistentId()))
+        Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
+                .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
         Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
@@ -1248,8 +1248,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertPendingAssignments(node0, partId, assignmentPending);
 
-        Set<Assignment> peers = allAssignments.nodes().stream()
-                .filter(a -> nodesNamesForFinalAssignments.contains(a.consistentId()))
+        Set<Assignment> peers = nodesNamesForFinalAssignments.stream()
+                .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
         Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);

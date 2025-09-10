@@ -73,6 +73,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -321,7 +322,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 : emptySet();
     }
 
-    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
+    Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         if (colocationEnabled()) {
             int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
 
@@ -348,16 +349,16 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private void createHaZoneWithTables(
             String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
-        createHaZoneWithTables(zoneName, tableNames, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+        createHaZoneWithTables(zoneName, tableNames, PARTITIONS_NUMBER, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
     }
 
     private void createHaZoneWithTables(
-            String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes
+            String zoneName, List<String> tableNames, int partitionNumber, String filter, String storageProfiles, Set<String> targetNodes
     ) throws InterruptedException {
         executeSql(String.format(
-                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, QUORUM SIZE 2, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
                         + "STORAGE PROFILES ['%s']",
-                zoneName, targetNodes.size(), PARTITIONS_NUMBER, filter, storageProfiles
+                zoneName, targetNodes.size(), partitionNumber, filter, storageProfiles
         ));
 
         Set<Integer> tableIds = new HashSet<>();
@@ -373,13 +374,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         int zoneId = DistributionZonesTestUtil.getZoneId(igniteImpl(0).catalogManager(), zoneName, clock.nowLong());
 
+        Set<Integer> partitionIds = Arrays.stream(AssignmentUtil.partitionIds(partitionNumber)).boxed().collect(Collectors.toSet());
+
         if (colocationEnabled()) {
-            awaitForAllNodesZoneGroupInitialization(zoneId, targetNodes.size());
-            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableNames.get(0), PARTITION_IDS, targetNodes);
+            awaitForAllNodesZoneGroupInitialization(zoneId, partitionNumber, targetNodes.size());
+            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableNames.get(0), partitionIds, targetNodes);
         } else {
-            awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
+            awaitForAllNodesTableGroupInitialization(tableIds, partitionNumber, targetNodes.size());
             tableNames.forEach(t ->
-                    waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
+                    waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, partitionIds, targetNodes)
             );
         }
     }
@@ -390,6 +393,16 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         createHaZoneWithTables(zoneName, tableNames, DEFAULT_FILTER, allNodes);
     }
 
+    final void createHaZoneWithTables(
+            String zoneName,
+            int partitionNumber,
+            String filter,
+            List<String> tableNames,
+            Set<String> targetNodes
+    ) throws InterruptedException {
+        createHaZoneWithTables(zoneName, tableNames, partitionNumber, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+    }
+
     final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
         createHaZoneWithTables(HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes);
     }
@@ -398,21 +411,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         createHaZoneWithTables(zoneName, List.of(tableName));
     }
 
-    final void createHaZoneWithTable(int replicas, String filter, Set<String> targetNodes) throws InterruptedException {
-        createHaZoneWithTables(
-                HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes
-        );
-    }
-
     final void createHaZoneWithTable() throws InterruptedException {
         createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME);
     }
 
-    final void createHaZoneWithTableWithStorageProfile(int replicas, String storageProfiles, Set<String> targetNodes)
+    final void createHaZoneWithTableWithStorageProfile(String storageProfiles, Set<String> targetNodes)
             throws InterruptedException {
-        createHaZoneWithTables(
-                HA_ZONE_NAME, List.of(HA_TABLE_NAME), DEFAULT_FILTER, storageProfiles, targetNodes
-        );
+        createHaZoneWithTables(HA_ZONE_NAME, List.of(HA_TABLE_NAME), PARTITIONS_NUMBER, DEFAULT_FILTER, storageProfiles, targetNodes);
     }
 
     final void createScZoneWithTable() {
@@ -502,7 +507,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return gatewayNode.metaStorageManager().appliedRevision();
     }
 
-    private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {
+    private void awaitForAllNodesTableGroupInitialization(
+            Set<Integer> tableIds,
+            int partitionNumber,
+            int replicas
+    ) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -518,11 +527,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             });
 
-            return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
+            return partitionNumber * replicas * tableIds.size() == numberOfInitializedReplicas.get();
         }, 10_000));
     }
 
-    private void awaitForAllNodesZoneGroupInitialization(int zoneId, int replicas) throws InterruptedException {
+    private void awaitForAllNodesZoneGroupInitialization(int zoneId, int partitionNumber, int replicas) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -539,7 +548,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             });
 
-            return PARTITIONS_NUMBER * replicas == numberOfInitializedReplicas.get();
+            return partitionNumber * replicas == numberOfInitializedReplicas.get();
         }, 10_000));
     }
 
