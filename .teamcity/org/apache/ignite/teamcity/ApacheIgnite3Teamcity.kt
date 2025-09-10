@@ -318,5 +318,7 @@ class ApacheIgnite3Teamcity {
             migrationToolsIntegrationModules,
             enableOthers = false
         )
+
+        val MIGRATION_TOOLS_SUITE: RunTests = RunTests(MIGRATION_TOOLS_INTEGRATION, "Migration Tools Integration")
     }
 }
