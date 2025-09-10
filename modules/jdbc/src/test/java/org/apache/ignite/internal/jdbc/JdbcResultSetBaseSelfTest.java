@@ -156,6 +156,10 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
             assertTrue(rs.next());
 
+            expectNotSupported(rs::rowInserted);
+            expectNotSupported(rs::rowUpdated);
+            expectNotSupported(rs::rowDeleted);
+
             expectNotSupported(() -> rs.updateBoolean(1, true));
             expectNotSupported(() -> rs.updateBoolean("C", true));
 
@@ -774,6 +778,27 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
+        }
+    }
+
+    @Test
+    public void findColumn() throws SQLException {
+        try (ResultSet rs = createResultSet(null, 
+                List.of(
+                        new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false),
+                        new ColumnDefinition("C1", ColumnType.BOOLEAN, 0, 0, false)
+                ), 
+                List.of(List.of(true), List.of(true))
+        )) {
+            assertEquals(1, rs.findColumn("c"));
+            assertEquals(1, rs.findColumn("C"));
+            assertEquals(2, rs.findColumn("c1"));
+            assertEquals(2, rs.findColumn("C1"));
+
+            expectSqlException(() -> rs.findColumn("x"), "Column not found: x");
+            expectSqlException(() -> rs.findColumn(null), "Column not found: null");
+            expectSqlException(() -> rs.findColumn(""), "Column not found: ");
+            expectSqlException(() -> rs.findColumn(" "), "Column not found:  ");
         }
     }
 

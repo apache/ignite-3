@@ -38,11 +38,10 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 
@@ -519,10 +518,7 @@ public class JdbcResultSet implements ResultSet {
     public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Objects.requireNonNull(colLb);
-
-        Integer order = columnOrder().get(colLb.toUpperCase());
-
+        Integer order = colLb != null ? columnOrder().get(colLb.toUpperCase()) : null;
         if (order == null) {
             throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
         }
@@ -703,7 +699,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowUpdated() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -711,7 +707,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowInserted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -719,7 +715,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowDeleted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException(UPDATES_ARE_NOT_SUPPORTED);
     }
 
     /** {@inheritDoc} */
@@ -1787,7 +1783,7 @@ public class JdbcResultSet implements ResultSet {
 
         JdbcResultSetMetadata metadata = initMetadata();
 
-        columnOrder = new HashMap<>(metadata.getColumnCount());
+        columnOrder = IgniteUtils.newHashMap(metadata.getColumnCount());
 
         for (int i = 0; i < metadata.getColumnCount(); i++) {
             String colName = metadata.getColumnLabel(i + 1).toUpperCase();

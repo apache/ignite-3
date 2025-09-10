@@ -1018,10 +1018,7 @@ public class JdbcResultSet implements ResultSet {
     public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Objects.requireNonNull(colLb);
-
-        Integer order = columnOrder().get(colLb.toUpperCase());
-
+        Integer order = colLb != null ? columnOrder().get(colLb.toUpperCase()) : null;
         if (order == null) {
             throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
         }
@@ -1202,7 +1199,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowUpdated() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Updates checks are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1210,7 +1207,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowInserted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Insert checks are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1218,7 +1215,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowDeleted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Delete checks are not supported.");
     }
 
     /** {@inheritDoc} */
