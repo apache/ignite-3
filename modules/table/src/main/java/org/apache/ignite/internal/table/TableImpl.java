@@ -45,6 +45,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.sql.IgniteSql;
@@ -309,5 +310,10 @@ public class TableImpl implements TableViewInternal {
                         failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
                     }
                 });
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return tbl.metrics();
     }
 }

@@ -86,6 +86,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
