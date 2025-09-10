@@ -102,8 +102,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -1229,7 +1229,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
 
-        Set<String> logicalNodeNames = topology.stream().map(InternalClusterNodeImpl::name).collect(Collectors.toSet());
+        Set<String> logicalNodeNames = topology.stream().map(ClusterNodeImpl::name).collect(Collectors.toSet());
 
         when(replicaService.invoke(any(String.class), any(ReplicaRequest.class)))
                 .thenAnswer(invocation ->

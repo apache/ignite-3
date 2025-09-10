@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
+import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -242,7 +243,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     @Override
     public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
-            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
+            String taskClassName,
+            JobClassLoader classLoader,
             ComputeEventMetadataBuilder metadataBuilder,
             @Nullable I arg
     ) {
@@ -252,9 +254,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         TaskExecutionContext context = new TaskExecutionContextImpl(ignite, isCancelled);
 
         metadataBuilder
-                .jobClassName(taskClass.getName())
+                .jobClassName(taskClassName)
                 .targetNode(ignite.name());
 
+        Class<MapReduceTask<I, M, T, R>> taskClass = taskClass(classLoader, taskClassName);
         return new TaskExecutionInternal<>(executorService, eventLog, jobSubmitter, taskClass, context, isCancelled, metadataBuilder, arg);
     }
 

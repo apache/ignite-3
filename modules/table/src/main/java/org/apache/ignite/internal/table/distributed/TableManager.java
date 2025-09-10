@@ -235,6 +235,7 @@ import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -467,9 +468,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final TableAssignmentsService assignmentsService;
     private final ReliableCatalogVersions reliableCatalogVersions;
 
+    private final MetricManager metricManager;
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
-    private final MetricManager metricManager;
 
     /**
      * Creates a new table manager.
@@ -501,6 +502,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionReplicaLifecycleManager Partition replica lifecycle manager.
      * @param minTimeCollectorService Collects minimum required timestamp for each partition.
      * @param systemDistributedConfiguration System distributed configuration.
+     * @param metricManager Metric manager.
      */
     public TableManager(
             String nodeName,
@@ -572,6 +574,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
+        this.metricManager = metricManager;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1183,6 +1186,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
+            unregisterMetricsSource(parameters.tableId());
+
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
         });
     }
@@ -1545,7 +1550,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 lowWatermark,
                 failureProcessor,
-                nodeProperties
+                nodeProperties,
+                table.metrics()
         );
     }
 
@@ -1816,7 +1822,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled()
+                nodeProperties.colocationEnabled(),
+                createAndRegisterMetricsSource(tableName)
         );
 
         return new TableImpl(
@@ -3273,6 +3280,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 int tableId = tableDescriptor.id();
 
                 if (nextCatalog != null && nextCatalog.table(tableId) == null) {
+                    unregisterMetricsSource(tableId);
+
                     destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
                 }
 
@@ -3598,6 +3607,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             throw new IgniteInternalException(INTERNAL_ERR, "Failed to acquire a write lock for zone [zoneId=" + zoneId + ']', t);
+        }
+    }
+
+    private TableMetricSource createAndRegisterMetricsSource(QualifiedName tableName) {
+        TableMetricSource source = new TableMetricSource(tableName);
+
+        try {
+            metricManager.registerSource(source);
+            metricManager.enable(source);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}].", e, source.qualifiedTableName());
+        }
+
+        return source;
+    }
+
+    private void unregisterMetricsSource(int tableId) {
+        try {
+            TableViewInternal table = startedTables.get(tableId);
+            if (table == null) {
+                return;
+            }
+
+            metricManager.unregisterSource(table.metrics());
+        } catch (Exception e) {
+            LOG.warn("Failed to unregister metrics source for table [tableId={}].", e, tableId);
         }
     }
 

@@ -45,8 +45,8 @@ import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -86,7 +86,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         configureCmgManagerToStartMetastorage(cmgManager);
 
         TopologyService topologyService = mock(TopologyService.class);
-        when(topologyService.localMember()).thenReturn(new InternalClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
 
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(clusterService.topologyService()).thenReturn(topologyService);

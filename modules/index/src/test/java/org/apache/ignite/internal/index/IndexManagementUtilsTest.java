@@ -49,9 +49,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -121,7 +121,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
                 ? new ZonePartitionId(0, 0)
                 : new TablePartitionId(1, 0);
 
-        InternalClusterNode otherNode = new InternalClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
+        InternalClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
 
         HybridTimestamp now = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -149,8 +149,8 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsLocalNode() {
-        InternalClusterNode localNode = new InternalClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
-        InternalClusterNode notLocalNode = new InternalClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
+        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
+        InternalClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
 
         ClusterService clusterService = clusterService(localNode);
 

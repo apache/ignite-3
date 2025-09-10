@@ -102,8 +102,8 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -149,8 +149,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     private ComputeComponent computeComponent;
 
-    private final InternalClusterNode testNode = new InternalClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
-    private final InternalClusterNode remoteNode = new InternalClusterNodeImpl(
+    private final InternalClusterNode testNode = new ClusterNodeImpl(randomUUID(), "test", new NetworkAddress("test-host", 1));
+    private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
             "remote",
             new NetworkAddress("remote-host", 1)

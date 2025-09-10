@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -102,6 +103,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
 
     private final IgniteProductVersionSource productVersionSource;
 
+    private final AckConfiguration ackConfiguration;
+
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
@@ -113,6 +116,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
+     * @param ackConfiguration Acknowledgement configuration.
      */
     public RecoveryAcceptorHandshakeManager(
             InternalClusterNode localNode,
@@ -123,7 +127,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            AckConfiguration ackConfiguration
     ) {
         this.localNode = localNode;
         this.messageFactory = messageFactory;
@@ -133,6 +138,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
+        this.ackConfiguration = ackConfiguration;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -173,7 +179,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
                 .productVersion(productVersionSource.productVersion().toString())
                 .build();
 
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
+        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList()));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
@@ -377,14 +383,14 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), messageFactory);
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), messageFactory, ackConfiguration.value());
 
         HandshakeFinishMessage response = messageFactory.handshakeFinishMessage()
                 .receivedCount(descriptor.receivedCount())
                 .build();
 
         CompletableFuture<Void> sendFuture = NettyUtils.toCompletableFuture(
-                channel.write(new OutNetworkObject(response, emptyList(), false))
+                channel.write(new OutNetworkObject(response, emptyList()))
         );
 
         descriptor.acknowledge(receivedCount);

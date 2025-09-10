@@ -32,7 +32,7 @@ class InternalClusterNodeSerializerTest {
 
     @Test
     void serializationAndDeserialization() {
-        InternalClusterNode originalNode = new InternalClusterNodeImpl(
+        InternalClusterNode originalNode = new ClusterNodeImpl(
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 "test",
                 new NetworkAddress("host", 3000),

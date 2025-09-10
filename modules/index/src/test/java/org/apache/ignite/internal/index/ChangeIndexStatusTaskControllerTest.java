@@ -52,9 +52,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -255,7 +255,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplicaAnotherNode() {
-        setPrimaryReplica(new InternalClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
+        setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
     }
 
     private void setPrimaryReplica(InternalClusterNode clusterNode) {

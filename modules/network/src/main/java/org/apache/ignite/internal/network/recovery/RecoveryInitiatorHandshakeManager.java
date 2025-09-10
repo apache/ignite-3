@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
@@ -99,6 +100,8 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
      */
     private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
 
+    private final AckConfiguration ackConfiguration;
+
     /** Remote node. */
     private InternalClusterNode remoteNode;
 
@@ -121,6 +124,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
+     * @param ackConfiguration Acknowledgement configuration.
      */
     public RecoveryInitiatorHandshakeManager(
             InternalClusterNode localNode,
@@ -131,7 +135,8 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            AckConfiguration ackConfiguration
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
@@ -141,6 +146,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
+        this.ackConfiguration = ackConfiguration;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -186,7 +192,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private void sendProbeToAcceptor() {
         ProbeMessage probe = MESSAGE_FACTORY.probeMessage().build();
 
-        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of(), false))).whenComplete((res, ex) -> {
+        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of()))).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof IOException) {
                     // We don't care: the channel will be reopened.
@@ -471,7 +477,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY, ackConfiguration.value());
 
         HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .clientNode(clusterNodeToMessage(localNode))
@@ -479,7 +485,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 .connectionId(connectionId)
                 .build();
 
-        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList(), false));
+        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList()));
 
         toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
