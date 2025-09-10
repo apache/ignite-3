@@ -575,6 +575,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
         this.metricManager = metricManager;
+        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -653,9 +654,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
-
-        this.metricManager = metricManager;
-        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
     }
 
     @Override
