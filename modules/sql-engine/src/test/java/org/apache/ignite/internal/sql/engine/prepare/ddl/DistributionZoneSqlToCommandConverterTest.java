@@ -114,7 +114,10 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(defaultLogicalTopologySnapshot));
 
-        converter = new DdlSqlToCommandConverter(new ClusterWideStorageProfileValidator(logicalTopologyService));
+        converter = new DdlSqlToCommandConverter(
+                new ClusterWideStorageProfileValidator(logicalTopologyService),
+                filter -> completedFuture(null)
+        );
 
         assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }

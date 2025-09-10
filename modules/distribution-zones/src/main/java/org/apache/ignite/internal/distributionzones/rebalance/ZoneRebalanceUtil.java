@@ -398,7 +398,7 @@ public class ZoneRebalanceUtil {
             int finalPartId = partId;
 
             partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments -> inBusyLockAsync(busyLock, () -> {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+                // TODO https://issues.apache.org/jira/browse/IGNITE-26395 We should distinguish empty stable assignments on
                 // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
                 return zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
                         zoneDescriptor,

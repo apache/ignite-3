@@ -116,9 +116,9 @@ Perform the following actions ONLY after the vote is successful and closed.
 
 ## Post Release steps
 
-1. Add compatibility snapshot for released version:
+1. Add compatibility snapshot, OpenAPI spec and update `igniteVersions.json` for released version:
 
-   * On release git branch need to generate a new snapshot with compatibility information `./gradlew :ignite-runner:generateCompatibilitySnapshot`
+   * On release git branch run the following command to generate new snapshot with compatibility information, copy OpenAPI spec and update the versions file `./gradlew postRelease`
    * Switch git to main branch
    * Run compatibility test `./gradlew :ignite-runner:test --tests "org.apache.ignite.internal.configuration.compatibility.ConfigurationCompatibilityTest"`
-   * Add generated compatibility snapshot to git. Commit the file under separate JIRA ticket with commit message `{jira_ticket} Add configuration snapshot for Ignite {version}`. Push the change to main branch.
+   * Add new files to git. Commit them under separate JIRA ticket with commit message `{jira_ticket} Add compatibility data for Ignite {version}`. Push the change to main branch.
