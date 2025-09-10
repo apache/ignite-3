@@ -240,7 +240,17 @@ class ApacheIgnite3Teamcity {
             IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__VAULT
+            IGNITE__VAULT,
+            MIGRATION_TOOLS_CLI,
+            MIGRATION_TOOLS_COMMONS,
+            MIGRATION_TOOLS_CONFIG_CONVERTER,
+            MIGRATION_TOOLS_PERSISTENCE,
+            MIGRATION_TOOLS_E2E_AI3,
+            MIGRATION_TOOLS_ADAPTER,
+            MIGRATION_TOOLS_ADAPTER_COMPUTE_CORE,
+            MIGRATION_TOOLS_ADAPTER_COMPUTE_BOOTSTRAP,
+            MIGRATION_TOOLS_ADAPTER_SPRING_TESTS,
+            MIGRATION_TOOLS_E2E_AI2
         )
 
         private val integrationTestGradleModulesList: List<GradleModule> = listOf(
@@ -318,7 +328,7 @@ class ApacheIgnite3Teamcity {
         val MIGRATION_TOOLS_INTEGRATION: Tests = Tests(
             TestConfiguration("Integration", "integrationTest", 4, 60, dindSupport = true),
             migrationToolsIntegrationModules,
-            enableOthers=false
+            enableOthers = false
         )
 
         val MIGRATION_TOOLS_SUITE: RunTests = RunTests(MIGRATION_TOOLS_INTEGRATION, "Migration Tools Integration")
