@@ -42,7 +42,10 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +62,14 @@ public class TableTestUtils {
 
     /** Column name. */
     public static final String COLUMN_NAME = "TEST_COLUMN";
+
+    /** No-op partition modification counter. */
+    public static final PartitionModificationCounter NOOP_PARTITION_MODIFICATION_COUNTER =
+            new PartitionModificationCounter(HybridTimestamp.MAX_VALUE, () -> 0, 0, 0);
+
+    /** No-op partition modification counter factory produces no-op modification counter. */
+    public static PartitionModificationCounterFactory NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY =
+            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE);
 
     /**
      * Creates table in the catalog.

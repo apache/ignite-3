@@ -24,14 +24,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Keeps track of the number of modifications of a partition.
- * When the configured threshold value of the number of modifications is reached, a timestamp corresponding
+ *
+ * <p>When the configured threshold value of the number of modifications is reached, a timestamp corresponding
  * to the commit time of the transaction that made this update is stored in {@link #lastMilestoneReachedTimestamp}.
- * The timestamp value is used to determine the staleness of related SQL statistics.
+ *
+ * <p>The timestamp value is used to determine the staleness of related SQL statistics.
  */
 public class PartitionModificationCounter {
-    public static PartitionModificationCounter NOOP =
-            new PartitionModificationCounter(HybridTimestamp.MAX_VALUE, () -> 0, 0, 0);
-
     private final LongSupplier partitionSizeSupplier;
     private final double staleRowsFraction;
     private final long minStaleRowsCount;
@@ -57,11 +56,7 @@ public class PartitionModificationCounter {
         lastMilestoneReachedTimestamp = initTimestamp;
     }
 
-    /**
-     * Gets the current counter value.
-     *
-     * @return the current counter value
-     */
+    /** Returns the current counter value. */
     public long value() {
         return counter.get();
     }
@@ -76,11 +71,7 @@ public class PartitionModificationCounter {
         return lastMilestoneReachedTimestamp;
     }
 
-    /**
-     * Returns the value of the next milestone.
-     *
-     * @return The value of the next milestone.
-     */
+    /** Returns the value of the next milestone. */
     public long nextMilestone() {
         return nextMilestone;
     }

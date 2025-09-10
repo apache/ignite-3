@@ -138,9 +138,11 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
-            } else if (commitTs != null) {
-                modificationCounter.updateValue(1, commitTs);
-            }
+            } else
+                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
+                if (commitTs != null) {
+                    modificationCounter.updateValue(1, commitTs);
+                }
 
             if (onApplication != null) {
                 onApplication.run();
@@ -271,9 +273,11 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
-            } else if (commitTs != null && !processedRowIds.isEmpty()) {
-                modificationCounter.updateValue(processedRowIds.size(), commitTs);
-            }
+            } else
+                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
+                if (commitTs != null && !processedRowIds.isEmpty()) {
+                    modificationCounter.updateValue(processedRowIds.size(), commitTs);
+                }
 
             if (entryToProcess == null && onApplication != null) {
                 onApplication.run();

@@ -246,7 +246,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
@@ -1651,7 +1650,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     minTimeCollectorService,
                     systemDistributedConfiguration,
                     metricManager,
-                    PartitionModificationCounterFactory.NOOP
+                    TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
             ) {
                 @Override
                 protected TxStateStorage createTxStateTableStorage(

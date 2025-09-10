@@ -123,7 +123,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
@@ -264,7 +264,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                PartitionModificationCounter.NOOP
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         ));
 
         catalogService = mock(CatalogService.class);
@@ -525,7 +525,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                PartitionModificationCounter.NOOP
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
 
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);

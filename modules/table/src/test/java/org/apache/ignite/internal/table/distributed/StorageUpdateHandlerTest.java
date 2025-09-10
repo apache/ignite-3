@@ -52,6 +52,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -165,7 +166,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                PartitionModificationCounter.NOOP
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
     }
 

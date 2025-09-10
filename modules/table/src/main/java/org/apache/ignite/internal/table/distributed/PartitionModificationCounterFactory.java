@@ -25,10 +25,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Factory for producing {@link PartitionModificationCounter}.
  */
 public class PartitionModificationCounterFactory {
-    /** No-op factory produces no-op modification counter. */
-    public static PartitionModificationCounterFactory NOOP =
-            new PartitionModificationCounterFactory(() -> HybridTimestamp.MIN_VALUE);
-
     public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
 
     public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;

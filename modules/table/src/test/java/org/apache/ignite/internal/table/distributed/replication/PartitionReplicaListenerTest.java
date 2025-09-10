@@ -212,9 +212,9 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -681,7 +681,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         partitionDataStorage,
                         indexUpdateHandler,
                         replicationConfiguration,
-                        PartitionModificationCounter.NOOP
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 validationSchemasSource,
                 localNode,
