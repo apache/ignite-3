@@ -152,9 +152,9 @@ public class CmgRaftService implements ManuallyCloseable {
                         var validationErrorResponse = (ValidationErrorResponse) response;
 
                         if (validationErrorResponse.isInvalidNodeConfig()) {
-                            var runtimeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
+                            var invalidNodeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
 
-                            throw new JoinDeniedException(runtimeConfigurationException.code(), runtimeConfigurationException);
+                            throw new JoinDeniedException(invalidNodeConfigurationException.code(), invalidNodeConfigurationException);
                         } else {
                             throw new JoinDeniedException(validationErrorResponse.reason());
                         }
