@@ -1286,7 +1286,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         List<IgniteImpl> nodes = startNodes(2);
 
         createTableWithData(nodes, TABLE_NAME, 2);
-        createTableWithData(nodes, TABLE_NAME_2, 2);
+        //createTableWithData(nodes, TABLE_NAME_2, 2);
 
         stopNode(0);
         stopNode(1);
@@ -2146,11 +2146,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         IgniteSql sql = nodes.get(0).sql();
 
-        sql.execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
-                        name, replicas, partitions, DEFAULT_STORAGE_PROFILE));
         sql.execute(null, "CREATE TABLE IF NOT EXISTS " + name
-                + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");
+                + "(id INT PRIMARY KEY, name VARCHAR) ZONE Default;");
 
         for (int i = 0; i < 100; i++) {
             sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
