@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;

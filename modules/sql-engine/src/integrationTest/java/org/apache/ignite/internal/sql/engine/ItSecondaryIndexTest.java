@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
@@ -623,7 +624,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByDepId() {
         assertQuery("SELECT depid FROM Developer ORDER BY depId")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns(1) // Bach
                 .returns(2) // Beethoven or Strauss
@@ -689,7 +690,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     void ensurePartitionStreamsAreMergedCorrectlyWithRegardToProjection() {
         assertQuery("SELECT /*+ FORCE_INDEX(" + NAME_CITY_IDX + ") */ name FROM Developer WHERE id % 2 = 0 ORDER BY name DESC")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns("Zimmer")
                 .returns("Stravinsky")
@@ -709,7 +710,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByNameCityDesc() {
         assertQuery("SELECT ID, NAME, DEPID, CITY, AGE FROM Developer ORDER BY name DESC, city DESC")
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
                 .matches(not(containsSubPlan("Sort")))
                 .returns(16, "Zimmer", 15, "", -1)
                 .returns(19, "Yiruma", 18, "", -1)
@@ -1030,7 +1031,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                     .check();
 
             assertQuery("SELECT i1, i2 FROM t WHERE i2 IS NULL ORDER BY i1")
-                    .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
+                    .matches(containsIndexScanIgnoreBounds("PUBLIC", "T", "T_IDX"))
                     .returns(1, null)
                     .returns(3, null)
                     .check();
@@ -1198,7 +1199,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     void nullsOrderingTest() {
         assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS FIRST")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX"))
                 .matches(not(matches("Sort")))
                 .ordered()
                 .returns(null)
@@ -1211,7 +1212,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS LAST")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"))
+                .matches(containsIndexScanIgnoreBounds("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"))
                 .matches(not(matches("Sort")))
                 .ordered()
                 .returns(3)
@@ -1257,5 +1258,22 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         sql(format("CREATE INDEX tt_idx_{} ON tt_{} (field_1)", id, id));
 
         sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
+    }
+
+    @Test
+    void testHashIndexMultiBounds() {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("CREATE TABLE tt_{} (id INT PRIMARY KEY, val1 INT, val2 INT)", id));
+        sql(format("CREATE INDEX tt_val_id_idx_hash ON tt_{} USING HASH(val1, val2)", id));
+        sql(format("INSERT INTO tt_{} values (1, 1, 1), (2, 2, 2), (3, 3, 3), (7, 4, 7)," 
+                + " (17, 3, 17), (27, 6, 27), (-38, 7, -38)", id));
+
+        assertQuery(format("SELECT /*+ FORCE_INDEX(tt_val_id_idx_hash) */ id, val1 " 
+                + " FROM tt_{} WHERE val1 IN (2, 3, 6) AND val2 IN (3, 17, -38)", id))
+                .matches(containsIndexScan("PUBLIC", "T", "TT_VAL_ID_IDX_HASH"))
+                .returns(3, 3)
+                .returns(17, 3)
+                .check();
     }
 }

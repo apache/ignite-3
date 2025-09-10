@@ -54,11 +54,14 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
@@ -84,6 +87,7 @@ import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -308,138 +312,31 @@ public class RexUtils {
             RelDataType rowType,
             @Nullable ImmutableIntList requiredColumns
     ) {
-        if (condition == null) {
-            return null;
-        }
-
-        condition = RexUtil.toCnf(builder(cluster), condition);
-
-        Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
-
-        if (nullOrEmpty(fieldsToPredicates)) {
-            return null;
-        }
-
-        // Force collation for all fields of the condition.
-        if (collation == null || collation.isDefault()) {
-            IntArrayList fields = new IntArrayList(fieldsToPredicates.size());
-            IntArrayList lastFields = new IntArrayList(fieldsToPredicates.size());
-
-            // It's more effective to put equality conditions in the collation first.
-            fieldsToPredicates.int2ObjectEntrySet()
-                    .forEach(entry -> {
-                        (entry.getValue().stream().anyMatch(v -> v.getOperator().getKind() == EQUALS) ? fields : lastFields)
-                                .add(entry.getIntKey());
-                    });
-            fields.addAll(lastFields);
-
-            collation = TraitUtils.createCollation(fields);
-        }
-
-        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-
-        Mappings.TargetMapping mapping = requiredColumns == null
-                ? Mappings.createIdentity(types.size())
-                : Commons.projectedMapping(types.size(), requiredColumns);
-
-        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
-        boolean boundsEmpty = true;
-        int prevComplexity = 1;
-
-        List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
-        for (int i = 0; i < fieldCollations.size(); i++) {
-            RelFieldCollation fieldCollation = fieldCollations.get(i);
-            int collFldIdx = fieldCollation.getFieldIndex();
-
-            List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
-
-            if (nullOrEmpty(collFldPreds)) {
-                break;
-            }
-
-            collFldIdx = mapping.getSourceOpt(collFldIdx);
-
-            SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
-
-            if (fldBounds == null) {
-                break;
-            }
-
-            boundsEmpty = false;
-
-            bounds.set(i, fldBounds);
-
-            if (fldBounds instanceof MultiBounds) {
-                prevComplexity *= ((MultiBounds) fldBounds).bounds().size();
-
-                // Any bounds after multi range bounds are not allowed, since it can cause intervals intersection.
-                if (((MultiBounds) fldBounds).bounds().stream().anyMatch(b -> b.type() != SearchBounds.Type.EXACT)) {
-                    break;
-                }
-            }
-
-            if (fldBounds.type() == SearchBounds.Type.RANGE) {
-                break; // TODO https://issues.apache.org/jira/browse/IGNITE-13568
-            }
-        }
-
-        return boundsEmpty ? null : bounds;
+        return buildSearchBounds(true, cluster, collation, condition, rowType, requiredColumns);
     }
 
     /**
      * Builds hash index search bounds.
      */
-    public static List<SearchBounds> buildHashSearchBounds(
+    public static @Nullable List<SearchBounds> buildHashSearchBounds(
             RelOptCluster cluster,
             RelCollation collation,
-            RexNode condition,
+            @Nullable RexNode condition,
             RelDataType rowType,
             @Nullable ImmutableIntList requiredColumns
     ) {
-        if (condition == null) {
+        List<SearchBounds> bounds = buildSearchBounds(false, cluster, collation, condition, rowType, requiredColumns);
+
+        if (bounds == null) {
             return null;
         }
 
-        condition = RexUtil.toCnf(builder(cluster), condition);
-
-        Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
-
-        if (nullOrEmpty(fieldsToPredicates)) {
+        if (bounds.stream().anyMatch(Objects::isNull)) {
+            // hash index doesn't support search by prefix
             return null;
         }
 
-        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-
-        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
-
-        Mappings.TargetMapping targetMapping = requiredColumns == null
-                ? Mappings.createIdentity(types.size())
-                : Commons.projectedMapping(types.size(), requiredColumns);
-
-        List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
-        for (int i = 0; i < fieldCollations.size(); i++) {
-            int collFldIdx = fieldCollations.get(i).getFieldIndex();
-
-            List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
-
-            if (nullOrEmpty(collFldPreds)) {
-                return null; // Partial condition implies index scan, which is not supported.
-            }
-
-            RexCall columnPred = collFldPreds.stream()
-                    .filter(pred -> pred.getOperator().getKind() == EQUALS)
-                    .findAny().orElse(null);
-
-            if (columnPred == null) {
-                return null; // Non-equality conditions are not expected.
-            }
-
-            collFldIdx = targetMapping.getSourceOpt(collFldIdx);
-
-            bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
-        }
-
-        return bounds;
+        return bounds; 
     }
 
     /**
@@ -500,13 +397,100 @@ public class RexUtils {
         return bounds;
     }
 
+    private static @Nullable List<SearchBounds> buildSearchBounds(
+            boolean allowRange,
+            RelOptCluster cluster,
+            RelCollation collation,
+            @Nullable RexNode condition,
+            RelDataType rowType,
+            @Nullable ImmutableIntList requiredColumns
+    ) {
+        if (condition == null) {
+            return null;
+        }
+
+        condition = RexUtil.toCnf(builder(cluster), condition);
+
+        Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+
+        if (nullOrEmpty(fieldsToPredicates)) {
+            return null;
+        }
+
+        // Force collation for all fields of the condition.
+        if (collation == null || collation.isDefault()) {
+            IntArrayList fields = new IntArrayList(fieldsToPredicates.size());
+            IntArrayList lastFields = new IntArrayList(fieldsToPredicates.size());
+
+            // It's more effective to put equality conditions in the collation first.
+            fieldsToPredicates.int2ObjectEntrySet()
+                    .forEach(entry -> {
+                        (entry.getValue().stream().anyMatch(v -> v.getOperator().getKind() == EQUALS) ? fields : lastFields)
+                                .add(entry.getIntKey());
+                    });
+            fields.addAll(lastFields);
+
+            collation = TraitUtils.createCollation(fields);
+        }
+
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+
+        Mappings.TargetMapping mapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
+
+        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
+        boolean boundsEmpty = true;
+        int prevComplexity = 1;
+
+        List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
+        for (int i = 0; i < fieldCollations.size(); i++) {
+            RelFieldCollation fieldCollation = fieldCollations.get(i);
+            int collFldIdx = fieldCollation.getFieldIndex();
+
+            List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
+
+            if (nullOrEmpty(collFldPreds)) {
+                break;
+            }
+
+            collFldIdx = mapping.getSourceOpt(collFldIdx);
+
+            SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity, allowRange);
+
+            if (fldBounds == null) {
+                break;
+            }
+
+            boundsEmpty = false;
+
+            bounds.set(i, fldBounds);
+
+            if (fldBounds instanceof MultiBounds) {
+                prevComplexity *= ((MultiBounds) fldBounds).bounds().size();
+
+                // Any bounds after multi range bounds are not allowed, since it can cause intervals intersection.
+                if (((MultiBounds) fldBounds).bounds().stream().anyMatch(b -> b.type() != SearchBounds.Type.EXACT)) {
+                    break;
+                }
+            }
+
+            if (fldBounds.type() == SearchBounds.Type.RANGE) {
+                break; // TODO https://issues.apache.org/jira/browse/IGNITE-13568
+            }
+        }
+
+        return boundsEmpty ? null : bounds;
+    }
+
     /** Create index search bound by conditions of the field. */
     private static @Nullable SearchBounds createBounds(
             @Nullable RelFieldCollation fc, // Can be null for EQUALS condition.
             List<RexCall> collFldPreds,
             RelOptCluster cluster,
             RelDataType fldType,
-            int prevComplexity
+            int prevComplexity,
+            boolean allowRange
     ) {
         RexBuilder builder = builder(cluster);
 
@@ -555,7 +539,7 @@ public class RexUtils {
 
                 for (RexNode operand : pred.getOperands()) {
                     SearchBounds opBounds = createBounds(fc, Collections.singletonList((RexCall) operand),
-                            cluster, fldType, prevComplexity);
+                            cluster, fldType, prevComplexity, allowRange);
 
                     if (opBounds instanceof MultiBounds) {
                         curComplexity += ((MultiBounds) opBounds).bounds().size();
@@ -579,7 +563,7 @@ public class RexUtils {
             } else if (op.kind == SEARCH) {
                 Sarg<?> sarg = ((RexLiteral) pred.operands.get(1)).getValueAs(Sarg.class);
 
-                List<SearchBounds> bounds = expandSargToBounds(fc, cluster, fldType, prevComplexity, sarg, ref);
+                List<SearchBounds> bounds = expandSargToBounds(fc, cluster, fldType, prevComplexity, sarg, ref, allowRange);
 
                 if (bounds == null) {
                     continue;
@@ -619,6 +603,10 @@ public class RexUtils {
                 }
 
                 return new MultiBounds(pred, bounds);
+            }
+
+            if (!allowRange) {
+                return null;
             }
 
             // Range bounds.
@@ -679,6 +667,10 @@ public class RexUtils {
             return null; // No bounds.
         }
 
+        if (!allowRange) {
+            return null;
+        }
+
         // Found upper bound, lower bound or both.
         RexNode cond = lowerCond == null
                 ? upperCond
@@ -697,7 +689,8 @@ public class RexUtils {
             RelDataType fldType,
             int prevComplexity,
             Sarg<?> sarg,
-            RexNode ref
+            RexNode ref,
+            boolean allowRange
     ) {
         int complexity = prevComplexity * sarg.complexity();
 
@@ -726,7 +719,7 @@ public class RexUtils {
                 }
             }
 
-            bounds.add(createBounds(fc, calls, cluster, fldType, complexity));
+            bounds.add(createBounds(fc, calls, cluster, fldType, complexity, allowRange));
         }
 
         return bounds;
@@ -847,7 +840,7 @@ public class RexUtils {
     }
 
     private static Boolean containsFieldAccess(RexNode node) {
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitFieldAccess(RexFieldAccess fieldAccess) {
                 throw Util.FoundOne.NULL;
@@ -1043,7 +1036,7 @@ public class RexUtils {
      */
     public static boolean hasCorrelation(List<RexNode> nodes) {
         try {
-            RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+            RexVisitor<Void> v = new RexVisitorImpl<>(true) {
                 @Override
                 public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                     throw new ControlFlowException();
@@ -1077,7 +1070,7 @@ public class RexUtils {
     public static Set<CorrelationId> extractCorrelationIds(List<RexNode> nodes) {
         final Set<CorrelationId> cors = new HashSet<>();
 
-        RexVisitor<Void> v = new RexVisitorImpl<Void>(true) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitCorrelVariable(RexCorrelVariable correlVariable) {
                 cors.add(correlVariable.id);
@@ -1189,6 +1182,35 @@ public class RexUtils {
         }
 
         return val;
+    }
+
+    /** Context which triggers assertion if unexpected method is called. */
+    public static class FaultyContext implements DataContext {
+        public static final FaultyContext INSTANCE = new FaultyContext();
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus getRootSchema() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public JavaTypeFactory getTypeFactory() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public QueryProvider getQueryProvider() {
+            throw new AssertionError("should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable Object get(String name) {
+            throw new AssertionError("Should not call: [" + name + "] from current context.");
+        }
     }
 
     private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {

@@ -605,9 +605,8 @@ public final class ExceptionUtils {
      * Creates and returns a copy of an exception that is a cause of the given {@code CompletionException}.
      * If the original exception does not contain a cause, then the original exception will be returned.
      * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -632,9 +631,8 @@ public final class ExceptionUtils {
      * Creates and returns a copy of an exception that is a cause of the given {@code ExecutionException}.
      * If the original exception does not contain a cause, then the original exception will be returned.
      * In order to preserve a stack trace, the original completion exception will be set as the cause of the newly created exception.
-     * <p>
-     *     For example, this method might be useful when you need to implement sync API over async one.
-     * </p>
+     *
+     * <p>For example, this method might be useful when you need to implement sync API over async one.
      * <pre><code>
      *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
@@ -756,7 +754,7 @@ public final class ExceptionUtils {
     public static IgniteException wrap(Throwable e) {
         Objects.requireNonNull(e);
 
-        e = ExceptionUtils.unwrapCause(e);
+        e = unwrapCause(e);
 
         if (e instanceof IgniteException) {
             IgniteException iex = (IgniteException) e;

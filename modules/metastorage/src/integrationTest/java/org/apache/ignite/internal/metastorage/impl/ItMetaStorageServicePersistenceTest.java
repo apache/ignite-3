@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -86,7 +86,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) {
-        ClusterNode followerNode = getNode(server);
+        InternalClusterNode followerNode = getNode(server);
 
         metaStorage = new MetaStorageServiceImpl(
                 followerNode.name(),
@@ -105,7 +105,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
-        ClusterNode followerNode = getNode(server);
+        InternalClusterNode followerNode = getNode(server);
 
         KeyValueStorage storage = storageByName.remove(followerNode.name());
 
@@ -133,7 +133,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        ClusterNode node = getNode(restarted);
+        InternalClusterNode node = getNode(restarted);
 
         KeyValueStorage storage = storageByName.get(node.name());
 
@@ -187,7 +187,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         TestMetasStorageUtils.checkEntry(future.join(), expKey, expValue, expRevision);
     }
 
-    private static ClusterNode getNode(RaftServer server) {
+    private static InternalClusterNode getNode(RaftServer server) {
         return server.clusterService().topologyService().localMember();
     }
 }

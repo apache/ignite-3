@@ -163,16 +163,16 @@ public class IgniteConcurrentMultiPairQueueTest {
 
         assertEquals(3, pairQueue.size());
 
-        assertTrue(pairQueue.next(new Result()));
+        assertTrue(pairQueue.next(new Result<>()));
         assertEquals(2, pairQueue.size());
 
-        assertTrue(pairQueue.next(new Result()));
+        assertTrue(pairQueue.next(new Result<>()));
         assertEquals(1, pairQueue.size());
 
-        assertTrue(pairQueue.next(new Result()));
+        assertTrue(pairQueue.next(new Result<>()));
         assertEquals(0, pairQueue.size());
 
-        assertFalse(pairQueue.next(new Result()));
+        assertFalse(pairQueue.next(new Result<>()));
         assertEquals(0, pairQueue.size());
     }
 }

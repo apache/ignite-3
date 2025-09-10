@@ -29,7 +29,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.schema.BinaryTupleComparatorBaseTest;
 import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
 import org.apache.ignite.internal.type.NativeType;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for {@link JitComparator} that use {@link JitComparatorGenerator} to generate a comparator.
@@ -37,7 +36,14 @@ import org.junit.jupiter.api.Disabled;
 public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
     @Override
     protected Comparator<ByteBuffer> newComparator(List<CatalogColumnCollation> columnCollations, List<NativeType> columnTypes) {
-        JitComparator comparator = createComparator(columnCollations, columnTypes, Collections.nCopies(columnTypes.size(), true));
+        JitComparator comparator = createComparator(JitComparatorOptions.builder()
+                .columnCollations(columnCollations)
+                .columnTypes(columnTypes)
+                .nullableFlags(Collections.nCopies(columnTypes.size(), true))
+                .supportPrefixes(true)
+                .supportPartialComparison(true)
+                .build()
+        );
 
         return (left, right) -> {
             UnsafeByteBufferAccessor leftAccessor = new UnsafeByteBufferAccessor(left);
@@ -51,15 +57,8 @@ public class JitComparatorTest extends BinaryTupleComparatorBaseTest {
         };
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26021")
     @Override
-    public void testCompareWithPrefix() {
-        super.testCompareWithPrefix();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26021")
-    @Override
-    public void testCompareWithPrefixWithNulls() {
-        super.testCompareWithPrefixWithNulls();
+    protected boolean supportsPartialComparison() {
+        return true;
     }
 }

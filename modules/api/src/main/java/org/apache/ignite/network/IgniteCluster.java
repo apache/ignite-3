@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,6 +26,13 @@ import org.jetbrains.annotations.Nullable;
  * Represents an Ignite cluster, providing access to the cluster nodes and the local node.
  */
 public interface IgniteCluster {
+    /**
+     * Returns the current cluster ID.
+     *
+     * @return Cluster's current ID.
+     */
+    UUID id();
+
     /**
      * Returns all cluster nodes that are part of the logical topology, including the local node if applicable.
      *

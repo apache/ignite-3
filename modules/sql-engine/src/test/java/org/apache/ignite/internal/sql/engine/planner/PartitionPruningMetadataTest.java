@@ -31,6 +31,7 @@ import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.prepare.RelWithSources;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -614,7 +616,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     private void extractMetadataAndCheck(IgniteRel rel, List<String> columnNames, List<String> expectedMetadata) {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata actual = extractor.go(rel);
+        RelWithSources relWithSoucres = Cloner.cloneAndAssignSourceId(rel, rel.getCluster());
+        PartitionPruningMetadata actual = extractor.go(relWithSoucres.root());
 
         List<String> actualMetadata;
 

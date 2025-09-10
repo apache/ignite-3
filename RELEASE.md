@@ -113,3 +113,12 @@ Perform the following actions ONLY after the vote is successful and closed.
    * `for i in *.nupkg; do dotnet nuget push $i -k API_KEY_HERE -s "https://nuget.org/"; done`
 9. Publish Python packages (TODO [IGNITE-24327](https://issues.apache.org/jira/browse/IGNITE-24327))
 10. Update https://ignite.apache.org/download.cgi page - see https://cwiki.apache.org/confluence/display/IGNITE/Website+Development
+
+## Post Release steps
+
+1. Add compatibility snapshot, OpenAPI spec and update `igniteVersions.json` for released version:
+
+   * On release git branch run the following command to generate new snapshot with compatibility information, copy OpenAPI spec and update the versions file `./gradlew postRelease`
+   * Switch git to main branch
+   * Run compatibility test `./gradlew :ignite-runner:test --tests "org.apache.ignite.internal.configuration.compatibility.ConfigurationCompatibilityTest"`
+   * Add new files to git. Commit them under separate JIRA ticket with commit message `{jira_ticket} Add compatibility data for Ignite {version}`. Push the change to main branch.

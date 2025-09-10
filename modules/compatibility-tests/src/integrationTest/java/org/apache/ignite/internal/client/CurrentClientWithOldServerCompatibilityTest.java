@@ -84,7 +84,6 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
 
     @Override
     public String tableNamePrefix() {
-        // TODO IGNITE-25846 Remove this method, table name should be the same across versions.
         return "PUBLIC.";
     }
 }

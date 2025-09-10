@@ -62,8 +62,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -170,7 +170,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 .thenAnswer(invocation -> {
                     String consistentId = invocation.getArgument(0);
 
-                    return new ClusterNodeImpl(deriveUuidFrom(consistentId), consistentId, new NetworkAddress("localhost", 123));
+                    return new InternalClusterNodeImpl(deriveUuidFrom(consistentId), consistentId, new NetworkAddress("localhost", 123));
                 });
 
         executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, logger()));
@@ -390,7 +390,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
         List<String> respLearners = peersToIds(NODES.subList(2, 2));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(GetPeersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(GetPeersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.getPeersResponse().peersList(respPeers).learnersList(respLearners).build()));
 
         mockLeaderRequest(false);
@@ -410,7 +410,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testAddPeer() {
         List<String> respPeers = peersToIds(NODES);
 
-        when(messagingService.invoke(any(ClusterNode.class), any(AddPeerRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(AddPeerRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.addPeerResponse().newPeersList(respPeers).build()));
 
         mockLeaderRequest(false);
@@ -430,7 +430,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testRemovePeer() {
         List<String> respPeers = peersToIds(NODES.subList(0, 2));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(RemovePeerRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(RemovePeerRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.removePeerResponse().newPeersList(respPeers).build()));
 
         mockLeaderRequest(false);
@@ -454,7 +454,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> fullLearners = peersToIds(NODES_FOR_LEARNERS);
 
-        when(messagingService.invoke(any(ClusterNode.class), any(ChangePeersAndLearnersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ChangePeersAndLearnersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.changePeersAndLearnersResponse()
                         .newPeersList(shrunkPeers)
                         .newLearnersList(emptyList())
@@ -506,7 +506,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testTransferLeadership() {
-        when(messagingService.invoke(any(ClusterNode.class), any(TransferLeaderRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(TransferLeaderRequest.class), anyLong()))
                 .then(invocation -> completedFuture(RaftRpcFactory.DEFAULT.newResponse(FACTORY, Status.OK())));
 
         RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
@@ -522,7 +522,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testAddLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(AddLearnersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(AddLearnersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(addLearners).build()));
 
         mockLeaderRequest(false);
@@ -544,7 +544,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> resetLearners = peersToIds(NODES.subList(2, 3));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(ResetLearnersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ResetLearnersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resetLearners).build()));
 
         mockAddLearners(addLearners);
@@ -570,7 +570,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         List<String> resultLearners = peersToIds(NODES.subList(1, 2));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(RemoveLearnersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(RemoveLearnersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
 
         mockAddLearners(addLearners);
@@ -602,7 +602,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         GetLeaderRequest req = FACTORY.getLeaderRequest().groupId(TEST_GRP.toString()).build();
 
-        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new ClusterNodeImpl(null, null, null), req, TIMEOUT)
+        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new InternalClusterNodeImpl(null, null, null), req, TIMEOUT)
                         .thenApply(GetLeaderResponse.class::cast);
 
         assertThat(fut.thenApply(GetLeaderResponse::leaderId), willBe(equalTo(PeerId.fromPeer(leader).toString())));
@@ -634,7 +634,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(names = {"ESHUTDOWN", "EHOSTDOWN", "ENODESHUTDOWN"})
     public void testRetryOnErrorWithUnavailablePeers(RaftError error) {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadActionRequest.class), anyLong()))
                 .thenReturn(completedFuture(FACTORY.errorResponse()
                         .errorCode(error.getNumber())
                         .build()));
@@ -647,7 +647,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         // Verify that we tried to send the message to every node.
         NODES.forEach(node -> verify(messagingService, atLeastOnce()).invoke(
-                argThat((ClusterNode target) -> target != null && target.name().equals(node.consistentId())),
+                argThat((InternalClusterNode target) -> target != null && target.name().equals(node.consistentId())),
                 any(ReadActionRequest.class),
                 anyLong()
         ));
@@ -656,7 +656,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(names = {"UNKNOWN", "EINTERNAL", "ENOENT"})
     public void testRetryOnErrorWithTimeout(RaftError error) {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadActionRequest.class), anyLong()))
                 .thenReturn(completedFuture(FACTORY.errorResponse()
                         .errorCode(error.getNumber())
                         .build()));
@@ -672,7 +672,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     @EnumSource(names = {"EPERM"})
     public void testRetryOnErrorWithUpdateLeader(RaftError error) {
         when(messagingService.invoke(
-                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(0).consistentId())),
+                argThat((InternalClusterNode node) -> node != null && node.name().equals(NODES.get(0).consistentId())),
                 any(ReadActionRequest.class),
                 anyLong())
         )
@@ -682,7 +682,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                         .build()));
 
         when(messagingService.invoke(
-                argThat((ClusterNode node) -> node != null && node.name().equals(NODES.get(NODES.size() - 1).consistentId())),
+                argThat((InternalClusterNode node) -> node != null && node.name().equals(NODES.get(NODES.size() - 1).consistentId())),
                 any(ReadActionRequest.class),
                 anyLong())
         )
@@ -702,7 +702,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testRetryOnRecipientLeftException() {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadActionRequest.class), anyLong()))
                 .thenReturn(failedFuture(new RecipientLeftException()));
 
         RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
@@ -741,7 +741,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * Mock read index request.
      */
     private void mockReadIndex(boolean timeout) {
-        when(messagingService.invoke(any(ClusterNode.class), any(ReadIndexRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(ReadIndexRequest.class), anyLong()))
                 .then(invocation -> timeout
                         ? failedFuture(new TimeoutException())
                         : completedFuture(FACTORY.readIndexResponse().index(1L).build())
@@ -757,7 +757,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private void mockUserInput(boolean delay, @Nullable Peer peer) {
         //noinspection Convert2Lambda
         when(messagingService.invoke(
-                any(ClusterNode.class),
+                any(InternalClusterNode.class),
                 // Must be an anonymous class, to deduce the message type from the generic superclass.
                 argThat(new ArgumentMatcher<WriteActionRequest>() {
                     @Override
@@ -769,7 +769,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
                 }),
                 anyLong()
         )).then(invocation -> {
-            ClusterNode target = invocation.getArgument(0);
+            InternalClusterNode target = invocation.getArgument(0);
 
             if (peer != null && target.name().equals(peer.consistentId())) {
                 return failedFuture(new ConnectException());
@@ -808,7 +808,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * @param delay {@code True} to delay response.
      */
     private void mockLeaderRequest(boolean delay) {
-        when(messagingService.invoke(any(ClusterNode.class), any(GetLeaderRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(GetLeaderRequest.class), anyLong()))
                 .then(invocation -> {
                     if (delay) {
                         return CompletableFuture.supplyAsync(() -> {
@@ -833,7 +833,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     private void mockSnapshotRequest(boolean returnResponseWithError) {
-        when(messagingService.invoke(any(ClusterNode.class), any(CliRequests.SnapshotRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(CliRequests.SnapshotRequest.class), anyLong()))
                 .then(invocation -> {
                     if (returnResponseWithError) {
                         ErrorResponse response = FACTORY.errorResponse()
@@ -849,7 +849,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     private void mockAddLearners(List<String> resultLearners) {
-        when(messagingService.invoke(any(ClusterNode.class), any(AddLearnersRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(AddLearnersRequest.class), anyLong()))
                 .then(invocation -> completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
     }
 

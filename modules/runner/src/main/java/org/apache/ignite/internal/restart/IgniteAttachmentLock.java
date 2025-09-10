@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.util.VersatileReadWriteLock;
+import org.apache.ignite.internal.util.StripedVersatileReadWriteLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 
@@ -35,14 +35,14 @@ public class IgniteAttachmentLock {
     /** This must always be accessed under {@link #lock}. */
     private final Supplier<Ignite> igniteRef;
 
-    private final VersatileReadWriteLock lock;
+    private final StripedVersatileReadWriteLock lock;
 
     /**
      * Constructor.
      */
     public IgniteAttachmentLock(Supplier<Ignite> igniteRef, Executor asyncContinuationExecutor) {
         this.igniteRef = igniteRef;
-        lock = new VersatileReadWriteLock(asyncContinuationExecutor);
+        lock = new StripedVersatileReadWriteLock(asyncContinuationExecutor);
     }
 
     /**

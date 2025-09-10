@@ -27,11 +27,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -71,6 +71,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -95,9 +97,9 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessag
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
@@ -175,7 +177,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService alice = testCluster.members.get(0);
 
-        for (ClusterNode member : alice.topologyService().allMembers()) {
+        for (InternalClusterNode member : alice.topologyService().allMembers()) {
             alice.messagingService().weakSend(member, testMessage);
         }
 
@@ -220,7 +222,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        ClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.topologyService().localMember();
 
         class Data {
             private final TestMessage message;
@@ -268,7 +270,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         ClusterService member = testCluster.members.get(0);
 
-        ClusterNode self = member.topologyService().localMember();
+        InternalClusterNode self = member.topologyService().localMember();
 
         var requestMessage = testMessage("request");
         var responseMessage = testMessage("response");
@@ -552,8 +554,8 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService notOutcast = testCluster.members.get(0);
         ClusterService outcast = testCluster.members.get(testCluster.members.size() - 1);
 
-        ClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
-        ClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
+        InternalClusterNode outcastNode = notOutcast.topologyService().getByConsistentId(outcast.nodeName());
+        InternalClusterNode notOutcastNode = outcast.topologyService().getByConsistentId(notOutcast.nodeName());
         assertNotNull(outcastNode);
         assertNotNull(notOutcastNode);
 
@@ -650,8 +652,11 @@ class ItScaleCubeNetworkMessagingTest {
 
         CompletableFuture<Void> closeFuture = defaultChannelSender.closeAsync();
 
-        CompletableFuture<?> sendViaOldChannel = send(testMessage("first"), sender, receiver);
-        CompletableFuture<?> invokeViaOldChannel = invoke(testMessage("second"), sender, receiver);
+        TestMessage firstMsg = testMessage("first");
+        TestMessage secondMsg = testMessage("second");
+
+        CompletableFuture<?> sendViaOldChannel = send(firstMsg, sender, receiver);
+        CompletableFuture<?> invokeViaOldChannel = invoke(secondMsg, sender, receiver);
 
         try {
             assertFalse(closeFuture.isDone());
@@ -666,14 +671,27 @@ class ItScaleCubeNetworkMessagingTest {
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
-            assertThatHasNoUnacknowledgedMessages(nettySender);
+            NettySender nettySender = waitForChannelHandshakeFinished(sender, receiver);
+
+            assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
         }
     }
 
-    private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
+    private static NettySender waitForChannelHandshakeFinished(ClusterService sender, ClusterService receiver) throws InterruptedException {
+        NettySender[] nettySenderWarp = new NettySender[1];
+
+        assertTrue(waitForCondition(() -> {
+            nettySenderWarp[0] = nettySenderForDefaultChannel(sender, receiver);
+
+            return nettySenderWarp[0] != null;
+        }, 10_000));
+
+        return nettySenderWarp[0];
+    }
+
+    private void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, senderParam, correlationId) -> {
@@ -711,14 +729,11 @@ class ItScaleCubeNetworkMessagingTest {
         );
     }
 
-    private static void assertThatHasNoUnacknowledgedMessages(NettySender nettySender) {
-        CompletableFuture<List<OutNetworkObject>> unackedMessagesFuture = new CompletableFuture<>();
+    private static void assertThatHasNoEventuallyUnacknowledgedMessages(NettySender nettySender) {
+        CompletableFuture<Void> allMsgAckedFut = CompletableFutures.allOf(nettySender.recoveryDescriptor().unacknowledgedMessages().stream()
+                .map(OutNetworkObject::acknowledgedFuture).collect(toList()));
 
-        nettySender.channel().eventLoop().execute(() -> {
-            unackedMessagesFuture.complete(nettySender.recoveryDescriptor().unacknowledgedMessages());
-        });
-
-        assertThat(unackedMessagesFuture, willBe(empty()));
+        assertThat(allMsgAckedFut, willCompleteSuccessfully());
     }
 
     private static NettySender nettySenderForDefaultChannel(ClusterService sender, ClusterService receiver) {
@@ -785,7 +800,7 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
         NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
-        assertThatHasNoUnacknowledgedMessages(nettySender);
+        assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
     }
 
     private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
@@ -866,7 +881,7 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
             NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
-            assertThatHasNoUnacknowledgedMessages(nettySender);
+            assertThatHasNoEventuallyUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
             proceedToSendingViaOldChannel.countDown();
@@ -959,7 +974,7 @@ class ItScaleCubeNetworkMessagingTest {
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void messageSendFuturesGetCompleteWhenAcknowledgementHappens(SendOperation operation) throws Exception {
+    public void messageSendFuturesGetCompleteEvenIfAcknowledgementNotHappens(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -973,18 +988,25 @@ class ItScaleCubeNetworkMessagingTest {
         openDefaultChannelBetween(sender, receiver);
         OutgoingAcknowledgementSilencer ackSilencer = dropAcksWhenDefaultChannelOpens(receiver);
 
+        TestMessage msg = messageFactory.testMessage().build();
+
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
-                messageFactory.testMessage().build(),
+                msg,
                 receiver.topologyService().localMember()
         );
-        assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+
+        assertThat(sendFuture, willCompleteSuccessfully());
+
+        CompletableFuture<Void> ackSendFuture = ackFuture(sender, msg);
+
+        assertThat(ackSendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
 
         ackSilencer.stopSilencing();
 
         provokeAckFor(sender, receiver);
 
-        assertThat(sendFuture, willCompleteSuccessfully());
+        assertThat(ackSendFuture, willCompleteSuccessfully());
     }
 
     private static void echoMessagesBackAt(ClusterService clusterService) {
@@ -1006,6 +1028,28 @@ class ItScaleCubeNetworkMessagingTest {
 
     private CompletableFuture<Void> sendMessage(ClusterService sender, ClusterService receiver) {
         return send(messageFactory.testMessage().build(), sender, receiver);
+    }
+
+    private static CompletableFuture<Void> ackFuture(ClusterService clusterService, NetworkMessage msg) {
+        DefaultMessagingService messagingService = (DefaultMessagingService) clusterService.messagingService();
+
+        ConnectionManager connectionManager = messagingService.connectionManager();
+
+        for (NettySender sender : connectionManager.channels().values()) {
+            for (OutNetworkObject outMsgWrapper : sender.recoveryDescriptor().unacknowledgedMessages()) {
+                if (outMsgWrapper.networkMessage() == msg) {
+                    return outMsgWrapper.acknowledgedFuture();
+                } else if (outMsgWrapper.networkMessage() instanceof InvokeRequest) {
+                    InvokeRequest invokeReq = (InvokeRequest) outMsgWrapper.networkMessage();
+
+                    if (invokeReq.message() == msg) {
+                        return outMsgWrapper.acknowledgedFuture();
+                    }
+                }
+            }
+        }
+
+        return nullCompletedFuture();
     }
 
     private static OutgoingAcknowledgementSilencer dropAcksWhenDefaultChannelOpens(ClusterService clusterService)
@@ -1030,7 +1074,7 @@ class ItScaleCubeNetworkMessagingTest {
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void sendFutureFailsWhenReceiverLeavesPhysicalTopology(SendOperation operation) throws Exception {
+    public void acknowledgeFutureFailsWhenReceiverLeavesPhysicalTopology(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -1043,20 +1087,26 @@ class ItScaleCubeNetworkMessagingTest {
         openDefaultChannelBetween(notOutcast, outcast);
         dropAcksWhenDefaultChannelOpens(outcast);
 
+        TestMessage msg = messageFactory.testMessage().build();
+
         CompletableFuture<Void> sendFuture = operation.send(
                 notOutcast.messagingService(),
-                messageFactory.testMessage().build(),
+                msg,
                 outcast.topologyService().localMember()
         );
 
+        assertThat(sendFuture, willCompleteSuccessfully());
+
+        CompletableFuture<Void> ackSendFuture = ackFuture(notOutcast, msg);
+
         knockOutNode(outcast.nodeName(), false);
 
-        assertThat(sendFuture, willThrow(RecipientLeftException.class));
+        assertThat(ackSendFuture, willThrow(RecipientLeftException.class));
     }
 
     @ParameterizedTest
     @EnumSource(SendOperation.class)
-    public void sendFutureFailsWhenSenderNodeStops(SendOperation operation) throws Exception {
+    public void acknowledgeFutureFailsWhenSenderNodeStops(SendOperation operation) throws Exception {
         testCluster = new Cluster(2, testInfo);
 
         testCluster.startAwait();
@@ -1069,15 +1119,21 @@ class ItScaleCubeNetworkMessagingTest {
         openDefaultChannelBetween(sender, receiver);
         dropAcksWhenDefaultChannelOpens(receiver);
 
+        TestMessage msg = messageFactory.testMessage().build();
+
         CompletableFuture<Void> sendFuture = operation.send(
                 sender.messagingService(),
-                messageFactory.testMessage().build(),
+                msg,
                 receiver.topologyService().localMember()
         );
 
+        assertThat(sendFuture, willCompleteSuccessfully());
+
+        CompletableFuture<Void> ackSendFuture = ackFuture(sender, msg);
+
         assertThat(sender.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat(sendFuture, willThrow(NodeStoppingException.class));
+        assertThat(ackSendFuture, willThrow(NodeStoppingException.class));
     }
 
     @Test
@@ -1158,7 +1214,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         TopologyEventHandler disappearListener = new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
                     disappeared.countDown();
                 }
@@ -1198,7 +1254,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onAppeared(ClusterNode member) {
+            public void onAppeared(InternalClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
                     reappeared.compareAndSet(false, true);
 
@@ -1254,7 +1310,7 @@ class ItScaleCubeNetworkMessagingTest {
         bob.topologyService().addEventHandler(new TopologyEventHandler() {
             /** {@inheritDoc} */
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 if (aliceName.equals(member.name())) {
                     aliceShutdownLatch.countDown();
                 }
@@ -1270,7 +1326,7 @@ class ItScaleCubeNetworkMessagingTest {
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
         assertTrue(aliceShutdownReceived);
 
-        Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
+        Collection<InternalClusterNode> networkMembers = bob.topologyService().allMembers();
 
         assertEquals(1, networkMembers.size());
     }
@@ -1425,18 +1481,18 @@ class ItScaleCubeNetworkMessagingTest {
     private enum SendOperation {
         SEND {
             @Override
-            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient) {
                 return messagingService.send(recipient, message);
             }
         },
         INVOKE {
             @Override
-            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient) {
+            CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient) {
                 return messagingService.invoke(recipient, message, Long.MAX_VALUE).thenApply(unused -> null);
             }
         };
 
-        abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient);
+        abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, InternalClusterNode recipient);
     }
 
     private static class SameRandomClusterIdSupplier implements ClusterIdSupplier {

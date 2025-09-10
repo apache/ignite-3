@@ -38,7 +38,10 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
     /** Quorum size. */
     private final int quorumSize;
 
-    /** Data nodes auto adjust timeout. */
+    /**
+     * Data nodes auto adjust timeout. Deprecated field, do not use it anymore.  Use {@link #dataNodesAutoAdjustScaleUp} and
+     * {@link #dataNodesAutoAdjustScaleDown} instead. The field is left for backward compatibility.
+     */
     private final int dataNodesAutoAdjust;
 
     /** Data nodes auto adjust scale up timeout. */
@@ -89,6 +92,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param storageProfiles Storage profiles descriptor.
      * @param consistencyMode Consistency mode of the zone.
      */
+    @Deprecated
     public CatalogZoneDescriptor(
             int id,
             String name,
@@ -113,12 +117,43 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param name Name of the zone.
      * @param partitions Count of partitions in distributions zone.
      * @param replicas Count of partition replicas.
+     * @param quorumSize Quorum size.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param storageProfiles Storage profiles descriptor.
+     * @param consistencyMode Consistency mode of the zone.
+     */
+    public CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int quorumSize,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogStorageProfilesDescriptor storageProfiles,
+            ConsistencyMode consistencyMode
+    ) {
+        this(id, name, partitions, replicas, quorumSize, 0, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+                filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
+    }
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
      * @param timestamp Timestamp of the update of the descriptor.
      */
+    @Deprecated
     CatalogZoneDescriptor(
             int id,
             String name,
@@ -139,6 +174,44 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
         this.replicas = replicas;
         this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
+        this.storageProfiles = storageProfiles;
+        this.consistencyMode = consistencyMode;
+    }
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param timestamp Timestamp of the update of the descriptor.
+     */
+    CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int quorumSize,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogStorageProfilesDescriptor storageProfiles,
+            HybridTimestamp timestamp,
+            ConsistencyMode consistencyMode
+    ) {
+        super(id, Type.ZONE, name, timestamp);
+
+        this.partitions = partitions;
+        this.replicas = replicas;
+        this.quorumSize = quorumSize;
+        this.dataNodesAutoAdjust = 0;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
@@ -181,6 +254,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      *
      * @return Data nodes auto adjust timeout.
      */
+    @Deprecated
     public int dataNodesAutoAdjust() {
         return dataNodesAutoAdjust;
     }

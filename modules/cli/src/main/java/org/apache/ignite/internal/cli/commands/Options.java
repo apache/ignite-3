@@ -62,7 +62,10 @@ public enum Options {
     CLUSTER_CONFIG_FILE(
             Constants.CLUSTER_CONFIG_FILE_OPTION,
             Constants.CLUSTER_CONFIG_FILE_OPTION_DESC
-    );
+    ),
+
+    RECOVERY_NODE_NAMES(Constants.RECOVERY_NODE_NAMES_OPTION, Constants.RECOVERY_NODE_NAMES_OPTION_DESC),
+    RECOVERY_CMG_NODES(Constants.RECOVERY_CMG_NODES_OPTION, Constants.RECOVERY_CMG_NODES_OPTION_DESC);
 
     private final String fullName;
     private final String shortName;
@@ -303,6 +306,11 @@ public enum Options {
         public static final String RECOVERY_CMG_NODES_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
                 + "'--cluster-management-group node1, node2' "
                 + "to specify more than one node) that will host the Cluster Management Group.";
+
+        public static final String RECOVERY_WITH_CLEANUP_OPTION = "--with-cleanup";
+
+        public static final String RECOVERY_WITH_CLEANUP_OPTION_DESC = "Restarts partitions, preceded by a storage cleanup. "
+                + "This will remove all data from the partition storages before restart.";
 
         /** Old cluster endpoint URL option long name. */
         public static final String RECOVERY_OLD_CLUSTER_URL_OPTION = "--old-cluster-url";

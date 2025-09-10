@@ -23,11 +23,11 @@ import io.netty.handler.codec.DecoderException;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Netty handler of the handshake operation.
@@ -131,7 +131,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
      * @param connectionIndex Index of the connection (corresponds to the channel ID).
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(ClusterNode remoteNode, short connectionIndex) {
+    public MessageHandler createMessageHandler(InternalClusterNode remoteNode, short connectionIndex) {
         return new MessageHandler(messageListener, remoteNode, connectionIndex, serializationService);
     }
 }

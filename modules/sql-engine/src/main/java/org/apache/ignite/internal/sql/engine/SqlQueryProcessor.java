@@ -51,6 +51,7 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideNodeFilterValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideStorageProfileValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
@@ -112,7 +114,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -265,7 +266,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** {@inheritDoc} */
     @Override
     public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        ClusterNode localNode = clusterSrvc.topologyService().localMember();
+        InternalClusterNode localNode = clusterSrvc.topologyService().localMember();
         String nodeName = localNode.name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(
@@ -284,8 +285,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         metricManager.enable(sqlQueryMetricSource);
 
         var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
+        var nodeFilterValidator = new ClusterWideNodeFilterValidator(logicalTopologyService);
 
-        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator);
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator, nodeFilterValidator);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,

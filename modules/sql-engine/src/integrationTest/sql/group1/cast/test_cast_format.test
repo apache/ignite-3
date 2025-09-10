@@ -19,34 +19,9 @@ SELECT cast(date '2018-01-30' as varchar format 'YYY')
 018
 
 query T
-SELECT cast(date '2018-01-30' as varchar format 'MONTH')
-----
-JANUARY
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'MON')
-----
-JAN
-
-query T
 SELECT cast(date '2018-01-30' as varchar format 'MM')
 ----
 01
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DAY')
-----
-TUESDAY
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'DY')
-----
-TUE
-
-query T
-SELECT cast(date '2018-01-30' as varchar format 'D')
-----
-3
 
 query T
 SELECT cast(date '2018-01-30' as varchar format 'DD')
@@ -63,17 +38,12 @@ SELECT cast(date '2018-01-30' as varchar format 'MM-DD-YY')
 ----
 01-30-18
 
-query T
-SELECT cast(date '2021-12-21' as varchar format 'YY Q MON DD')
-----
-21 4 DEC 21
-
 # Cast TIME to String
 
 query T
-SELECT cast(time '21:30:00' as varchar format 'HH12')
+SELECT cast(time '21:30:00' as varchar format 'HH12 A.M.')
 ----
-09
+09 P.M.
 
 query T
 SELECT cast(time '1:30:00' as varchar format 'HH24')
@@ -91,9 +61,9 @@ SELECT cast(time '21:30:25.16' as varchar format 'SS')
 25
 
 query T
-SELECT cast(time '15:45:10' as varchar format 'HH12:MI')
+SELECT cast(time '15:45:10' as varchar format 'HH12:MI A.M.')
 ----
-03:45
+03:45 P.M.
 
 query T
 SELECT cast(time '21:30:25.16' as varchar format 'SSSSS')
@@ -105,30 +75,26 @@ SELECT cast(time '00:00:00.23' as varchar format 'SSSSS')
 ----
 00000
 
-query T
-SELECT cast(time '23:30:55.43' as varchar format 'AM')
-----
-PM
+statement error: Expected both fields: 12-hour / am pm
+SELECT cast(time '23:30:55.43' as varchar format 'A.M.')
+
+statement error: Expected both fields: 12-hour / am pm
+SELECT cast(time '12:30:55' as varchar format 'P.M.')
 
 query T
-SELECT cast(time '12:30:55' as varchar format 'PM')
+SELECT cast(time '08:45:12' as varchar format 'HH12:MI:SS P.M.')
 ----
-PM
+08:45:12 A.M.
 
 query T
-SELECT cast(time '08:45:12' as varchar format 'P.M.')
+SELECT cast(time '16:17:12' as varchar format 'HH12:MI:SS a.m.')
 ----
-A.M.
+04:17:12 P.M.
 
 query T
-SELECT cast(time '16:17:12' as varchar format 'am')
+SELECT cast(time '02:23:23' as varchar format 'HH12:MI:SS p.m.')
 ----
-pm
-
-query T
-SELECT cast(time '02:23:23' as varchar format 'p.m.')
-----
-a.m.
+02:23:23 A.M.
 
 query T
 SELECT cast(time '23:30:55.4757' as varchar format 'FF2')

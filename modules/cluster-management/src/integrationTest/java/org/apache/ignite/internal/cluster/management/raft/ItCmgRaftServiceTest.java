@@ -61,6 +61,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -138,7 +138,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 assertThat(clusterStateStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
-                        .map(ClusterNode::name)
+                        .map(InternalClusterNode::name)
                         .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
 
                 Peer serverPeer = configuration.peer(localMember().name());
@@ -159,7 +159,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
                                     new ClusterIdHolder(),
-                                    new NoOpFailureManager()
+                                    new NoOpFailureManager(),
+                                    config -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             null,
@@ -187,7 +188,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             );
         }
 
-        ClusterNode localMember() {
+        InternalClusterNode localMember() {
             return clusterService.topologyService().localMember();
         }
 
@@ -195,7 +196,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             return raftService.logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
         }
 
-        private CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        private CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
             return raftService.validatedNodes();
         }
     }
@@ -349,7 +350,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 .topologyService()
                 .allMembers()
                 .stream()
-                .map(ClusterNode::name)
+                .map(InternalClusterNode::name)
                 .toArray(String[]::new);
 
         assertThat(cluster.get(0).raftService.nodeNames(), containsInAnyOrder(topology));
@@ -409,7 +410,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 () -> node2.raftService.startJoinCluster(incorrectTag, null).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
-                        "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
+                        "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                         incorrectTag, state.clusterTag()
                 )
         );

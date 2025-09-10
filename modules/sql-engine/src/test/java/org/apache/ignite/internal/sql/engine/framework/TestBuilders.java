@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -91,6 +93,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -153,7 +156,6 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -537,7 +539,7 @@ public class TestBuilders {
         ExecutionContextBuilder executor(QueryTaskExecutor executor);
 
         /** Sets the node this fragment will be executed on. */
-        ExecutionContextBuilder localNode(ClusterNode node);
+        ExecutionContextBuilder localNode(InternalClusterNode node);
 
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
@@ -561,7 +563,7 @@ public class TestBuilders {
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
-        private ClusterNode node = null;
+        private InternalClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private ZoneId zoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
         private Clock clock = Clock.systemUTC();
@@ -592,7 +594,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ExecutionContextBuilder localNode(ClusterNode node) {
+        public ExecutionContextBuilder localNode(InternalClusterNode node) {
             this.node = Objects.requireNonNull(node, "node");
 
             return this;
@@ -744,9 +746,17 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT,
-                    new NoOpMetricManager(), schemaManager);
+            var prepareService = new PrepareServiceImpl(
+                    clusterName,
+                    0,
+                    CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null)),
+                    planningTimeout,
+                    PLANNING_THREAD_COUNT,
+                    PLAN_EXPIRATION_SECONDS,
+                    new NoOpMetricManager(),
+                    schemaManager
+            );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -1594,7 +1604,7 @@ public class TestBuilders {
 
                     return (UpdatableTable) Proxy.newProxyInstance(
                             getClass().getClassLoader(),
-                            new Class<?> [] {UpdatableTable.class},
+                            new Class<?>[] {UpdatableTable.class},
                             (proxy, method, args) -> {
                                 if ("descriptor".equals(method.getName())) {
                                     return table.descriptor();
@@ -1677,7 +1687,6 @@ public class TestBuilders {
 
         return newRow;
     }
-
 
     /** Returns a builder for {@link ExecutionDistributionProvider}. */
     public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
@@ -1811,7 +1820,7 @@ public class TestBuilders {
                         .collect(Collectors.toList());
             }
 
-            return CompletableFuture.completedFuture(assignments);
+            return completedFuture(assignments);
         }
 
         @Override
@@ -1956,6 +1965,11 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
+            return completedFuture(false);
         }
 
         @Override

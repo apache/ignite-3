@@ -119,11 +119,12 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.network.recovery.VaultStaleIds;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -148,21 +149,21 @@ import org.junit.jupiter.params.provider.EnumSource;
 @ExtendWith(ExecutorServiceExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
+            new InternalClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -235,7 +236,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 networkConfiguration,
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
-                new VaultStaleIds(vault),
+                new InMemoryStaleIds(),
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 failureProcessor,
@@ -314,7 +315,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopologyService,
                 catalogManager,
                 clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
-                clockService
+                clockService,
+                new NoOpMetricManager()
         );
 
         // Preparing the result map.

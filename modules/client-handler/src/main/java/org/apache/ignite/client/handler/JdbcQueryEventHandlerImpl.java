@@ -205,7 +205,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .timeZoneId(timeZoneId)
                 .defaultSchema(schemaNameInCanonicalForm)
                 .queryTimeout(queryTimeoutMillis)
-                .userName(userName);
+                .userName(userName)
+                .allowMultiStatement(multiStatement);
     }
 
     /** {@inheritDoc} */

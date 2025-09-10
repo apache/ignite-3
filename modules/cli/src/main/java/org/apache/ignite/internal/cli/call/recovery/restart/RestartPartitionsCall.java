@@ -50,7 +50,11 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
                 command.setNodeNames(input.nodeNames());
                 command.setZoneName(input.zoneName());
 
-                client.restartZonePartitions(command);
+                if (input.withCleanup()) {
+                    client.restartZonePartitionsWithCleanup(command);
+                } else {
+                    client.restartZonePartitions(command);
+                }
             } else {
                 RestartPartitionsRequest command = new RestartPartitionsRequest();
 
@@ -59,7 +63,11 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
                 command.setTableName(input.tableName());
                 command.setZoneName(input.zoneName());
 
-                client.restartPartitions(command);
+                if (input.withCleanup()) {
+                    client.restartPartitionsWithCleanup(command);
+                } else {
+                    client.restartPartitions(command);
+                }
             }
 
             return DefaultCallOutput.success(

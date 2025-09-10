@@ -79,7 +79,8 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
     }
 
     private static String criticalThreadDetectedRegex(String threadSignature) {
-        return "A critical thread is blocked for \\d+ ms that is more than the allowed \\d+ ms, it is .+" + threadSignature + ".+";
+        return "A critical thread is blocked for \\d+ ms that is more than the allowed \\d+ ms \\(defined at "
+                + "ignite\\.system\\.criticalWorkers\\.maxAllowedLagMillis local config property\\), it is .+" + threadSignature + ".+";
     }
 
     @Test

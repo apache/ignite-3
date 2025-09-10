@@ -570,7 +570,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         public final double salary;
 
-
         /** Default constructor. */
         public Person() {
             this(0, null, 0);
@@ -664,9 +663,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node();
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
-
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
     @RegisterExtension

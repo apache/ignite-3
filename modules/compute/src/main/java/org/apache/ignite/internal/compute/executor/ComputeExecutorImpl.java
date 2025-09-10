@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
+import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -42,7 +43,7 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
-import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -118,18 +119,20 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeEventMetadata.Builder metadataBuilder,
-            ComputeJobDataHolder input
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable ComputeJobDataHolder arg
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
 
-        metadataBuilder.jobClassName(jobClassName);
+        metadataBuilder
+                .jobClassName(jobClassName)
+                .targetNode(ignite.name());
 
         Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
-                options.executorType(), jobClassName, classLoader, input, context);
+                options.executorType(), jobClassName, classLoader, arg, context);
 
         jobCallable = addObservableTimestamp(jobCallable, clockService);
 
@@ -168,14 +171,14 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobExecutorType executorType,
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
         executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
 
         switch (executorType) {
             case JAVA_EMBEDDED:
-                return getJavaJobCallable(jobClassName, classLoader, input, context);
+                return getJavaJobCallable(jobClassName, classLoader, arg, context);
 
             case DOTNET_SIDECAR:
                 DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
@@ -184,7 +187,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                     throw new IllegalStateException("DotNetComputeExecutor is not set");
                 }
 
-                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, arg, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
@@ -207,7 +210,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
             String jobClassName,
             JobClassLoader classLoader,
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             JobExecutionContext context
     ) {
         Class<ComputeJob<Object, Object>> jobClass = jobClass(classLoader, jobClassName);
@@ -216,11 +219,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<Object, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<Object, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
-        return unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
+        return unmarshalExecMarshal(arg, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(
-            ComputeJobDataHolder input,
+            @Nullable ComputeJobDataHolder arg,
             Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
@@ -229,7 +232,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     ) {
         return () -> {
             CompletableFuture<R> userJobFut = jobInstance.executeAsync(
-                    context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
+                    context, unmarshalOrNotIfNull(inputMarshaller, arg, getJobExecuteArgumentType(jobClass)));
 
             return userJobFut == null
                     ? null
@@ -240,22 +243,29 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     @Override
     public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
-            Class<? extends MapReduceTask<I, M, T, R>> taskClass,
-            I input
+            String taskClassName,
+            JobClassLoader classLoader,
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     ) {
         assert executorService != null;
 
         AtomicBoolean isCancelled = new AtomicBoolean();
         TaskExecutionContext context = new TaskExecutionContextImpl(ignite, isCancelled);
 
-        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, context, isCancelled, input);
+        metadataBuilder
+                .jobClassName(taskClassName)
+                .targetNode(ignite.name());
+
+        Class<MapReduceTask<I, M, T, R>> taskClass = taskClass(classLoader, taskClassName);
+        return new TaskExecutionInternal<>(executorService, eventLog, jobSubmitter, taskClass, context, isCancelled, metadataBuilder, arg);
     }
 
     @Override
     public void start() {
         stateMachine.start();
         IgniteThreadFactory threadFactory = IgniteThreadFactory.create(ignite.name(), "compute", LOG, STORAGE_READ, STORAGE_WRITE);
-        executorService = new PriorityQueueExecutor(configuration, threadFactory, stateMachine, eventLog, ignite.name());
+        executorService = new PriorityQueueExecutor(configuration, threadFactory, stateMachine, eventLog);
     }
 
     @Override

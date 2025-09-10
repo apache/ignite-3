@@ -230,15 +230,15 @@ public class TableImpl implements TableViewInternal {
         return tbl.partitionId(keyRow);
     }
 
-    /** Returns a supplier of index storage wrapper factories for given partition. */
+    @Override
     public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
             var factories = new ArrayList<>(indexWrapperById.values());
 
             var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (int i = 0; i < factories.size(); i++) {
-                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+            for (IndexWrapper factory : factories) {
+                TableSchemaAwareIndexStorage storage = factory.getStorage(partitionId);
 
                 if (storage != null) {
                     adapters.put(storage.id(), storage);
@@ -249,7 +249,7 @@ public class TableImpl implements TableViewInternal {
         };
     }
 
-    /** Returns a supplier of index locker factories for given partition. */
+    @Override
     public Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId) {
         return () -> {
             List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());

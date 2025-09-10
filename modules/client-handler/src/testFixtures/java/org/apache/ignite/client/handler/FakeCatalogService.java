@@ -90,7 +90,6 @@ public class FakeCatalogService implements CatalogService {
                 0,
                 0,
                 0,
-                0,
                 "",
                 fromParams(Collections.emptyList()),
                 ConsistencyMode.STRONG_CONSISTENCY

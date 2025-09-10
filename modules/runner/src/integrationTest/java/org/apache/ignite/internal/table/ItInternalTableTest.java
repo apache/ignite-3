@@ -530,7 +530,6 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertEquals(15, retrievedItems.size());
     }
 
-
     /**
      * Scans all table entries.
      *

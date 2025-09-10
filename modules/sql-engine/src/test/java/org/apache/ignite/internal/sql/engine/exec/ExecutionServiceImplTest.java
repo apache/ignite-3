@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -85,7 +87,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -154,7 +157,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
 import org.awaitility.Awaitility;
@@ -171,7 +173,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentMatchers;
 
 /**
- * Test class to verify {@link ExecutionServiceImplTest}.
+ * Test class to verify {@link ExecutionServiceImpl}.
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
@@ -185,6 +187,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public static final long PLANNING_TIMEOUT = 5_000;
 
     public static final int PLANNING_THREAD_COUNT = 2;
+
+    public static final int PLAN_EXPIRATION_SECONDS = Integer.MAX_VALUE;
 
     /** Timeout in ms for stopping execution service. */
     private static final long SHUTDOWN_TIMEOUT = 5_000;
@@ -227,7 +231,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private final KillCommandHandler killCommandHandler =
             new KillCommandHandler(nodeNames.get(0), mock(LogicalTopologyService.class), mock(MessagingService.class));
 
-    private ClusterNode firstNode;
+    private InternalClusterNode firstNode;
 
     private final MetricManager metricManager = new NoOpMetricManager();
 
@@ -241,7 +245,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> {});
+        DdlSqlToCommandConverter converter =
+                new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -255,6 +260,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
+                PLAN_EXPIRATION_SECONDS,
                 metricManager,
                 new PredefinedSchemaManager(schema)
         );
@@ -556,7 +562,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                         // We need to block only root fragment execution, otherwise due to asynchronous fragments processing fragments with
                         // different fragmentId can be processed before root (fragmentId=0) and block pool threads for
                         // further processing jobs.
-                        if (msg instanceof QueryStartResponseImpl && ((QueryStartResponseImpl) msg).fragmentId() == 0) {
+                        if (msg instanceof QueryStartResponseImpl && ((QueryStartResponseImpl) msg).fragmentId() == 1) {
                             startResponse.countDown();
                             nodeFailedLatch.await();
                         }
@@ -798,22 +804,22 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "  Root node state: opened" + nl
                 + nl
                 + "  Fragments awaiting init completion:" + nl
-                + "    id=0, node=node_1" + nl
                 + "    id=1, node=node_1" + nl
-                + "    id=1, node=node_2" + nl
-                + "    id=1, node=node_3" + nl
+                + "    id=2, node=node_1" + nl
+                + "    id=2, node=node_2" + nl
+                + "    id=2, node=node_3" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=0, state=opened, canceled=false, class=Inbox (root)" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + "    id=1, state=opened, canceled=false, class=Inbox (root)" + nl
+                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
                 + nl
-                + "  Fragment#0 tree:" + nl
+                + "  Fragment#1 tree:" + nl
                 + "    class=Inbox, requested=512" + nl
                 + "      class=RemoteSource, nodeName=node_1, state=WAITING" + nl
                 + "      class=RemoteSource, nodeName=node_2, state=WAITING" + nl
                 + "      class=RemoteSource, nodeName=node_3, state=WAITING" + nl
                 + nl
-                + "  Fragment#1 tree:" + nl
+                + "  Fragment#2 tree:" + nl
                 + "    class=Outbox, waiting=-1" + nl
                 + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
                 + "      class=, requested=0" + nl
@@ -826,9 +832,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "  Coordinator node: node_1" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + "    id=2, state=opened, canceled=false, class=Outbox" + nl
                 + nl
-                + "  Fragment#1 tree:" + nl
+                + "  Fragment#2 tree:" + nl
                 + "    class=Outbox, waiting=-1" + nl
                 + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
                 + "      class=, requested=0" + nl
@@ -1008,7 +1014,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     throw new RuntimeException(e);
                 }
 
-                ClusterNode sameNameDifferentIdNode = clusterNode(nodeNames.get(0));
+                InternalClusterNode sameNameDifferentIdNode = clusterNode(nodeNames.get(0));
                 // Fire NODE_LEFT event on map-node in question. This event contains
                 // cluster node with consistent ID equals to ID of node-initiator, but
                 // different volatile id. This emulates situation, when request prepared
@@ -1092,7 +1098,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(result.getCatalogTime()).thenReturn(expectedCatalogActivationTimestamp.longValue());
         when(ddlCommandHandler.handle(any(CatalogCommand.class)))
-                .thenReturn(CompletableFuture.completedFuture(result));
+                .thenReturn(completedFuture(result));
 
         await(execService.executePlan(plan, planCtx));
 
@@ -1177,8 +1183,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private static ClusterNodeImpl clusterNode(String nodeName) {
-        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+    private static InternalClusterNodeImpl clusterNode(String nodeName) {
+        return new InternalClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
     }
 
     private MappingServiceImpl createMappingService(
@@ -1187,7 +1193,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             CacheFactory cacheFactory,
             List<String> logicalNodes
     ) {
-        PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
+        PartitionPruner partitionPruner = (mappedFragments, dynamicParameters, ppMetadata) -> mappedFragments;
 
         LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
 
@@ -1249,7 +1255,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     static class TestCluster {
         private final Map<String, TestNode> nodes = new ConcurrentHashMap<>();
 
-        public TestNode addNode(ClusterNode node, QueryTaskExecutor taskExecutor, MailboxRegistryImpl mailboxRegistry) {
+        public TestNode addNode(InternalClusterNode node, QueryTaskExecutor taskExecutor, MailboxRegistryImpl mailboxRegistry) {
             return nodes.computeIfAbsent(node.name(), key -> new TestNode(node, taskExecutor, mailboxRegistry));
         }
 
@@ -1263,18 +1269,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             private volatile MessageInterceptor interceptor = null;
 
             private final QueryTaskExecutor taskExecutor;
-            private final ClusterNode node;
+            private final InternalClusterNode node;
             private final MailboxRegistryImpl mailboxRegistry;
 
             private volatile boolean scanPaused = false;
 
-            public TestNode(ClusterNode node, QueryTaskExecutor taskExecutor, MailboxRegistryImpl mailboxRegistry) {
+            public TestNode(InternalClusterNode node, QueryTaskExecutor taskExecutor, MailboxRegistryImpl mailboxRegistry) {
                 this.node = node;
                 this.taskExecutor = taskExecutor;
                 this.mailboxRegistry = mailboxRegistry;
             }
 
-            public void notifyNodeLeft(ClusterNode node) {
+            public void notifyNodeLeft(InternalClusterNode node) {
                 mailboxRegistry.onDisappeared(node);
             }
 
@@ -1348,7 +1354,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 };
             }
 
-            private CompletableFuture<Void> onReceive(ClusterNode senderNode, NetworkMessage message) {
+            private CompletableFuture<Void> onReceive(InternalClusterNode senderNode, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
                     MessageListener listener = msgListeners.get(msg.messageType());
 
@@ -1379,7 +1385,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         @FunctionalInterface
         interface MessageInterceptor {
-            CompletableFuture<Void> intercept(ClusterNode senderNode, NetworkMessage msg, MessageListener original);
+            CompletableFuture<Void> intercept(InternalClusterNode senderNode, NetworkMessage msg, MessageListener original);
         }
     }
 
@@ -1461,6 +1467,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         @Override
         public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
             throw new UnsupportedOperationException();
         }
 

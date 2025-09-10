@@ -19,12 +19,15 @@ package org.apache.ignite.internal.compute.events;
 
 import java.util.UUID;
 import org.apache.ignite.internal.eventlog.event.EventUser;
-import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job metadata used for logging events.
  */
 public class ComputeEventMetadata {
+    /** Event user. */
+    private final EventUser eventUser;
+
     /** The type of the job. **/
     private final Type type;
 
@@ -32,46 +35,43 @@ public class ComputeEventMetadata {
     private final String jobClassName;
 
     /** Compute job id. */
-    private final UUID jobId;
+    private final @Nullable UUID jobId;
+
+    /** Target node name. */
+    private final String targetNode;
+
+    /** Node that initiated execution. */
+    private final String initiatorNode;
 
     /** Used in events for broadcast jobs - common id for a group of jobs. */
-    private final UUID taskId;
+    private final @Nullable UUID taskId;
 
     /** For colocated jobs. */
-    private final String tableName;
-
-    /** For embedded API. */
-    private final String initiatorNodeId;
+    private final @Nullable String tableName;
 
     /** For client API. */
-    private final String initiatorClient;
+    private final @Nullable String clientAddress;
 
-    /** Event user. */
-    private final EventUser eventUser;
-
-    /** Node name. */
-    private final String nodeName;
-
-    private ComputeEventMetadata(
+    ComputeEventMetadata(
+            EventUser eventUser,
             Type type,
             String jobClassName,
-            UUID jobId,
-            UUID taskId,
-            String tableName,
-            String initiatorNodeId,
-            String initiatorClient,
-            EventUser eventUser,
-            String nodeName
+            @Nullable UUID jobId,
+            String targetNode,
+            String initiatorNode,
+            @Nullable UUID taskId,
+            @Nullable String tableName,
+            @Nullable String clientAddress
     ) {
+        this.eventUser = eventUser;
         this.type = type;
         this.jobClassName = jobClassName;
         this.jobId = jobId;
+        this.targetNode = targetNode;
+        this.initiatorNode = initiatorNode;
         this.taskId = taskId;
         this.tableName = tableName;
-        this.initiatorNodeId = initiatorNodeId;
-        this.initiatorClient = initiatorClient;
-        this.eventUser = eventUser;
-        this.nodeName = nodeName;
+        this.clientAddress = clientAddress;
     }
 
     /**
@@ -79,8 +79,8 @@ public class ComputeEventMetadata {
      *
      * @return Created builder.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static ComputeEventMetadataBuilder builder() {
+        return new ComputeEventMetadataBuilder();
     }
 
     /**
@@ -89,8 +89,12 @@ public class ComputeEventMetadata {
      * @param type Job type.
      * @return Created builder.
      */
-    public static Builder builder(Type type) {
-        return new Builder().type(type);
+    public static ComputeEventMetadataBuilder builder(Type type) {
+        return new ComputeEventMetadataBuilder().type(type);
+    }
+
+    EventUser eventUser() {
+        return eventUser;
     }
 
     Type type() {
@@ -101,32 +105,29 @@ public class ComputeEventMetadata {
         return jobClassName;
     }
 
+    @Nullable
     UUID jobId() {
         return jobId;
     }
 
-    UUID taskId() {
+    String targetNode() {
+        return targetNode;
+    }
+
+    String initiatorNode() {
+        return initiatorNode;
+    }
+
+    @Nullable UUID taskId() {
         return taskId;
     }
 
-    String tableName() {
+    @Nullable String tableName() {
         return tableName;
     }
 
-    String initiatorNodeId() {
-        return initiatorNodeId;
-    }
-
-    String initiatorClient() {
-        return initiatorClient;
-    }
-
-    EventUser eventUser() {
-        return eventUser;
-    }
-
-    String nodeName() {
-        return nodeName;
+    @Nullable String clientAddress() {
+        return clientAddress;
     }
 
     /**
@@ -137,84 +138,5 @@ public class ComputeEventMetadata {
         BROADCAST,
         MAP_REDUCE, // Combines split, reduce and actual job.
         DATA_RECEIVER
-    }
-
-    /**
-     * Metadata builder.
-     */
-    public static class Builder {
-        private Type type;
-        private String jobClassName;
-        private UUID jobId;
-        private UUID taskId;
-        private String tableName;
-        private String initiatorNodeId;
-        private String initiatorClient;
-        private EventUser eventUser;
-        private String nodeName;
-
-        private Builder type(Type type) {
-            this.type = type;
-            return this;
-        }
-
-        public Builder jobClassName(String jobClassName) {
-            this.jobClassName = jobClassName;
-            return this;
-        }
-
-        public Builder jobId(UUID jobId) {
-            this.jobId = jobId;
-            return this;
-        }
-
-        public Builder taskId(UUID taskId) {
-            this.taskId = taskId;
-            return this;
-        }
-
-        public Builder tableName(String tableName) {
-            this.tableName = tableName;
-            return this;
-        }
-
-        public Builder initiatorNodeId(String initiatorNodeId) {
-            this.initiatorNodeId = initiatorNodeId;
-            return this;
-        }
-
-        public Builder initiatorClient(String initiatorClient) {
-            this.initiatorClient = initiatorClient;
-            return this;
-        }
-
-        public Builder eventUser(UserDetails userDetails) {
-            this.eventUser = EventUser.of(userDetails.username(), userDetails.providerName());
-            return this;
-        }
-
-        public Builder nodeName(String nodeName) {
-            this.nodeName = nodeName;
-            return this;
-        }
-
-        /**
-         * Builds the metadata.
-         *
-         * @return Event metadata.
-         */
-        public ComputeEventMetadata build() {
-            return new ComputeEventMetadata(
-                    type,
-                    jobClassName,
-                    jobId,
-                    taskId,
-                    tableName,
-                    initiatorNodeId,
-                    initiatorClient,
-                    eventUser,
-                    nodeName
-            );
-        }
     }
 }

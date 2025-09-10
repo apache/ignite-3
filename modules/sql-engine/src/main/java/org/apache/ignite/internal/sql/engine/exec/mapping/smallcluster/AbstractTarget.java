@@ -204,7 +204,6 @@ abstract class AbstractTarget implements ExecutionTarget {
             finalised = finalised && isPow2(newNodes);
         }
 
-
         if (!Arrays.equals(partitioned.enlistmentConsistencyTokens, otherPartitioned.enlistmentConsistencyTokens)) {
             throw new ColocationMappingException("Partitioned targets have different terms");
         }

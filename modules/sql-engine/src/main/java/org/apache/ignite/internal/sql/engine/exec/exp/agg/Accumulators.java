@@ -30,6 +30,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -38,6 +39,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -59,7 +61,7 @@ public class Accumulators {
     private final IgniteTypeFactory typeFactory;
 
     /**
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-15859 Documentation.
      */
     public Accumulators(IgniteTypeFactory typeFactory) {
         this.typeFactory = typeFactory;
@@ -100,6 +102,8 @@ public class Accumulators {
                 assert lit instanceof RexLiteral : "Non-literal argument for LiteralAgg: " + call + ", argument: " + lit;
 
                 return LiteralVal.newAccumulator(context, (RexLiteral) lit);
+            case "GROUPING":
+                return groupingFactory(call);
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -215,6 +219,67 @@ public class Accumulators {
         }
 
         return AnyVal.newAccumulator(type);
+    }
+
+    private Supplier<Accumulator> groupingFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return GroupingAccumulator.newAccumulator(call.getArgList());
+    }
+
+    /**
+     * {@code GROUPING(column [, ...])} accumulator. Pseudo accumulator that accepts group key columns set.
+     */
+    public static class GroupingAccumulator implements Accumulator {
+        private final List<Integer> argList;
+
+        public static Supplier<Accumulator> newAccumulator(List<Integer> argList) {
+            return () -> new GroupingAccumulator(argList);
+        }
+
+        private GroupingAccumulator(List<Integer> argList) {
+            assert !argList.isEmpty() : "GROUPING function must have at least one argument.";
+            assert argList.size() < Long.SIZE : "GROUPING function with more than 63 arguments is not supported.";
+            this.argList = argList;
+        }
+
+        @Override
+        public void add(AccumulatorsState state, Object[] args) {
+            assert false;
+        }
+
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            ImmutableBitSet groupKey = (ImmutableBitSet) state.get();
+
+            assert groupKey != null;
+
+            long res = 0;
+            long bit = 1L << (argList.size() - 1);
+            for (Integer col : argList) {
+                res += groupKey.get(col) ? bit : 0L;
+                bit >>= 1;
+            }
+
+            result.set(res);
+            state.set(null);
+        }
+
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return argList.stream()
+                    .map(i -> typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true))
+                    .collect(Collectors.toList());
+        }
+
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createSqlType(BIGINT);
+        }
     }
 
     /**

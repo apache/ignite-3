@@ -89,6 +89,9 @@ public class FilePageStore implements PageStore {
     /** Page count. */
     private volatile int pageCount;
 
+    /** Number of pages persisted to the disk during the last checkpoint. */
+    private volatile int checkpointedPageCount;
+
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
 
@@ -149,7 +152,7 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Sets the page count.
+     * Initializes the page count.
      *
      * @param pageCount New page count.
      */
@@ -157,6 +160,23 @@ public class FilePageStore implements PageStore {
         assert pageCount >= 0 : pageCount;
 
         this.pageCount = pageCount;
+        this.checkpointedPageCount = pageCount;
+    }
+
+    /** Returns number of pages that were successfully checkpointed. */
+    public int checkpointedPageCount() {
+        return checkpointedPageCount;
+    }
+
+    /**
+     * Sets number of pages that were successfully checkpointed.
+     *
+     * @param checkpointedPageCount New checkpointed page count.
+     */
+    public void checkpointedPageCount(int checkpointedPageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.checkpointedPageCount = checkpointedPageCount;
     }
 
     /**

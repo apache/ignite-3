@@ -64,12 +64,14 @@ import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -890,12 +892,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 });
         return typeFactory.createStructType(
                 types,
-                new AbstractList<String>() {
-                    @Override public String get(int index) {
+                new AbstractList<>() {
+                    @Override
+                    public String get(int index) {
                         return "?" + index;
                     }
 
-                    @Override public int size() {
+                    @Override
+                    public int size() {
                         return types.size();
                     }
                 });
@@ -1225,7 +1229,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private void validateAggregateFunction(SqlCall call, SqlAggFunction aggFunction) {
-        if (!SqlKind.AGGREGATE.contains(aggFunction.kind)) {
+        if (!aggFunction.isAggregator()) {
             throw newValidationError(call,
                     IgniteResource.INSTANCE.unsupportedAggregationFunction(aggFunction.getName()));
         }
@@ -1243,6 +1247,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             case MAX:
             case ANY_VALUE:
 
+                return;
+            case GROUPING:
+                if (call.operandCount() > 63) {
+                    // Function result of BIGINT can fit only bitmask of length less than 64;
+                    throw newValidationError(call, IgniteResource.INSTANCE.invalidArgCount(aggFunction.getName(), 1, 63));
+                }
                 return;
             default:
                 throw newValidationError(call,
@@ -1419,6 +1429,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         try {
+            if (call.getKind() == SqlKind.INTERVAL) {
+                assert !(call.operand(0) instanceof SqlCharStringLiteral)
+                        && !(call.operand(0) instanceof SqlIntervalLiteral)
+                        : "Should never got here in case of interval literal";
+
+                throw newValidationError(call, IgniteResource.INSTANCE.unsupportedExpression("String literal expected"));
+            }
             super.validateCall(call, scope);
 
             checkCallsWithCustomTypes(call, scope);
