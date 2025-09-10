@@ -9,6 +9,7 @@ import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.SQL_LOGIC
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.UNIT
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import test.build_types.RunAllTests
+import test.build_types.RunAllTestsCustomJDK
 import test.build_types.RunSanityCheck
 import test.template_types.RunTests
 import test.template_types.RunTestsList
@@ -24,6 +25,12 @@ object Project : Project({
 
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunAllTests)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(RunAllTestsCustomJDK)
             .ignite3VCS()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType

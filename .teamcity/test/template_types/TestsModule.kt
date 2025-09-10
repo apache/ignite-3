@@ -1,11 +1,9 @@
 package test.template_types
 
+import jetbrains.buildServer.configs.kotlin.BuildStep
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
-import org.apache.ignite.teamcity.CustomFailureConditions.Companion.failOnExactText
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
@@ -41,6 +39,14 @@ class TestsModule(
         }
         customScript(type = "bash") {
             name = "Clean Up Remaining Processes"
+        }
+        customScript(type = "bash") {
+            id = "PruneDockerImages"
+            name = "DockerImagePrune"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+            conditions {
+                equals("env.DIND_ENABLED", "true")
+            }
         }
     }
 
