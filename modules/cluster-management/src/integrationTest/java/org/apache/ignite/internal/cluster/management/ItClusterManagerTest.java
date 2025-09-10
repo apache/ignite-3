@@ -784,13 +784,11 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         secondNode.startAndJoin();
 
-        assertThat(
-                secondNode.startFuture(),
-                willThrow(
-                        InvalidNodeConfigurationException.class,
-                        IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
-                                + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
-                )
+        assertThrowsWithCause(
+                () -> secondNode.startFuture().get(),
+                InvalidNodeConfigurationException.class,
+                IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
+                        + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
         );
     }
 }
