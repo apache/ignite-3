@@ -435,7 +435,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // This node passes the filter
         startNode(1, createStartConfig("{region: EU, storage: HDD}", STORAGE_PROFILES_CONFIGS));
 
-        executeSql(node0, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode));
+        executeSql(node0, createZoneSql(1, 5, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode));
         executeSql(createTableSql());
 
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(node0).metaStorageManager();
@@ -459,7 +459,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
             return falseCompletedFuture();
         });
 
-        executeSql(node0, alterZoneSetSql("REPLICAS 3"));
+        executeSql(node0, alterZoneSetSql(alterZoneSet));
 
         assertTrue(latch.await(10_000, MILLISECONDS));
 
@@ -471,13 +471,10 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     private static ArgumentSets testEmptyDataNodesAlterZoneParamFactory() {
         return ArgumentSets.argumentsForFirstParameter(ConsistencyMode.STRONG_CONSISTENCY, ConsistencyMode.HIGH_AVAILABILITY)
                 .argumentsForNextParameter(
-                        "REPLICAS 3",
-                        "PARTITIONS 10",
-                        "QUORUM 2",
+                        "REPLICAS 1",
+                        "QUORUM SIZE 3",
                         "AUTO SCALE UP 10000",
-                        "AUTO SCALE DOWN 10000",
-                        "CONSISTENCY MODE 'HIGH_AVAILABILITY'",
-                        "CONSISTENCY MODE 'STRONG_CONSISTENCY'"
+                        "AUTO SCALE DOWN 10000"
                 );
     }
 
