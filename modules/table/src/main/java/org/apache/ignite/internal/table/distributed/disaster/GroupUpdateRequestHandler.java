@@ -293,6 +293,14 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
         }
 
+        partAssignments = calculateAssignmentForPartition(
+                partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
+
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
         boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
