@@ -79,7 +79,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for sql execution in REPL mode.
  */
-@Command(name = "exec", description = "Executes SQL query")
+@Command(name = "sql", description = "Executes SQL query")
 public class SqlExecReplCommand extends BaseCommand implements Runnable {
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
@@ -179,7 +179,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         private static final Parser DEFAULT_PARSER = new DefaultParser();
 
         @Override
-        public ParsedLine parse(String line, int cursor, ParseContext context) throws SyntaxError {
+        public ParsedLine parse(String line, int cursor, Parser.ParseContext context) throws SyntaxError {
             if ((ParseContext.UNSPECIFIED == context || ParseContext.ACCEPT_LINE == context)
                     && !line.trim().endsWith(";")) {
                 throw new EOFError(-1, cursor, "Missing semicolon (;)");

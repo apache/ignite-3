@@ -23,11 +23,14 @@ import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class SqlExecCommandTest extends CliCommandTestBase {
+/**
+ * Tests for {@link SqlCommandTest}.
+ */
+public class SqlCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
-        return SqlExecCommand.class;
+        return SqlCommand.class;
     }
 
     @Test

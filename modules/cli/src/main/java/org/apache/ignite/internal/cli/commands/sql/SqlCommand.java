@@ -17,44 +17,45 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerCommand;
-import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Unmatched;
 
 /**
- * Command for sql component management.
+ * Command for sql operations.
+ * <p>The class describes subcommands and redirect calls to default subcommand {@link SqlExecCommand} if no subcommand was specified.
+ *
+ * @see SqlExecCommand
  */
 @Command(name = "sql",
         subcommands = {
-                SqlExecCommand.class,
                 SqlPlannerCommand.class
         },
         description = "SQL query engine operations."
 )
-public class SqlCommand extends BaseCommand  implements Callable<Integer> {
-        @Unmatched
-        private String[] args;
+public class SqlCommand extends BaseCommand implements Callable<Integer> {
+    @Unmatched
+    private String[] args;
 
-        @Override
-        public Integer call() throws Exception {
-                // Redirect call to subcommand.
-                try (MicronautFactory micronautFactory = new MicronautFactory()) {
-                        SqlExecCommand cmd = micronautFactory.create(SqlExecCommand.class);
-                        SqlExecCommand command = CommandLine.populateCommand(cmd, args);
+    @Override
+    public Integer call() throws Exception {
+        // Picocli lack flexibility parameter validation for subcommands + parser can't distinct positional parameter and subcommand in
+        // some cases. That leads to unexpected behavior.
+        //
+        // With RunLast strategy (see IExecutionStrategy) is used and all parent parameters have Scope.LOCAL,
+        // we don't expect parent command parameters be validated when running a subcommand (this just make no sense).
+        // To overcome this issues, we implement command in separate class (see SqlExecCommand) and redirect call to it.
+        IFactory factory = spec.commandLine().getFactory();
+        CommandLine commandLine = new CommandLine(factory.create(SqlExecCommand.class), factory)
+                .setErr(spec.commandLine().getErr())
+                .setOut(spec.commandLine().getOut())
+                .setDefaultValueProvider(spec.defaultValueProvider())
+                .setExecutionExceptionHandler(spec.commandLine().getExecutionExceptionHandler());
 
-                        CommandLine commandLine = new CommandLine(command, micronautFactory)
-                                .setErr(spec.commandLine().getErr())
-                                .setOut(spec.commandLine().getOut())
-                                .setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class))
-                                .setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-
-                        return commandLine.execute(args);
-                }
-        }
+        return commandLine.execute(args);
+    }
 }

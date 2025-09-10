@@ -48,7 +48,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for sql execution.
  */
-@Command(name = "exec", description = "Executes SQL query")
+@Command(name = "sql", description = "Executes SQL query")
 public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
