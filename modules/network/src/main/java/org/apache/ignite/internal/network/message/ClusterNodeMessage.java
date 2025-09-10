@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.network.NetworkMessageTypes.CLUSTER_NOD
 
 import java.io.Serializable;
 import java.util.UUID;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.network.NetworkAddress;
@@ -46,6 +46,6 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
 
     /** Converts this message to the corresponding {@link InternalClusterNode} instance. */
     default InternalClusterNode asClusterNode() {
-        return new InternalClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
+        return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
     }
 }

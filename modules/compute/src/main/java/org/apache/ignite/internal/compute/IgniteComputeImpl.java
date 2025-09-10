@@ -71,8 +71,8 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -272,7 +272,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private static Set<InternalClusterNode> internalNodesFromPublicNodes(Set<ClusterNode> nodes) {
         return nodes.stream()
-                .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                .map(ClusterNodeImpl::fromPublicClusterNode)
                 .collect(Collectors.toSet());
     }
 

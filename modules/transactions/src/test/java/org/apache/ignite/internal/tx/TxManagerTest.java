@@ -78,9 +78,9 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -125,12 +125,12 @@ import org.mockito.verification.VerificationMode;
 @ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TxManagerTest extends IgniteAbstractTest {
-    private static final InternalClusterNode LOCAL_NODE = new InternalClusterNodeImpl(
+    private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
             randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null
     );
 
     private static final InternalClusterNode REMOTE_NODE =
-            new InternalClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
+            new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     private HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 

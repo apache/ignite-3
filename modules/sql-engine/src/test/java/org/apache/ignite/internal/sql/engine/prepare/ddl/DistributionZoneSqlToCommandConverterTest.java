@@ -55,7 +55,7 @@ import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
@@ -831,7 +831,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     private static LogicalNode createLocalNode(int nodeIdx, List<String> storageProfiles) {
         return new LogicalNode(
-                new InternalClusterNodeImpl(
+                new ClusterNodeImpl(
                         UUID.randomUUID(),
                         "node" + nodeIdx,
                         new NetworkAddress("127.0.0.1", 3344 + nodeIdx)
