@@ -40,10 +40,10 @@ public class ValidationResult {
     }
 
     /**
-     * Creates a failed validation result with a flag denoting whether caused by user error.
+     * Creates a failed validation result with a flag denoting whether caused by invalid node configuration.
      */
-    static ValidationResult errorResult(String errorDescription, boolean userError) {
-        return new ValidationResult(errorDescription, userError);
+    static ValidationResult errorResult(String errorDescription, boolean invalidNodeConfig) {
+        return new ValidationResult(errorDescription, invalidNodeConfig);
     }
 
     /**

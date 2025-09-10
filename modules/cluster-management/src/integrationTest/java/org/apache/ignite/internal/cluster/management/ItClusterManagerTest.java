@@ -50,6 +50,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -765,6 +766,31 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                         + " Initialization of node \"icmt_tifodecmwcn_10001\" failed: Colocation modes do not match"
                         + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
                         + ", recipientColocationMode=" + !colocationEnabled + "]."
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testJoinFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) throws Exception {
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
+        startCluster(1);
+
+        String[] cmgNodes = clusterNodeNames();
+        initCluster(cmgNodes, cmgNodes);
+
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
+
+        MockNode secondNode = addNodeToCluster(cluster);
+
+        secondNode.startAndJoin();
+
+        assertThat(
+                secondNode.startFuture(),
+                willThrow(
+                        InvalidNodeConfigurationException.class,
+                        IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
+                                + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
+                )
         );
     }
 }
