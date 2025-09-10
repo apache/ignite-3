@@ -3,6 +3,8 @@ package test
 import jetbrains.buildServer.configs.kotlin.Project
 import org.apache.ignite.teamcity.ApacheIgnite3CustomBuildType
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.INTEGRATION
+import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.MIGRATION_TOOLS_INTEGRATION
+import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.MIGRATION_TOOLS_SUITE
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.SQL_LOGIC
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.UNIT
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
@@ -34,6 +36,12 @@ object Project : Project({
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunTests(INTEGRATION))
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(MIGRATION_TOOLS_SUITE)
             .ignite3VCS()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType

@@ -4,8 +4,8 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import test.build_types.RunSanityCheck
 
-class RunTests(private val tests: Tests) : BuildType({
-    name = "> Run :: ${tests.configuration.suiteId} Tests"
+class RunTests(private val tests: Tests, private val suiteId: String = tests.configuration.suiteId) : BuildType({
+    name = "> Run :: $suiteId Tests"
     type = Type.COMPOSITE
     id(getId(this::class, name, true))
 

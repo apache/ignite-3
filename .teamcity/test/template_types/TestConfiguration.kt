@@ -5,4 +5,5 @@ data class TestConfiguration(
     val testTask: String,
     val xmx: Int = 2,
     val executionTimeoutMin: Int = 30,
-    val jvmArg: String = "")
+    val jvmArg: String = "",
+    val dindSupport: Boolean = false)

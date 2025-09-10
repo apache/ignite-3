@@ -1,6 +1,7 @@
 package org.apache.ignite.teamcity
 
 import test.template_types.GradleModule
+import test.template_types.RunTests
 import test.template_types.TestConfiguration
 import test.template_types.Tests
 
@@ -160,6 +161,46 @@ class ApacheIgnite3Teamcity {
             "ignite-vault"
         )
 
+        private val MIGRATION_TOOLS_CLI = GradleModule(
+            "Migration Tools - CLI",
+            "migration-tools-cli"
+        )
+        private val MIGRATION_TOOLS_COMMONS = GradleModule(
+            "Migration Tools - Commons",
+            "migration-tools-commons"
+        )
+        private val MIGRATION_TOOLS_CONFIG_CONVERTER = GradleModule(
+            "Migration Tools - Configuration Converter",
+            "migration-tools-config-converter"
+        )
+        private val MIGRATION_TOOLS_PERSISTENCE = GradleModule(
+            "Migration Tools - Persistence",
+            "migration-tools-persistence")
+        private val MIGRATION_TOOLS_E2E_AI3 = GradleModule(
+            "Migration Tools - E2E AI3",
+            "migration-tools-e2e-ai3-tests"
+        )
+        private val MIGRATION_TOOLS_ADAPTER = GradleModule(
+            "Migration Tools - Adapter",
+            "migration-tools-adapter"
+        )
+        private val MIGRATION_TOOLS_ADAPTER_COMPUTE_CORE = GradleModule(
+            "Migration Tools - Compute Core",
+            "migration-tools-adapter-compute-core"
+        )
+        private val MIGRATION_TOOLS_ADAPTER_COMPUTE_BOOTSTRAP = GradleModule(
+            "Migration Tools - Compute Bootstrap",
+            "migration-tools-adapter-compute-bootstrap"
+        )
+        private val MIGRATION_TOOLS_ADAPTER_SPRING_TESTS = GradleModule(
+            "Migration Tools - Spring Data Tests",
+            "migration-tools-adapter-tests-ext-spring-data"
+        )
+        private val MIGRATION_TOOLS_E2E_AI2 = GradleModule(
+            "Migration Tools - E2E AI2",
+            "migration-tools-e2e-adapter-tests"
+        )
+
         /**
          * List of GradleModules with Unit tests
          */
@@ -214,7 +255,6 @@ class ApacheIgnite3Teamcity {
             IGNITE__PLACEMENT_DRIVER,
             IGNITE__RAFT,
             IGNITE__REST,
-            IGNITE__REST_API,
             IGNITE__REPLICATOR,
             IGNITE__RUNNER,
             IGNITE__TABLE,
@@ -222,6 +262,15 @@ class ApacheIgnite3Teamcity {
             IGNITE__SQL_ENGINE,
             IGNITE__SECURITY,
             IGNITE__SYSTEM_DISASTER_RECOVERY
+        )
+
+        private val migrationToolsIntegrationModules: List<GradleModule> = listOf(
+            MIGRATION_TOOLS_CONFIG_CONVERTER,
+            MIGRATION_TOOLS_PERSISTENCE,
+            MIGRATION_TOOLS_E2E_AI3,
+            MIGRATION_TOOLS_ADAPTER,
+            MIGRATION_TOOLS_ADAPTER_SPRING_TESTS,
+            MIGRATION_TOOLS_E2E_AI2,
         )
 
         /**
@@ -265,5 +314,13 @@ class ApacheIgnite3Teamcity {
             Tests(sqlConfigurationLogic2, listOf(IGNITE__SQL_ENGINE),false),
             Tests(sqlConfigurationLogic3, listOf(IGNITE__SQL_ENGINE),false),
         )
+
+        val MIGRATION_TOOLS_INTEGRATION: Tests = Tests(
+            TestConfiguration("Integration", "integrationTest", 4, 60, dindSupport = true),
+            migrationToolsIntegrationModules,
+            enableOthers=false
+        )
+
+        val MIGRATION_TOOLS_SUITE: RunTests = RunTests(MIGRATION_TOOLS_INTEGRATION, "Migration Tools Integration")
     }
 }

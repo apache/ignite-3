@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.CustomFailureConditions.Companion.failOnExactText
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
 import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
@@ -16,12 +17,19 @@ class TestsModule(
     id(getId(this::class, "${configuration.suiteId} Tests_${module.displayName}", true))
     name = configuration.suiteId + " " + module.displayName
 
+    artifactRules = """
+        ignite-3/modules/${module.moduleName}/build/reports/**/index.html
+    """.trimIndent()
+
     params {
         hiddenText("XMX", configuration.xmx.toString() + "g")
         hiddenText("JVM_ARGS", module.jvmArgs)
     }
 
     steps {
+        customScript(type = "bash") {
+            name = "Cleanup Remaining Processes"
+        }
         customGradle {
             name = "Run tests"
             tasks = module.buildTask(configuration.testTask)
@@ -31,13 +39,16 @@ class TestsModule(
                 %JVM_ARGS%
             """.trimIndent()
         }
+        customScript(type = "bash") {
+            name = "Cleanup Remaining Processes"
+        }
     }
-
-    artifactRules = """
-        ignite-3/modules/${module.moduleName}/build/reports/**/index.html
-    """.trimIndent()
 
     failureConditions {
         executionTimeoutMin = configuration.executionTimeoutMin
+    }
+
+    requirements {
+        if (configuration.dindSupport) equals("env.DIND_ENABLED", "true") else {}
     }
 })
