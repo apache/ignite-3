@@ -16,7 +16,7 @@ import test.template_types.RunTestsList
 
 object RunAllTests : BuildType({
     id(getId(this::class))
-    name = "--> Run :: All Tests"
+    name = "-> Run :: All Tests"
     description = "Run all tests at once"
     type = Type.COMPOSITE
 
@@ -27,7 +27,7 @@ object RunAllTests : BuildType({
     }
 
     params {
-        checkbox("reverse.dep.*.IGNITE_ZONE_BASED_REPLICATION", "false", label = "Disable Zone-based replication", checked = "false", unchecked = "true")
+        checkbox("reverse.dep.*.IGNITE_ZONE_BASED_REPLICATION", "false", label = "Disable Zone-based replication", checked = "true", unchecked = "false")
         select("reverse.dep.*.env.A_GRADLE_OPTS", "", label = "Default Storage Engine", options = listOf("Default" to "", "aimem" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=aimem", "rocksdb" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=rocksdb"))
     }
 

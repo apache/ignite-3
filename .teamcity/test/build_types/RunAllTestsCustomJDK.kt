@@ -16,7 +16,7 @@ object RunAllTestsCustomJDK : BuildType({
     type = Type.COMPOSITE
 
     params {
-        checkbox("reverse.dep.*.IGNITE_ZONE_BASED_REPLICATION", "false", label = "Disable Zone-based replication", checked = "false", unchecked = "true")
+        checkbox("reverse.dep.*.IGNITE_ZONE_BASED_REPLICATION", "false", label = "Disable Zone-based replication", checked = "true", unchecked = "false")
         select("reverse.dep.*.env.A_GRADLE_OPTS", "", label = "Default Storage Engine", options = listOf("Default" to "", "aimem" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=aimem", "rocksdb" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=rocksdb"))
         select("reverse.dep.*.env.JAVA_HOME", "%env.JDK_ORA_11%", label = "JDK", options = listOf("JDK 11" to "%env.JDK_ORA_11%", "JDK 21" to "%env.JDK_ORA_21%"))
     }

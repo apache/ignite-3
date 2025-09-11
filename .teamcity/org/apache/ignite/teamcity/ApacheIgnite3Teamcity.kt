@@ -1,5 +1,6 @@
 package org.apache.ignite.teamcity
 
+import _Self.OsArch
 import test.template_types.GradleModule
 import test.template_types.RunTests
 import test.template_types.TestConfiguration
@@ -15,6 +16,10 @@ class ApacheIgnite3Teamcity {
         /**
          * Project GradleModules with settings
          */
+        private val IGNITE__ARCH_TEST = GradleModule(
+            "Arch",
+            "ignite-arch-test"
+        )
         private val IGNITE__API = GradleModule(
             "API",
             "ignite-api"
@@ -205,6 +210,7 @@ class ApacheIgnite3Teamcity {
          * List of GradleModules with Unit tests
          */
         private val unitTestGradleModuleList: List<GradleModule> = listOf(
+            IGNITE__ARCH_TEST,
             IGNITE__API,
             IGNITE__BINARY_TUPLE,
             IGNITE__CLI,
@@ -274,6 +280,8 @@ class ApacheIgnite3Teamcity {
          * Tests type settings
          */
         val UNIT = Tests(TestConfiguration("Unit", "test"), unitTestGradleModuleList)
+        val UNIT_WINDOWS = Tests(TestConfiguration("Unit", "test", osArch = OsArch.WindowsAMD64), unitTestGradleModuleList)
+
 
         //JVM_CUSTOM_ARGS to """-XX:MaxDirectMemorySize=256m""".trimIndent()
         private val integrationTestConf = TestConfiguration(
