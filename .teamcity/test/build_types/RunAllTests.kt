@@ -33,6 +33,7 @@ object RunAllTests : BuildType({
 
     dependencies {
         snapshot(RunSanityCheck) {}
+        snapshot(RunPlatformTests) {}
         snapshot(RunTests(INTEGRATION)) {}
         snapshot(MIGRATION_TOOLS_SUITE) {}
         snapshot(RunTests(UNIT)) {}

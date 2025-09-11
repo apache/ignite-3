@@ -9,20 +9,17 @@ object Project : Project({
     id(getId(this::class))
     name = "[Platform Tests]"
 
-    buildType(PlatformDotnetTestsLinux)
-    buildType(PlatformDotnetTestsWindows)
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsLinux)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
 
-//    buildType(
-//        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsWindows)
-//            .ignite3VCS()
-//            .defaultBuildTypeSettings().requireWindows()
-//            .build().buildType
-//    )
-//
-//    buildType(
-//        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsLinux)
-//            .ignite3VCS()
-//            .defaultBuildTypeSettings().requireLinux()
-//            .build().buildType
-//    )
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsWindows)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireWindows()
+            .build().buildType
+    )
 })
