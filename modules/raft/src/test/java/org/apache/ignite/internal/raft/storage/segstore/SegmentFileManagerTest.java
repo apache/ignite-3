@@ -77,6 +77,13 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         closeAllManually(fileManager);
     }
 
+    @SuppressWarnings("ResultOfObjectAllocationIgnored")
+    @Test
+    void testConstructorInvariants() {
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(workDir, 0));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFileManager(workDir, 1));
+    }
+
     @Test
     void segmentFileIsInitializedAfterStart() throws IOException {
         Path segmentFile = findSoleSegmentFile();
@@ -116,7 +123,9 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
     @Test
     void throwsIfReserveSizeIsTooBig() {
         //noinspection resource
-        assertThrows(IllegalArgumentException.class, () -> fileManager.reserve(FILE_SIZE));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> fileManager.reserve(FILE_SIZE));
+
+        assertThat(e.getMessage(), is("Entry size is too big (100 bytes), maximum allowed entry size: 92 bytes."));
     }
 
     @Test

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -81,7 +82,7 @@ class SegstoreLogStorage implements LogStorage {
 
         try (WriteBuffer writeBuffer = segmentFileManager.reserve(entrySize(bytes))) {
             writeEntry(writeBuffer, bytes);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
         }
 
@@ -105,7 +106,7 @@ class SegstoreLogStorage implements LogStorage {
 
         int crc = FastCrc.calcCrc(buffer, dataSize);
 
-        // After CRC calculation, the position will be at the provided end of the buffer.
+        // After CRC calculation the position will be at the provided end of the buffer.
         buffer.putInt(crc);
     }
 

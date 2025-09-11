@@ -105,6 +105,10 @@ class SegmentFileManager implements ManuallyCloseable {
     private boolean isStopped;
 
     SegmentFileManager(Path baseDir, long fileSize) {
+        if (fileSize <= HEADER_RECORD.length) {
+            throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
+        }
+
         this.baseDir = baseDir;
         this.fileSize = fileSize;
     }
@@ -130,7 +134,9 @@ class SegmentFileManager implements ManuallyCloseable {
 
     WriteBuffer reserve(int size) throws IOException {
         if (size > maxEntrySize()) {
-            throw new IllegalArgumentException("Entry size is too big: " + size);
+            throw new IllegalArgumentException(String.format(
+                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", size, maxEntrySize()
+            ));
         }
 
         while (true) {
