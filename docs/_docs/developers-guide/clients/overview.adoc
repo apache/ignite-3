@@ -112,7 +112,7 @@ Partition awareness optimization can be applied only if the SQL query contains a
 
 * DML query, which can **not** be rewritten to key-value operation, are not supported yet. +
 This statement is more stronger comparing to previous one and require equality condition on all key columns.
-Partition awareness works only if the SQL query could be rewritten to a single key-value operation. The explain plan contains `KeyValueGet` or `KeyValueModify` nodes in that case.
+Partition awareness work for DML query only if if could be rewritten to a single key-value operation. The explain plan contains `KeyValueGet` or `KeyValueModify` nodes in that case.
 Bulk DML operations (like ```INSERT FROM SELECT``` or multi-values ```INSERT FROM VALUES```) are not supported yet.
 
 * Partition awareness cache on client may miss required metadata +
