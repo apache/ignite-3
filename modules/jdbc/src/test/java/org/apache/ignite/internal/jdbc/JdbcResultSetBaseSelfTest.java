@@ -152,7 +152,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void updateMethodsAreNotSupported() throws Exception {
+    public void notSupportedMethods() throws Exception {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
             assertTrue(rs.next());
 
@@ -280,11 +280,34 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(rs::insertRow);
 
             expectNotSupported(rs::moveToInsertRow);
+
+            expectNotSupported(rs::getCursorName);
         }
     }
 
     @Test
     public void navigationMethods() throws SQLException {
+        // Empty result set
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false)),
+                List.of())
+        ) {
+            assertFalse(rs.isBeforeFirst());
+            assertFalse(rs.isAfterLast());
+            assertFalse(rs.isFirst());
+            assertFalse(rs.isLast());
+            assertEquals(0, rs.getRow());
+
+            assertFalse(rs.next());
+
+            assertFalse(rs.isBeforeFirst());
+            assertFalse(rs.isAfterLast());
+            assertFalse(rs.isFirst());
+            assertFalse(rs.isLast());
+            assertEquals(0, rs.getRow());
+        }
+
+        // Non empty result set
         try (ResultSet rs = createResultSet(null,
                 List.of(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false)),
                 List.of(List.of("A"), List.of("B")))
@@ -749,8 +772,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             assertThat(rs.getConcurrency(), any(Integer.class));
 
-            assertNull(rs.getCursorName());
-
             assertThat(rs.getFetchDirection(), any(Integer.class));
 
             assertThat(rs.getFetchSize(), any(Integer.class));
@@ -783,11 +804,11 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void findColumn() throws SQLException {
-        try (ResultSet rs = createResultSet(null, 
+        try (ResultSet rs = createResultSet(null,
                 List.of(
                         new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false),
                         new ColumnDefinition("C1", ColumnType.BOOLEAN, 0, 0, false)
-                ), 
+                ),
                 List.of(List.of(true), List.of(true))
         )) {
             assertEquals(1, rs.findColumn("c"));

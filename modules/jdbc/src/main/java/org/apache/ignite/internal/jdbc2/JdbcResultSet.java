@@ -38,12 +38,14 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC ResultSet adapter backed by {@link org.apache.ignite.sql.ResultSet}.
@@ -56,15 +58,17 @@ public class JdbcResultSet implements ResultSet {
 
     private static final String SQL_SPECIFIC_TYPES_ARE_NOT_SUPPORTED = "SQL-specific types are not supported.";
 
+    private static final ResultSetMetadata EMPTY_METADATA = new ResultSetMetadataImpl(List.of());
+
     private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
+
+    private final ResultSetMetadata rsMetadata;
 
     private final Statement statement;
 
-    private Map<String, Integer> columnOrder;
-
     private int fetchSize;
 
-    private SqlRow currentRow;
+    private @Nullable SqlRow currentRow;
 
     private int currentPosition;
 
@@ -72,7 +76,7 @@ public class JdbcResultSet implements ResultSet {
 
     private boolean wasNull;
 
-    private JdbcResultSetMetadata meta;
+    private JdbcResultSetMetadata jdbcMeta;
 
     /**
      * Constructor.
@@ -82,6 +86,10 @@ public class JdbcResultSet implements ResultSet {
             Statement statement
     ) {
         this.rs = rs;
+
+        ResultSetMetadata metadata = rs.metadata();
+        this.rsMetadata = metadata != null ? metadata : EMPTY_METADATA;
+        
         this.statement = statement;
         this.currentRow = null;
         this.closed = false;
@@ -485,6 +493,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         ensureNotClosed();
 
@@ -502,7 +511,7 @@ public class JdbcResultSet implements ResultSet {
     public String getCursorName() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        throw new SQLFeatureNotSupportedException("Cursor name is not supported.");
     }
 
     /** {@inheritDoc} */
@@ -518,14 +527,16 @@ public class JdbcResultSet implements ResultSet {
     public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Integer order = colLb != null ? columnOrder().get(colLb.toUpperCase()) : null;
-        if (order == null) {
-            throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
+        try {
+            int index = rsMetadata.indexOf(colLb);
+            if (index >= 0) {
+                return index + 1;
+            }
+        } catch (Exception ignore) {
+            // ignore
         }
 
-        assert order >= 0;
-
-        return order + 1;
+        throw new SQLException("Column not found: " + colLb, SqlStateCode.INVALID_ARGUMENT);
     }
 
     /** {@inheritDoc} */
@@ -557,7 +568,13 @@ public class JdbcResultSet implements ResultSet {
     public boolean isAfterLast() throws SQLException {
         ensureNotClosed();
 
-        return currentRow == null && !rs.hasNext();
+        boolean hasNext = rs.hasNext();
+        // Result set is empty
+        if (currentPosition == 0 && !hasNext) {
+            return false;
+        } else {
+            return currentRow == null && !hasNext;
+        }
     }
 
     /** {@inheritDoc} */
@@ -1192,6 +1209,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public <T> T getObject(int colIdx, Class<T> targetCls) throws SQLException {
         ensureNotClosed();
 
@@ -1200,6 +1218,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public <T> T getObject(String colLb, Class<T> type) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -1208,12 +1227,14 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Object getObject(int colIdx) throws SQLException {
         return getValue(colIdx);
     }
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public Object getObject(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -1675,15 +1696,17 @@ public class JdbcResultSet implements ResultSet {
      * @return Object field value.
      * @throws SQLException In case of error.
      */
+    @Nullable
     Object getValue(int colIdx) throws SQLException {
         ensureNotClosed();
         ensureHasCurrentRow();
 
-        if (colIdx < 1 || colIdx > rs.metadata().columns().size()) {
-            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION);
+        if (colIdx < 1 || colIdx > rsMetadata.columns().size()) {
+            throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.INVALID_ARGUMENT);
         }
 
         try {
+            assert currentRow != null;
             Object val = currentRow.value(colIdx - 1);
 
             wasNull = val == null;
@@ -1725,7 +1748,7 @@ public class JdbcResultSet implements ResultSet {
      * @return Converted object.
      * @throws SQLException On error.
      */
-    private Object getObject0(int colIdx, Class<?> targetCls) throws SQLException {
+    private @Nullable Object getObject0(int colIdx, Class<?> targetCls) throws SQLException {
         if (targetCls == Boolean.class) {
             return getBoolean(colIdx);
         } else if (targetCls == Byte.class) {
@@ -1764,46 +1787,15 @@ public class JdbcResultSet implements ResultSet {
             if (targetCls.isAssignableFrom(cls)) {
                 return val;
             } else {
-                throw new SQLException("Cannot convert to " + targetCls.getName() + ": " + val,
-                        SqlStateCode.CONVERSION_FAILED);
+                throw new SQLException("Cannot convert to " + targetCls.getName() + ": " + val, SqlStateCode.CONVERSION_FAILED);
             }
         }
     }
 
-    /**
-     * Init if needed and return column order.
-     *
-     * @return Column order map.
-     * @throws SQLException On error.
-     */
-    private Map<String, Integer> columnOrder() throws SQLException {
-        if (columnOrder != null) {
-            return columnOrder;
+    private JdbcResultSetMetadata initMetadata() {
+        if (jdbcMeta == null) {
+            jdbcMeta = new JdbcResultSetMetadata(rsMetadata);
         }
-
-        JdbcResultSetMetadata metadata = initMetadata();
-
-        columnOrder = IgniteUtils.newHashMap(metadata.getColumnCount());
-
-        for (int i = 0; i < metadata.getColumnCount(); i++) {
-            String colName = metadata.getColumnLabel(i + 1).toUpperCase();
-
-            if (!columnOrder.containsKey(colName)) {
-                columnOrder.put(colName, i);
-            }
-        }
-
-        return columnOrder;
-    }
-
-    private JdbcResultSetMetadata initMetadata() throws SQLException {
-        if (meta == null) {
-            ResultSetMetadata metadata = rs.metadata();
-            if (metadata == null) {
-                throw new SQLException("ResultSet doesn't have metadata.");
-            }
-            meta = new JdbcResultSetMetadata(metadata);
-        }
-        return meta;
+        return jdbcMeta;
     }
 }
