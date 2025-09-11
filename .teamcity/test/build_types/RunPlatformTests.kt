@@ -6,7 +6,7 @@ import test.platform_tests.*
 
 object RunPlatformTests : BuildType({
     id(getId(this::class))
-    name = "-> Run :: Platform Tests"
+    name = "> Run :: Platform Tests"
     description = "Run all platform tests at once"
     type = Type.COMPOSITE
 

@@ -16,7 +16,7 @@ import test.template_types.RunTestsList
 
 object RunAllTests : BuildType({
     id(getId(this::class))
-    name = "-> Run :: All Tests"
+    name = "--> Run :: All Tests"
     description = "Run all tests at once"
     type = Type.COMPOSITE
 
