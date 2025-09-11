@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
@@ -53,19 +54,28 @@ import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
  * written at the end of the file. If there are less than 8 bytes left, no switch records are written.
  */
 class SegmentFileManager implements ManuallyCloseable {
-    private static final int WAIT_TIMEOUT_MS = 30_000;
+    private static final int ROLLOVER_WAIT_TIMEOUT_MS = 30_000;
 
     private static final int MAGIC_NUMBER = 0xFEEDFACE;
 
     private static final int FORMAT_VERSION = 1;
 
+    private static final String SEGMENT_FILE_NAME_FORMAT = "segment-%010d-%010d.bin";
+
+    /**
+     * Byte sequence that is written at the beginning of every segment file.
+     */
     static final byte[] HEADER_RECORD = ByteBuffer.allocate(Integer.BYTES + Integer.BYTES)
             .order(SegmentFile.BYTE_ORDER)
             .putInt(MAGIC_NUMBER)
             .putInt(FORMAT_VERSION)
             .array();
 
-    static final byte[] SWITCH_SEGMENT_RECORD = new byte[8];
+    /**
+     * Byte sequence that is written at the end of a segment file when a rollover happens and there is enough space left
+     * in the file to accommodate it.
+     */
+    static final byte[] SWITCH_SEGMENT_RECORD = new byte[8]; // 8 zero bytes.
 
     private final Path baseDir;
 
@@ -73,7 +83,7 @@ class SegmentFileManager implements ManuallyCloseable {
     private final long fileSize;
 
     /**
-     * Current segment file. Can store {@code null} while a rollover is in progress.
+     * Current segment file. Can store {@code null} while a rollover is in progress or if the file manager has been stopped.
      */
     private final AtomicReference<SegmentFile> currentSegmentFile = new AtomicReference<>();
 
@@ -115,10 +125,10 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private static String segmentFileName(int fileIndex, int generation) {
-        return String.format("segment-%010d-%010d.bin", fileIndex, generation);
+        return String.format(SEGMENT_FILE_NAME_FORMAT, fileIndex, generation);
     }
 
-    WriteBuffer reserve(int size) throws Exception {
+    WriteBuffer reserve(int size) throws IOException {
         if (size > maxEntrySize()) {
             throw new IllegalArgumentException("Entry size is too big: " + size);
         }
@@ -140,34 +150,42 @@ class SegmentFileManager implements ManuallyCloseable {
     /**
      * Returns the current segment file possibly waiting for an ongoing rollover to complete.
      */
-    private SegmentFile currentSegmentFile() throws InterruptedException {
+    private SegmentFile currentSegmentFile() {
         SegmentFile segmentFile = currentSegmentFile.get();
 
         if (segmentFile != null) {
             return segmentFile;
         }
 
-        // If the current segment file is null, then a rollover is in progress, need to wait for it to complete.
-        synchronized (rolloverLock) {
-            while (true) {
-                if (isStopped) {
-                    throw new IgniteInternalException(NODE_STOPPING_ERR);
+        // If the current segment file is null, then either the manager is stopped or a rollover is in progress and we need to wait for
+        // it to complete.
+        try {
+            synchronized (rolloverLock) {
+                while (true) {
+                    if (isStopped) {
+                        throw new IgniteInternalException(NODE_STOPPING_ERR);
+                    }
+
+                    segmentFile = currentSegmentFile.get();
+
+                    if (segmentFile != null) {
+                        return segmentFile;
+                    }
+
+                    rolloverLock.wait(ROLLOVER_WAIT_TIMEOUT_MS);
                 }
-
-                segmentFile = currentSegmentFile.get();
-
-                if (segmentFile != null) {
-                    return segmentFile;
-                }
-
-                rolloverLock.wait(WAIT_TIMEOUT_MS);
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInternalException(INTERNAL_ERR, "Interrupted while waiting for rollover.", e);
         }
     }
 
     private void initiateRollover(SegmentFile observedSegmentFile) throws IOException {
         if (!currentSegmentFile.compareAndSet(observedSegmentFile, null)) {
-            // Other thread initiated the rollover.
+            // Other thread initiated the rollover or the file manager has been stopped. In both cases we do nothing and will handle this
+            // situation in a consecutive "currentSegmentFile" call by either waiting for the rollover to complete or throwing an exception.
             return;
         }
 

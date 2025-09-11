@@ -39,7 +39,7 @@ class SegmentFile implements ManuallyCloseable {
     /**
      * Byte order of the buffers used by {@link WriteBuffer#buffer}.
      */
-    static final ByteOrder BYTE_ORDER = ByteOrder.nativeOrder();
+    static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /**
      * Special value that, when stored in {@link #bufferPosition}, means that the file is closed.

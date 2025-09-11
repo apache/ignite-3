@@ -19,15 +19,16 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.raft.storage.segstore.IgniteLogStorage.GROUP_ID_SIZE_BYTES;
-import static org.apache.ignite.internal.raft.storage.segstore.IgniteLogStorage.HASH_SIZE;
-import static org.apache.ignite.internal.raft.storage.segstore.IgniteLogStorage.LENGTH_SIZE_BYTES;
-import static org.apache.ignite.internal.raft.storage.segstore.IgniteLogStorage.entrySize;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
+import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.GROUP_ID_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.HASH_SIZE;
+import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.LENGTH_SIZE_BYTES;
+import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.entrySize;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -56,12 +57,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class IgniteLogStorageTest extends IgniteAbstractTest {
+class SegstoreLogStorageTest extends IgniteAbstractTest {
     private static final int SEGMENT_SIZE = 1024;
 
     private static final long GROUP_ID = 1000;
 
-    private IgniteLogStorage logStorage;
+    private SegstoreLogStorage logStorage;
 
     private SegmentFileManager segmentFileManager;
 
@@ -72,7 +73,7 @@ class IgniteLogStorageTest extends IgniteAbstractTest {
     void setUp() throws IOException {
         segmentFileManager = new SegmentFileManager(workDir, SEGMENT_SIZE);
 
-        logStorage = new IgniteLogStorage(GROUP_ID, segmentFileManager);
+        logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
         var opts = new LogStorageOptions();
 
@@ -84,7 +85,7 @@ class IgniteLogStorageTest extends IgniteAbstractTest {
 
             @Override
             public LogEntryDecoder decoder() {
-                return null;
+                return fail("Should not be called.");
             }
         });
 
@@ -95,7 +96,10 @@ class IgniteLogStorageTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        closeAllManually(segmentFileManager, logStorage::shutdown);
+        closeAllManually(
+                logStorage == null ? null : logStorage::shutdown,
+                segmentFileManager
+        );
     }
 
     @Test
@@ -146,7 +150,7 @@ class IgniteLogStorageTest extends IgniteAbstractTest {
 
         when(encoder.encode(any())).thenAnswer(invocation -> payloadsIterator.next());
 
-        logStorage.appendEntries(nCopies(payloads.size(), new LogEntry()));
+        assertThat(logStorage.appendEntries(nCopies(payloads.size(), new LogEntry())), is(payloads.size()));
 
         var entries = new ArrayList<ByteBuffer>(payloads.size());
 

@@ -45,7 +45,7 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
  * +---------------+---------+--------------------------+---------+----------------+
  * </pre>
  */
-class IgniteLogStorage implements LogStorage {
+class SegstoreLogStorage implements LogStorage {
     static final int GROUP_ID_SIZE_BYTES = Long.BYTES;
 
     static final int LENGTH_SIZE_BYTES = Integer.BYTES;
@@ -58,7 +58,7 @@ class IgniteLogStorage implements LogStorage {
 
     private volatile LogEntryEncoder logEntryEncoder;
 
-    IgniteLogStorage(long groupId, SegmentFileManager segmentFileManager) {
+    SegstoreLogStorage(long groupId, SegmentFileManager segmentFileManager) {
         if (groupId <= 0) {
             throw new IllegalArgumentException("groupId must be greater than 0: " + groupId);
         }
@@ -76,6 +76,7 @@ class IgniteLogStorage implements LogStorage {
 
     @Override
     public boolean appendEntry(LogEntry entry) {
+        // TODO: optimize, see https://issues.apache.org/jira/browse/IGNITE-26419
         byte[] bytes = logEntryEncoder.encode(entry);
 
         try (WriteBuffer writeBuffer = segmentFileManager.reserve(entrySize(bytes))) {
@@ -90,17 +91,17 @@ class IgniteLogStorage implements LogStorage {
     private void writeEntry(WriteBuffer writeBuffer, byte[] payload) {
         ByteBuffer buffer = writeBuffer.buffer();
 
-        int pos = buffer.position();
+        int originalPos = buffer.position();
 
         buffer
                 .putLong(groupId)
                 .putInt(payload.length)
                 .put(payload);
 
-        int dataSize = buffer.position() - pos;
+        int dataSize = buffer.position() - originalPos;
 
         // Rewind the position for CRC calculation.
-        buffer.position(pos);
+        buffer.position(originalPos);
 
         int crc = FastCrc.calcCrc(buffer, dataSize);
 
@@ -114,7 +115,9 @@ class IgniteLogStorage implements LogStorage {
 
     @Override
     public int appendEntries(List<LogEntry> entries) {
-        entries.forEach(this::appendEntry);
+        for (LogEntry entry : entries) {
+            appendEntry(entry);
+        }
 
         return entries.size();
     }
