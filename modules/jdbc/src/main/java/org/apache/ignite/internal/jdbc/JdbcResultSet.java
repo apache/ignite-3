@@ -1002,7 +1002,7 @@ public class JdbcResultSet implements ResultSet {
     public String getCursorName() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        throw new SQLFeatureNotSupportedException("Cursor name is not supported.");
     }
 
     /** {@inheritDoc} */

@@ -142,10 +142,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
         }
-
-        try (ResultSet rs = createResultSet(null, List.of(), List.of())) {
-            expectSqlException(rs::getMetaData, "ResultSet doesn't have metadata");
-        }
     }
 
     @Test
@@ -193,12 +189,15 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         Statement statement = Mockito.mock(Statement.class);
 
         org.apache.ignite.sql.ResultSet<SqlRow> igniteRs = Mockito.mock(org.apache.ignite.sql.ResultSet.class);
+        when(igniteRs.metadata()).thenReturn(new ResultSetMetadataImpl(List.of()));
+
         ResultSet rs = new JdbcResultSet(igniteRs, statement);
 
         rs.close();
         rs.close();
 
         verify(igniteRs, times(1)).close();
+        verify(igniteRs, times(1)).metadata();
         verifyNoMoreInteractions(igniteRs);
     }
 

@@ -369,6 +369,11 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             rs.setFetchDirection(ResultSet.FETCH_FORWARD);
             assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
 
+            expectSqlException(() -> rs.setFetchDirection(ResultSet.FETCH_UNKNOWN),
+                    "Only forward direction is supported");
+            expectSqlException(() -> rs.setFetchDirection(ResultSet.FETCH_REVERSE),
+                    "Only forward direction is supported");
+
             assertEquals(ResultSet.CONCUR_READ_ONLY, rs.getConcurrency());
             assertEquals(ResultSet.TYPE_FORWARD_ONLY, rs.getType());
             assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, rs.getHoldability());
