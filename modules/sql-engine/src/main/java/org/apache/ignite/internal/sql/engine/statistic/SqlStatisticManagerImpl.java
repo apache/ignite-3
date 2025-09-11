@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -65,6 +66,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private final CatalogService catalogService;
     private final LowWatermark lowWatermark;
 
+    private volatile IntConsumer planUpdater;
+
     /* Contains all known table id's with statistics. */
     private final ConcurrentMap<Integer, ActualSize> tableSizeMap = new ConcurrentHashMap<>();
 
@@ -77,6 +80,10 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         this.lowWatermark = lowWatermark;
     }
 
+    @Override
+    public void planUpdater(IntConsumer updater) {
+        this.planUpdater = updater;
+    }
 
     /**
      * Returns approximate number of rows in table by their id.
@@ -130,6 +137,12 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
                         return null;
+                    }).whenComplete((ignored, ex) -> {
+                        if (ex == null) {
+                            if (planUpdater != null) {
+                                planUpdater.accept(tableId);
+                            }
+                        }
                     });
 
             latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
@@ -183,16 +196,16 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         long timestamp;
         long size;
 
-        public ActualSize(long size, long timestamp) {
+        ActualSize(long size, long timestamp) {
             this.timestamp = timestamp;
             this.size = size;
         }
 
-        public long getTimestamp() {
+        long getTimestamp() {
             return timestamp;
         }
 
-        public long getSize() {
+        long getSize() {
             return size;
         }
     }

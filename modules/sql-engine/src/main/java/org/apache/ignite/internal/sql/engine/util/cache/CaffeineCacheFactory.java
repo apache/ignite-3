@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import java.time.Duration;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -84,6 +85,18 @@ public class CaffeineCacheFactory implements CacheFactory {
         return create(size, null);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public <K, V> Cache<K, V> createWithWeakKeys() {
+        Caffeine<Object, Object> builder = Caffeine.newBuilder();
+
+        if (executor != null) {
+            builder.executor(executor);
+        }
+
+        return new CaffeineCacheToCacheAdapter<>(builder.weakKeys().build());
+    }
+
     private static class CaffeineStatsCounterAdapter implements com.github.benmanes.caffeine.cache.stats.StatsCounter {
         private final StatsCounter statsCounter;
 
@@ -137,6 +150,11 @@ public class CaffeineCacheFactory implements CacheFactory {
         @Override
         public V get(K key, Function<? super K, ? extends V> mappingFunction) {
             return cache.get(key, mappingFunction);
+        }
+
+        @Override
+        public ConcurrentMap<K, V> asMap() {
+            return cache.asMap();
         }
 
         @Override

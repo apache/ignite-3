@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -93,4 +95,12 @@ public interface Cache<K, V> {
      * @return The number of entries in the cache.
      */
     int size();
+
+    /**
+     * Returns a view of the entries stored in this cache as a thread-safe map. Modifications made to
+     * the map directly affect the cache.
+     *
+     * @return A thread-safe view of this cache supporting all of the optional {@link Map} operations.
+     */
+    ConcurrentMap<K, V> asMap();
 }

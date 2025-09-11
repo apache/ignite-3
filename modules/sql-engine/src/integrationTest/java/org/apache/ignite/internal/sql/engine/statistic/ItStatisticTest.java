@@ -33,6 +33,8 @@ import org.junit.jupiter.api.Test;
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
 
+    private static final AtomicInteger counter = new AtomicInteger(0);
+
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
@@ -42,6 +44,11 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @AfterAll
     void afterAll() {
         sql("DROP TABLE IF EXISTS t");
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 
     @Test
@@ -70,8 +77,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);
         }
     }
-
-    private static AtomicInteger counter = new AtomicInteger(0);
 
     private void insertAndUpdateRunQuery(int numberOfRecords) throws ExecutionException, TimeoutException, InterruptedException {
         int start = counter.get();

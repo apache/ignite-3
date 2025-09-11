@@ -81,6 +81,7 @@ import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -252,6 +253,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .map(node -> create(node, mappingCacheFactory, executorsFactory.apply(node)))
                 .collect(Collectors.toList());
 
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+
         prepareService = new PrepareServiceImpl(
                 "test",
                 0,
@@ -261,7 +266,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 PLANNING_THREAD_COUNT,
                 PLAN_EXPIRATION_SECONDS,
                 metricManager,
-                new PredefinedSchemaManager(schema)
+                new PredefinedSchemaManager(schema),
+                clockService
         );
         parserService = new ParserServiceImpl();
 
@@ -1471,6 +1477,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         @Override
         public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <K, V> Cache<K, V> createWithWeakKeys() {
             throw new UnsupportedOperationException();
         }
 

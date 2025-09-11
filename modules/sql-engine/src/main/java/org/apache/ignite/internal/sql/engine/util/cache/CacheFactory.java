@@ -55,4 +55,13 @@ public interface CacheFactory {
      * @param <V> Type of the value object.
      */
     <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess);
+
+    /**
+     * Creates a cache where each key (not value) stored in the cache should be wrapped in a
+     * {@link java.lang.ref.WeakReference}.
+     *
+     * @param <K> Type of the key object.
+     * @param <V> Type of the value object.
+     */
+    <K, V> Cache<K, V> createWithWeakKeys();
 }

@@ -24,17 +24,24 @@ import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributio
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,6 +59,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -74,7 +82,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
@@ -121,12 +132,14 @@ public class PrepareServiceImpl implements PrepareService {
 
     private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
+    public static final int PLAN_UPDATER_INITIAL_DELAY = 2_000;
+
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
 
     private final DdlSqlToCommandConverter ddlConverter;
 
-    private final Cache<CacheKey, CompletableFuture<QueryPlan>> cache;
+    final Cache<CacheKey, CompletableFuture<PlanInfo>> cache;
 
     private final String nodeName;
 
@@ -142,6 +155,15 @@ public class PrepareServiceImpl implements PrepareService {
 
     private volatile ThreadPoolExecutor planningPool;
 
+    /** Clock. */
+    private final ClockService clockService;
+
+    private final Cache<CacheKey, Object> weakCache;
+
+    private static final Object IGNORED_VAL = new Object();
+
+    private ExecutorService planUpdater;
+
     /**
      * Factory method.
      *
@@ -153,6 +175,8 @@ public class PrepareServiceImpl implements PrepareService {
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
+     * @param clockService Clock service.
+     *
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -162,7 +186,8 @@ public class PrepareServiceImpl implements PrepareService {
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
             SqlSchemaManager schemaManager,
-            DdlSqlToCommandConverter ddlSqlToCommandConverter
+            DdlSqlToCommandConverter ddlSqlToCommandConverter,
+            ClockService clockService
     ) {
         return new PrepareServiceImpl(
                 nodeName,
@@ -173,7 +198,8 @@ public class PrepareServiceImpl implements PrepareService {
                 clusterCfg.planner().planCacheExpiresAfterSeconds().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
-                schemaManager
+                schemaManager,
+                clockService
         );
     }
 
@@ -187,6 +213,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param plannerTimeout Timeout in milliseconds to planning.
      * @param metricManager Metric manager.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
+     * @param clockService Clock service.
      */
     public PrepareServiceImpl(
             String nodeName,
@@ -197,7 +224,8 @@ public class PrepareServiceImpl implements PrepareService {
             int plannerThreadCount,
             int planExpirySeconds,
             MetricManager metricManager,
-            SqlSchemaManager schemaManager
+            SqlSchemaManager schemaManager,
+            ClockService clockService
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
@@ -205,9 +233,12 @@ public class PrepareServiceImpl implements PrepareService {
         this.metricManager = metricManager;
         this.plannerThreadCount = plannerThreadCount;
         this.schemaManager = schemaManager;
+        this.clockService = clockService;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
+
+        weakCache = cacheFactory.createWithWeakKeys();
     }
 
     /** {@inheritDoc} */
@@ -231,12 +262,67 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
 
         IgnitePlanner.warmup();
+
+        ScheduledExecutorService planUpdater = Executors.newSingleThreadScheduledExecutor(
+                IgniteThreadFactory.create(nodeName, "sql-query-plan-refresh", true, LOG)
+        );
+
+        planUpdater.scheduleAtFixedRate(() -> {
+            for (CacheKey key : weakCache.asMap().keySet()) {
+                CompletableFuture<PlanInfo> fut = cache.get(key);
+
+                // can be evicted
+                if (fut != null) {
+                    PlanInfo info = fut.join();
+                    assert info.context != null && info.statement != null;
+
+                    assert isCompletedSuccessfully(fut);
+
+                    int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+                    if (currentCatalogVersion == key.catalogVersion()) {
+                        SqlQueryType queryType = key.parsedResult().queryType();
+
+                        if (queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML) {
+                            CompletableFuture<PlanInfo> newPlanFut = CompletableFuture.supplyAsync(
+                                    () -> buildPlan(queryType, key, info.statement, info.context), planningPool)
+                                    .exceptionally(e -> {
+                                        LOG.warn("Failed to re-planning query: " + key.parsedResult().originalQuery(), e);
+
+                                        return null;
+                                    });
+
+                            try {
+                                PlanInfo newPlan = newPlanFut.get();
+
+                                if (LOG.isDebugEnabled()) {
+                                    LOG.debug("Plan: " + info.queryPlan + "\n\nre-planned into: " + newPlan.queryPlan);
+                                }
+
+                                if (newPlan != null) {
+                                    cache.asMap().computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(newPlan));
+                                }
+                            } catch (Exception ex) {
+                                LOG.warn("Failed to re-planning query: " + key.parsedResult().originalQuery(), ex);
+                            }
+
+                            weakCache.invalidate(key);
+                        } else {
+                            throw new AssertionError("Unexpected queryType=" + queryType);
+                        }
+                    }
+                }
+            }
+        }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
+
+        this.planUpdater = planUpdater;
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         planningPool.shutdownNow();
+        planUpdater.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
         metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
     }
@@ -257,16 +343,16 @@ public class PrepareServiceImpl implements PrepareService {
 
         CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
 
-        CompletableFuture<QueryPlan> planFuture = cache.get(key);
+        CompletableFuture<PlanInfo> planFuture = cache.get(key);
 
         if (planFuture != null) {
             return planFuture.thenApply((plan) -> {
                 // We assume that non-multi-step plans is always better then a multi-step plan.
                 // or fast query optimization is disabled return a regular plan.
-                if (!(plan instanceof MultiStepPlan)) {
-                    return plan;
+                if (!(plan.queryPlan instanceof MultiStepPlan)) {
+                    return plan.queryPlan;
                 } else {
-                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
+                    MultiStepPlan regularPlan = (MultiStepPlan) plan.queryPlan;
                     QueryPlan fastPlan = regularPlan.fastPlan();
 
                     if (fastPlan != null && !explicitTx) {
@@ -318,7 +404,7 @@ public class PrepareServiceImpl implements PrepareService {
                 cache.clear();
             } else {
                 Set<QualifiedName> qualifiedNames = tableNames.stream().map(QualifiedName::parse).collect(Collectors.toSet());
-                cache.removeIfValue(p -> p.isDone() && planMatches(p.join(), qualifiedNames::contains));
+                cache.removeIfValue(p -> p.isDone() && planMatches(p.join().queryPlan, qualifiedNames::contains));
             }
 
             return null;
@@ -342,13 +428,13 @@ public class PrepareServiceImpl implements PrepareService {
     ) {
         switch (parsedResult.queryType()) {
             case QUERY:
-                return prepareQuery(parsedResult, planningContext);
+                return prepareQuery(parsedResult, planningContext).thenApply(f -> f.queryPlan);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
             case KILL:
                 return prepareKill(parsedResult);
             case DML:
-                return prepareDml(parsedResult, planningContext);
+                return prepareDml(parsedResult, planningContext).thenApply(f -> f.queryPlan);
             case EXPLAIN:
                 return prepareExplain(parsedResult, planningContext);
             default:
@@ -402,7 +488,7 @@ public class PrepareServiceImpl implements PrepareService {
                 explicandum
         );
 
-        CompletableFuture<QueryPlan> result;
+        CompletableFuture<PlanInfo> result;
         switch (queryType) {
             case QUERY:
                 result = prepareQuery(newParsedResult, ctx);
@@ -415,7 +501,8 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return result.thenApply(plan -> {
-            assert plan instanceof ExplainablePlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
+            QueryPlan plan0 = plan.queryPlan;
+            assert plan0 instanceof ExplainablePlan : plan0 == null ? "<null>" : plan0.getClass().getCanonicalName();
 
             SqlLiteral literal = (SqlLiteral) explainMode;
 
@@ -423,7 +510,7 @@ public class PrepareServiceImpl implements PrepareService {
 
             assert mode != null;
 
-            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan, mode);
+            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan0, mode);
         });
     }
 
@@ -431,7 +518,7 @@ public class PrepareServiceImpl implements PrepareService {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<QueryPlan> prepareQuery(
+    private CompletableFuture<PlanInfo> prepareQuery(
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
@@ -459,63 +546,101 @@ public class PrepareServiceImpl implements PrepareService {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
                 if (fastPlan != null) {
-                    return CompletableFuture.completedFuture(fastPlan);
+                    return CompletableFuture.completedFuture(new PlanInfo(fastPlan));
                 }
             }
 
             // Use parameter metadata to compute a cache key.
             CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
-                IgnitePlanner planner = ctx.planner();
-
-                ValidationResult validated = stmt.value;
-                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
-
-                SqlNode validatedNode = validated.sqlNode();
-
-                RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
-                IgniteRel optimizedRel = relWithMetadata.rel;
-                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
-
-                ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
-
-                int catalogVersion = ctx.catalogVersion();
-
-                if (optimizedRel instanceof IgniteKeyValueGet) {
-                    IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
-
-                    return new KeyValueGetPlan(
-                            nextPlanId(),
-                            catalogVersion,
-                            kvGet,
-                            resultSetMetadata,
-                            parameterMetadata,
-                            relWithMetadata.paMetadata,
-                            relWithMetadata.ppMetadata
-                    );
-                }
-
-                var plan = new MultiStepPlan(
-                        nextPlanId(),
-                        SqlQueryType.QUERY,
-                        optimizedRel,
-                        resultSetMetadata,
-                        parameterMetadata,
-                        catalogVersion,
-                        relWithMetadata.numSources,
-                        fastPlan,
-                        relWithMetadata.paMetadata,
-                        relWithMetadata.ppMetadata
-                );
-
-                logPlan(parsedResult.originalQuery(), plan);
-
-                return plan;
-            }, planningPool));
-
-            return planFut;
+            return cache.get(key, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(key, stmt, ctx), planningPool));
         });
+    }
+
+    private PlanInfo buildQueryPlan(CacheKey key, ValidStatement<ValidationResult> stmt, PlanningContext ctx) {
+        IgnitePlanner planner = ctx.planner();
+
+        ValidationResult validated = stmt.value;
+        ParameterMetadata parameterMetadata = stmt.parameterMetadata;
+
+        SqlNode validatedNode = validated.sqlNode();
+
+        RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+        IgniteRel optimizedRel = relWithMetadata.rel;
+        QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
+
+        ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+
+        int catalogVersion = ctx.catalogVersion();
+
+        if (optimizedRel instanceof IgniteKeyValueGet) {
+            IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
+
+            var plan = new KeyValueGetPlan(
+                    nextPlanId(),
+                    catalogVersion,
+                    kvGet,
+                    resultSetMetadata,
+                    parameterMetadata,
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
+            );
+
+            return new PlanInfo(plan);
+        }
+
+        var plan = new MultiStepPlan(
+                nextPlanId(),
+                SqlQueryType.QUERY,
+                optimizedRel,
+                resultSetMetadata,
+                parameterMetadata,
+                catalogVersion,
+                relWithMetadata.numSources,
+                fastPlan,
+                relWithMetadata.paMetadata,
+                relWithMetadata.ppMetadata
+        );
+
+        logPlan(key.parsedResult().originalQuery(), plan);
+
+        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+        if (currentCatalogVersion == catalogVersion) {
+            Set<Integer> sources = resolveSources(plan.getRel());
+
+            return new PlanInfo(plan, stmt, ctx, sources);
+        }
+
+        return new PlanInfo(plan);
+    }
+
+    @Override
+    public void updatePlans(int tableId) {
+        ConcurrentMap<CacheKey, CompletableFuture<PlanInfo>> map = cache.asMap();
+
+        for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : map.entrySet()) {
+            CompletableFuture<PlanInfo> fut = ent.getValue();
+
+            if (isCompletedSuccessfully(fut)) {
+                // no wait, already completed
+                PlanInfo info = fut.join();
+
+                if (info.sources.contains(tableId)) {
+                    weakCache.put(ent.getKey(), IGNORED_VAL);
+                }
+            }
+        }
+    }
+
+    private PlanInfo buildPlan(SqlQueryType queryType, CacheKey key, ValidStatement<ValidationResult> stmt, PlanningContext ctx) {
+        if (queryType == SqlQueryType.QUERY) {
+            return buildQueryPlan(key, stmt, ctx);
+        } else if (queryType == SqlQueryType.DML) {
+            return buildDmlPlan(key, stmt, ctx);
+        } else {
+            throw new AssertionError("should not get here");
+        }
     }
 
     private PlanId nextPlanId() {
@@ -552,7 +677,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /** Prepare plan in current thread, applicable for simple insert queries, cache plan not involved. */
-    CompletableFuture<QueryPlan> prepareDmlOpt(SqlNode sqlNode, PlanningContext ctx, String originalQuery) {
+    CompletableFuture<PlanInfo> prepareDmlOpt(SqlNode sqlNode, PlanningContext ctx, String originalQuery) {
         assert single(sqlNode);
 
         // Validate
@@ -593,10 +718,10 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(originalQuery, plan);
 
-        return CompletableFuture.completedFuture(plan);
+        return CompletableFuture.completedFuture(new PlanInfo(plan));
     }
 
-    private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
+    private CompletableFuture<PlanInfo> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
         SqlNode sqlNode = parsedResult.parsedTree();
 
         assert single(sqlNode);
@@ -607,71 +732,79 @@ public class PrepareServiceImpl implements PrepareService {
             return prepareDmlOpt(sqlNode, ctx, parsedResult.originalQuery());
         }
 
-        CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
             SqlNode validatedNode = planner.validate(sqlNode);
+            ValidationResult validatedResult = new ValidationResult(validatedNode);
 
             // Get parameter metadata.
             RelDataType parameterRowType = planner.getParameterRowType();
             ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
 
-            return new ValidStatement<>(parsedResult, validatedNode, parameterMetadata);
+            return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
         }, planningPool);
 
         // Optimize
-
         return validFut.thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
             CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
-                IgnitePlanner planner = ctx.planner();
-
-                SqlNode validatedNode = stmt.value;
-                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
-
-                RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
-                IgniteRel optimizedRel = relWithMetadata.rel;
-
-                int catalogVersion = ctx.catalogVersion();
-
-                ExplainablePlan plan;
-                if (optimizedRel instanceof IgniteKeyValueModify) {
-                    IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
-
-                    plan = new KeyValueModifyPlan(
-                            nextPlanId(),
-                            catalogVersion,
-                            kvModify,
-                            DML_METADATA,
-                            parameterMetadata,
-                            relWithMetadata.paMetadata,
-                            relWithMetadata.ppMetadata
-                    );
-                } else {
-                    plan = new MultiStepPlan(
-                            nextPlanId(),
-                            SqlQueryType.DML,
-                            optimizedRel,
-                            DML_METADATA,
-                            parameterMetadata,
-                            catalogVersion,
-                            relWithMetadata.numSources,
-                            null,
-                            relWithMetadata.paMetadata,
-                            relWithMetadata.ppMetadata
-                    );
-                }
-
-                logPlan(parsedResult.originalQuery(), plan);
-
-                return plan;
-            }, planningPool));
-
-            return planFut;
+            return cache.get(key, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(key, stmt, ctx), planningPool));
         });
+    }
+
+    private PlanInfo buildDmlPlan(CacheKey key, ValidStatement<ValidationResult> stmt, PlanningContext ctx) {
+        IgnitePlanner planner = ctx.planner();
+
+        SqlNode validatedNode = stmt.value.sqlNode();
+        ParameterMetadata parameterMetadata = stmt.parameterMetadata;
+
+        RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, () -> cache.invalidate(key));
+        IgniteRel optimizedRel = relWithMetadata.rel;
+
+        int catalogVersion = ctx.catalogVersion();
+
+        ExplainablePlan plan;
+        if (optimizedRel instanceof IgniteKeyValueModify) {
+            IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
+
+            plan = new KeyValueModifyPlan(
+                    nextPlanId(),
+                    catalogVersion,
+                    kvModify,
+                    DML_METADATA,
+                    parameterMetadata,
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
+            );
+        } else {
+            plan = new MultiStepPlan(
+                    nextPlanId(),
+                    SqlQueryType.DML,
+                    optimizedRel,
+                    DML_METADATA,
+                    parameterMetadata,
+                    catalogVersion,
+                    relWithMetadata.numSources,
+                    null,
+                    relWithMetadata.paMetadata,
+                    relWithMetadata.ppMetadata
+            );
+        }
+
+        logPlan(key.parsedResult().originalQuery(), plan);
+
+        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+        if (currentCatalogVersion == catalogVersion) {
+            Set<Integer> sources = resolveSources(plan.getRel());
+
+            return new PlanInfo(plan, stmt, ctx, sources);
+        }
+
+        return new PlanInfo(plan);
     }
 
     private @Nullable QueryPlan tryOptimizeFast(
@@ -741,7 +874,7 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes[idx++] = columnType;
         }
 
-        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes);
+        return new CacheKey(catalogVersion, schemaName, parsedResult, true /* distributed */, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
@@ -764,7 +897,35 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes = result;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult, distributed, paramTypes);
+    }
+
+    private static Set<Integer> resolveSources(IgniteRel rel) {
+        Set<Integer> tables = new HashSet<>();
+
+        IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+            @Override
+            public IgniteRel visit(IgniteTableModify rel) {
+                IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+                tables.add(igniteTable.id());
+
+                return super.visit(rel);
+            }
+
+            @Override
+            public IgniteRel visit(IgniteTableScan rel) {
+                IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+                tables.add(igniteTable.id());
+
+                return rel;
+            }
+        };
+
+        shuttle.visit(rel);
+
+        return tables;
     }
 
     private static ResultSetMetadata resultSetMetadata(
@@ -982,6 +1143,34 @@ public class PrepareServiceImpl implements PrepareService {
 
         boolean matches() {
             return matches;
+        }
+    }
+
+    private static class PlanInfo {
+        private final QueryPlan queryPlan;
+        @Nullable
+        private final ValidStatement<ValidationResult> statement;
+        @Nullable
+        private final PlanningContext context;
+        private final Set<Integer> sources;
+
+        PlanInfo(
+                QueryPlan plan,
+                @Nullable ValidStatement<ValidationResult> statement,
+                @Nullable PlanningContext context,
+                Set<Integer> sources
+        ) {
+            this.queryPlan = plan;
+            this.statement = statement;
+            this.context = context;
+            this.sources = sources;
+        }
+
+        PlanInfo(QueryPlan plan) {
+            this.queryPlan = plan;
+            this.statement = null;
+            this.context = null;
+            this.sources = Collections.emptySet();
         }
     }
 }

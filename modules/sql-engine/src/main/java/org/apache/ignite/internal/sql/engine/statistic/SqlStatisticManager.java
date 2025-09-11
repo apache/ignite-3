@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 
 /**
@@ -27,6 +28,9 @@ public interface SqlStatisticManager extends LifecycleAware {
      * Returns approximate number of rows in table by their id.
      */
     long tableSize(int tableId);
+
+    /** Plan updater callback. */
+    void planUpdater(IntConsumer updater);
 
     @Override
     default void start(){}

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -41,22 +42,34 @@ public class CacheKey {
 
     private int hashCode = 0;
 
+    private final ParsedResult parsedResult;
+
     /**
      * Constructor.
      *
      * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
-     * @param query      Query string.
+     * @param parsedResult AST with additional info.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
+    CacheKey(int catalogVersion, String schemaName, ParsedResult parsedResult, Object contextKey, ColumnType[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
-        this.query = query;
+        this.query = parsedResult.normalizedQuery();
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
+
+        this.parsedResult = parsedResult;
+    }
+
+    ParsedResult parsedResult() {
+        return parsedResult;
+    }
+
+    int catalogVersion() {
+        return catalogVersion;
     }
 
     /** {@inheritDoc} */

@@ -48,4 +48,6 @@ public interface PrepareService extends LifecycleAware {
     default CompletableFuture<Void> invalidateCache(Set<String> tableNames) {
         return CompletableFutures.nullCompletedFuture();
     }
+
+    void updatePlans(int tableId);
 }

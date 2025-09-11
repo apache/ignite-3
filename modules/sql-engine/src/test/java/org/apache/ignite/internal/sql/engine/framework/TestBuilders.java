@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Proxy;
 import java.time.Clock;
@@ -54,6 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -745,6 +748,11 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
+
+            ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+            when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -754,7 +762,8 @@ public class TestBuilders {
                     PLANNING_THREAD_COUNT,
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
-                    schemaManager
+                    schemaManager,
+                    clockService
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -931,15 +940,23 @@ public class TestBuilders {
     }
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
-        SqlStatisticManager sqlStatisticManager = tableId -> {
-            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
-            long fallbackSize = 10_000;
+        SqlStatisticManager sqlStatisticManager = new SqlStatisticManager() {
+            @Override
+            public long tableSize(int tableId) {
+                CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
+                long fallbackSize = 10_000;
 
-            if (descriptor == null) {
-                return fallbackSize;
+                if (descriptor == null) {
+                    return fallbackSize;
+                }
+
+                return tablesSize.getOrDefault(descriptor.name(), 10_000L);
             }
 
-            return tablesSize.getOrDefault(descriptor.name(), 10_000L);
+            @Override
+            public void planUpdater(IntConsumer updater) {
+                throw new UnsupportedOperationException();
+            }
         };
 
         return new SqlSchemaManagerImpl(

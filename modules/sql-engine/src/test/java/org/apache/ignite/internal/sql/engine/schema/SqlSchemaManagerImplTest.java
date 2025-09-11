@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
@@ -114,7 +115,17 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void init() {
-        sqlStatisticManager = tableId -> 10_000L;
+        sqlStatisticManager = new SqlStatisticManager() {
+            @Override
+            public long tableSize(int tableId) {
+                return 10_000;
+            }
+
+            @Override
+            public void planUpdater(IntConsumer updater) {
+                throw new UnsupportedOperationException();
+            }
+        };
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(

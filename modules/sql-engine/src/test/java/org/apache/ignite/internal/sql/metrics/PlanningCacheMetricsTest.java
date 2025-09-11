@@ -19,7 +19,11 @@ package org.apache.ignite.internal.sql.metrics;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -61,8 +65,13 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(table);
 
+        ClockServiceImpl clockService = mock(ClockServiceImpl.class);
+
+        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
+
         PrepareService prepareService = new PrepareServiceImpl(
-                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema)
+                "test", 2, cacheFactory, null, 15_000L, 2, Integer.MAX_VALUE, metricManager, new PredefinedSchemaManager(schema),
+                clockService
         );
 
         prepareService.start();

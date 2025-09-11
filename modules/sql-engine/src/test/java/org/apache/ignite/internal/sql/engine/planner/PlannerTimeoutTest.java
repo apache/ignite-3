@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
@@ -76,7 +78,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 1,
                 Integer.MAX_VALUE,
                 new MetricManagerImpl(),
-                new PredefinedSchemaManager(schema)
+                new PredefinedSchemaManager(schema),
+                mock(ClockServiceImpl.class)
         );
         prepareService.start();
         try {

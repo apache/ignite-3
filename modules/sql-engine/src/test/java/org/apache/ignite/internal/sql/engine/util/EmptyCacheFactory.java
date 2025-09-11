@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -54,6 +55,11 @@ public class EmptyCacheFactory implements CacheFactory {
     @Override
     public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
         return create(size);
+    }
+
+    @Override
+    public <K, V> Cache<K, V> createWithWeakKeys() {
+        return create(0);
     }
 
     /** A cache that keeps no object. */
@@ -96,6 +102,11 @@ public class EmptyCacheFactory implements CacheFactory {
         @Override
         public int size() {
             return 0;
+        }
+
+        @Override
+        public ConcurrentMap<K, V> asMap() {
+            throw new UnsupportedOperationException();
         }
     }
 }
