@@ -87,8 +87,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -1183,8 +1183,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private static InternalClusterNodeImpl clusterNode(String nodeName) {
-        return new InternalClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+    private static ClusterNodeImpl clusterNode(String nodeName) {
+        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
     }
 
     private MappingServiceImpl createMappingService(

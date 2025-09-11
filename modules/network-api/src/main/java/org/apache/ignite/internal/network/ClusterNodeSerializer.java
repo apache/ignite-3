@@ -63,6 +63,6 @@ public class ClusterNodeSerializer extends VersionedSerializer<InternalClusterNo
             metadata = null;
         }
 
-        return new InternalClusterNodeImpl(id, name, address, metadata);
+        return new ClusterNodeImpl(id, name, address, metadata);
     }
 }

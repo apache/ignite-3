@@ -34,8 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 
@@ -295,7 +295,7 @@ public final class InteractiveJobs {
     }
 
     public static InteractiveJobApi byNode(ClusterNode clusterNode) {
-        return new InteractiveJobApi(InternalClusterNodeImpl.fromPublicClusterNode(clusterNode));
+        return new InteractiveJobApi(ClusterNodeImpl.fromPublicClusterNode(clusterNode));
     }
 
     /**

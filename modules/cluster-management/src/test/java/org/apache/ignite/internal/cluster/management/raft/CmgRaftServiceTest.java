@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -59,7 +59,7 @@ class CmgRaftServiceTest extends BaseIgniteAbstractTest {
     @InjectMocks
     private CmgRaftService cmgRaftService;
 
-    private final InternalClusterNode localNode = new InternalClusterNodeImpl(randomUUID(), "local", new NetworkAddress("host", 3000));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("host", 3000));
 
     @Test
     void joinReadyCommandIsExecutedWithoutTimeout() {

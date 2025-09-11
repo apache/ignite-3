@@ -35,7 +35,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -246,7 +246,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         for (String nodeName : group.nodeNames()) {
             ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
                     .queryId(randomUUID())
-                    .localNode(new InternalClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123)))
+                    .localNode(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123)))
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();
