@@ -37,7 +37,6 @@ object PlatformCppTestsWindows : BuildType({
     steps {
         script {
             name = "Build C++"
-            workingDir = "%PATH__WORKING_DIR%"
             scriptContent = """
                 @echo on
                 
