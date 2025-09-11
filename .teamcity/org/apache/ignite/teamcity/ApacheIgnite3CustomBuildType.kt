@@ -14,7 +14,7 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
          */
         fun ignite3VCS() = apply {
             buildType.params {
-                hiddenText("VCSROOT__IGNITE3", "%teamcity.build.checkoutDir%/ignite-3")
+                hiddenText("VCSROOT__IGNITE3", "ignite-3")
                 hiddenText("env.JAVA_HOME", "%env.JDK_ORA_11%")
                 hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=false")
             }
