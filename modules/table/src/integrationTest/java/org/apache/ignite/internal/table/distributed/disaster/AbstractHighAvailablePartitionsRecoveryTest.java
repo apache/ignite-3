@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
@@ -67,8 +66,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.distributionzones.DataNodesHistory;
-import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
@@ -113,6 +110,7 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
@@ -349,17 +347,31 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private void createHaZoneWithTables(
             String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
-        createHaZoneWithTables(zoneName, tableNames, PARTITIONS_NUMBER, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+        createHaZoneWithTables(zoneName, tableNames, PARTITIONS_NUMBER, null, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
     }
 
     private void createHaZoneWithTables(
-            String zoneName, List<String> tableNames, int partitionNumber, String filter, String storageProfiles, Set<String> targetNodes
+            String zoneName,
+            List<String> tableNames,
+            int partitionNumber,
+            @Nullable Integer quorumSize,
+            String filter,
+            String storageProfiles,
+            Set<String> targetNodes
     ) throws InterruptedException {
-        executeSql(String.format(
-                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, QUORUM SIZE 2, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
-                        + "STORAGE PROFILES ['%s']",
-                zoneName, targetNodes.size(), partitionNumber, filter, storageProfiles
-        ));
+        if (quorumSize != null) {
+            executeSql(String.format(
+                    "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, QUORUM SIZE %s, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
+                            + "STORAGE PROFILES ['%s']",
+                    zoneName, targetNodes.size(), partitionNumber, quorumSize, filter, storageProfiles
+            ));
+        } else {
+            executeSql(String.format(
+                    "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
+                            + "STORAGE PROFILES ['%s']",
+                    zoneName, targetNodes.size(), partitionNumber, filter, storageProfiles
+            ));
+        }
 
         Set<Integer> tableIds = new HashSet<>();
 
@@ -397,10 +409,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             String zoneName,
             int partitionNumber,
             String filter,
+            @Nullable Integer quorumSize,
             List<String> tableNames,
             Set<String> targetNodes
     ) throws InterruptedException {
-        createHaZoneWithTables(zoneName, tableNames, partitionNumber, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+        createHaZoneWithTables(zoneName, tableNames, partitionNumber, quorumSize, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
     }
 
     final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
@@ -417,7 +430,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     final void createHaZoneWithTableWithStorageProfile(String storageProfiles, Set<String> targetNodes)
             throws InterruptedException {
-        createHaZoneWithTables(HA_ZONE_NAME, List.of(HA_TABLE_NAME), PARTITIONS_NUMBER, DEFAULT_FILTER, storageProfiles, targetNodes);
+        createHaZoneWithTables(HA_ZONE_NAME, List.of(HA_TABLE_NAME), PARTITIONS_NUMBER, null, DEFAULT_FILTER, storageProfiles, targetNodes);
     }
 
     final void createScZoneWithTable() {
@@ -478,30 +491,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                     .map(NodeWithAttributes::nodeName)
                     .collect(Collectors.toUnmodifiableSet())
                     .containsAll(targetTopologyReduction);
-        }, 10_000));
-
-        return gatewayNode.metaStorageManager().appliedRevision();
-    }
-
-    long waitForRev(
-            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopology
-    ) throws InterruptedException {
-        int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
-
-        assertTrue(waitForCondition(() -> {
-            Entry e = gatewayNode.metaStorageManager().getLocally(zoneDataNodesHistoryKey(zoneId));
-
-            if (e == null || e.value() == null) {
-                return false;
-            }
-
-            DataNodesHistory history = DataNodesHistorySerializer.deserialize(e.value());
-
-            return history.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes()
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(Collectors.toSet())
-                    .equals(targetTopology);
         }, 10_000));
 
         return gatewayNode.metaStorageManager().appliedRevision();

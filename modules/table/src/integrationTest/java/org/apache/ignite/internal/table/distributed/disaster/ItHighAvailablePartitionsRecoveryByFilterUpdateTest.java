@@ -444,7 +444,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     @Test
-    void test() throws Exception {
+    void testHaWhenAllVotingMembersAreLost() throws Exception {
         startNode(1, CUSTOM_NODES_CONFIG);
         startNode(2, CUSTOM_NODES_CONFIG);
         startNode(3, CUSTOM_NODES_CONFIG);
@@ -453,7 +453,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         String customFilter = "$[?(@.zone == \"custom\")]";
 
-        createHaZoneWithTables(HA_ZONE_NAME, 1, customFilter, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5));
+        // We set quorum to 2, so 3 nodes will be followers, and 2 - learners.
+        createHaZoneWithTables(HA_ZONE_NAME, 1, customFilter, 2, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -470,6 +471,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         assertEquals(3, followers.size());
 
+        // Stop all followers.
         followers.forEach(n -> stopNode(n.consistentId()));
 
         Set<String> learners = partitionAssignments.stream()
@@ -477,7 +479,10 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 .map(Assignment::consistentId)
                 .collect(Collectors.toSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, Set.of(0), learners);
+        IgniteImpl node = igniteImpl(nodeIndex(learners.iterator().next()));
+
+        // Wait for the partition to become available on the learners.
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0), learners);
     }
 
     private void alterZoneStorageProfiles(IgniteImpl node, String zoneName, String storageProfile) {
