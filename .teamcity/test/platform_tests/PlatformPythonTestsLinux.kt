@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnMetr
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.Teamcity
 
 
@@ -21,7 +22,7 @@ object PlatformPythonTestsLinux : BuildType({
     }
 
     steps {
-        gradle {
+        customGradle {
             name = "Verify runner is builded"
             tasks = ":ignite-runner:integrationTestClasses"
         }

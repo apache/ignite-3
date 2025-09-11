@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
 
@@ -53,7 +54,7 @@ object PlatformDotnetTestsLinux : BuildType({
             configuration = "Release"
             args = "--no-restore -m:8"
         }
-        gradle {
+        customGradle {
             name = "Verify runner is built"
             tasks = ":ignite-runner:integrationTestClasses :ignite-compatibility-tests:testFixturesClasses"
         }

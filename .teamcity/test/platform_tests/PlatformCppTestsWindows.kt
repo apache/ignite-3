@@ -10,6 +10,7 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
 
@@ -81,7 +82,7 @@ object PlatformCppTestsWindows : BuildType({
             """.trimIndent()
             formatStderrAsError = true
         }
-        gradle {
+        customGradle {
             name = "Verify runner is builded"
             tasks = ":ignite-runner:integrationTestClasses"
         }

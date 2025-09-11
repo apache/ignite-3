@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.swabra
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.Teamcity
 
 
@@ -51,8 +52,8 @@ object PlatformDotnetTestsWindows : BuildType({
             configuration = "Release"
             args = "--no-restore -m:8"
         }
-        gradle {
-            name = "Verify runner is builded"
+        customGradle {
+            name = "Verify runner is built"
             tasks = ":ignite-runner:integrationTestClasses :ignite-compatibility-tests:testFixturesClasses"
         }
         dotnetTest {
@@ -87,7 +88,7 @@ object PlatformDotnetTestsWindows : BuildType({
         swabra {
             filesCleanup = Swabra.FilesCleanup.AFTER_BUILD
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
-            paths = """%teamcity.build.checkoutDir%\modules\compatibility-tests"""
+            paths = """%VCSROOT__IGNITE3%\modules\compatibility-tests"""
         }
     }
 })

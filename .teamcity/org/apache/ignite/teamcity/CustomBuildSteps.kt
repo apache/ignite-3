@@ -17,6 +17,7 @@ class CustomBuildSteps {
             result.gradleParams = if (result.gradleParams.isNullOrBlank())
                 "-Dorg.gradle.caching=true" else result.gradleParams.plus(" -Dorg.gradle.caching=true")
             result.useGradleWrapper = true
+            result.workingDir = "%VCSROOT__IGNITE3%"
 
             step(result)
             return result

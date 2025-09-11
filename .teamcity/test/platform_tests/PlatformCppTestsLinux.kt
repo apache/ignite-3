@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.xmlReport
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
 
@@ -58,7 +59,7 @@ object PlatformCppTestsLinux : BuildType({
         customScript(type = "bash") {
             name = "Clean Up Remaining Processes"
         }
-        gradle {
+        customGradle {
             name = "Verify runner is builded"
             tasks = ":ignite-runner:integrationTestClasses"
         }
