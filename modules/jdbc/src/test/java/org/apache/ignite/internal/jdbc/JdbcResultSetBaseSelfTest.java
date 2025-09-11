@@ -51,6 +51,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -128,6 +130,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(() -> rs.getSQLXML(1));
             expectNotSupported(() -> rs.getSQLXML("C"));
 
+            expectNotSupported(() -> rs.getURL(1));
+            expectNotSupported(() -> rs.getURL("C"));
+
             expectNotSupported(() -> rs.getObject(1, Map.of()));
             expectNotSupported(() -> rs.getObject("C", Map.of()));
         }
@@ -149,9 +154,13 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void updateMethodsAreNotSupported() throws Exception {
+    public void notSupportedMethods() throws Exception {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false), "ABC")) {
             assertTrue(rs.next());
+
+            expectNotSupported(rs::rowInserted);
+            expectNotSupported(rs::rowUpdated);
+            expectNotSupported(rs::rowDeleted);
 
             expectNotSupported(() -> rs.updateBoolean(1, true));
             expectNotSupported(() -> rs.updateBoolean("C", true));
@@ -273,11 +282,34 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectNotSupported(rs::insertRow);
 
             expectNotSupported(rs::moveToInsertRow);
+
+            expectNotSupported(rs::getCursorName);
         }
     }
 
     @Test
     public void navigationMethods() throws SQLException {
+        // Empty result set
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false)),
+                List.of())
+        ) {
+            assertFalse(rs.isBeforeFirst());
+            assertFalse(rs.isAfterLast());
+            assertFalse(rs.isFirst());
+            assertFalse(rs.isLast());
+            assertEquals(0, rs.getRow());
+
+            assertFalse(rs.next());
+
+            assertFalse(rs.isBeforeFirst());
+            assertFalse(rs.isAfterLast());
+            assertFalse(rs.isFirst());
+            assertFalse(rs.isLast());
+            assertEquals(0, rs.getRow());
+        }
+
+        // Non empty result set
         try (ResultSet rs = createResultSet(null,
                 List.of(new ColumnDefinition("C", ColumnType.STRING, 3, 0, false)),
                 List.of(List.of("A"), List.of("B")))
@@ -336,6 +368,11 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
             rs.setFetchDirection(ResultSet.FETCH_FORWARD);
             assertEquals(ResultSet.FETCH_FORWARD, rs.getFetchDirection());
+
+            expectSqlException(() -> rs.setFetchDirection(ResultSet.FETCH_UNKNOWN),
+                    "Only forward direction is supported");
+            expectSqlException(() -> rs.setFetchDirection(ResultSet.FETCH_REVERSE),
+                    "Only forward direction is supported");
 
             assertEquals(ResultSet.CONCUR_READ_ONLY, rs.getConcurrency());
             assertEquals(ResultSet.TYPE_FORWARD_ONLY, rs.getType());
@@ -737,15 +774,10 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             expectPositioned(() -> rs.getBytes(1));
             expectPositioned(() -> rs.getBytes("C"));
 
-            expectPositioned(() -> rs.getURL(1));
-            expectPositioned(() -> rs.getURL("C"));
-
             // Do not require positioning
             assertThat(rs.getType(), any(Integer.class));
 
             assertThat(rs.getConcurrency(), any(Integer.class));
-
-            assertNull(rs.getCursorName());
 
             assertThat(rs.getFetchDirection(), any(Integer.class));
 
@@ -774,6 +806,37 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), true)) {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
+        }
+    }
+
+    @Test
+    public void findColumn() throws SQLException {
+        List<ColumnDefinition> columns = List.of(
+                // Normalized - converted to uppercase
+                new ColumnDefinition("COLUMN", ColumnType.BOOLEAN, 0, 0, false),
+                // Metadata stores ids in unquoted form
+                new ColumnDefinition("column", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition("Column N", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition(" ", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition(":)", ColumnType.BOOLEAN, 0, 0, false)
+        );
+
+        List<List<Object>> rows = IntStream.range(0, columns.size())
+                .mapToObj(i -> List.of((Object) true))
+                .collect(Collectors.toList());
+
+        try (ResultSet rs = createResultSet(null, columns, rows)) {
+            assertEquals(1, rs.findColumn("COLUMN"));
+            assertEquals(2, rs.findColumn("\"column\""));
+            assertEquals(3, rs.findColumn("\"Column N\""));
+            assertEquals(4, rs.findColumn("\" \""));
+            assertEquals(5, rs.findColumn("\":)\""));
+
+            expectSqlException(() -> rs.findColumn(" COLUMN "), "Column not found:  COLUMN ");
+            expectSqlException(() -> rs.findColumn(" column "), "Column not found:  column ");
+            expectSqlException(() -> rs.findColumn("x"), "Column not found: x");
+            expectSqlException(() -> rs.findColumn(null), "Column not found: null");
+            expectSqlException(() -> rs.findColumn(""), "Column not found: ");
         }
     }
 
@@ -1058,7 +1121,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         assertThrows(SQLFeatureNotSupportedException.class, m::call);
     }
 
-    private static void expectSqlException(ResultSetMethod m, String message) {
+    protected static void expectSqlException(ResultSetMethod m, String message) {
         SQLException err = assertThrows(SQLException.class, m::call);
         assertThat(err.getMessage(), containsString(message));
     }
