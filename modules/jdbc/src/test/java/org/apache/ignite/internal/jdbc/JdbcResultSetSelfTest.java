@@ -63,6 +63,13 @@ public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
         }
     }
 
+    // findColumn has bugs in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void findColumn() throws SQLException {
+        super.navigationMethods();
+    }
+
     // isAfterLast has bugs in the current JDBC driver it is not worth fixing them
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override

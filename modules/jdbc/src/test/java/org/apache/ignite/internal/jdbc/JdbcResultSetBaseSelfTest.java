@@ -51,6 +51,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -804,22 +806,32 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void findColumn() throws SQLException {
-        try (ResultSet rs = createResultSet(null,
-                List.of(
-                        new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false),
-                        new ColumnDefinition("C1", ColumnType.BOOLEAN, 0, 0, false)
-                ),
-                List.of(List.of(true), List.of(true))
-        )) {
-            assertEquals(1, rs.findColumn("c"));
-            assertEquals(1, rs.findColumn("C"));
-            assertEquals(2, rs.findColumn("c1"));
-            assertEquals(2, rs.findColumn("C1"));
+        List<ColumnDefinition> columns = List.of(
+                // Normalized - converted to uppercase
+                new ColumnDefinition("COLUMN", ColumnType.BOOLEAN, 0, 0, false),
+                // Metadata stores ids in unquoted form
+                new ColumnDefinition("column", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition("Column N", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition(" ", ColumnType.BOOLEAN, 0, 0, false),
+                new ColumnDefinition(":)", ColumnType.BOOLEAN, 0, 0, false)
+        );
 
+        List<List<Object>> rows = IntStream.range(0, columns.size())
+                .mapToObj(i -> List.of((Object) true))
+                .collect(Collectors.toList());
+
+        try (ResultSet rs = createResultSet(null, columns, rows)) {
+            assertEquals(1, rs.findColumn("COLUMN"));
+            assertEquals(2, rs.findColumn("\"column\""));
+            assertEquals(3, rs.findColumn("\"Column N\""));
+            assertEquals(4, rs.findColumn("\" \""));
+            assertEquals(5, rs.findColumn("\":)\""));
+
+            expectSqlException(() -> rs.findColumn(" COLUMN "), "Column not found:  COLUMN ");
+            expectSqlException(() -> rs.findColumn(" column "), "Column not found:  column ");
             expectSqlException(() -> rs.findColumn("x"), "Column not found: x");
             expectSqlException(() -> rs.findColumn(null), "Column not found: null");
             expectSqlException(() -> rs.findColumn(""), "Column not found: ");
-            expectSqlException(() -> rs.findColumn(" "), "Column not found:  ");
         }
     }
 

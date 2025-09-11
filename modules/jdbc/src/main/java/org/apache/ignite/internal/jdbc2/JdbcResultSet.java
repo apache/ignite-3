@@ -89,7 +89,7 @@ public class JdbcResultSet implements ResultSet {
 
         ResultSetMetadata metadata = rs.metadata();
         this.rsMetadata = metadata != null ? metadata : EMPTY_METADATA;
-        
+
         this.statement = statement;
         this.currentRow = null;
         this.closed = false;
