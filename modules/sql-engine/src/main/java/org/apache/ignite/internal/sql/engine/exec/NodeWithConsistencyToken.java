@@ -82,12 +82,17 @@ public class NodeWithConsistencyToken implements Serializable {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(name, enlistmentConsistencyToken);
+        int result = 1;
+
+        result = 31 * result + name.hashCode();
+        result = 31 * result + Long.hashCode(enlistmentConsistencyToken);
+
+        return result;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(NodeWithConsistencyToken.class, this);
     }
 }
