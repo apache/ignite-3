@@ -64,10 +64,10 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -1080,7 +1080,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                             : new TablePartitionId(tbl.tableId(), PART_ID)
             );
 
-            InternalClusterNode primaryNode = InternalClusterNodeImpl.fromPublicClusterNode(
+            InternalClusterNode primaryNode = ClusterNodeImpl.fromPublicClusterNode(
                     node(0).cluster().nodes().stream().filter(node -> node.name().equals(primary)).findAny().get()
             );
 

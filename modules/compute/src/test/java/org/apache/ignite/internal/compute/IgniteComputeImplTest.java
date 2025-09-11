@@ -59,8 +59,8 @@ import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.PublicClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -121,10 +121,10 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private HybridTimestamp jobTimestamp;
 
-    private final InternalClusterNode localNode = new InternalClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
     private final ClusterNode publicLocalNode = localNode.toPublicNode();
 
-    private final InternalClusterNode remoteNode = new InternalClusterNodeImpl(
+    private final InternalClusterNode remoteNode = new ClusterNodeImpl(
             randomUUID(),
             "remote",
             new NetworkAddress("remote-host", 1)

@@ -43,8 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -71,12 +71,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final InternalClusterNode LOCAL_NODE = new InternalClusterNodeImpl(
+    private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
             randomUUID(),
             "name0",
             new NetworkAddress("localhost", 1234)
     );
-    private static final InternalClusterNode ANOTHER_NODE = new InternalClusterNodeImpl(
+    private static final InternalClusterNode ANOTHER_NODE = new ClusterNodeImpl(
             randomUUID(),
             "name`",
             new NetworkAddress("localhost", 2345)
