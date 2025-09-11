@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -97,6 +98,14 @@ class SegmentFileTest extends IgniteAbstractTest {
         assertTrue(writeToSegmentFile(bytes2));
 
         assertThat(readFileContent(bytes1.length + bytes2.length), is(concat(bytes1, bytes2)));
+    }
+
+    @Test
+    void testConstructorInvariants() {
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, -1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, 0, -1));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, 1, 1));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentFile(path, Integer.MAX_VALUE + 1L, 1));
     }
 
     /**

@@ -51,6 +51,14 @@ class SegmentFile implements ManuallyCloseable {
             throw new IllegalArgumentException("File size is negative: " + fileSize);
         }
 
+        if (position < 0) {
+            throw new IllegalArgumentException("Position is negative: " + position);
+        }
+
+        if (position >= fileSize) {
+            throw new IllegalArgumentException("Position is greater than file size: " + position + ", fileSize: " + fileSize);
+        }
+
         // FIXME: remove this limitation and replace the check with MAX_UNSIGNED_INT,
         //  see https://issues.apache.org/jira/browse/IGNITE-26406
         if (fileSize > Integer.MAX_VALUE) {
@@ -125,7 +133,7 @@ class SegmentFile implements ManuallyCloseable {
             Thread.onSpinWait();
         }
 
-        if (bytesToWrite != null && pos + bytesToWrite.length <= buffer.capacity()) {
+        if (bytesToWrite != null && pos + bytesToWrite.length <= buffer.limit()) {
             slice(pos, bytesToWrite.length).put(bytesToWrite);
         }
     }
@@ -150,7 +158,7 @@ class SegmentFile implements ManuallyCloseable {
             }
 
             return new WriteBuffer(slice);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             numWriters.decrementAndGet();
 
             throw e;
@@ -167,7 +175,7 @@ class SegmentFile implements ManuallyCloseable {
 
             int nextPos = pos + size;
 
-            if (nextPos > buffer.capacity()) {
+            if (nextPos > buffer.limit()) {
                 return null;
             }
 
