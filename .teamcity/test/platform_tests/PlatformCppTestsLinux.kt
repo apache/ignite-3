@@ -46,7 +46,6 @@ object PlatformCppTestsLinux : BuildType({
         }
         script {
             name = "Build C++"
-            workingDir = "%PATH__WORKING_DIR%"
             scriptContent = """
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
