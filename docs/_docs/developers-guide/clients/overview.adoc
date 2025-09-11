@@ -116,7 +116,8 @@ Partition awareness work for DML query only if it could be rewritten to a single
 Bulk DML operations (like ```INSERT FROM SELECT``` or multi-values ```INSERT FROM VALUES```) are not supported yet.
 
 * Partition awareness cache on client may miss required metadata +
-Client node do not parse or executed query by itself, it require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies.
+Client node do not parse or executed query by itself, it require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies. +
+See ```org.apache.ignite.client.IgniteClient.Builder#sqlPartitionAwarenessMetadataCacheSize()```.
 
 NOTE: As for now, Partition awareness is supported for queries over single partition of a single table.
 
