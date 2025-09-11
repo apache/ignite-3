@@ -19,7 +19,7 @@ object PlatformDotnetTestsLinux : BuildType({
     """.trimIndent()
 
     params {
-        text("PATH__WORKING_DIR", "modules/platforms/dotnet/", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("PATH__WORKING_DIR", "%VCSROOT__IGNITE3%/modules/platforms/dotnet/", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.IGNITE_DOTNET_GRADLE_OPTS", "--no-daemon")
     }
 

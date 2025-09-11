@@ -2,8 +2,7 @@ package test.build_types
 
 import jetbrains.buildServer.configs.kotlin.BuildType
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
-import test.platform_tests.PlatformDotnetTestsLinux
-import test.platform_tests.PlatformDotnetTestsWindows
+import test.platform_tests.*
 
 object RunPlatformTests : BuildType({
     id(getId(this::class))
@@ -17,7 +16,10 @@ object RunPlatformTests : BuildType({
     }
 
     dependencies {
+        snapshot(PlatformCppTestsLinux) {}
+        snapshot(PlatformCppTestsWindows) {}
         snapshot(PlatformDotnetTestsWindows) {}
         snapshot(PlatformDotnetTestsLinux) {}
+        snapshot(PlatformPythonTestsLinux) {}
     }
 })

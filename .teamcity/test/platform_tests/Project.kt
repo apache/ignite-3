@@ -10,6 +10,20 @@ object Project : Project({
     name = "[Platform Tests]"
 
     buildType(
+        ApacheIgnite3CustomBuildType.Builder(PlatformCppTestsLinux)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
+
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(PlatformCppTestsWindows)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireWindows()
+            .build().buildType
+    )
+
+    buildType(
         ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsLinux)
             .ignite3VCS()
             .defaultBuildTypeSettings().requireLinux()
@@ -20,6 +34,13 @@ object Project : Project({
         ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsWindows)
             .ignite3VCS()
             .defaultBuildTypeSettings().requireWindows()
+            .build().buildType
+    )
+
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(PlatformPythonTestsLinux)
+            .ignite3VCS()
+            .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
 })
