@@ -27,6 +27,7 @@ import picocli.CommandLine.Unmatched;
 
 /**
  * Command for sql operations in REPL mode.
+ *
  * <p>The class describes subcommands and redirect calls to default subcommand {@link SqlExecReplCommand} if no subcommand was specified.
  *
  * @see SqlExecReplCommand

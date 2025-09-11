@@ -27,6 +27,7 @@ import picocli.CommandLine.Unmatched;
 
 /**
  * Command for sql operations.
+ *
  * <p>The class describes subcommands and redirect calls to default subcommand {@link SqlExecCommand} if no subcommand was specified.
  *
  * @see SqlExecCommand
