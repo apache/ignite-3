@@ -1112,7 +1112,7 @@ public class IgniteImpl implements Ignite {
         );
 
         PartitionModificationCounterFactory partitionModificationCounterFactory =
-                new PartitionModificationCounterFactory(clockService::now);
+                new PartitionModificationCounterFactory(clockService::current);
 
         distributedTblMgr = new TableManager(
                 name,

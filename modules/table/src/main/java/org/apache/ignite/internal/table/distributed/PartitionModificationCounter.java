@@ -46,7 +46,16 @@ public class PartitionModificationCounter {
             double staleRowsFraction,
             long minStaleRowsCount
     ) {
-        assert staleRowsFraction >= 0 && staleRowsFraction <= 1 : "staleRowsFraction must be in [0, 1] range.";
+        Objects.requireNonNull(initTimestamp, "initTimestamp");
+        Objects.requireNonNull(partitionSizeSupplier, "partitionSizeSupplier");
+
+        if (staleRowsFraction < 0 || staleRowsFraction > 1) {
+            throw new IllegalArgumentException("staleRowsFraction must be in [0, 1] range");
+        }
+
+        if (minStaleRowsCount < 0) {
+            throw new IllegalArgumentException("minStaleRowsCount must be non-negative");
+        }
 
         this.staleRowsFraction = staleRowsFraction;
         this.minStaleRowsCount = minStaleRowsCount;

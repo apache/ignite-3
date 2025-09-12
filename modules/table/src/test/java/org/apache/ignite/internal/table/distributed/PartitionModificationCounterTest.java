@@ -89,7 +89,7 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
+    @SuppressWarnings({"ThrowableNotThrown", "ResultOfObjectAllocationIgnored", "DataFlowIssue"})
     void invalidUpdateValues() {
         PartitionModificationCounter counter = factory.create(() -> 0L);
 
@@ -100,6 +100,36 @@ public class PartitionModificationCounterTest extends BaseIgniteAbstractTest {
                 IllegalArgumentException.class,
                 () -> counter.updateValue(-1, HybridTimestamp.MIN_VALUE),
                 "Delta must be non-negative"
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> new PartitionModificationCounter(null, () -> 0L, 0.0d, 0),
+                "initTimestamp"
+        );
+
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, null, 0.0d, 0),
+                "partitionSizeSupplier"
+        );
+
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, 1.1d, 0),
+                "staleRowsFraction must be in [0, 1] range"
+        );
+
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, -0.1d, 0),
+                "staleRowsFraction must be in [0, 1] range"
+        );
+
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> new PartitionModificationCounter(HybridTimestamp.MIN_VALUE, () -> 0L, -0.1d, -1),
+                "staleRowsFraction must be in [0, 1] range"
         );
     }
 }
