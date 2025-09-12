@@ -66,6 +66,10 @@
 #  define IGNITE_BYTESWAP_32(x) ignite::bytes::swap32(x)
 #  define IGNITE_BYTESWAP_64(x) ignite::bytes::swap64(x)
 # endif
+#else
+# define IGNITE_BYTESWAP_16(x) std::byteswap<std::uint16_t>(x)
+# define IGNITE_BYTESWAP_32(x) std::byteswap<std::uint32_t>(x)
+# define IGNITE_BYTESWAP_64(x) std::byteswap<std::uint64_t>(x)
 #endif
 
 #ifndef IGNITE_BYTESWAP_SPECIFIER
@@ -79,9 +83,9 @@ namespace ignite::detail {
  */
 enum class endian {
 #if IGNITE_STD_ENDIAN
-    LITTLE = std::endian::little,
-    BIG = std::endian::big,
-    NATIVE = std::endian::native,
+    LITTLE = static_cast<std::underlying_type_t<endian>>(std::endian::little),
+    BIG = static_cast<std::underlying_type_t<endian>>(std::endian::big),
+    NATIVE = static_cast<std::underlying_type_t<endian>>(std::endian::native),
 #else
     LITTLE,
     BIG,
