@@ -38,8 +38,6 @@ import org.apache.ignite.internal.tostring.S;
  *   indexes[i] >= 0         => use dynamicParam[indexes[i]]
  *   indexes[i] < 0          => use hash[-(indexes[i] + 1)]
  * </pre>
- *
- * @see PartitionAwarenessMetadataExtractor
  */
 public final class PartitionAwarenessMetadata {
 

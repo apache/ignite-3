@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.internal.cli.commands.sql.planner;
 
-import java.time.ZoneId;
-import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
 /**
- * Common SQL utilities.
+ * SQL planner command in REPL mode.
  */
-public final class SqlCommon {
-    /** Normalized name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
-
-    /** Default page size. */
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-    /** Default time-zone ID. */
-    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
+@Command(name = "planner",
+        subcommands = {
+                InvalidateCacheReplCommand.class
+        },
+        description = "SQL planner operations.")
+public class SqlPlannerReplCommand extends BaseCommand {
 }
