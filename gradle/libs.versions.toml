@@ -92,7 +92,7 @@ spring-boot = "3.5.5"
 spring-data = "3.5.3"
 testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
-protobuf = "4.32.0"
+protobuf = "4.32.1"
 cytodynamics = "0.2.0"
 japicmp = "0.23.1"
 
