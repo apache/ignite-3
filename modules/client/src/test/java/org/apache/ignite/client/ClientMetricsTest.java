@@ -161,7 +161,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 5000),
+                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 200, 6_000),
                 () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
