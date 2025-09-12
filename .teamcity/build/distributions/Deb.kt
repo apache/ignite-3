@@ -7,8 +7,8 @@ object Deb : BuildType({
     name = "[3] DEB"
 
     artifactRules = """
-        packaging/db/build/distributions/*.deb => deb
-        packaging/db/build/distributions/*.changes => deb
+        %VCSROOT__IGNITE3%/packaging/db/build/distributions/*.deb => deb
+        %VCSROOT__IGNITE3%/packaging/db/build/distributions/*.changes => deb
     """.trimIndent()
 
     steps {

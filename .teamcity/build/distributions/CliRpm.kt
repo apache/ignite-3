@@ -6,7 +6,7 @@ import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 object CliRpm : BuildType({
     name = "[5] CLI RPM"
 
-    artifactRules = "packaging/cli/build/distributions/*.rpm => cli-rpm"
+    artifactRules = "%VCSROOT__IGNITE3%/packaging/cli/build/distributions/*.rpm => cli-rpm"
 
     params {
         text("DIR_BUILD", "deliveries/deb", display = ParameterDisplay.HIDDEN, allowEmpty = true)

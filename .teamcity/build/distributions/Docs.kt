@@ -7,7 +7,7 @@ object Docs : BuildType({
     name = "[10] C++ Docs"
     description = "Apache Ignite 3 OpenAPI specification"
 
-    artifactRules = "modules/platforms/cpp/docs/html/ => doxygen-cpp.zip"
+    artifactRules = "%VCSROOT__IGNITE3%/modules/platforms/cpp/docs/html/ => doxygen-cpp.zip"
 
     steps {
         customGradle {

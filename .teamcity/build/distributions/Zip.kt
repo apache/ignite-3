@@ -7,8 +7,8 @@ object Zip : BuildType({
     name = "[6] All Zip"
 
     artifactRules = """
-        packaging/db/build/distributions/*.zip => zip
-        packaging/cli/build/distributions/*.zip => zip
+        %VCSROOT__IGNITE3%/packaging/db/build/distributions/*.zip => zip
+        %VCSROOT__IGNITE3%/packaging/cli/build/distributions/*.zip => zip
         -:**/tmp/** => zip
     """.trimIndent()
 

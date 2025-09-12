@@ -7,8 +7,8 @@ object Rpm : BuildType({
     name = "[2] RPM"
 
     artifactRules = """
-        packaging/cli/build/distributions/*.rpm => rpm
-        packaging/db/build/distributions/*.rpm => rpm
+        %VCSROOT__IGNITE3%/packaging/cli/build/distributions/*.rpm => rpm
+        %VCSROOT__IGNITE3%/packaging/db/build/distributions/*.rpm => rpm
     """.trimIndent()
 
     steps {

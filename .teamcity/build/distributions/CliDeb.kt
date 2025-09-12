@@ -8,8 +8,8 @@ object CliDeb : BuildType({
     name = "[4] CLI DEB"
 
     artifactRules = """
-        packaging/cli/build/distributions/*.deb => cli-deb
-        packaging/cli/build/distributions/*.changes => cli-deb
+        %VCSROOT__IGNITE3%/packaging/cli/build/distributions/*.deb => cli-deb
+        %VCSROOT__IGNITE3%/packaging/cli/build/distributions/*.changes => cli-deb
     """.trimIndent()
 
     params {

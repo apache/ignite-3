@@ -17,7 +17,7 @@ object Project : Project({
      * Project-wide params
      */
     params {
-        param("system.lastCommitHash", "%build.vcs.number%")
+        hiddenText("system.lastCommitHash", "%build.vcs.number%")
         hiddenText("IGNITE_CI", "true")
         hiddenText("env.A_GRADLE_OPTS", "")
         hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true %env.A_GRADLE_OPTS%")

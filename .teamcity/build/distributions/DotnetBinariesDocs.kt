@@ -14,7 +14,7 @@ object DotnetBinariesDocs : BuildType({
     artifactRules = """
         %DIR__DOTNET% => %DIR__DOTNET%
         %DIR__NUGET% => %DIR__NUGET%
-        +:modules/platforms/dotnet/docs => dotnetdoc.zip
+        +:%VCSROOT__IGNITE3%/modules/platforms/dotnet/docs => dotnetdoc.zip
     """.trimIndent()
 
     params {

@@ -8,9 +8,9 @@ object JavaBinariesDocs : BuildType({
     name = "[1] Java Binaries | Docs"
 
     artifactRules = """
-        +:build/docs => javadoc.zip
-        +:modules/*/build/libs/** => libs.zip
-        +:modules/jdbc/build/libs/*-all.jar => ignite-jdbc
+        +:%VCSROOT__IGNITE3%/build/docs => javadoc.zip
+        +:%VCSROOT__IGNITE3%/modules/*/build/libs/** => libs.zip
+        +:%VCSROOT__IGNITE3%/modules/jdbc/build/libs/*-all.jar => ignite-jdbc
     """.trimIndent()
 
     steps {

@@ -8,7 +8,7 @@ object OpenapiSpec : BuildType({
     name = "[10] OpenAPI specification"
     description = "Apache Ignite 3 OpenAPI specification"
 
-    artifactRules = "modules/rest-api/build/openapi/openapi.yaml => artifacts"
+    artifactRules = "%VCSROOT__IGNITE3%/modules/rest-api/build/openapi/openapi.yaml => artifacts"
 
     steps {
         script {

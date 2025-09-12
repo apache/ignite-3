@@ -9,8 +9,8 @@ object OdbcZip : BuildType({
     description = "Apache Ignite 3 ODBC Deb Package"
 
     artifactRules = """
-        packaging/odbc/build/distributions/*.zip => odbc-zip
-        packaging/odbc/build/distributions/*.tar => odbc-zip
+        %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.zip => odbc-zip
+        %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.tar => odbc-zip
     """.trimIndent()
 
     steps {

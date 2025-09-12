@@ -9,8 +9,8 @@ object OdbcDeb : BuildType({
     description = "Apache Ignite 3 ODBC Deb Package"
 
     artifactRules = """
-        packaging/odbc/build/distributions/*.deb => odbc-deb
-        packaging/odbc/build/distributions/*.changes => odbc-deb
+        %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.deb => odbc-deb
+        %VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.changes => odbc-deb
     """.trimIndent()
 
     steps {

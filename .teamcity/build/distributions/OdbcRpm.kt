@@ -11,7 +11,7 @@ object OdbcRpm : BuildType({
     name = "[8] ODBC RPM package"
     description = "Apache Ignite 3 ODBC RPM package"
 
-    artifactRules = "packaging/odbc/build/distributions/*.rpm=> odbc-rpm"
+    artifactRules = "%VCSROOT__IGNITE3%/packaging/odbc/build/distributions/*.rpm=> odbc-rpm"
 
     params {
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
