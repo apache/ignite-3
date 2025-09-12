@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.commands.sql;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.IFactory;
@@ -57,6 +58,6 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
                 .setDefaultValueProvider(spec.defaultValueProvider())
                 .setExecutionExceptionHandler(spec.commandLine().getExecutionExceptionHandler());
 
-        return commandLine.execute(args);
+        return commandLine.execute(args == null ?  ArrayUtils.STRING_EMPTY_ARRAY : args);
     }
 }
