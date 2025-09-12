@@ -57,8 +57,6 @@ public class QueryExample {
 
     /**
      * Demonstrates querying with an implicit transaction.
-     *
-     * @return
      */
     public static void performQueryWithoutTransaction(Table table) {
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
