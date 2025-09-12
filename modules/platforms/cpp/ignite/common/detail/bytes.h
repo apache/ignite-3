@@ -78,14 +78,20 @@
 
 namespace ignite::detail {
 
+#if IGNITE_STD_ENDIAN
+using endian_underlying_t = std::underlying_type_t<std::endian>;
+#else
+using endian_underlying_t = int;
+#endif
+
 /**
  * Byte order enum.
  */
-enum class endian {
+enum class endian : endian_underlying_t {
 #if IGNITE_STD_ENDIAN
-    LITTLE = static_cast<std::underlying_type_t<endian>>(std::endian::little),
-    BIG = static_cast<std::underlying_type_t<endian>>(std::endian::big),
-    NATIVE = static_cast<std::underlying_type_t<endian>>(std::endian::native),
+    LITTLE = static_cast<endian_underlying_t>(std::endian::little),
+    BIG = static_cast<endian_underlying_t>(std::endian::big),
+    NATIVE = static_cast<endian_underlying_t>(std::endian::native),
 #else
     LITTLE,
     BIG,
