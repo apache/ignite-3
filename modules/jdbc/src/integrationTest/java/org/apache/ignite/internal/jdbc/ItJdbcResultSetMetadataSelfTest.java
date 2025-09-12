@@ -71,7 +71,7 @@ public class ItJdbcResultSetMetadataSelfTest extends AbstractJdbcSelfTest {
         // Mandatory nodes was excluded from mapping: []
         // TODO https://issues.apache.org/jira/browse/IGNITE-25935 Remove this delay.
         TimeUnit.SECONDS.sleep(5);
-        
+
         ResultSet rs = stmt.executeQuery(
                 "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
