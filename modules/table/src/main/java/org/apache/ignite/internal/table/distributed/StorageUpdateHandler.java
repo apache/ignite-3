@@ -66,6 +66,9 @@ public class StorageUpdateHandler {
     /** Replication configuration. */
     private final ReplicationConfiguration replicationConfiguration;
 
+    /** Partition modification counter. */
+    private final PartitionModificationCounter modificationCounter;
+
     /**
      * The constructor.
      *
@@ -73,17 +76,20 @@ public class StorageUpdateHandler {
      * @param storage Partition data storage.
      * @param indexUpdateHandler Partition index update handler.
      * @param replicationConfiguration Configuration for the replication.
+     * @param modificationCounter Partition modification counter.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             IndexUpdateHandler indexUpdateHandler,
-            ReplicationConfiguration replicationConfiguration
+            ReplicationConfiguration replicationConfiguration,
+            PartitionModificationCounter modificationCounter
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
         this.replicationConfiguration = replicationConfiguration;
+        this.modificationCounter = modificationCounter;
     }
 
     /** Returns partition ID of the storage. */
@@ -132,7 +138,11 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowId(txId, rowId);
-            }
+            } else
+                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
+                if (commitTs != null) {
+                    modificationCounter.updateValue(1, commitTs);
+                }
 
             if (onApplication != null) {
                 onApplication.run();
@@ -263,7 +273,11 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
-            }
+            } else
+                // TODO https://issues.apache.org/jira/browse/IGNITE-26411 No need to check commiTs for null
+                if (commitTs != null) {
+                    modificationCounter.updateValue(processedRowIds.size(), commitTs);
+                }
 
             if (entryToProcess == null && onApplication != null) {
                 onApplication.run();
@@ -377,6 +391,10 @@ public class StorageUpdateHandler {
         assert commitTimestamp != null : "Commit timestamp is null: " + txId;
 
         pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
+
+        if (!pendingRowIds.isEmpty()) {
+            modificationCounter.updateValue(pendingRowIds.size(), commitTimestamp);
+        }
     }
 
     /**

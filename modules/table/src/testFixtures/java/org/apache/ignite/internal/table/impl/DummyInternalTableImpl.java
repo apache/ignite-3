@@ -116,6 +116,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -448,7 +449,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 PART_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);

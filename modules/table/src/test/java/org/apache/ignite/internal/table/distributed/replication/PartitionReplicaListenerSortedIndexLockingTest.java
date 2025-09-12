@@ -98,6 +98,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -249,7 +250,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        replicationConfiguration
+                        replicationConfiguration,
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,

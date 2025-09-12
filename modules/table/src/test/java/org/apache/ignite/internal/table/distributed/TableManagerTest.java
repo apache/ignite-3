@@ -925,7 +925,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new SystemPropertiesNodeProperties(),
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
         ) {
 
             @Override
