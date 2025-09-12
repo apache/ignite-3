@@ -64,7 +64,7 @@ object OdbcRpm : BuildType({
         }
     }
 
-    // Since DIND agents work differently with docker
+    // DIND agents work differently with docker
     requirements {
         doesNotExist("env.DIND_ENABLED")
     }

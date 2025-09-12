@@ -46,4 +46,9 @@ object OdbcDeb : BuildType({
             workingDir = "%VCSROOT__IGNITE3%"
         }
     }
+
+    // Until DIND agents have an incompatible version of cmake
+    requirements {
+        doesNotExist("env.DIND_ENABLED")
+    }
 })
