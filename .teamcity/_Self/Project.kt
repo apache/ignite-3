@@ -1,8 +1,8 @@
 package _Self
 
 import jetbrains.buildServer.configs.kotlin.DslContext
-import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.Project
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 /**
  * Variable to separate main (production) project from development projects
@@ -18,9 +18,10 @@ object Project : Project({
      */
     params {
         param("system.lastCommitHash", "%build.vcs.number%")
-        text("env.A_GRADLE_OPTS", "", display = ParameterDisplay.HIDDEN, allowEmpty = true)
-        text("env.GRADLE_OPTS", "-Dorg.gradle.caching=true %env.A_GRADLE_OPTS%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
-        text("env.JAVA_HOME", "%env.JDK_ORA_17%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
-        text("env.M2_HOME", "%teamcity.tool.maven.DEFAULT%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        hiddenText("IGNITE_CI", "true")
+        hiddenText("env.A_GRADLE_OPTS", "")
+        hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true %env.A_GRADLE_OPTS%")
+        hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
+        hiddenText("env.M2_HOME", "%teamcity.tool.maven.DEFAULT%")
     }
 })
