@@ -54,8 +54,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
-    protected static final int DEFAULT_THREADS_COUNT = 1;
-
     protected final Tuple tuple = Tuple.create();
 
     protected IgniteClient client;
@@ -86,15 +84,12 @@ public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    public void nodeSetUp() throws Exception {
+    public void clusterSetUp() throws Exception {
         if (remote) {
             client = IgniteClient.builder().addresses(addresses()).build();
             publicIgnite = client;
-        } else {
-            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
-            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
         }
-        super.nodeSetUp();
+        super.clusterSetUp();
     }
 
     /**
@@ -127,32 +122,6 @@ public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
         long cur = gen.get();
         gen.set(cur + 1);
         return (int) (base.get() + cur);
-    }
-
-    static void runBenchmark(Class<?> cls, String[] args) throws RunnerException {
-        Map<String, String> params = new HashMap<>(args.length);
-
-        for (int i = 0; i < args.length; i++) {
-            String arg = args[i];
-            if (arg.startsWith("jmh.")) {
-                String[] av = arg.substring(4).split("=");
-                params.put(av[0], av[1]);
-            }
-        }
-
-        final String threadsParamName = "threads";
-        int threadsCount = params.containsKey(threadsParamName) ? Integer.parseInt(params.get(threadsParamName)) : DEFAULT_THREADS_COUNT;
-        ChainedOptionsBuilder builder = new OptionsBuilder()
-                .include(".*" + cls.getSimpleName() + ".*")
-                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
-                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc");
-                .threads(threadsCount);
-
-        for (Entry<String, String> entry : params.entrySet()) {
-            builder.param(entry.getKey(), entry.getValue());
-        }
-
-        new Runner(builder.build()).run();
     }
 
     @Override
