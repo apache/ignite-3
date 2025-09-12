@@ -107,19 +107,19 @@ NOTE: Partition awareness assumes that the cluster is stable. Client receives in
 
 === Limitations
 
-* Equality condition on colocation key columns is required. +
-Apache Ignite can only apply partition awareness optimization if the SQL query contains an equality condition on all colocated columns. This requirement allows the client to route the query to the node where the partition with the data resides. +
+* As for now, Apache Ignite can only apply partition awareness optimization for queries over single partition of a single table.
 
 * DML queries, which can **not** be rewritten to key-value operations, are not supported yet. +
 Apache Ignite can execute a query as key-value operation only if the query contains an equality condition on all key columns.
 Partition awareness will only work for DML queries if the query can be rewritten to a single key-value operation. The explain plan will contains `KeyValueGet` or `KeyValueModify` node in that case.
 Bulk DML operations (like ```INSERT FROM SELECT``` or multi-values ```INSERT FROM VALUES```) are not supported yet.
 
+* Equality condition on colocation key columns is required. +
+Apache Ignite can only apply partition awareness optimization if the SQL query contains an equality condition on all colocated columns. This requirement allows the client to route the query to the node where the partition with the data resides. +
+
 * Partition awareness cache on client may miss required metadata +
 Client nodes do not parse or executed query by themselves, they require query metadata with colocation information from the server node to utilize partition awareness optimization. The query metadata is cached on client after the first query execution and can be used in later query runs. However, it also can be evicted due to cache eviction policies. +
 See ```org.apache.ignite.client.IgniteClient.Builder#sqlPartitionAwarenessMetadataCacheSize()```.
-
-NOTE: As for now, Partition awareness is supported for queries over single partition of a single table.
 
 === How to Check if Partition Awareness is Applicable
 
