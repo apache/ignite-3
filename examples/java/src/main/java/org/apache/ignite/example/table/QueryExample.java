@@ -57,6 +57,8 @@ public class QueryExample {
 
     /**
      * Demonstrates querying with an implicit transaction.
+     *
+     * @return
      */
     public static void performQueryWithoutTransaction(Table table) {
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
@@ -68,7 +70,8 @@ public class QueryExample {
                 )
         )) {
             // Process query results (keeping original cursor iteration pattern)
-            // ...
+            // As an example, remove the first found value.
+            cursor.remove();
         }
     }
 
@@ -86,7 +89,9 @@ public class QueryExample {
                         columnValue("age", greaterThan(20))
                 )
         )) {
-            // ...
+            // Process query results
+            // As an example, remove the first found value.
+            cursor.remove();
 
             // Commit transaction if all operations succeed
             transaction.commit();

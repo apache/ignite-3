@@ -46,17 +46,26 @@ public class TableExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
+            // Create a table to work with later
+            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (" +
+                    "id int primary key," +
+                    "city_id int," +
+                    "name varchar," +
+                    "age int," +
+                    "company varchar"
+            );
+
             // Get the tables API to interact with database tables
             IgniteTables tableApi = client.tables();
 
             // Retrieve a list of all existing tables in the cluster
-            List<Table> existingTables = tableApi.tables();
+            //List<Table> existingTables = tableApi.tables();
 
             // Get the first table from the list (for demonstration purposes)
-            Table firstTable = existingTables.get(0);
+            //Table firstTable = existingTables.get(0);
 
             // Access a specific table by its simple name
-            Table specificTable = tableApi.table("MY_TABLE");
+            //Table specificTable = tableApi.table("MY_TABLE");
 
             // Create a qualified table name by parsing a string (schema.table format)
             QualifiedName qualifiedTableName = QualifiedName.parse("PUBLIC.MY_QUALIFIED_TABLE");
@@ -66,6 +75,15 @@ public class TableExample {
 
             // Access a table using the qualified name (includes schema)
             Table myTable = tableApi.table(qualifiedTableName);
+
+            Tuple personTuple = Tuple.create()
+                    .set("id", 1)
+                    .set("cityId", "3")
+                    .set("name", "John")
+                    .set("age", 32)
+                    .set("company", "");
+
+            myTable.recordView().insert(null, personTuple);
         }
     }
 }

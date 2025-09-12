@@ -24,6 +24,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.TypeConverter;
 
@@ -61,6 +62,11 @@ public class MapperExample {
             RecordView<Person> view = client.tables()
                     .table("person")
                     .recordView(mapper);
+
+
+            Person myPerson = new Person(1, 2, "John", 30, "Apache");
+
+            view.insert(null, myPerson);
         }
     }
 }
