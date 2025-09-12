@@ -79,8 +79,8 @@ object ReleaseBuild : BuildType({
             artifacts {
                 cleanDestination = true
                 artifactRules = """
-                    %DIR__NUGET% => ignite-%DIR__NUGET%
-                    %DIR__DOTNET% => ignite-%DIR__DOTNET%
+                    nuget => ignite-nuget
+                    dotnet => ignite-dotnet
                     dotnetdoc.zip => ignite-docs
                 """.trimIndent()
             }
