@@ -411,14 +411,14 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        deployer.initUnitsFolder(workDir.resolve(configuration.location().value()));
+        Path deploymentUnitFolder = workDir.resolve(configuration.location().value());
+        deployer.initUnitsFolder(deploymentUnitFolder);
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
         failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
         undeployer.start(UNDEPLOYER_DELAY.getSeconds(), TimeUnit.SECONDS);
-
-        return nullCompletedFuture();
+        return new StaticUnitDeployer(deploymentUnitStore, nodeName, deploymentUnitFolder).searchAndDeployStaticUnits();
     }
 
     @Override
