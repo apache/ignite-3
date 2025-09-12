@@ -4,6 +4,7 @@ import build.build_types.ApacheIgnite3
 import jetbrains.buildServer.configs.kotlin.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.FailureAction
+import jetbrains.buildServer.configs.kotlin.buildFeatures.commitStatusPublisher
 import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 
@@ -23,6 +24,22 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
             }
         }
 
+        /**
+         * Send build status to Apache Ignite 3 GitHub repository
+         */
+        fun ignite3CommitStatusPublisher() = apply {
+            buildType.features {
+                commitStatusPublisher {
+                    vcsRootExtId = "GitHubApacheIgnite3"
+                    publisher = github {
+                        githubUrl = "https://api.github.com"
+                        authType = personalToken {
+                            token = "credentialsJSON:81fbfe18-b4b5-4b60-bc69-97240f37b0c3"
+                        }
+                    }
+                }
+            }
+        }
 
         /**
          * Use pre-built Apache Ignite 3 artifacts instead of rebuilding project again

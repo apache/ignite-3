@@ -11,7 +11,7 @@ import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 class TestsModule(
     private val configuration: TestConfiguration,
     private val module: GradleModule
-): BuildType({
+) : BuildType({
     id(getId(this::class, "${configuration.suiteId} Tests_${module.displayName}", true))
     name = configuration.suiteId + " " + module.displayName
 

@@ -1,6 +1,7 @@
 package _Self
 
 import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.Project
 
 /**
@@ -8,14 +9,18 @@ import jetbrains.buildServer.configs.kotlin.Project
  */
 var isActiveProject: Boolean = DslContext.projectName == "[Apache Ignite 3.x]"
 
-enum class OsArch(val os: String, val arch: String) {
-    LinuxAMD64("Linux", "amd64"),
-    WindowsAMD64("Windows 10", "amd64");
-
-    fun displayName(): String = "$os $arch"
-}
-
 object Project : Project({
     subProject(build.Project)
     subProject(test.Project)
+
+    /**
+     * Project-wide params
+     */
+    params {
+        param("system.lastCommitHash", "%build.vcs.number%")
+        text("env.A_GRADLE_OPTS", "", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("env.GRADLE_OPTS", "-Dorg.gradle.caching=true %env.A_GRADLE_OPTS%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("env.JAVA_HOME", "%env.JDK_ORA_17%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("env.M2_HOME", "%teamcity.tool.maven.DEFAULT%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+    }
 })

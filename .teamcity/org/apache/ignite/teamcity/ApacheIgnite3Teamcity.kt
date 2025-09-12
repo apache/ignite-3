@@ -1,6 +1,5 @@
 package org.apache.ignite.teamcity
 
-import _Self.OsArch
 import test.template_types.GradleModule
 import test.template_types.RunTests
 import test.template_types.TestConfiguration
@@ -280,8 +279,6 @@ class ApacheIgnite3Teamcity {
          * Tests type settings
          */
         val UNIT = Tests(TestConfiguration("Unit", "test"), unitTestGradleModuleList)
-        val UNIT_WINDOWS = Tests(TestConfiguration("Unit", "test", osArch = OsArch.WindowsAMD64), unitTestGradleModuleList)
-
 
         //JVM_CUSTOM_ARGS to """-XX:MaxDirectMemorySize=256m""".trimIndent()
         private val integrationTestConf = TestConfiguration(

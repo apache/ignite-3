@@ -2,7 +2,6 @@ package test.build_types
 
 import _Self.isActiveProject
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import org.apache.ignite.teamcity.CustomTriggers.Companion.customSchedule
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.INTEGRATION
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.MIGRATION_TOOLS_SUITE

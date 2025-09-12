@@ -27,7 +27,7 @@ object Project : Project({
 
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunAllTests)
-            .ignite3VCS()
+            .ignite3VCS().ignite3CommitStatusPublisher()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
@@ -39,19 +39,19 @@ object Project : Project({
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunSanityCheck)
-            .ignite3VCS()
+            .ignite3VCS().ignite3CommitStatusPublisher()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunPlatformTests)
-            .ignite3VCS()
+            .ignite3VCS().ignite3CommitStatusPublisher()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunTests(INTEGRATION))
-            .ignite3VCS()
+            .ignite3VCS().ignite3CommitStatusPublisher()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
@@ -63,7 +63,7 @@ object Project : Project({
     )
     buildType(
         ApacheIgnite3CustomBuildType.Builder(RunTests(UNIT))
-            .ignite3VCS()
+            .ignite3VCS().ignite3CommitStatusPublisher()
             .defaultBuildTypeSettings().requireLinux()
             .build().buildType
     )
