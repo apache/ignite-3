@@ -2,7 +2,7 @@ package build.distributions
 
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object JavaBinariesDocs : BuildType({
     name = "[1] Java Binaries | Docs"
@@ -14,14 +14,16 @@ object JavaBinariesDocs : BuildType({
     """.trimIndent()
 
     steps {
-        gradle {
+        customGradle {
             name = "Build | Assemble binaries"
             tasks = "jar shadowJar"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
-        gradle {
+        customGradle {
             name = "Aggregate Javadocs"
             id = "gradle_runner"
             tasks = "aggregateJavadoc"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

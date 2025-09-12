@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 object OdbcDeb : BuildType({
@@ -40,9 +40,10 @@ object OdbcDeb : BuildType({
                 conan info --path . || exit 0
             """.trimIndent()
         }
-        gradle {
+        customGradle {
             name = "Build Deb"
             tasks = ":packaging-odbc:buildDeb -i -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

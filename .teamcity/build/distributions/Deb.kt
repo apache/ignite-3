@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object Deb : BuildType({
     name = "[3] DEB"
@@ -12,9 +12,10 @@ object Deb : BuildType({
     """.trimIndent()
 
     steps {
-        gradle {
+        customGradle {
             name = "Build DEB"
             tasks = "packaging-db:buildDeb -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

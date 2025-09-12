@@ -5,7 +5,7 @@ import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.buildFeatures.nuGetPackagesIndexer
 import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetPack
 import jetbrains.buildServer.configs.kotlin.buildSteps.dotnetPublish
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 
 object DotnetBinariesDocs : BuildType({
@@ -26,22 +26,23 @@ object DotnetBinariesDocs : BuildType({
         dotnetPublish {
             name = "Build binaries"
             projects = "Apache.Ignite.sln"
-            workingDir = "modules/platforms/dotnet"
+            workingDir = "%VCSROOT__IGNITE3%/modules/platforms/dotnet"
             configuration = "Release"
             outputDir = "%teamcity.build.checkoutDir%/%DIR__DOTNET%"
         }
         dotnetPack {
             name = "Build Nuget"
             projects = "Apache.Ignite.sln"
-            workingDir = "modules/platforms/dotnet"
+            workingDir = "%VCSROOT__IGNITE3%/modules/platforms/dotnet"
             configuration = "Release"
             outputDir = "%teamcity.build.checkoutDir%/%DIR__NUGET%"
             args = "--include-source"
         }
-        gradle {
+        customGradle {
             name = "Build docfx"
             id = "Build_docfx"
             tasks = "docfx"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 

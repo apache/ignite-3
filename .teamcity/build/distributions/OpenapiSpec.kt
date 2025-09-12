@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 object OpenapiSpec : BuildType({
@@ -27,8 +27,9 @@ object OpenapiSpec : BuildType({
                 conan info --path . || exit 0
             """.trimIndent()
         }
-        gradle {
+        customGradle {
             tasks = ":ignite-rest-api:compileJava"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

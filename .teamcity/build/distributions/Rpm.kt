@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object Rpm : BuildType({
     name = "[2] RPM"
@@ -12,9 +12,10 @@ object Rpm : BuildType({
     """.trimIndent()
 
     steps {
-        gradle {
+        customGradle {
             name = "Build RPM"
             tasks = "packaging-db:buildRpm -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

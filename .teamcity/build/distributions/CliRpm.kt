@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object CliRpm : BuildType({
     name = "[5] CLI RPM"
@@ -15,9 +15,10 @@ object CliRpm : BuildType({
     }
 
     steps {
-        gradle {
+        customGradle {
             name = "Build RPM"
             tasks = "packaging-cli:buildRpm"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

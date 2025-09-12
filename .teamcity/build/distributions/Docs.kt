@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object Docs : BuildType({
     name = "[10] C++ Docs"
@@ -10,8 +10,9 @@ object Docs : BuildType({
     artifactRules = "modules/platforms/cpp/docs/html/ => doxygen-cpp.zip"
 
     steps {
-        gradle {
+        customGradle {
             tasks = "doxygenCppClient"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

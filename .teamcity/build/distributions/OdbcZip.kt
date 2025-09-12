@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 object OdbcZip : BuildType({
@@ -42,15 +42,17 @@ object OdbcZip : BuildType({
             """.trimIndent()
         }
 
-        gradle {
+        customGradle {
             name = "Build Zip"
             tasks = ":packaging-odbc:distZip -i -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
 
-        gradle {
+        customGradle {
             name = "Build Tar"
             id = "Build_Tar"
             tasks = ":packaging-odbc:distTar -i -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

@@ -4,7 +4,7 @@ package build.distributions
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.buildSteps.ExecBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.exec
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 object OdbcRpm : BuildType({
@@ -35,8 +35,9 @@ object OdbcRpm : BuildType({
             """.trimIndent()
         }
 
-        gradle {
+        customGradle {
             tasks = ":packaging-odbc:buildRpm -i -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
 
         script {

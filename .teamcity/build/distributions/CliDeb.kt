@@ -2,7 +2,7 @@ package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object CliDeb : BuildType({
     name = "[4] CLI DEB"
@@ -19,9 +19,10 @@ object CliDeb : BuildType({
     }
 
     steps {
-        gradle {
+        customGradle {
             name = "Build DEB"
             tasks = "packaging-cli:buildDeb"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })

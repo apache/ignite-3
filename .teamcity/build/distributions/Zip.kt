@@ -1,7 +1,7 @@
 package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 
 object Zip : BuildType({
     name = "[6] All Zip"
@@ -13,9 +13,10 @@ object Zip : BuildType({
     """.trimIndent()
 
     steps {
-        gradle {
+        customGradle {
             name = "Build ZIP"
             tasks = "allDistZip -Pplatforms.enable"
+            workingDir = "%VCSROOT__IGNITE3%"
         }
     }
 })
