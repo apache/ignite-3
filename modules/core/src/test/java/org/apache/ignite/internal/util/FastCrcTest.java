@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.pagememory.persistence.FastCrc.calcCrc;
+import static org.apache.ignite.internal.util.FastCrc.calcCrc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
@@ -60,7 +60,7 @@ public class FastCrcTest {
 
         Files.write(testFilePath, bytes);
 
-        assertEquals(getCrc(bytes), calcCrc(testFilePath.toFile()));
+        assertEquals(getCrc(bytes), calcCrc(testFilePath));
     }
 
     @Test
