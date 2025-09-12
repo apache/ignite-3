@@ -2114,10 +2114,8 @@ public class NodeImpl implements Node, RaftServerService {
             HybridTimestamp timestamp = command.initiatorTime();
 
             if (timestamp != null) {
-                synchronized (this) {
-                    // Atomically generate and set id, so it's monotonic
-                    clo.safeTimestamp(clock.update(timestamp));
-                }
+                // Atomically generate and set id, so it's monotonic
+                clo.safeTimestamp(clock.update(timestamp));
             }
         }
     }
