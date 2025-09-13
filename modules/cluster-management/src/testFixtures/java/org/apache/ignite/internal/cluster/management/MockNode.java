@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -28,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -131,6 +133,10 @@ public class MockNode {
 
         boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
 
+        var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
+
+        collector.register(() -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled)));
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
@@ -144,7 +150,7 @@ public class MockNode {
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
-                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
+                collector,
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,

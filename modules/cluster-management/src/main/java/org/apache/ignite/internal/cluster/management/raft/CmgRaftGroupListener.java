@@ -193,7 +193,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 } else if (command instanceof JoinRequestCommand) {
                     ValidationResult response = validateNode((JoinRequestCommand) command);
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof JoinReadyCommand) {
                     ValidationResult response = completeValidation((JoinReadyCommand) command);
 
@@ -202,7 +204,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                         onLogicalTopologyChanged.accept(clo.term());
                     }
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof NodesLeaveCommand) {
                     removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -246,7 +250,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                     command.clusterState()
             );
 
-            return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
+            return validationResult.isValid() ? state
+                    : new ValidationErrorResponse(validationResult.errorDescription(), validationResult.isInvalidNodeConfig());
         }
     }
 

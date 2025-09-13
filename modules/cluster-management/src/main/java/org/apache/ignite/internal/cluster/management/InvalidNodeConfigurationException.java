@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.cluster.management;
+
+import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATION_VALIDATION_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Exception thrown if a node was unable to pass the validation step.
+ * Exception representing invalid node configuration. This is used to differentiate from other errors.
  */
-public class JoinDeniedException extends IgniteInternalException {
-    public JoinDeniedException(String msg) {
-        super(msg);
-    }
-
-    public JoinDeniedException(int code, Throwable cause) {
-        super(code, cause);
+public class InvalidNodeConfigurationException extends IgniteInternalException {
+    public InvalidNodeConfigurationException(String message) {
+        super(CONFIGURATION_VALIDATION_ERR, message);
     }
 }
