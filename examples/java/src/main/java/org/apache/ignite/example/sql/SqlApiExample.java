@@ -200,7 +200,7 @@ public class SqlApiExample {
             CancelHandle cancelHandle = CancelHandle.create();
             CancellationToken cancelToken = cancelHandle.token();
 
-            CompletableFuture<AsyncResultSet<SqlRow>> cancellableQuery = client.sql().executeAsync(
+            client.sql().executeAsync(
                     null, cancelToken,
                     "SELECT a.FIRST_NAME, b.LAST_NAME " +
                             "FROM ACCOUNTS a, ACCOUNTS b, ACCOUNTS c ORDER BY a.ACCOUNT_ID"
