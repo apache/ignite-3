@@ -20,7 +20,10 @@ package org.apache.ignite.example.sql;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -187,6 +190,26 @@ public class SqlApiExample {
                             + row.balance);
                 }
             }
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Cancelling the query.
+            //
+            //--------------------------------------------------------------------------------------
+
+            CancelHandle cancelHandle = CancelHandle.create();
+            CancellationToken cancelToken = cancelHandle.token();
+
+            CompletableFuture<AsyncResultSet<SqlRow>> cancellableQuery = client.sql().executeAsync(
+                    null, cancelToken,
+                    "SELECT a.FIRST_NAME, b.LAST_NAME " +
+                            "FROM ACCOUNTS a, ACCOUNTS b, ACCOUNTS c ORDER BY a.ACCOUNT_ID"
+            );
+
+            CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
+            cancelled.get(5, TimeUnit.SECONDS);
+
+            System.out.println("\nIs query cancelled: " + cancelled.isDone());
 
             //--------------------------------------------------------------------------------------
             //
