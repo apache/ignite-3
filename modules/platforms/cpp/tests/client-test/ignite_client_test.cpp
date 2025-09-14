@@ -25,6 +25,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
+#include <thread>
 
 using namespace ignite;
 

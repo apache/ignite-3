@@ -98,8 +98,8 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -120,21 +120,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final String ZONE_NAME_4 = "zone4";
 
     private static final LogicalNode NODE_0 = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_0", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_1 = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_1", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode NODE_2 = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "node_name_2", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)

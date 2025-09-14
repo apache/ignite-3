@@ -23,8 +23,8 @@ import static java.util.Collections.emptyMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Representation of a logical node in a cluster.
  */
-public class LogicalNode extends InternalClusterNodeImpl {
+public class LogicalNode extends ClusterNodeImpl {
     /**
      * Node's attributes.
      *

@@ -803,7 +803,8 @@ public class Node {
                 partitionReplicaLifecycleManager,
                 nodeProperties,
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                metricManager
         ) {
 
             @Override

@@ -47,8 +47,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -166,7 +166,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
         Collection<InternalClusterNode> topologyNodes = node0.cluster().nodes().stream()
-                .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                .map(ClusterNodeImpl::fromPublicClusterNode)
                 .collect(toUnmodifiableList());
 
         compactors.forEach(compactor -> {

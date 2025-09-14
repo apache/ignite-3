@@ -69,9 +69,9 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -109,7 +109,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final UUID LEASEHOLDER_ID_1 = randomUUID();
 
-    private static final InternalClusterNode FAKE_NODE = new InternalClusterNodeImpl(
+    private static final InternalClusterNode FAKE_NODE = new ClusterNodeImpl(
             LEASEHOLDER_ID_1,
             LEASEHOLDER_1,
             mock(NetworkAddress.class)
@@ -393,7 +393,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         );
 
         if (newLeaseholderIsOnline) {
-            leaseholder = new InternalClusterNodeImpl(newLeaseholderId, newLeaseholder, mock(NetworkAddress.class));
+            leaseholder = new ClusterNodeImpl(newLeaseholderId, newLeaseholder, mock(NetworkAddress.class));
         }
 
         // Publish the lease for the new leaseholder.

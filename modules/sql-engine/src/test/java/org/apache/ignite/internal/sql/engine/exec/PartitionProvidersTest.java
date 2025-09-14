@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -197,7 +197,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
             ColocationGroup colocationGroup,
             @Nullable PartitionPruningMetadata metadata
     ) {
-        InternalClusterNodeImpl node = new InternalClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234));
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234));
 
         Long2ObjectMap<ColocationGroup> map = new Long2ObjectOpenHashMap<>();
         map.put(GROUP_ID, colocationGroup);

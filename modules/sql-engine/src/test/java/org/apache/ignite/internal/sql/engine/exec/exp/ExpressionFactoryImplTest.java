@@ -53,7 +53,7 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -103,7 +103,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         ctx = TestBuilders.executionContext()
                 .queryId(randomUUID())
-                .localNode(new InternalClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
+                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
                 .fragment(fragmentDescription)
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();

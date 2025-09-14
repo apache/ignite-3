@@ -64,7 +64,7 @@ import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -568,7 +568,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             );
 
             manager.start();
-            manager.setLocalNode(new InternalClusterNodeImpl(
+            manager.setLocalNode(new ClusterNodeImpl(
                     launchId,
                     consistentId,
                     new NetworkAddress(manager.localBindAddress().getHostName(), port)

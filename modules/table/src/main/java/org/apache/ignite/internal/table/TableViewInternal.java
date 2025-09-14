@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -127,4 +128,11 @@ public interface TableViewInternal extends Table {
      * @param indexId An index id to unregister.
      */
     void unregisterIndex(int indexId);
+
+    /**
+     * Returns a metric source for this table.
+     *
+     * @return Table metrics source.
+     */
+    TableMetricSource metrics();
 }

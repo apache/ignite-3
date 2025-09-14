@@ -72,8 +72,8 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -417,7 +417,7 @@ public class DistributionZonesTestUtil {
      */
     public static LogicalNode logicalNodeFromNode(Node node) {
         return new LogicalNode(
-                new InternalClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
                 emptyMap(),
                 emptyMap(),
                 List.of("default")

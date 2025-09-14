@@ -253,7 +253,7 @@ public class DistributionZoneRebalanceEngine {
                     }
                 }
 
-                if (!filteredOutNodes.isEmpty()) {
+                if (!filteredOutNodes.isEmpty() && !filteredDataNodes.isEmpty()) {
                     LOG.info(
                             "Some data nodes were filtered out because they don't match zone's attributes:"
                                     + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
@@ -267,6 +267,12 @@ public class DistributionZoneRebalanceEngine {
             }
 
             if (filteredDataNodes.isEmpty()) {
+                LOG.info("Rebalance is not triggered because data nodes are empty [zoneId={}, filter={}, storageProfiles={}]",
+                        zoneDescriptor.id(),
+                        zoneDescriptor.filter(),
+                        zoneDescriptor.storageProfiles().profiles()
+                );
+
                 return nullCompletedFuture();
             }
 
