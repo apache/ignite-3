@@ -32,7 +32,7 @@ class TestsModule(
             name = "Run tests"
             tasks = module.buildTask(configuration.testTask)
             workingDir = "%VCSROOT__IGNITE3%"
-            gradleParams = "%GRADLE_OPTS%"
+            gradleParams = "%env.GRADLE_OPTS%"
             jvmArgs = """
                 -Xmx%XMX%
                 %JVM_ARGS%
