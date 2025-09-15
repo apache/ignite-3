@@ -500,7 +500,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
                 systemDistributedConfiguration,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
         ) {
 
             @Override

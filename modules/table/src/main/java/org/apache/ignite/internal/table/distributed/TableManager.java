@@ -97,6 +97,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -147,6 +148,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -467,6 +469,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final ReliableCatalogVersions reliableCatalogVersions;
 
     private final MetricManager metricManager;
+    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+    private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -539,7 +543,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             NodeProperties nodeProperties,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            MetricManager metricManager
+            MetricManager metricManager,
+            PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -570,6 +575,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.nodeProperties = nodeProperties;
         this.minTimeCollectorService = minTimeCollectorService;
         this.metricManager = metricManager;
+        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -3051,6 +3057,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     minTimeCollectorService.removePartition(tablePartitionId);
 
+                    PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
+                    if (metricSource != null) {
+                        metricManager.unregisterSource(metricSource);
+                    }
+
                     return mvGc.removeStorage(tablePartitionId);
                 });
     }
@@ -3132,7 +3143,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return topologyService.localMember();
     }
 
-    private static PartitionUpdateHandlers createPartitionUpdateHandlers(
+    private PartitionUpdateHandlers createPartitionUpdateHandlers(
             int partitionId,
             PartitionDataStorage partitionDataStorage,
             TableViewInternal table,
@@ -3145,14 +3156,52 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
 
+        LongSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
+        PartitionModificationCounter modificationCounter = partitionModificationCounterFactory.create(partSizeSupplier);
+        registerPartitionModificationCounterMetrics(table.tableId(), partitionId, modificationCounter);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                modificationCounter
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
+    }
+
+    private void registerPartitionModificationCounterMetrics(
+            int tableId, int partitionId, PartitionModificationCounter counter) {
+
+        PartitionModificationCounterMetricSource metricSource =
+                new PartitionModificationCounterMetricSource(tableId, partitionId);
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_COUNTER,
+                "The value of the volatile counter of partition modifications. "
+                        + "This value is used to determine staleness of the related SQL statistics.",
+                counter::value
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
+                "The value of the next milestone for the number of partition modifications. "
+                        + "This value is used to determine staleness of the related SQL statistics.",
+                counter::nextMilestone
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
+                "The timestamp value representing the commit time of the last modification operation that "
+                        + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
+                () -> counter.lastMilestoneTimestamp().longValue()
+        ));
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
+
+        partModCounterMetricSources.put(new TablePartitionId(tableId, partitionId), metricSource);
     }
 
     /**
