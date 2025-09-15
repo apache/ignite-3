@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import static java.sql.Connection.TRANSACTION_NONE;
+import static java.sql.Connection.TRANSACTION_SERIALIZABLE;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -39,6 +40,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
@@ -70,16 +73,32 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Name of system view type. */
     public static final String TYPE_VIEW = "VIEW";
 
-    /** Connection. */
-    private final JdbcConnection conn;
+    private final JdbcQueryEventHandler handler;
+
+    private final String url;
+
+    private final String userName;
+
+    private final Connection connection;
 
     /**
      * Constructor.
      *
-     * @param conn Connection.
+     * @param connection Connection
+     * @param handler Handler.
+     * @param url URL
+     * @param userName User name,
      */
-    JdbcDatabaseMetadata(JdbcConnection conn) {
-        this.conn = conn;
+    public JdbcDatabaseMetadata(
+            Connection connection,
+            JdbcQueryEventHandler handler,
+            String url,
+            String userName
+    ) {
+        this.handler = handler;
+        this.connection = connection;
+        this.url = url;
+        this.userName = userName;
     }
 
     /** {@inheritDoc} */
@@ -97,13 +116,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getURL() {
-        return conn.url();
+        return url;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getUserName() {
-        return "";
+        return userName;
     }
 
     /** {@inheritDoc} */
@@ -157,19 +176,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getDriverVersion() {
-        return ProtocolVersion.LATEST_VER.toString();
+        return IgniteProductVersion.CURRENT_VERSION.toString();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMajorVersion() {
-        return ProtocolVersion.LATEST_VER.major();
+        return IgniteProductVersion.CURRENT_VERSION.major();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMinorVersion() {
-        return ProtocolVersion.LATEST_VER.minor();
+        return IgniteProductVersion.CURRENT_VERSION.minor();
     }
 
     /** {@inheritDoc} */
@@ -307,13 +326,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert(int fromType, int toType) {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -373,19 +392,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsMultipleTransactions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsNonNullableColumns() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsMinimumSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -397,7 +416,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsExtendedSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -410,7 +429,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsANSI92IntermediateSQL() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -434,7 +453,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsFullOuterJoins() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -446,7 +465,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getSchemaTerm() {
-        return "";
+        return "schema";
     }
 
     /** {@inheritDoc} */
@@ -488,7 +507,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsSchemasInTableDefinitions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -626,19 +645,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxBinaryLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxCharLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxColumnNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -692,7 +711,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxSchemaNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -752,19 +771,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getDefaultTransactionIsolation() {
-        return TRANSACTION_NONE;
+        return TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsTransactions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsTransactionIsolationLevel(int level) {
-        return false;
+        return level == TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
@@ -795,12 +814,17 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getProcedures(String catalog, String schemaPtrn,
             String procedureNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PROCEDURE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
                 new JdbcColumnMeta("PROCEDURE_NAME", ColumnType.STRING),
+                new JdbcColumnMeta("", ColumnType.NULL),
+                new JdbcColumnMeta("", ColumnType.NULL),
+                new JdbcColumnMeta("", ColumnType.NULL),
                 new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_TYPE", ColumnType.STRING),
+                new JdbcColumnMeta("PROCEDURE_TYPE", ColumnType.INT16),
                 new JdbcColumnMeta("SPECIFIC_NAME", ColumnType.STRING)
         ));
     }
@@ -809,13 +833,15 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getProcedureColumns(String catalog, String schemaPtrn, String procedureNamePtrn,
             String colNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PROCEDURE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
                 new JdbcColumnMeta("PROCEDURE_NAME", ColumnType.STRING),
                 new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
                 new JdbcColumnMeta("COLUMN_TYPE", ColumnType.INT16),
-                new JdbcColumnMeta("COLUMN_TYPE", ColumnType.INT32),
+                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
                 new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
                 new JdbcColumnMeta("PRECISION", ColumnType.INT32),
                 new JdbcColumnMeta("LENGTH", ColumnType.INT32),
@@ -837,7 +863,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getTables(String catalog, String schemaPtrn, String tblNamePtrn, String[] tblTypes)
             throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
@@ -871,7 +897,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
         try {
             JdbcMetaTablesResult res
-                    = conn.handler().tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
+                    = handler.tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -902,7 +928,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
         List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
@@ -914,7 +940,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         try {
-            JdbcMetaSchemasResult res = conn.handler().schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
+            JdbcMetaSchemasResult res = handler.schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -945,6 +971,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
     public ResultSet getCatalogs() throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(singletonList(singletonList(CATALOG_NAME)),
                 asList(new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING)));
     }
@@ -953,6 +981,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
     public ResultSet getTableTypes() throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(
                 asList(List.of(TYPE_TABLE, TYPE_VIEW)),
                 asList(new JdbcColumnMeta("TABLE_TYPE", ColumnType.STRING)));
@@ -961,7 +991,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getColumns(String catalog, String schemaPtrn, String tblNamePtrn, String colNamePtrn) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),      // 1
@@ -995,7 +1025,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         try {
-            JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
+            JdbcMetaColumnsResult res = handler.columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
                     .get();
 
             if (!res.success()) {
@@ -1022,6 +1052,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getColumnPrivileges(String catalog, String schema, String tbl,
             String colNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
@@ -1038,6 +1070,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getTablePrivileges(String catalog, String schemaPtrn,
             String tblNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
@@ -1068,6 +1102,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getVersionColumns(String catalog, String schema, String tbl) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("SCOPE", ColumnType.INT16),
                 new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
@@ -1083,7 +1119,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String tbl) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
@@ -1098,7 +1134,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         try {
-            JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
+            JdbcMetaPrimaryKeysResult res = handler.primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -1123,6 +1159,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getImportedKeys(String catalog, String schema, String tbl) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
@@ -1144,6 +1182,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getExportedKeys(String catalog, String schema, String tbl) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
@@ -1166,6 +1206,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTbl,
             String foreignCatalog, String foreignSchema, String foreignTbl) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
@@ -1187,6 +1229,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getTypeInfo() throws SQLException {
+        ensureNotClosed();
+
         List<List<Object>> types = new ArrayList<>(21);
 
         types.add(asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
@@ -1305,7 +1349,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getIndexInfo(String catalog, String schema, String tbl, boolean unique,
             boolean approximate) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
         final List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
@@ -1405,6 +1449,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getUDTs(String catalog, String schemaPtrn, String typeNamePtrn,
             int[] types) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
@@ -1419,7 +1465,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public Connection getConnection() {
-        return conn;
+        return connection;
     }
 
     /** {@inheritDoc} */
@@ -1450,6 +1496,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getSuperTypes(String catalog, String schemaPtrn,
             String typeNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
@@ -1464,6 +1512,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPtrn,
             String tblNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
@@ -1476,6 +1526,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getAttributes(String catalog, String schemaPtrn, String typeNamePtrn,
             String attributeNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
@@ -1576,6 +1628,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getClientInfoProperties() throws SQLException {
+        // We do not check whether connection is closed as 
+        // this operation is not expected to do any server calls.  
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("NAME", ColumnType.STRING),
                 new JdbcColumnMeta("MAX_LEN", ColumnType.INT32),
@@ -1590,6 +1644,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getFunctions(String catalog, String schemaPtrn,
             String functionNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("FUNCTION_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("FUNCTION_SCHEM", ColumnType.STRING),
@@ -1604,6 +1660,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getFunctionColumns(String catalog, String schemaPtrn, String functionNamePtrn,
             String colNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("FUNCTION_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("FUNCTION_SCHEM", ColumnType.STRING),
@@ -1645,6 +1703,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPtrn, String tblNamePtrn,
             String colNamePtrn) throws SQLException {
+        ensureNotClosed();
+
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
                 new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
@@ -1666,7 +1726,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      *
      * @param catalog Catalog name or {@code null}.
      * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME} or null (which means any catalog),
-     *      otherwise returns {@code false}.
+     *         otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
         return catalog == null || catalog.equalsIgnoreCase(CATALOG_NAME);
@@ -1705,7 +1765,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * Constructs a list of rows in jdbc format for a given column metadata.
      *
      * @param colMeta Column metadata.
-     * @param pos     Ordinal position.
+     * @param pos Ordinal position.
      * @return Column metadata row.
      */
     public static List<Object> columnRow(JdbcColumnMeta colMeta, int pos) {
@@ -1762,5 +1822,11 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         return rows;
+    }
+
+    private void ensureNotClosed() throws SQLException {
+        if (connection.isClosed()) {
+            throw new SQLException("Connection is closed.", CONNECTION_CLOSED);
+        }
     }
 }
