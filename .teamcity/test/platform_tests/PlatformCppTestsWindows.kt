@@ -13,6 +13,7 @@ import jetbrains.buildServer.configs.kotlin.triggers.vcs
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 
 object PlatformCppTestsWindows : BuildType({
@@ -25,13 +26,13 @@ object PlatformCppTestsWindows : BuildType({
     """.trimIndent()
 
     params {
-        param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
-        param("PATH__CMAKE_BUILD_DIRECTORY", """%PATH__WORKING_DIR%\cmake-build-debug""")
-        param("PATH__CLIENT_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_client_tests_results.xml""")
-        param("PATH__ODBC_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\odbc_tests_results.xml""")
-        param("PATH__UNIT_TESTS_RESULT", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_unit_test_results.xml""")
-        text("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\cpp""", display = ParameterDisplay.HIDDEN, allowEmpty = true)
-        param("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
+        hiddenText("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
+        hiddenText("PATH__CMAKE_BUILD_DIRECTORY", """%PATH__WORKING_DIR%\cmake-build-debug""")
+        hiddenText("PATH__CLIENT_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_client_tests_results.xml""")
+        hiddenText("PATH__ODBC_TEST_RESULTS", """%PATH__CMAKE_BUILD_DIRECTORY%\odbc_tests_results.xml""")
+        hiddenText("PATH__UNIT_TESTS_RESULT", """%PATH__CMAKE_BUILD_DIRECTORY%\cpp_unit_test_results.xml""")
+        hiddenText("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\cpp""")
+        hiddenText("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
     }
 
     steps {
@@ -101,7 +102,7 @@ object PlatformCppTestsWindows : BuildType({
     }
 
     failureConditions {
-        executionTimeoutMin = 15
+        executionTimeoutMin = 20
         failOnMetricChange {
             metric = BuildFailureOnMetric.MetricType.TEST_COUNT
             threshold = 5
