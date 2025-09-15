@@ -30,6 +30,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -103,11 +104,11 @@ public class StaticUnitDeployer {
                 futures.add(future);
             });
 
-            return allOf(futures);
-        }).whenComplete((unused, t) -> {
-            if (!allUnits.isEmpty()) {
-                LOG.info("Finished static units deploy {}", t, allUnits);
-            }
+            return allOf(futures).whenComplete((unused, t) -> {
+                if (!futures.isEmpty()) {
+                    LOG.info("Finished static units deploy {}", t, allUnits);
+                }
+            });
         });
     }
 
@@ -151,25 +152,21 @@ public class StaticUnitDeployer {
 
     private static class StaticUnits {
         @IgniteToStringInclude
-        private final Map<String, List<Version>> units = new HashMap<>();
+        private final Map<String, Set<Version>> units = new HashMap<>();
 
         void filter(String id, Version version) {
-            units.get(id).remove(version);
-            if (units.get(id).isEmpty()) {
-                units.remove(id);
+            Set<Version> versions = units.get(id);
+            if (versions != null) {
+                versions.remove(version);
             }
         }
 
         void register(String id, Version version) {
-            units.computeIfAbsent(id, k -> new ArrayList<>()).add(version);
-        }
-
-        boolean isEmpty() {
-            return units.isEmpty();
+            units.computeIfAbsent(id, k -> new HashSet<>()).add(version);
         }
 
         void forEach(BiConsumer<String, Version> consumer) {
-            for (Map.Entry<String, List<Version>> entry : units.entrySet()) {
+            for (Map.Entry<String, Set<Version>> entry : units.entrySet()) {
                 for (Version version : entry.getValue()) {
                     consumer.accept(entry.getKey(), version);
                 }
