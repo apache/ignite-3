@@ -87,4 +87,9 @@ public final class DirtyFullPageId extends FullPageId {
                 .app(", partitionGeneration=").app(partitionGeneration)
                 .app(']').toString();
     }
+
+    /** Converts to {@link FullPageId}. */
+    public FullPageId toFullPageId() {
+        return new FullPageId(pageId(), groupId());
+    }
 }
