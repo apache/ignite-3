@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <thread>
 
 using namespace ignite;
 
