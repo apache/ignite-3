@@ -22,7 +22,6 @@ import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
 import static org.apache.ignite.table.criteria.Criteria.greaterThan;
 
-import java.util.Iterator;
 import java.util.Map.Entry;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.lang.AsyncCursor;
@@ -42,7 +41,7 @@ public class QueryExample {
 
             // Get a table
             IgniteTables tablesApi = client.tables();
-            Table myTable = tablesApi.table("MY_TABLE");
+            Table myTable = tablesApi.table("Person");
 
             // Example 1: Query without transaction
             performQueryWithoutTransaction(myTable);
@@ -59,6 +58,8 @@ public class QueryExample {
      * Demonstrates querying with an implicit transaction.
      */
     public static void performQueryWithoutTransaction(Table table) {
+        System.out.println("[ Example 1 ] Performing query without transaction");
+
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
                 null, // Implicit transaction
                 // Query criteria
@@ -68,8 +69,10 @@ public class QueryExample {
                 )
         )) {
             // Process query results (keeping original cursor iteration pattern)
-            // As an example, remove the first found value.
-            cursor.remove();
+            // As an example, println all matched values.
+            while (cursor.hasNext()) {
+                printRecord(cursor.next());
+            }
         }
     }
 
@@ -77,6 +80,8 @@ public class QueryExample {
      * Demonstrates querying with an explicit transaction.
      */
     public static void performQueryWithTransaction(IgniteClient client, Table table) {
+        System.out.println("[ Example 2 ] Performing query with transaction");
+
         Transaction transaction = client.transactions().begin();
 
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
@@ -88,8 +93,10 @@ public class QueryExample {
                 )
         )) {
             // Process query results
-            // As an example, remove the first found value.
-            cursor.remove();
+            // As an example, println all matched values.
+            while (cursor.hasNext()) {
+                printRecord(cursor.next());
+            }
 
             // Commit transaction if all operations succeed
             transaction.commit();
@@ -101,6 +108,8 @@ public class QueryExample {
     }
 
     public static void performQueryAsync(Table table) {
+        System.out.println("[ Example 3 ] Performing asynchronous query");
+
         AsyncCursor<Entry<Tuple, Tuple>> result = table.keyValueView().queryAsync(
                         null, // Implicit transaction
                         and(
@@ -109,13 +118,26 @@ public class QueryExample {
                         )
                 )
                 .join();
-        Iterator<Entry<Tuple, Tuple>> iterator = result.currentPage().iterator();
 
-        while (iterator.hasNext()) {
-            Entry<Tuple, Tuple> item = iterator.next();
-            System.out.println(
-                    "\nRetrieved value:\n"
-                            + "    Value: " + item.getValue());
+        for (Entry<Tuple, Tuple> tupleTupleEntry : result.currentPage()) {
+            printRecord(tupleTupleEntry);
         }
+    }
+
+    private static void printRecord(Entry<Tuple, Tuple> record) {
+        int personId = record.getKey().intValue("id");
+
+        Tuple personValueTuple = record.getValue();
+
+        String personName = personValueTuple.stringValue("name");
+        int personCityId = personValueTuple.intValue("city_id");
+        String personCompany = personValueTuple.stringValue("company");
+
+        System.out.println("Record: { "
+                + "id=" + personId +
+                ", name=" + personName +
+                ", cityId= " + personCityId +
+                ", company=" + personCompany
+                + " }");
     }
 }

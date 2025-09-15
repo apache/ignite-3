@@ -17,14 +17,11 @@
 
 package org.apache.ignite.example.table;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
-import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -52,7 +49,7 @@ public class TableExample {
                     "city_id int," +
                     "name varchar," +
                     "age int," +
-                    "company varchar"
+                    "company varchar)"
             );
 
             // Get the tables API to interact with database tables
@@ -68,7 +65,7 @@ public class TableExample {
             //Table specificTable = tableApi.table("MY_TABLE");
 
             // Create a qualified table name by parsing a string (schema.table format)
-            QualifiedName qualifiedTableName = QualifiedName.parse("PUBLIC.MY_QUALIFIED_TABLE");
+            QualifiedName qualifiedTableName = QualifiedName.parse("PUBLIC.Person");
 
             // Alternative way to create qualified name using schema and table parts
             //QualifiedName qualifiedTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
@@ -76,14 +73,22 @@ public class TableExample {
             // Access a table using the qualified name (includes schema)
             Table myTable = tableApi.table(qualifiedTableName);
 
+            RecordView<Tuple> personTableView = myTable.recordView();
+
             Tuple personTuple = Tuple.create()
                     .set("id", 1)
-                    .set("cityId", "3")
-                    .set("name", "John")
+                    .set("city_id", 3)
+                    .set("name", "John Doe")
                     .set("age", 32)
-                    .set("company", "");
+                    .set("company", "Apache");
 
-            myTable.recordView().insert(null, personTuple);
+            personTableView.upsert(null, personTuple);
+
+            Tuple personIdTuple = Tuple.create()
+                    .set("id", 1);
+            Tuple insertedPerson = personTableView.get(null, personIdTuple);
+
+            System.out.println("Person name: " + insertedPerson.stringValue("name"));
         }
     }
 }

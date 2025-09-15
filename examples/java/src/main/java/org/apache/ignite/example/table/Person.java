@@ -29,14 +29,14 @@ package org.apache.ignite.example.table;
  */
 public class Person {
     private int id;
-    private int cityId;
+    private String cityId;
     private String name;
     private int age;
     private String company;
 
     public Person() {}
 
-    public Person(int id, int cityId, String name, int age, String company) {
+    public Person(int id, String cityId, String name, int age, String company) {
         this.id = id;
         this.cityId = cityId;
         this.name = name;
@@ -47,8 +47,8 @@ public class Person {
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
-    public int getCityId() { return cityId; }
-    public void setCityId(int cityId) { this.cityId = cityId; }
+    public String getCityId() { return cityId; }
+    public void setCityId(String cityId) { this.cityId = cityId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
