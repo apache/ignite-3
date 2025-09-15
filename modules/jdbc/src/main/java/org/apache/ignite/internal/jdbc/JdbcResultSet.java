@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.sql.Array;
@@ -1003,7 +1002,7 @@ public class JdbcResultSet implements ResultSet {
     public String getCursorName() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        throw new SQLFeatureNotSupportedException("Cursor name is not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1019,10 +1018,7 @@ public class JdbcResultSet implements ResultSet {
     public int findColumn(String colLb) throws SQLException {
         ensureNotClosed();
 
-        Objects.requireNonNull(colLb);
-
-        Integer order = columnOrder().get(colLb.toUpperCase());
-
+        Integer order = colLb != null ? columnOrder().get(colLb.toUpperCase()) : null;
         if (order == null) {
             throw new SQLException("Column not found: " + colLb, SqlStateCode.PARSING_EXCEPTION);
         }
@@ -1203,7 +1199,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowUpdated() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Updates checks are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1211,7 +1207,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowInserted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Insert checks are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1219,7 +1215,7 @@ public class JdbcResultSet implements ResultSet {
     public boolean rowDeleted() throws SQLException {
         ensureNotClosed();
 
-        return false;
+        throw new SQLFeatureNotSupportedException("Delete checks are not supported.");
     }
 
     /** {@inheritDoc} */
@@ -1797,25 +1793,9 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public URL getURL(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
+        ensureNotClosed();
 
-        if (val == null) {
-            return null;
-        }
-
-        Class<?> cls = val.getClass();
-
-        if (cls == URL.class) {
-            return (URL) val;
-        } else if (cls == String.class) {
-            try {
-                return new URL(val.toString());
-            } catch (MalformedURLException e) {
-                throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to URL: " + val, SqlStateCode.CONVERSION_FAILED);
-        }
+        throw new SQLFeatureNotSupportedException("SQL-specific types are not supported.");
     }
 
     /** {@inheritDoc} */
