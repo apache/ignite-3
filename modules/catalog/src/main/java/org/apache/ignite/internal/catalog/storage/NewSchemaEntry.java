@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.storage;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -43,13 +44,17 @@ public class NewSchemaEntry implements UpdateEntry {
     public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         descriptor.updateTimestamp(timestamp);
 
+        CatalogZoneDescriptor defaultZoneDesc = catalog.defaultZone();
+
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 CollectionUtils.concat(catalog.schemas(), List.of(descriptor)),
-                catalog.defaultZone().id()
+                defaultZoneDesc == null
+                        ? null
+                        : defaultZoneDesc.id()
         );
     }
 

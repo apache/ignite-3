@@ -864,7 +864,6 @@ public class IgniteImpl implements Ignite {
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 
