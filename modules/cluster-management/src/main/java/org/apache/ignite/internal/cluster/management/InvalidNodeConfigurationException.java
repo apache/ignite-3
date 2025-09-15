@@ -22,7 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATI
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Exception representing invalid node configuration. This is used to differentiate from other errors.
+ * Exception representing invalid node configuration.
  */
 public class InvalidNodeConfigurationException extends IgniteInternalException {
     public InvalidNodeConfigurationException(String message) {

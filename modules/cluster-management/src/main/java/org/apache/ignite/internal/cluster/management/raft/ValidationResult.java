@@ -42,15 +42,15 @@ public class ValidationResult {
     /**
      * Creates a failed validation result with a flag denoting whether caused by invalid node configuration.
      */
-    static ValidationResult errorResult(String errorDescription, boolean invalidNodeConfig) {
-        return new ValidationResult(errorDescription, invalidNodeConfig);
+    static ValidationResult configErrorResult(String errorDescription) {
+        return new ValidationResult(errorDescription, true);
     }
 
     /**
      * Creates a failed validation result.
      */
     static ValidationResult errorResult(String errorDescription) {
-        return errorResult(errorDescription, false);
+        return new ValidationResult(errorDescription, false);
     }
 
     /**

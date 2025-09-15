@@ -114,11 +114,11 @@ public class ValidationManager {
                     clusterTag, state.clusterTag()
             ));
         } else if (!isColocationEnabledMatched(isColocationEnabled(node))) {
-            return ValidationResult.errorResult(String.format(
+            return ValidationResult.configErrorResult(String.format(
                     "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
                     isColocationEnabled(node),
                     isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
-            ), true);
+            ));
         } else {
             putValidatedNode(node);
 
