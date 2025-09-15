@@ -401,19 +401,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
-
-        // Without default zone preparation we will catch "Critical system error" because test placement driver will return fake primary
-        // replica for default zone out of corresponding assignments.
-        if (colocationEnabled()) {
-            alterDefaultZone(node0);
-
-            assertTrue(
-                    waitForCondition(
-                            () -> getDefaultZonePartitionStableAssignments(node0, 0).size() == NODE_COUNT,
-                            AWAIT_TIMEOUT_MILLIS
-                    )
-            );
-        }
     }
 
     @AfterEach
@@ -558,7 +545,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .localNodes()
                 .stream()
                 .filter(nodeId -> nodeId.groupId().toString().contains("part"))
-                .filter(nodeId -> !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part"))
+                .filter(nodeId -> !isDefaultZoneExists(leaderNode.catalogManager)
+                        || (isDefaultZoneExists(leaderNode.catalogManager)
+                        && !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part")))
                 .findFirst()
                 .orElseThrow();
 
@@ -594,6 +583,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static int defaultZoneId(CatalogManager catalog) {
         return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
+    }
+
+    private static boolean isDefaultZoneExists(CatalogManager catalog) {
+        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone() != null;
     }
 
     @Test
@@ -2042,8 +2035,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .flatMap((n) -> {
                     List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
+                        CatalogManager catalogManager = nodes.get(0).catalogManager;
                         // Excluded default zone raft services.
-                        if (!raftGroupService.getGroupId().startsWith("" + defaultZoneId(nodes.get(0).catalogManager))) {
+                        if (!isDefaultZoneExists(catalogManager)
+                                || (isDefaultZoneExists(catalogManager)
+                                && !raftGroupService.getGroupId().startsWith("" + defaultZoneId(catalogManager)))) {
                             nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
                         }
                     });
