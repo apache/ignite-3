@@ -6,6 +6,7 @@ import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.MIGRATION_TOOL
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.SQL_LOGIC
 import org.apache.ignite.teamcity.ApacheIgnite3Teamcity.Companion.UNIT
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 import test.template_types.RunTests
 import test.template_types.RunTestsList
 
@@ -16,9 +17,10 @@ object RunAllTestsCustomJDK : BuildType({
     type = Type.COMPOSITE
 
     params {
-        checkbox("reverse.dep.*.IGNITE_ZONE_BASED_REPLICATION", "false", label = "Disable Zone-based replication", checked = "true", unchecked = "false")
-        select("reverse.dep.*.env.A_GRADLE_OPTS", "", label = "Default Storage Engine", options = listOf("Default" to "", "aimem" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=aimem", "rocksdb" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=rocksdb"))
-        select("reverse.dep.*.env.JAVA_HOME", "%env.JDK_ORA_11%", label = "JDK", options = listOf("JDK 11" to "%env.JDK_ORA_11%", "JDK 21" to "%env.JDK_ORA_21%"))
+        checkbox("IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS", "-DtestAllVersions=false", label = "Test All Versions", description = "Test all versions in compatibility tests", checked = "-DtestAllVersions=true", unchecked = "-DtestAllVersions=false")
+        checkbox("IGNITE_ZONE_BASED_REPLICATION", "-DIGNITE_ZONE_BASED_REPLICATION=false", label = "Disable Zone-based replication", checked = "-DIGNITE_ZONE_BASED_REPLICATION=true", unchecked = "-DIGNITE_ZONE_BASED_REPLICATION=false")
+        select("IGNITE_DEFAULT_STORAGE_ENGINE", "", label = "Default Storage Engine", options = listOf("Default" to "", "aimem" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=aimem", "rocksdb" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=rocksdb"))
+        hiddenText("reverse.dep.*.env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_ZONE_BASED_REPLICATION% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
     }
 
     dependencies {

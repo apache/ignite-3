@@ -27,6 +27,10 @@ class ApacheIgnite3Teamcity {
             "Binary Tuple",
             "ignite-binary-tuple"
         )
+        private val IGNITE__CATALOG = GradleModule(
+            "Catalog",
+            "ignite-catalog"
+        )
         private val IGNITE__CLI = GradleModule(
             "CLI",
             "ignite-cli"
@@ -47,6 +51,10 @@ class ApacheIgnite3Teamcity {
             "Cluster Management",
             "ignite-cluster-management"
         )
+        private val IGNITE__CODE_DEPLOYMENT = GradleModule(
+            "Code Deployment",
+            "ignite-code-deployment"
+        )
         private val IGNITE__COMPUTE = GradleModule(
             "Compute",
             "ignite-compute"
@@ -63,6 +71,18 @@ class ApacheIgnite3Teamcity {
             "Ignite Core",
             "ignite-core"
         )
+        private val IGNITE__DISTRIBUTION_ZONES = GradleModule(
+            "Distribution Zones",
+            "ignite-distribution-zones"
+        )
+        private val IGNITE__EXAMPLES = GradleModule(
+            "Examples",
+            "ignite-examples"
+        )
+        private val IGNITE__FILE_TRANSFER = GradleModule(
+            "File Transfer",
+            "ignite-file-transfer"
+        )
         private val IGNITE__FILE_IO = GradleModule(
             "File IO",
             "ignite-file-io"
@@ -70,6 +90,10 @@ class ApacheIgnite3Teamcity {
         private val IGNITE__INDEX = GradleModule(
             "Index",
             "ignite-index"
+        )
+        private val IGNITE__JDBC = GradleModule(
+            "JDBC",
+            "ignite-jdbc"
         )
         private val IGNITE__MARSHALLER_COMMON = GradleModule(
             "Marshaller Common",
@@ -98,6 +122,10 @@ class ApacheIgnite3Teamcity {
         private val IGNITE__PAGE_MEMORY = GradleModule(
             "Page Memory",
             "ignite-page-memory"
+        )
+        private val IGNITE__PARTITION_REPLICATOR = GradleModule(
+            "Partition Replicator",
+            "ignite-partition-replicator"
         )
         private val IGNITE__PLACEMENT_DRIVER = GradleModule(
             "Placement Driver",
@@ -164,7 +192,10 @@ class ApacheIgnite3Teamcity {
             "Vault",
             "ignite-vault"
         )
-
+        private val IGNITE__COMPATIBILITY = GradleModule(
+            "Compatibility",
+            "ignite-compatibility-tests"
+        )
         private val MIGRATION_TOOLS_CLI = GradleModule(
             "Migration Tools - CLI",
             "migration-tools-cli"
@@ -209,8 +240,8 @@ class ApacheIgnite3Teamcity {
          * List of GradleModules with Unit tests
          */
         private val unitTestGradleModuleList: List<GradleModule> = listOf(
-            IGNITE__ARCH_TEST,
             IGNITE__API,
+            IGNITE__ARCH_TEST,
             IGNITE__BINARY_TUPLE,
             IGNITE__CLI,
             IGNITE__CLIENT,
@@ -232,16 +263,16 @@ class ApacheIgnite3Teamcity {
             IGNITE__PAGE_MEMORY,
             IGNITE__PLACEMENT_DRIVER,
             IGNITE__RAFT,
+            IGNITE__REPLICATOR,
             IGNITE__REST,
             IGNITE__REST_API,
-            IGNITE__REPLICATOR,
             IGNITE__RUNNER,
             IGNITE__SCHEMA,
+            IGNITE__SECURITY,
             IGNITE__SQL_ENGINE,
             IGNITE__STORAGE_API,
             IGNITE__STORAGE_PAGE_MEMORY,
             IGNITE__STORAGE_ROCKSDB,
-            IGNITE__SECURITY,
             IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
@@ -252,21 +283,30 @@ class ApacheIgnite3Teamcity {
             IGNITE__CLI,
             IGNITE__CLIENT_HANDLER,
             IGNITE__CLUSTER_MANAGEMENT,
+            IGNITE__CODE_DEPLOYMENT,
+            IGNITE__COMPATIBILITY,
+            IGNITE__COMPUTE,
             IGNITE__CONFIGURATION_ANNOTATION_PROCESSOR,
+            IGNITE__DISTRIBUTION_ZONES,
+            IGNITE__EXAMPLES,
+            IGNITE__FILE_TRANSFER,
+            IGNITE__INDEX,
+            IGNITE__JDBC,
             IGNITE__METASTORAGE,
             IGNITE__METRICS,
             IGNITE__NETWORK,
             IGNITE__PAGE_MEMORY,
+            IGNITE__PARTITION_REPLICATOR,
             IGNITE__PLACEMENT_DRIVER,
             IGNITE__RAFT,
-            IGNITE__REST,
             IGNITE__REPLICATOR,
+            IGNITE__REST,
             IGNITE__RUNNER,
+            IGNITE__SECURITY,
+            IGNITE__SQL_ENGINE,
+            IGNITE__SYSTEM_DISASTER_RECOVERY,
             IGNITE__TABLE,
             IGNITE__TRANSACTIONS,
-            IGNITE__SQL_ENGINE,
-            IGNITE__SECURITY,
-            IGNITE__SYSTEM_DISASTER_RECOVERY
         )
 
         private val migrationToolsIntegrationModules: List<GradleModule> = listOf(

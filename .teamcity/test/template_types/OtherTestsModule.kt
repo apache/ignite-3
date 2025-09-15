@@ -37,6 +37,7 @@ class OtherTestsModule(
             tasks = configuration.testTask + " " +
                 excludeModules.map { "-x " + it.buildTask(configuration.testTask) }.joinToString(" ")
             workingDir = "%VCSROOT__IGNITE3%"
+            gradleParams = "%GRADLE_OPTS%"
             this.jvmArgs = """
                 -Xmx%XMX%
                 %JVM_ARGS%
