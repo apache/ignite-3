@@ -27,7 +27,9 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -39,15 +41,18 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void constantMethods() throws SQLException {
+        String username = String.valueOf(ThreadLocalRandom.current().nextInt(128, 256));
+        String jdbcUrl = "jdbc:ignite://localhost:" + ThreadLocalRandom.current().nextInt(1000, 10800);
+
         JdbcClientQueryEventHandler handler = Mockito.mock(JdbcClientQueryEventHandler.class);
         Connection connection = Mockito.mock(Connection.class);
-        DatabaseMetaData metaData = new JdbcDatabaseMetadata(handler, "url", connection);
+        DatabaseMetaData metaData = new JdbcDatabaseMetadata(connection, handler, jdbcUrl, username);
 
         // Basic info
         assertTrue(metaData.allProceduresAreCallable());
         assertTrue(metaData.allTablesAreSelectable());
-        assertEquals("url", metaData.getURL());
-        assertEquals("", metaData.getUserName());
+        assertEquals(jdbcUrl, metaData.getURL());
+        assertEquals(username, metaData.getUserName());
         assertFalse(metaData.isReadOnly());
 
         // Null ordering
@@ -60,9 +65,10 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertEquals("Apache Ignite", metaData.getDatabaseProductName());
         assertEquals(ProtocolVersion.LATEST_VER.toString(), metaData.getDatabaseProductVersion());
         assertEquals("Apache Ignite JDBC Driver", metaData.getDriverName());
-        assertEquals(ProtocolVersion.LATEST_VER.toString(), metaData.getDriverVersion());
-        assertEquals(ProtocolVersion.LATEST_VER.major(), metaData.getDriverMajorVersion());
-        assertEquals(ProtocolVersion.LATEST_VER.minor(), metaData.getDriverMinorVersion());
+        IgniteProductVersion productVersion = IgniteProductVersion.CURRENT_VERSION;
+        assertEquals(productVersion.toString(), metaData.getDriverVersion());
+        assertEquals(productVersion.major(), metaData.getDriverMajorVersion());
+        assertEquals(productVersion.minor(), metaData.getDriverMinorVersion());
 
         // Files, identifiers, quotes
         assertFalse(metaData.usesLocalFiles());
@@ -89,8 +95,8 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertTrue(metaData.supportsAlterTableWithDropColumn());
         assertTrue(metaData.supportsColumnAliasing());
         assertTrue(metaData.nullPlusNonNullIsNull());
-        assertTrue(metaData.supportsConvert());
-        assertTrue(metaData.supportsConvert(0, 0));
+        assertFalse(metaData.supportsConvert());
+        assertFalse(metaData.supportsConvert(0, 0));
         assertTrue(metaData.supportsTableCorrelationNames());
         assertTrue(metaData.supportsDifferentTableCorrelationNames());
         assertTrue(metaData.supportsExpressionsInOrderBy());
@@ -100,15 +106,15 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertTrue(metaData.supportsGroupByBeyondSelect());
         assertTrue(metaData.supportsLikeEscapeClause());
         assertTrue(metaData.supportsMultipleResultSets());
-        assertFalse(metaData.supportsMultipleTransactions());
-        assertFalse(metaData.supportsNonNullableColumns());
+        assertTrue(metaData.supportsMultipleTransactions());
+        assertTrue(metaData.supportsNonNullableColumns());
 
         // SQL support
-        assertFalse(metaData.supportsMinimumSQLGrammar());
+        assertTrue(metaData.supportsMinimumSQLGrammar());
         assertTrue(metaData.supportsCoreSQLGrammar());
-        assertFalse(metaData.supportsExtendedSQLGrammar());
+        assertTrue(metaData.supportsExtendedSQLGrammar());
         assertTrue(metaData.supportsANSI92EntryLevelSQL());
-        assertFalse(metaData.supportsANSI92IntermediateSQL());
+        assertTrue(metaData.supportsANSI92IntermediateSQL());
         assertFalse(metaData.supportsANSI92FullSQL());
         assertFalse(metaData.supportsIntegrityEnhancementFacility());
         assertTrue(metaData.supportsOuterJoins());
@@ -116,6 +122,7 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertTrue(metaData.supportsFullOuterJoins());
         assertTrue(metaData.supportsLimitedOuterJoins());
 
+        assertEquals("schema", metaData.getSchemaTerm());
         assertEquals("", metaData.getProcedureTerm());
         assertEquals("", metaData.getCatalogTerm());
         assertFalse(metaData.isCatalogAtStart());
@@ -147,12 +154,13 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertFalse(metaData.supportsOpenCursorsAcrossCommit());
         assertFalse(metaData.supportsOpenCursorsAcrossRollback());
         assertFalse(metaData.supportsOpenStatementsAcrossCommit());
+        assertFalse(metaData.supportsOpenStatementsAcrossCommit());
         assertFalse(metaData.supportsOpenStatementsAcrossRollback());
 
         // Lengths
-        assertEquals(0, metaData.getMaxBinaryLiteralLength());
-        assertEquals(0, metaData.getMaxCharLiteralLength());
-        assertEquals(0, metaData.getMaxColumnNameLength());
+        assertEquals(Integer.MAX_VALUE, metaData.getMaxBinaryLiteralLength());
+        assertEquals(Integer.MAX_VALUE, metaData.getMaxCharLiteralLength());
+        assertEquals(128, metaData.getMaxColumnNameLength());
         assertEquals(0, metaData.getMaxColumnsInGroupBy());
         assertEquals(0, metaData.getMaxColumnsInIndex());
         assertEquals(0, metaData.getMaxColumnsInOrderBy());
@@ -161,7 +169,7 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertEquals(0, metaData.getMaxConnections());
         assertEquals(0, metaData.getMaxCursorNameLength());
         assertEquals(0, metaData.getMaxIndexLength());
-        assertEquals(0, metaData.getMaxSchemaNameLength());
+        assertEquals(128, metaData.getMaxSchemaNameLength());
         assertEquals(0, metaData.getMaxProcedureNameLength());
         assertEquals(0, metaData.getMaxCatalogNameLength());
         assertEquals(0, metaData.getMaxRowSize());
@@ -173,9 +181,15 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertEquals(0, metaData.getMaxUserNameLength());
 
         // Transactions related constants
-        assertEquals(Connection.TRANSACTION_NONE, metaData.getDefaultTransactionIsolation());
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, metaData.getDefaultTransactionIsolation());
         assertTrue(metaData.supportsTransactions());
+
+        assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+        assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
         assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
+        assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+        assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+
         assertFalse(metaData.supportsDataDefinitionAndDataManipulationTransactions());
         assertFalse(metaData.supportsDataManipulationTransactionsOnly());
         assertFalse(metaData.dataDefinitionCausesTransactionCommit());
@@ -254,7 +268,6 @@ public class JdbcDatabaseMetadataSelfTest extends BaseIgniteAbstractTest {
         assertFalse(metaData.supportsNamedParameters());
         assertFalse(metaData.supportsMultipleOpenResults());
         assertFalse(metaData.supportsGetGeneratedKeys());
-        assertEquals(ProtocolVersion.LATEST_VER.toString(), metaData.getDriverVersion());
 
         assertFalse(metaData.generatedKeyAlwaysReturned());
     }

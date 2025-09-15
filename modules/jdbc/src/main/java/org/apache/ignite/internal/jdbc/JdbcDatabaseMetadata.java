@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import static java.sql.Connection.TRANSACTION_NONE;
+import static java.sql.Connection.TRANSACTION_SERIALIZABLE;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
@@ -53,6 +53,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
@@ -76,19 +77,28 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     private final String url;
 
+    private final String userName;
+
     private final Connection connection;
 
     /**
      * Constructor.
      *
+     * @param connection Connection
      * @param handler Handler.
      * @param url URL
-     * @param connection Connection
+     * @param userName User name,
      */
-    public JdbcDatabaseMetadata(JdbcQueryEventHandler handler, String url, Connection connection) {
+    public JdbcDatabaseMetadata(
+            Connection connection,
+            JdbcQueryEventHandler handler,
+            String url,
+            String userName
+    ) {
         this.handler = handler;
-        this.url = url;
         this.connection = connection;
+        this.url = url;
+        this.userName = userName;
     }
 
     /** {@inheritDoc} */
@@ -112,7 +122,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getUserName() {
-        return "";
+        return userName;
     }
 
     /** {@inheritDoc} */
@@ -166,19 +176,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getDriverVersion() {
-        return ProtocolVersion.LATEST_VER.toString();
+        return IgniteProductVersion.CURRENT_VERSION.toString();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMajorVersion() {
-        return ProtocolVersion.LATEST_VER.major();
+        return IgniteProductVersion.CURRENT_VERSION.major();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMinorVersion() {
-        return ProtocolVersion.LATEST_VER.minor();
+        return IgniteProductVersion.CURRENT_VERSION.minor();
     }
 
     /** {@inheritDoc} */
@@ -316,13 +326,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert(int fromType, int toType) {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -382,19 +392,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsMultipleTransactions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsNonNullableColumns() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsMinimumSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -406,7 +416,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsExtendedSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -419,7 +429,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsANSI92IntermediateSQL() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -455,7 +465,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getSchemaTerm() {
-        return "";
+        return "schema";
     }
 
     /** {@inheritDoc} */
@@ -635,19 +645,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxBinaryLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxCharLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxColumnNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -701,7 +711,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxSchemaNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -761,7 +771,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getDefaultTransactionIsolation() {
-        return TRANSACTION_NONE;
+        return TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
@@ -773,7 +783,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsTransactionIsolationLevel(int level) {
-        return false;
+        return level == TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
@@ -1716,7 +1726,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      *
      * @param catalog Catalog name or {@code null}.
      * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME} or null (which means any catalog),
-     *      otherwise returns {@code false}.
+     *         otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
         return catalog == null || catalog.equalsIgnoreCase(CATALOG_NAME);
@@ -1755,7 +1765,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * Constructs a list of rows in jdbc format for a given column metadata.
      *
      * @param colMeta Column metadata.
-     * @param pos     Ordinal position.
+     * @param pos Ordinal position.
      * @return Column metadata row.
      */
     public static List<Object> columnRow(JdbcColumnMeta colMeta, int pos) {
