@@ -127,13 +127,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private final ChannelTypeRegistry channelTypeRegistry = defaultChannelTypeRegistry();
 
-    private final InternalClusterNode senderNode = new InternalClusterNodeImpl(
+    private final InternalClusterNode senderNode = new ClusterNodeImpl(
             randomUUID(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
-    private final InternalClusterNode receiverNode = new InternalClusterNodeImpl(
+    private final InternalClusterNode receiverNode = new ClusterNodeImpl(
             randomUUID(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
@@ -523,8 +523,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private InternalClusterNodeImpl copyWithDifferentId() {
-        return new InternalClusterNodeImpl(
+    private ClusterNodeImpl copyWithDifferentId() {
+        return new ClusterNodeImpl(
                 randomUUID(),
                 receiverNode.name(),
                 receiverNode.address(),
@@ -570,7 +570,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     }
 
     private static InternalClusterNode copyWithoutName(InternalClusterNode node) {
-        return new InternalClusterNodeImpl(node.id(), null, node.address());
+        return new ClusterNodeImpl(node.id(), null, node.address());
     }
 
     private static void awaitQuietly(CountDownLatch latch) {
@@ -769,30 +769,30 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private enum ClusterNodeChanger {
         NOT_CHANGE((node, services) -> node),
-        CHANGE_ID_ONLY((node, services) -> new InternalClusterNodeImpl(randomUUID(), node.name(), node.address())),
-        CHANGE_NAME_ONLY((node, services) -> new InternalClusterNodeImpl(node.id(), node.name() + "_", node.address())),
-        CHANGE_NAME((node, services) -> new InternalClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
-        SET_IPV4_LOOPBACK((node, services) -> new InternalClusterNodeImpl(
+        CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address())),
+        CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address())),
+        CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
+        SET_IPV4_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("127.0.0.1", node.address().port())
         )),
-        SET_IPV6_LOOPBACK((node, services) -> new InternalClusterNodeImpl(
+        SET_IPV6_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("::1", node.address().port())
         )),
-        SET_IPV4_ANYLOCAL((node, services) -> new InternalClusterNodeImpl(
+        SET_IPV4_ANYLOCAL((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("0.0.0.0", node.address().port())
         )),
-        SET_IPV6_ANYLOCAL((node, services) -> new InternalClusterNodeImpl(
+        SET_IPV6_ANYLOCAL((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("0:0:0:0:0:0:0:0", node.address().port())
         )),
-        SET_LOCALHOST((node, services) -> new InternalClusterNodeImpl(
+        SET_LOCALHOST((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress(localHostName(), node.address().port())

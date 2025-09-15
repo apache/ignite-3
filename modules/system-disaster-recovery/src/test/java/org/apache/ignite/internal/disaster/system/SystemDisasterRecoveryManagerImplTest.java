@@ -77,9 +77,9 @@ import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecovery
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetastorageGroupMaintenance;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -146,12 +146,12 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private final ComponentContext componentContext = new ComponentContext();
 
-    private final InternalClusterNode thisNode = new InternalClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
+    private final InternalClusterNode thisNode = new ClusterNodeImpl(randomUUID(), thisNodeName, new NetworkAddress("host", 1001));
 
-    private final InternalClusterNode node2 = new InternalClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
-    private final InternalClusterNode node3 = new InternalClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
-    private final InternalClusterNode node4 = new InternalClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
-    private final InternalClusterNode node5 = new InternalClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
+    private final InternalClusterNode node2 = new ClusterNodeImpl(randomUUID(), "node2", new NetworkAddress("host", 1002));
+    private final InternalClusterNode node3 = new ClusterNodeImpl(randomUUID(), "node3", new NetworkAddress("host", 1003));
+    private final InternalClusterNode node4 = new ClusterNodeImpl(randomUUID(), "node4", new NetworkAddress("host", 1004));
+    private final InternalClusterNode node5 = new ClusterNodeImpl(randomUUID(), "node5", new NetworkAddress("host", 1005));
 
     private final UUID clusterId = new UUID(1, 2);
 

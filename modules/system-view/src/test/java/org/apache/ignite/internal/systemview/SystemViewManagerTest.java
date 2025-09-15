@@ -66,8 +66,8 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -355,7 +355,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < allNodes.size(); i++) {
             String name = allNodes.get(i);
 
-            InternalClusterNode clusterNode = new InternalClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
+            InternalClusterNode clusterNode = new ClusterNodeImpl(randomUUID(), name, new NetworkAddress("127.0.0.1", 1010 + i));
 
             Map<String, String> systemAttributes;
             if (owningNodesSet.get(i)) {

@@ -70,8 +70,8 @@ import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.PublicClusterNodeImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -197,7 +197,7 @@ public class FakeCompute implements IgniteComputeInternal {
     ) {
         if (target instanceof AnyNodeJobTarget) {
             Set<InternalClusterNode> nodes = ((AnyNodeJobTarget) target).nodes().stream()
-                    .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
                     .collect(toUnmodifiableSet());
 
             return executeAsyncWithFailover(

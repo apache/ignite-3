@@ -1648,7 +1648,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionReplicaLifecycleManager,
                     nodeProperties,
                     minTimeCollectorService,
-                    systemDistributedConfiguration
+                    systemDistributedConfiguration,
+                    metricManager,
+                    TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
             ) {
                 @Override
                 protected TxStateStorage createTxStateTableStorage(

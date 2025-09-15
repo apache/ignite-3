@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
@@ -34,28 +34,28 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("lru_rocks", "clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("lru_rocks")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new InternalClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
@@ -88,7 +88,7 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.removeNodes(Set.of(C));
 
         LogicalNode newC = new LogicalNode(
-                new InternalClusterNodeImpl(randomUUID(), "newC", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "newC", new NetworkAddress("localhost", 123)),
                 Map.of(),
                 Map.of(),
                 List.of("clock_rocks", "segmented_aipersist")

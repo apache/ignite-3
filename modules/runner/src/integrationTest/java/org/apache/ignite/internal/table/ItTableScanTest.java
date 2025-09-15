@@ -61,8 +61,8 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -797,7 +797,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             InternalClusterNode recipientNode = ignite.cluster().nodes().stream()
                     .filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
-                    .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
                     .findFirst()
                     .get();
 
@@ -863,7 +863,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 String consId = assignments.iterator().next().consistentId();
 
                 InternalClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
-                        .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                        .map(ClusterNodeImpl::fromPublicClusterNode)
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
@@ -909,7 +909,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalClusterNode primaryNode = ignite.cluster().nodes().stream()
                 .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
-                .map(InternalClusterNodeImpl::fromPublicClusterNode)
+                .map(ClusterNodeImpl::fromPublicClusterNode)
                 .findAny()
                 .orElseThrow();
 

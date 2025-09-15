@@ -39,8 +39,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -66,10 +66,10 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     @Mock
     private NetworkMessage message;
 
-    private final InternalClusterNode sender = new InternalClusterNodeImpl(
+    private final InternalClusterNode sender = new ClusterNodeImpl(
             randomUUID(), SENDER_CONSISTENT_ID, new NetworkAddress("sender-host", 3000)
     );
-    private final InternalClusterNode recipient = new InternalClusterNodeImpl(
+    private final InternalClusterNode recipient = new ClusterNodeImpl(
             randomUUID(),
             RECIPIENT_CONSISTENT_ID,
             new NetworkAddress("recipient-host", 3000)
