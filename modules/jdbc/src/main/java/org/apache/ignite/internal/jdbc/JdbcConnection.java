@@ -477,7 +477,7 @@ public class JdbcConnection implements Connection {
         ensureNotClosed();
 
         if (metadata == null) {
-            metadata = new JdbcDatabaseMetadata(this);
+            metadata = new JdbcDatabaseMetadata(this, handler, connProps.getUrl(), connProps.getUsername());
         }
 
         return metadata;
