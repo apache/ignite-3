@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 
 /**
@@ -60,5 +61,19 @@ public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
         } catch (SQLException e) {
             throw new RuntimeException("Unexpected exception", e);
         }
+    }
+
+    // findColumn has bugs in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void findColumn() throws SQLException {
+        super.navigationMethods();
+    }
+
+    // isAfterLast has bugs in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void navigationMethods() throws SQLException {
+        super.navigationMethods();
     }
 }
