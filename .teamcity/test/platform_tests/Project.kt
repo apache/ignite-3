@@ -9,38 +9,36 @@ object Project : Project({
     id(getId(this::class))
     name = "[Platform Tests]"
 
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(PlatformCppTestsLinux)
-            .ignite3VCS()
-            .defaultBuildTypeSettings().requireLinux()
-            .build().buildType
-    )
+    /**
+     * List of platform linux tests
+     */
 
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(PlatformCppTestsWindows)
-            .ignite3VCS()
-            .defaultBuildTypeSettings().requireWindows()
-            .build().buildType
-    )
+    listOf(
+        PlatformCppTestsLinux,
+        PlatformDotnetTestsLinux,
+        PlatformPythonTestsLinux
+    ).forEach {
+        buildType(
+            ApacheIgnite3CustomBuildType.Builder(it)
+                .ignite3VCS().ignite3BuildDependency()
+                .defaultBuildTypeSettings().requireLinux().requireNonDind()
+                .build().buildType
+        )
+    }
 
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsLinux)
-            .ignite3VCS()
-            .defaultBuildTypeSettings().requireLinux()
-            .build().buildType
-    )
+    /**
+     * List of platform windows tests
+     */
 
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(PlatformDotnetTestsWindows)
-            .ignite3VCS()
-            .defaultBuildTypeSettings().requireWindows()
-            .build().buildType
-    )
-
-    buildType(
-        ApacheIgnite3CustomBuildType.Builder(PlatformPythonTestsLinux)
-            .ignite3VCS()
-            .defaultBuildTypeSettings().requireLinux()
-            .build().buildType
-    )
+    listOf(
+        PlatformCppTestsWindows,
+        PlatformDotnetTestsWindows
+    ).forEach {
+        buildType(
+            ApacheIgnite3CustomBuildType.Builder(it)
+                .ignite3VCS().ignite3BuildDependency()
+                .defaultBuildTypeSettings().requireWindows()
+                .build().buildType
+        )
+    }
 })

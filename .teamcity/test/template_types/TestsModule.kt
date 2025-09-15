@@ -21,7 +21,7 @@ class TestsModule(
 
     params {
         hiddenText("XMX", configuration.xmx.toString() + "g")
-        hiddenText("JVM_ARGS", module.jvmArgs)
+        hiddenText("JVM_ARGS", module.jvmArgs + configuration.jvmArg)
     }
 
     steps {
