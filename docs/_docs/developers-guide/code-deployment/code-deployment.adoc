@@ -28,14 +28,47 @@ The example below demonstrates how to load a script that is packaged within a JA
 
 [source, java]
 ----
-public Object execute() throws Exception {
-    try (InputStream in = ComputeJob.class.getClassLoader()
-            .getResourceAsStream("/path_to_folder_in_resources/script.sh")) {
-        if (in == null) {
-            throw new IllegalStateException("Resource not found: /path_to_folder_in_resources/script.sh");
+public class MyJob implements ComputeJob<String, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext ctx, String arg) {
+        Ignite ignite = ctx.ignite();
+
+        /** Full path to the script we want to run */
+        final String resPath = "/org/apache/ignite/example/code/deployment/resources/script.sh";
+
+        try (InputStream in = MyJob.class.getResourceAsStream(resPath)) {
+            if (in == null) {
+                throw new IllegalStateException("Resource not found: " + resPath);
+            }
+
+            byte[] script = in.readAllBytes();
+
+            Process p = new ProcessBuilder("sh", "-s", "--", arg)
+                    .redirectErrorStream(true)
+                    .start();
+
+            try (OutputStream os = p.getOutputStream()) {
+                os.write(script);
+            }
+
+            String out;
+            try (InputStream procOut = p.getInputStream()) {
+                out = new String(procOut.readAllBytes(), StandardCharsets.UTF_8).strip();
+            }
+
+            int exit = p.waitFor();
+            if (exit != 0) {
+                throw new RuntimeException("Script exited with code " + exit + ":\n" + out);
+            }
+
+            String result = "Node: " + ignite.name()
+                    + "\nArg: " + arg
+                    + "\nScript output:\n" + out;
+
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to run script", e);
         }
-        String scriptContent = new String(in.readAllBytes());
-        return scriptContent;
     }
 }
 ----
