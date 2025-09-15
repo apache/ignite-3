@@ -100,7 +100,7 @@ japicmp = "0.23.1"
 pmdTool = "7.13.0"
 # NOTE: do not update checlstyle to 11.x.x+, because newer versions are not compatible with Java 11.
 checkstyleTool = "10.26.1"
-spotbugsTool = "4.9.4"
+spotbugsTool = "4.9.5"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
