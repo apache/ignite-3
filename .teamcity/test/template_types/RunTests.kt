@@ -15,5 +15,8 @@ class RunTests(private val tests: Tests, private val suiteId: String = tests.con
         for (test in tests.modules) {
             snapshot(TestsModule(tests.configuration, test)) {}
         }
+        if (tests.enableOthers) {
+            snapshot(OtherTestsModule(tests.configuration, tests.modules)) {}
+        }
     }
 })
