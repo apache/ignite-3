@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -38,6 +39,7 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -311,22 +313,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(igniteTable));
         Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
 
-        CacheFactory cacheFactory = new CacheFactory() {
-            @Override
-            public <K, V> Cache<K, V> create(int size) {
-                return (Cache<K, V>) cache;
-            }
-
-            @Override
-            public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
-                return (Cache<K, V>) cache;
-            }
-
-            @Override
-            public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
-                return (Cache<K, V>) cache;
-            }
-        };
+        CacheFactory cacheFactory = new DummyCacheFactory(cache);
 
         PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 100);
 
@@ -410,6 +397,101 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         });
     }
 
+    @Test
+    public void invalidatePlannerCache() {
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(
+                TestBuilders.table().name("T1").addColumn("C", NativeTypes.INT32).distribution(IgniteDistributions.single()).build(),
+                TestBuilders.table().name("T2").addColumn("C", NativeTypes.INT32).distribution(IgniteDistributions.single()).build()
+        ));
+
+        Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
+
+        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000);
+
+        await(service.prepareAsync(parse("SELECT * FROM t1"),  createContext()));
+        await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"),  createContext()));
+        await(service.prepareAsync(parse("SELECT * FROM t2"),  createContext()));
+
+        assertThat(cache.size(), is(3));
+
+        // Invalidate
+        await(service.invalidateCache(Set.of()));
+
+        assertThat(cache.size(), is(0));
+    }
+
+    @Test
+    public void invalidateQueryPlans() {
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(
+                TestBuilders.table().name("T1").addColumn("C", NativeTypes.INT32).distribution(IgniteDistributions.single()).build(),
+                TestBuilders.table().name("t2").addColumn("C", NativeTypes.INT32).distribution(IgniteDistributions.single()).build()
+        ));
+
+        Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
+
+        PrepareServiceImpl service = createPlannerService(schema, new DummyCacheFactory(cache), 1000);
+
+        { // Simple name.
+            await(service.prepareAsync(parse("SELECT * FROM t1"), createContext()));
+            await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"), createContext()));
+            QueryPlan queryPlan = await(service.prepareAsync(parse("SELECT * FROM \"t2\""), createContext()));
+
+            assertThat(cache.size(), is(3));
+
+            // Case, when no plan matches.
+            await(service.invalidateCache(Set.of("t")));
+            assertThat(cache.size(), is(3));
+
+            await(service.invalidateCache(Set.of("t2")));
+            assertThat(cache.size(), is(3));
+
+            // Found and invalidate related plan.
+            await(service.invalidateCache(Set.of("t1")));
+            assertThat(cache.size(), is(1));
+
+            QueryPlan explainPlan = await(service.prepareAsync(
+                    parse("explain plan for select * from \"t2\""),
+                    createContext()
+            ));
+
+            ExplainPlan plan = (ExplainPlan) explainPlan;
+            assertThat(plan.plan(), sameInstance(queryPlan));
+
+            await(service.invalidateCache(Set.of("\"t2\"")));
+            assertThat(cache.size(), is(0));
+        }
+
+        { // Qualified name.
+            await(service.prepareAsync(parse("SELECT * FROM t1"), createContext()));
+            await(service.prepareAsync(parse("SELECT * FROM t1 WHERE C > 0"), createContext()));
+            QueryPlan queryPlan = await(service.prepareAsync(parse("SELECT * FROM \"t2\""), createContext()));
+
+            assertThat(cache.size(), is(3));
+
+            // Case, when no plan matches.
+            await(service.invalidateCache(Set.of("PUBLIC.t2")));
+            assertThat(cache.size(), is(3));
+
+            await(service.invalidateCache(Set.of("MYSCHEMA.t1")));
+            assertThat(cache.size(), is(3));
+
+            // Found and invalidate related plan.
+            await(service.invalidateCache(Set.of("PUBLIC.t1")));
+            assertThat(cache.size(), is(1));
+
+            QueryPlan explainPlan = await(service.prepareAsync(
+                    parse("explain plan for select * from \"t2\""),
+                    createContext()
+            ));
+
+            ExplainPlan plan = (ExplainPlan) explainPlan;
+            assertThat(plan.plan(), sameInstance(queryPlan));
+
+            await(service.invalidateCache(Set.of("PUBLIC.\"t2\"")));
+            assertThat(cache.size(), is(0));
+        }
+    }
+
     private static Stream<Arguments> parameterTypes() {
         int noScale = ColumnMetadata.UNDEFINED_SCALE;
         int noPrecision = ColumnMetadata.UNDEFINED_PRECISION;
@@ -490,5 +572,28 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         service.start();
 
         return service;
+    }
+
+    private static class DummyCacheFactory implements CacheFactory {
+        private final Cache<Object, Object> cache;
+
+        DummyCacheFactory(Cache<Object, Object> cache) {
+            this.cache = cache;
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size) {
+            return (Cache<K, V>) cache;
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+            return (Cache<K, V>) cache;
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+            return (Cache<K, V>) cache;
+        }
     }
 }

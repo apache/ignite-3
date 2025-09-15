@@ -98,7 +98,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -565,7 +564,7 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private InternalClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        private ZoneId zoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+        private ZoneId zoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
         private Clock clock = Clock.systemUTC();
 
         /** {@inheritDoc} */

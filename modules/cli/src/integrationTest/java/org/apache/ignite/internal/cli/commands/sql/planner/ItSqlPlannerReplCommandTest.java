@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
-
-import java.time.ZoneId;
-import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.table.QualifiedName;
+package org.apache.ignite.internal.cli.commands.sql.planner;
 
 /**
- * Common SQL utilities.
+ * Tests for {@link SqlPlannerReplCommand}.
  */
-public final class SqlCommon {
-    /** Normalized name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseIdentifier(QualifiedName.DEFAULT_SCHEMA_NAME);
-
-    /** Default page size. */
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-    /** Default time-zone ID. */
-    public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
+public class ItSqlPlannerReplCommandTest extends ItSqlPlannerCommandTest {
+    @Override
+    protected Class<?> getCommandClass() {
+        return SqlPlannerReplCommand.class;
+    }
 }

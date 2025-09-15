@@ -43,7 +43,7 @@ dependencies {
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-configuration-root')
-    testImplementation project(':ignite-sql-engine')
+    testImplementation project(':ignite-sql-engine-api')
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-table')
     testImplementation project(':ignite-network')

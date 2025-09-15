@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -70,4 +71,14 @@ public interface QueryProcessor extends IgniteComponent {
             String qry,
             Object... params
     );
+
+    /**
+     * Invalidates planner cache if {@code tableNames} is empty, otherwise invalidates only plans, which refers to the provided tables.
+     *
+     * @param tableNames Table names.
+     * @return Operation completion future.
+     */
+    default CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("Planner implementation doesn't support cache."));
+    }
 }

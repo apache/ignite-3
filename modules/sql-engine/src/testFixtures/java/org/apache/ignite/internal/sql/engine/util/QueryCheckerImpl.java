@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
@@ -88,7 +87,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
-    private ZoneId timeZoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+    private ZoneId timeZoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
 
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
 

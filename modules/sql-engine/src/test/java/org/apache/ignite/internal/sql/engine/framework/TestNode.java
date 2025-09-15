@@ -55,7 +55,6 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -422,7 +421,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ImplicitTxContext.create())
                 .parameters();
     }

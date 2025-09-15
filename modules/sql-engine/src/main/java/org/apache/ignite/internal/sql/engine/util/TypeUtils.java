@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.RowType;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
+import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -150,6 +152,20 @@ public class TypeUtils {
                     .getLimit(false, Limit.OVERFLOW, false, type.getPrecision(), type.getScale());
             default: return null;
         }
+    }
+
+    /** Creates parameter metadata from the given logical type. */
+    public static ParameterType fromRelDataType(RelDataType type) {
+        ColumnType columnType = columnType(type);
+        assert columnType != null : "No column type for " + type;
+
+        int precision = columnType.lengthAllowed() || columnType.precisionAllowed()
+                ? type.getPrecision()
+                : ColumnMetadata.UNDEFINED_PRECISION;
+
+        int scale = columnType.scaleAllowed() ? type.getScale() : ColumnMetadata.UNDEFINED_SCALE;
+
+        return new ParameterType(columnType, precision, scale, type.isNullable());
     }
 
     private static class SupportedParamClassesHolder {

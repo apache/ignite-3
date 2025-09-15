@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
-
 import java.time.ZoneId;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object that keeps values of the properties.
@@ -32,8 +30,9 @@ public class SqlProperties {
     private Set<SqlQueryType> allowedQueryTypes = SqlQueryType.ALL;
     private boolean allowMultiStatement = true;
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
-    private ZoneId timeZoneId = DEFAULT_TIME_ZONE_ID;
-    @Nullable private String userName;
+    private ZoneId timeZoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
+    @Nullable
+    private String userName;
 
     public SqlProperties() {
     }
