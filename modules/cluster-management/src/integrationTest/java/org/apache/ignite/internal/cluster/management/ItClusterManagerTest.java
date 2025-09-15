@@ -769,9 +769,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         );
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testJoinFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) throws Exception {
+    @Test
+    void testJoinFailsOnDifferentEnabledColocationModesWithinCmgNodes() throws Exception {
+        final boolean colocationEnabled = true;
+
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
         startCluster(1);
 

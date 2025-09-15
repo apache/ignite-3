@@ -1697,24 +1697,23 @@ public class IgniteImpl implements Ignite {
 
         Throwable rootEx = unwrapRootCause(e);
         if (rootEx instanceof InvalidNodeConfigurationException) {
-            LOG.warn("{}. Reason: {}", errMsg,  rootEx.getMessage());
+            LOG.error("{}. Reason: {}", errMsg,  rootEx.getMessage());
         } else {
             // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
             LOG.error(errMsg, igniteException);
+        }
 
-            ExecutorService lifecycleExecutor = stopExecutor();
+        ExecutorService lifecycleExecutor = stopExecutor();
 
-            try {
-                lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
-            } catch (Throwable ex) {
-                // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
-                LOG.error("Node stop failed after node start failure", ex);
+        try {
+            lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
+        } catch (Throwable ex) {
+            // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
+            LOG.error("Node stop failed after node start failure", ex);
 
-                igniteException.addSuppressed(ex);
-            } finally {
-                lifecycleExecutor.shutdownNow();
-            }
-
+            igniteException.addSuppressed(ex);
+        } finally {
+            lifecycleExecutor.shutdownNow();
         }
 
         return igniteException;

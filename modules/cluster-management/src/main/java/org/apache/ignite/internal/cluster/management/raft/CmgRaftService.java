@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.HashSet;
 import java.util.List;
@@ -154,7 +155,8 @@ public class CmgRaftService implements ManuallyCloseable {
                         if (validationErrorResponse.isInvalidNodeConfig()) {
                             var invalidNodeConfigurationException = new InvalidNodeConfigurationException(validationErrorResponse.reason());
 
-                            throw new JoinDeniedException(invalidNodeConfigurationException.code(), invalidNodeConfigurationException);
+                            // TODO: IGNITE-26433 Use dedicated error code for JoinDeniedException
+                            throw new JoinDeniedException(INTERNAL_ERR, invalidNodeConfigurationException);
                         } else {
                             throw new JoinDeniedException(validationErrorResponse.reason());
                         }
