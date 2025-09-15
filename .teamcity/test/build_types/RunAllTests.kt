@@ -34,7 +34,7 @@ object RunAllTests : BuildType({
         checkbox("IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS", "-DtestAllVersions=false", label = "Test All Versions", description = "Test all versions in compatibility tests", checked = "-DtestAllVersions=true", unchecked = "-DtestAllVersions=false")
         checkbox("IGNITE_ZONE_BASED_REPLICATION", "-DIGNITE_ZONE_BASED_REPLICATION=false", label = "Disable Zone-based replication", checked = "-DIGNITE_ZONE_BASED_REPLICATION=true", unchecked = "-DIGNITE_ZONE_BASED_REPLICATION=false")
         select("IGNITE_DEFAULT_STORAGE_ENGINE", "", label = "Default Storage Engine", options = listOf("Default" to "", "aimem" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=aimem", "rocksdb" to "-DIGNITE_DEFAULT_STORAGE_ENGINE=rocksdb"))
-        hiddenText("reverse.dep.*.env.GRADLE_OPTS", "%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_ZONE_BASED_REPLICATION% %IGNITE_DEFAULT_STORAGE_ENGINE%")
+        hiddenText("reverse.dep.*.env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_ZONE_BASED_REPLICATION% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
     }
 
     dependencies {
