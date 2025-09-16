@@ -149,7 +149,10 @@ public class CreateTableCommand extends AbstractTableCommand {
                 storageProfile
         );
 
-        String indexName = pkIndexName(tableName);
+        String indexName = primaryKey.name();
+        if (indexName == null) {
+            indexName = pkIndexName(tableName);
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
