@@ -17,7 +17,6 @@ class ApacheIgnite3CustomBuildType(override val buildType: BuildType) : CustomBu
             buildType.params {
                 hiddenText("VCSROOT__IGNITE3", "ignite-3")
                 hiddenText("env.JAVA_HOME", "%env.JDK_ORA_11%")
-                hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=false")
             }
             buildType.vcs {
                 root(AbsoluteId("GitHubApacheIgnite3"), "+:. => %VCSROOT__IGNITE3%")
