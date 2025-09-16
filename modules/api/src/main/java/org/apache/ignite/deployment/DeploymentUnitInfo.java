@@ -17,15 +17,17 @@
 
 package org.apache.ignite.deployment;
 
+import java.nio.file.Path;
 import java.util.Objects;
+import org.apache.ignite.deployment.version.Version;
 
 /**
  * Information about a deployment unit used by a job.
  */
 public class DeploymentUnitInfo {
     private final String name;
-    private final String version;
-    private final String path;
+    private final Version version;
+    private final Path path;
 
     /**
      * Creates deployment unit info.
@@ -34,7 +36,7 @@ public class DeploymentUnitInfo {
      * @param version Version of the deployment unit.
      * @param path Path to the deployment unit resources.
      */
-    public DeploymentUnitInfo(String name, String version, String path) {
+    public DeploymentUnitInfo(String name, Version version, Path path) {
         this.name = Objects.requireNonNull(name, "name");
         this.version = Objects.requireNonNull(version, "version");
         this.path = Objects.requireNonNull(path, "path");
@@ -50,14 +52,14 @@ public class DeploymentUnitInfo {
     /**
      * @return Version of the deployment unit.
      */
-    public String version() {
+    public Version version() {
         return version;
     }
 
     /**
      * @return Path to the deployment unit resources.
      */
-    public String path() {
+    public Path path() {
         return path;
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +40,8 @@ public class JobExecutionContextImpl implements JobExecutionContext {
     private final JobClassLoader classLoader;
 
     private final @Nullable Partition partition;
+
+    private Collection<DeploymentUnitInfo> deploymentUnits;
 
     /**
      * Constructor.
@@ -78,8 +79,11 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     @Override
     public Collection<DeploymentUnitInfo> deploymentUnits() {
-        // TODO: Lazy init.
-        return List.of();
+        if (deploymentUnits == null) {
+            deploymentUnits = initDeploymentUnits();
+        }
+
+        return deploymentUnits;
     }
 
     /**
@@ -91,16 +95,14 @@ public class JobExecutionContextImpl implements JobExecutionContext {
         return classLoader;
     }
 
-    private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
-        ArrayList<String> unitPaths = new ArrayList<>(classLoader.units().size());
+    private Collection<DeploymentUnitInfo> initDeploymentUnits() {
+        List<DisposableDeploymentUnit> units = classLoader.units();
+        ArrayList<DeploymentUnitInfo> result = new ArrayList<>(units.size());
 
-        for (DisposableDeploymentUnit unit : classLoader.units()) {
-            try {
-                unitPaths.add(unit.path().toRealPath().toString());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        for (DisposableDeploymentUnit unit : units) {
+            result.add(new DeploymentUnitInfo(unit.unit().name(), unit.unit().version(), unit.path()));
         }
-        return unitPaths;
+
+        return result;
     }
 }
