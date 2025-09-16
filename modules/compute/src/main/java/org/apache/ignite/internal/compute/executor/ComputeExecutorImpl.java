@@ -187,24 +187,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                     throw new IllegalStateException("DotNetComputeExecutor is not set");
                 }
 
-                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, arg, context);
+                return dotNetExec.getJobCallable(jobClassName, arg, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
         }
-    }
-
-    private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
-        ArrayList<String> unitPaths = new ArrayList<>(classLoader.units().size());
-
-        for (DisposableDeploymentUnit unit : classLoader.units()) {
-            try {
-                unitPaths.add(unit.path().toRealPath().toString());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return unitPaths;
     }
 
     private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(

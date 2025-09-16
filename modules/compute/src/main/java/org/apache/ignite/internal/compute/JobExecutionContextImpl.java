@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,8 +42,6 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final @Nullable Partition partition;
 
-    private final Collection<DeploymentUnitInfo> units;
-
     /**
      * Constructor.
      *
@@ -52,13 +54,11 @@ public class JobExecutionContextImpl implements JobExecutionContext {
             Ignite ignite,
             AtomicBoolean isInterrupted,
             JobClassLoader classLoader,
-            @Nullable Partition partition,
-            Collection<DeploymentUnitInfo> units) {
+            @Nullable Partition partition) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
         this.partition = partition;
-        this.units = units;
     }
 
     @Override
@@ -78,7 +78,8 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     @Override
     public Collection<DeploymentUnitInfo> deploymentUnits() {
-        return units;
+        // TODO: Lazy init.
+        return List.of();
     }
 
     /**
@@ -88,5 +89,18 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      */
     public JobClassLoader classLoader() {
         return classLoader;
+    }
+
+    private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
+        ArrayList<String> unitPaths = new ArrayList<>(classLoader.units().size());
+
+        for (DisposableDeploymentUnit unit : classLoader.units()) {
+            try {
+                unitPaths.add(unit.path().toRealPath().toString());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return unitPaths;
     }
 }

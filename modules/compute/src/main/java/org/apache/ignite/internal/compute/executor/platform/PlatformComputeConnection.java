@@ -30,14 +30,12 @@ public interface PlatformComputeConnection {
      * Executes a job asynchronously.
      *
      * @param jobId Job id (for cancellation).
-     * @param deploymentUnitPaths Paths to deployment units.
      * @param jobClassName Name of the job class.
      * @param arg Arguments for the job.
      * @return A CompletableFuture that will be completed with the result of the job execution.
      */
     CompletableFuture<ComputeJobDataHolder> executeJobAsync(
             long jobId,
-            List<String> deploymentUnitPaths,
             String jobClassName,
             @Nullable ComputeJobDataHolder arg
     );
