@@ -175,21 +175,23 @@ public class JdbcResultSet implements ResultSet {
             return false;
         }
 
-        if (val instanceof Boolean) {
+        if ("0".equals(val)) {
+            return false;
+        } else if ("1".equals(val)) {
+            return true;
+        } else if (val instanceof Boolean) {
             return ((Boolean) val);
-        } else if (val instanceof BigDecimal) {
-            return BigDecimal.ZERO.compareTo((BigDecimal) val) != 0;
-        } else if (val instanceof Number) {
-            return ((Number) val).longValue() != 0L;
-        } else if (val instanceof String) {
-            try {
-                return Integer.parseInt(val.toString()) != 0;
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED, e);
+        } else if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
+            long num = ((Number) val).longValue();
+
+            if (num == 0) {
+                return false;
+            } else if (num == 1) {
+                return true;
             }
-        } else {
-            throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
         }
+
+        throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
     }
 
     /** {@inheritDoc} */
@@ -338,8 +340,6 @@ public class JdbcResultSet implements ResultSet {
 
         if (val instanceof Number) {
             return ((Number) val).floatValue();
-        } else if (val instanceof Boolean) {
-            return ((Boolean) val ? 1 : 0);
         } else if (val instanceof String) {
             try {
                 return Float.parseFloat(val.toString());
@@ -370,8 +370,6 @@ public class JdbcResultSet implements ResultSet {
 
         if (val instanceof Number) {
             return ((Number) val).doubleValue();
-        } else if (val instanceof Boolean) {
-            return ((Boolean) val ? 1.0d : 0.0d);
         } else if (val instanceof String) {
             try {
                 return Double.parseDouble(val.toString());
@@ -416,8 +414,6 @@ public class JdbcResultSet implements ResultSet {
         } else if (val instanceof Number) {
             // Perform exact conversion from integer types
             return new BigDecimal(((Number) val).longValue());
-        } else if (val instanceof Boolean) {
-            return new BigDecimal((Boolean) val ? 1 : 0);
         } else if (val instanceof String) {
             try {
                 return new BigDecimal(val.toString());

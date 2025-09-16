@@ -106,8 +106,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), boolValue)) {
             assertTrue(rs.next());
 
-            BigDecimal decimalVal = boolValue ? BigDecimal.ONE : BigDecimal.ZERO;
-            BigDecimal decimalScaledVal = boolValue ? new BigDecimal("1.00") : new BigDecimal("0.00");
             String strVal = boolValue ? "true" : "false";
             int value = boolValue ? 1 : 0;
 
@@ -126,19 +124,19 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(value, rs.getLong(1));
             assertEquals(value, rs.getLong("C"));
 
-            assertEquals(value, rs.getFloat(1));
-            assertEquals(value, rs.getFloat("C"));
+            expectSqlConversionError(() -> rs.getFloat(1), "float");
+            expectSqlConversionError(() -> rs.getFloat("C"), "float");
 
-            assertEquals(value, rs.getDouble(1));
-            assertEquals(value, rs.getDouble("C"));
+            expectSqlConversionError(() -> rs.getDouble(1), "double");
+            expectSqlConversionError(() -> rs.getDouble("C"), "double");
 
-            assertEquals(decimalVal, rs.getBigDecimal(1));
-            assertEquals(decimalVal, rs.getBigDecimal("C"));
+            expectSqlConversionError(() -> rs.getBigDecimal(1), "BigDecimal");
+            expectSqlConversionError(() -> rs.getBigDecimal("C"), "BigDecimal");
 
             //noinspection deprecation
-            assertEquals(decimalScaledVal, rs.getBigDecimal(1, 2));
+            expectSqlConversionError(() -> rs.getBigDecimal(1, 2), "BigDecimal");
             //noinspection deprecation
-            assertEquals(decimalScaledVal, rs.getBigDecimal("C", 2));
+            expectSqlConversionError(() -> rs.getBigDecimal("C", 2), "BigDecimal");
 
             assertEquals(strVal, rs.getString(1));
             assertEquals(strVal, rs.getString("C"));
@@ -163,14 +161,14 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertEquals(Long.valueOf(value), rs.getObject(1, Long.class));
             assertEquals(Long.valueOf(value), rs.getObject("C", Long.class));
 
-            assertEquals(Float.valueOf(value), rs.getObject(1, Float.class));
-            assertEquals(Float.valueOf(value), rs.getObject("C", Float.class));
+            expectSqlConversionError(() -> rs.getObject(1, Float.class), "float");
+            expectSqlConversionError(() -> rs.getObject("C", Float.class), "float");
 
-            assertEquals(Double.valueOf(value), rs.getObject(1, Double.class));
-            assertEquals(Double.valueOf(value), rs.getObject("C", Double.class));
+            expectSqlConversionError(() -> rs.getObject(1, Double.class), "double");
+            expectSqlConversionError(() -> rs.getObject("C", Double.class), "double");
 
-            assertEquals(decimalVal, rs.getObject(1, BigDecimal.class));
-            assertEquals(decimalVal, rs.getObject("C", BigDecimal.class));
+            expectSqlConversionError(() -> rs.getObject(1, BigDecimal.class), "BigDecimal");
+            expectSqlConversionError(() -> rs.getObject("C", BigDecimal.class), "BigDecimal");
 
             assertEquals(strVal, rs.getObject(1, String.class));
             assertEquals(strVal, rs.getObject("C", String.class));
@@ -181,34 +179,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
-            "true, -100, true",
-            "true, -1, true",
-            "true, 0, false",
-            "true, 1, true",
-            "true, 100, true",
-            "false, xyz, ",
-            "false,, "
-    })
-    public void getBooleanFromString(boolean valid, String value, String result) throws SQLException {
-        if (value == null) {
-            value = "";
-        }
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
-            assertTrue(rs.next());
-
-            if (!valid) {
-                expectSqlException(() -> rs.getBoolean(1), "Cannot convert to boolean: " + value);
-                expectSqlException(() -> rs.getBoolean("C"), "Cannot convert to boolean: " + value);
-            } else {
-                assertEquals("true".equals(result), rs.getBoolean(1));
-                assertEquals("true".equals(result), rs.getBoolean("C"));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @ValueSource(bytes = {Byte.MIN_VALUE, -42, 0, 42, Byte.MAX_VALUE})
+    @ValueSource(bytes = {Byte.MIN_VALUE, -42, -1, 0, 1, 42, Byte.MAX_VALUE})
     public void getByte(byte value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT8, 0, 0, false), value)) {
             assertTrue(rs.next());
@@ -216,10 +187,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = BigDecimal.valueOf(value);
             BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value != 0;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            if (value == 0) {
+                assertFalse(rs.getBoolean(1));
+                assertFalse(rs.getBoolean("C"));
+            } else if (value == 1) {
+                assertTrue(rs.getBoolean(1));
+                assertTrue(rs.getBoolean("C"));
+            } else {
+                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
+            }
 
             assertEquals(value, rs.getByte(1));
             assertEquals(value, rs.getByte("C"));
@@ -332,7 +310,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(shorts = {Short.MIN_VALUE, -42, 0, 42, Short.MAX_VALUE})
+    @ValueSource(shorts = {Short.MIN_VALUE, -42, -1, 0, 1, 42, Short.MAX_VALUE})
     public void getShort(short value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT16, 0, 0, false), value)) {
             assertTrue(rs.next());
@@ -340,10 +318,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = BigDecimal.valueOf(value);
             BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value != 0;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            if (value == 0) {
+                assertFalse(rs.getBoolean(1));
+                assertFalse(rs.getBoolean("C"));
+            } else if (value == 1) {
+                assertTrue(rs.getBoolean(1));
+                assertTrue(rs.getBoolean("C"));
+            } else {
+                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
+            }
 
             //noinspection NumericCastThatLosesPrecision
             assertEquals((byte) value, rs.getByte(1));
@@ -460,7 +445,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {Integer.MIN_VALUE, -42, 0, 42, Integer.MAX_VALUE})
+    @ValueSource(ints = {Integer.MIN_VALUE, -42, -1, 0, 1, 42, Integer.MAX_VALUE})
     public void getInt(int value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT32, 0, 0, false), value)) {
             assertTrue(rs.next());
@@ -468,10 +453,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = BigDecimal.valueOf(value);
             BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value != 0;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            if (value == 0) {
+                assertFalse(rs.getBoolean(1));
+                assertFalse(rs.getBoolean("C"));
+            } else if (value == 1) {
+                assertTrue(rs.getBoolean(1));
+                assertTrue(rs.getBoolean("C"));
+            } else {
+                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
+            }
 
             //noinspection NumericCastThatLosesPrecision
             assertEquals((byte) value, rs.getByte(1));
@@ -592,7 +584,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(longs = {Long.MIN_VALUE, -42, 0, 42, Long.MAX_VALUE})
+    @ValueSource(longs = {Long.MIN_VALUE, -42, -1, 0, 1, 42, Long.MAX_VALUE})
     public void getLong(long value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT64, 0, 0, false), value)) {
             assertTrue(rs.next());
@@ -600,10 +592,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = BigDecimal.valueOf(value);
             BigDecimal decimalScaledVal = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value != 0L;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            if (value == 0) {
+                assertFalse(rs.getBoolean(1));
+                assertFalse(rs.getBoolean("C"));
+            } else if (value == 1) {
+                assertTrue(rs.getBoolean(1));
+                assertTrue(rs.getBoolean("C"));
+            } else {
+                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
+            }
 
             //noinspection NumericCastThatLosesPrecision
             assertEquals((byte) value, rs.getByte(1));
@@ -736,16 +735,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = new BigDecimal(value);
             BigDecimal decimalScaledVal = new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue;
 
-            if (Float.compare(Float.MIN_VALUE, value) == 0) {
-                boolValue = false;
-            } else {
-                boolValue = value != 0.0f;
-            }
-
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
 
             //noinspection NumericCastThatLosesPrecision
             assertEquals((byte) value, rs.getByte(1));
@@ -854,22 +846,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void getFloatFromBoolean(boolean value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
-            assertTrue(rs.next());
-
-            if (value) {
-                assertEquals(1, rs.getFloat(1));
-                assertEquals(1, rs.getFloat("C"));
-            } else {
-                assertEquals(0, rs.getFloat(1));
-                assertEquals(0, rs.getFloat("C"));
-            }
-        }
-    }
-
-    @ParameterizedTest
     @ValueSource(doubles = {Double.MIN_VALUE, -42.3d, 0, 42.9d, Double.MAX_VALUE})
     public void getDouble(double value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DOUBLE, 0, 0, false), value)) {
@@ -878,16 +854,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             BigDecimal decimalVal = new BigDecimal(value);
             BigDecimal decimalScaledVal = new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue;
 
-            if (Double.compare(Double.MIN_VALUE, value) == 0) {
-                boolValue = false;
-            } else {
-                boolValue = value != 0.0d;
-            }
-
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
 
             //noinspection NumericCastThatLosesPrecision
             assertEquals((byte) value, rs.getByte(1));
@@ -1000,22 +969,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void getDoubleFromBoolean(boolean value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
-            assertTrue(rs.next());
-
-            if (value) {
-                assertEquals(1, rs.getDouble(1));
-                assertEquals(1, rs.getDouble("C"));
-            } else {
-                assertEquals(0, rs.getDouble(1));
-                assertEquals(0, rs.getDouble("C"));
-            }
-        }
-    }
-
-    @ParameterizedTest
     @MethodSource("getBigDecimalValues")
     public void getBigDecimal(BigDecimal value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DECIMAL, 0, 0, false), value)) {
@@ -1023,10 +976,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             BigDecimal decimalScaledVal = value.setScale(2, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value.compareTo(BigDecimal.ZERO) != 0;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
 
             assertEquals(value.byteValue(), rs.getByte(1));
             assertEquals(value.byteValue(), rs.getByte("C"));
@@ -1139,22 +1091,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void getBigDecimalFromBoolean(boolean value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
-            assertTrue(rs.next());
-
-            if (value) {
-                assertEquals(BigDecimal.ONE, rs.getBigDecimal(1));
-                assertEquals(BigDecimal.ONE, rs.getBigDecimal("C"));
-            } else {
-                assertEquals(BigDecimal.ZERO, rs.getBigDecimal(1));
-                assertEquals(BigDecimal.ZERO, rs.getBigDecimal("C"));
-            }
-        }
-    }
-
-    @ParameterizedTest
     @MethodSource("getBigDecimalScaledValues")
     public void getBigDecimalScaled(BigDecimal value, int scale) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.DECIMAL, value.precision(), scale, false), value)) {
@@ -1162,10 +1098,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
 
             BigDecimal decimalScaledVal = value.setScale(scale, RoundingMode.HALF_UP);
             String strVal = String.valueOf(value);
-            boolean boolValue = value.compareTo(BigDecimal.ZERO) != 0;
 
-            assertEquals(boolValue, rs.getBoolean(1));
-            assertEquals(boolValue, rs.getBoolean("C"));
+            expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
+            expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
 
             assertEquals(value.byteValue(), rs.getByte(1));
             assertEquals(value.byteValue(), rs.getByte("C"));
@@ -1275,34 +1210,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 assertEquals(new BigDecimal(result), rs.getBigDecimal(1, scale));
                 //noinspection deprecation
                 assertEquals(new BigDecimal(result), rs.getBigDecimal("C", scale));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "true, 0",
-            "true, 3",
-            "false, 0",
-            "false, 3",
-    })
-    public void getBigDecimalScaledFromBoolean(boolean value, int scale) throws SQLException {
-        BigDecimal one = BigDecimal.ONE.setScale(scale, RoundingMode.HALF_UP);
-        BigDecimal zero = BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP);
-
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
-            assertTrue(rs.next());
-
-            if (value) {
-                //noinspection deprecation
-                assertEquals(one, rs.getBigDecimal(1, scale));
-                //noinspection deprecation
-                assertEquals(one, rs.getBigDecimal("C", scale));
-            } else {
-                //noinspection deprecation
-                assertEquals(zero, rs.getBigDecimal(1, scale));
-                //noinspection deprecation
-                assertEquals(zero, rs.getBigDecimal("C", scale));
             }
         }
     }
