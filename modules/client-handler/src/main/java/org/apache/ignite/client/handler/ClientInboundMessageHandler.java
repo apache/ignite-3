@@ -40,6 +40,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
+import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -1340,8 +1341,13 @@ public class ClientInboundMessageHandler
 
     private static void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
         packer.packInt(deploymentUnits.size());
-        for (DeploymentUnitInfo unit : deploymentUnits) {
-            packer.packString(unit.path());
+
+        try {
+            for (DeploymentUnitInfo unit : deploymentUnits) {
+                packer.packString(unit.path().toRealPath().toString());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
