@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.deployment.UnitStatusMatchers.unitVersi
 import static org.apache.ignite.internal.deployment.UnitStatusMatchers.versionStatuses;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -89,20 +90,20 @@ public class ItStaticDeploymentTest extends ClusterPerClassIntegrationTest {
         assertThat(node2.nodeStatusAsync("unit3", parseVersion("1.0.0")), willBe(DEPLOYED));
         assertThat(node2.nodeStatusAsync("unit3", parseVersion("1.0.1")), willBe(DEPLOYED));
 
-        assertThat(node0.clusterStatusesAsync("unit1"), willBe(
+        await().until(() -> node0.clusterStatusesAsync("unit1"), willBe(
                 versionStatuses(containsInAnyOrder(
                         unitVersionStatusIs(parseVersion("1.0.0"), DEPLOYED),
                         unitVersionStatusIs(parseVersion("1.1.0"), DEPLOYED)
                 ))
         ));
 
-        assertThat(node0.clusterStatusesAsync("unit2"), willBe(
+        await().until(() -> node0.clusterStatusesAsync("unit2"), willBe(
                 versionStatuses(contains(
                         unitVersionStatusIs(parseVersion("1.0.0"), DEPLOYED)
                 ))
         ));
 
-        assertThat(node0.clusterStatusesAsync("unit3"), willBe(
+        await().until(() -> node0.clusterStatusesAsync("unit3"), willBe(
                 versionStatuses(containsInAnyOrder(
                         unitVersionStatusIs(parseVersion("1.0.0"), DEPLOYED),
                         unitVersionStatusIs(parseVersion("1.0.1"), DEPLOYED)
