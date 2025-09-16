@@ -52,11 +52,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * @param classLoader Job class loader.
      * @param partition Partition associated with this job.
      */
-    public JobExecutionContextImpl(
-            Ignite ignite,
-            AtomicBoolean isInterrupted,
-            JobClassLoader classLoader,
-            @Nullable Partition partition) {
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader, @Nullable Partition partition) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
