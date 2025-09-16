@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.nullValue;
@@ -232,7 +233,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
 
-        assertThat(jobRes, equalTo("jobs-1.0.0.jar"));
+        assertThat(jobRes, containsString("name='jobs'"));
+        assertThat(jobRes, containsString("version=1.0.0"));
+        assertThat(jobRes, containsString("path="));
+        assertThat(jobRes.split(";").length, equalTo(2));
     }
 
     private static void deployJar(String unitId, Version unitVersion, String jarName) throws IOException {
