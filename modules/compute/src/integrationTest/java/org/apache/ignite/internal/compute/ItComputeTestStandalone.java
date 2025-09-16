@@ -222,6 +222,15 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         assertThat(successJob, willCompleteSuccessfully());
     }
 
+    @Test
+    void jobContextProvidesDeploymentUnitInfo() {
+        JobDescriptor<Void, String> job = JobDescriptor.builder(UnitPathsJob.class).units(units).build();
+
+        String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
+
+        assertThat(jobRes, equalTo("jobs-1.0.0.jar"));
+    }
+
     private static void deployJar(String unitId, Version unitVersion, String jarName) throws IOException {
         IgniteDeployment deployment = deployment(0);
 
