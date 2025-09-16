@@ -154,7 +154,7 @@ public class DotNetComputeExecutor {
 
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
-                        .thenCompose(c -> c.executeJobAsync(jobId, jobClassName, arg))
+                        .thenCompose(c -> c.executeJobAsync(jobId, jobClassName, context, arg))
                         .exceptionally(e -> {
                             var cause = unwrapCause(e);
 

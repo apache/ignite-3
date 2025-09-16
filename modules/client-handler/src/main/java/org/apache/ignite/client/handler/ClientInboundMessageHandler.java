@@ -41,6 +41,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,6 +113,8 @@ import org.apache.ignite.client.handler.requests.table.partition.ClientTablePart
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
@@ -1332,15 +1335,15 @@ public class ClientInboundMessageHandler
         @Override
         public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
                 long jobId,
-                List<String> deploymentUnitPaths,
                 String jobClassName,
+                JobExecutionContext ctx,
                 @Nullable ComputeJobDataHolder arg
         ) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
                     packer -> {
                         packer.packLong(jobId);
                         packer.packString(jobClassName);
-                        packDeploymentUnitPaths(deploymentUnitPaths, packer);
+                        packDeploymentUnitPaths(ctx.deploymentUnits(), packer);
                         packer.packBoolean(false); // Retain deployment units in cache.
                         ClientComputeJobPacker.packJobArgument(arg, null, packer);
                     })
@@ -1388,6 +1391,13 @@ public class ClientInboundMessageHandler
             packer.packInt(deploymentUnitPaths.size());
             for (String path : deploymentUnitPaths) {
                 packer.packString(path);
+            }
+        }
+
+        private void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
+            packer.packInt(deploymentUnits.size());
+            for (DeploymentUnitInfo unit : deploymentUnits) {
+                packer.packString(unit.path());
             }
         }
     }
