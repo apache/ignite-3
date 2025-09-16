@@ -76,6 +76,13 @@ ext {
     }
 }
 
+def trimQuotes(String input) {
+    if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
+        return input.substring(1, input.length() - 1);
+    }
+    return input;
+}
+
 allprojects {
     group 'org.apache.ignite'
     version = projectVersion
