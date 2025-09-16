@@ -109,7 +109,7 @@ public class DelayedDirtyPageWrite {
             ByteBuffer originPageBuf,
             CheckpointPages checkpointPages
     ) {
-        tracker.lock(pageId);
+        tracker.lock(pageId.toFullPageId());
 
         ByteBuffer threadLocalBuf = byteBufThreadLoc.get();
 
@@ -156,7 +156,7 @@ public class DelayedDirtyPageWrite {
 
             checkpointPages.unblockFsyncOnPageReplacement(fullPageId, errorOnWrite);
 
-            tracker.unlock(fullPageId);
+            tracker.unlock(fullPageId.toFullPageId());
 
             fullPageId = null;
             pageMemory = null;
