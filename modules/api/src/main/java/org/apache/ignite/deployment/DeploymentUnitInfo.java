@@ -43,6 +43,8 @@ public final class DeploymentUnitInfo {
     }
 
     /**
+     * Returns the name of the deployment unit.
+     *
      * @return Name of the deployment unit.
      */
     public String name() {
@@ -50,6 +52,8 @@ public final class DeploymentUnitInfo {
     }
 
     /**
+     * Returns the version of the deployment unit.
+     *
      * @return Version of the deployment unit.
      */
     public Version version() {
@@ -57,6 +61,8 @@ public final class DeploymentUnitInfo {
     }
 
     /**
+     * Returns the path to the deployment unit resources.
+     *
      * @return Path to the deployment unit resources.
      */
     public Path path() {
@@ -65,11 +71,10 @@ public final class DeploymentUnitInfo {
 
     @Override
     public String toString() {
-        return "DeploymentUnitInfo{" +
-                "name='" + name + '\'' +
-                ", version=" + version +
-                ", path=" + path +
-                '}';
+        return "DeploymentUnitInfo{"
+                + "name='" + name + '\''
+                + ", version=" + version
+                + ", path=" + path
+                + '}';
     }
 }
-
