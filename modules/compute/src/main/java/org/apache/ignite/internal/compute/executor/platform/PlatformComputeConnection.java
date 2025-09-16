@@ -32,6 +32,7 @@ public interface PlatformComputeConnection {
      *
      * @param jobId Job id (for cancellation).
      * @param jobClassName Name of the job class.
+     * @param ctx Job execution context.
      * @param arg Arguments for the job.
      * @return A CompletableFuture that will be completed with the result of the job execution.
      */
