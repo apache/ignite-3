@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
-import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.GROUP_ID_SIZE_BYTES;
-import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.HASH_SIZE;
-import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.LENGTH_SIZE_BYTES;
-import static org.apache.ignite.internal.raft.storage.segstore.SegstoreLogStorage.entrySize;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.overheadSize;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -34,17 +30,17 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
@@ -71,7 +67,7 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        segmentFileManager = new SegmentFileManager(workDir, SEGMENT_SIZE);
+        segmentFileManager = new SegmentFileManager(workDir, SEGMENT_SIZE, 1);
 
         logStorage = new SegstoreLogStorage(GROUP_ID, segmentFileManager);
 
@@ -118,14 +114,70 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
             // Skip header.
             is.readNBytes(SegmentFileManager.HEADER_RECORD.length);
 
-            ByteBuffer entry = ByteBuffer.wrap(is.readNBytes(entrySize(payload))).order(SegmentFile.BYTE_ORDER);
+            DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromBytes(is.readNBytes(overheadSize() + payload.length));
 
-            validateEntry(entry, payload);
+            assertThat(entry.groupId(), is(GROUP_ID));
+            assertThat(entry.payload(), is(payload));
         }
     }
 
     @Test
     void testAppendEntries() throws IOException {
+        List<byte[]> payloads = generateRandomData();
+
+        Iterator<byte[]> payloadsIterator = payloads.iterator();
+
+        when(encoder.encode(any())).thenAnswer(invocation -> payloadsIterator.next());
+
+        List<LogEntry> entries = IntStream.range(0, payloads.size())
+                .mapToObj(i -> {
+                    var entry = new LogEntry();
+
+                    entry.setId(new LogId(i, 0));
+
+                    return entry;
+                })
+                .collect(toList());
+
+        assertThat(logStorage.appendEntries(entries), is(payloads.size()));
+
+        var actualEntries = new ArrayList<DeserializedSegmentPayload>(payloads.size());
+
+        for (Path segmentFile : segmentFiles()) {
+            try (InputStream is = Files.newInputStream(segmentFile)) {
+                // Skip header.
+                is.readNBytes(SegmentFileManager.HEADER_RECORD.length);
+
+                long bytesRead = SegmentFileManager.HEADER_RECORD.length;
+
+                while (bytesRead < SEGMENT_SIZE - SWITCH_SEGMENT_RECORD.length) {
+                    DeserializedSegmentPayload entry = DeserializedSegmentPayload.fromInputStream(is);
+
+                    if (entry == null) {
+                        // EOF reached.
+                        break;
+                    }
+
+                    actualEntries.add(entry);
+
+                    bytesRead += entry.size();
+                }
+            }
+        }
+
+        for (int i = 0; i < actualEntries.size(); i++) {
+            assertThat(actualEntries.get(i).groupId(), is(GROUP_ID));
+            assertThat(actualEntries.get(i).payload(), is(payloads.get(i)));
+        }
+    }
+
+    private List<Path> segmentFiles() throws IOException {
+        try (Stream<Path> files = Files.list(workDir)) {
+            return files.sorted().collect(toList());
+        }
+    }
+
+    private static List<byte[]> generateRandomData() {
         int bytesToGenerate = SEGMENT_SIZE * 3;
 
         int maxPayloadSize = 100;
@@ -146,71 +198,6 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
             bytesToGenerate -= payloadSize;
         }
 
-        Iterator<byte[]> payloadsIterator = payloads.iterator();
-
-        when(encoder.encode(any())).thenAnswer(invocation -> payloadsIterator.next());
-
-        assertThat(logStorage.appendEntries(nCopies(payloads.size(), new LogEntry())), is(payloads.size()));
-
-        var entries = new ArrayList<ByteBuffer>(payloads.size());
-
-        for (Path segmentFile : segmentFiles()) {
-            try (InputStream is = Files.newInputStream(segmentFile)) {
-                // Skip header.
-                is.readNBytes(SegmentFileManager.HEADER_RECORD.length);
-
-                long bytesRead = SegmentFileManager.HEADER_RECORD.length;
-
-                while (bytesRead < SEGMENT_SIZE - SWITCH_SEGMENT_RECORD.length) {
-                    long groupId = ByteBuffer.wrap(is.readNBytes(GROUP_ID_SIZE_BYTES)).order(SegmentFile.BYTE_ORDER).getLong();
-
-                    if (groupId == 0) {
-                        // EOF reached.
-                        break;
-                    }
-
-                    int payloadLength = ByteBuffer.wrap(is.readNBytes(LENGTH_SIZE_BYTES)).order(SegmentFile.BYTE_ORDER).getInt();
-                    byte[] remaining = is.readNBytes(payloadLength + HASH_SIZE);
-
-                    ByteBuffer entry = ByteBuffer.allocate(GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payloadLength + HASH_SIZE)
-                            .order(SegmentFile.BYTE_ORDER)
-                            .putLong(groupId)
-                            .putInt(payloadLength)
-                            .put(remaining)
-                            .flip();
-
-                    entries.add(entry);
-
-                    bytesRead += entry.capacity();
-                }
-            }
-        }
-
-        for (int i = 0; i < entries.size(); i++) {
-            validateEntry(entries.get(i), payloads.get(i));
-        }
-    }
-
-    private List<Path> segmentFiles() throws IOException {
-        try (Stream<Path> files = Files.list(workDir)) {
-            return files.sorted().collect(toList());
-        }
-    }
-
-    private static void validateEntry(ByteBuffer entry, byte[] expectedPayload) {
-        assertThat(entry.getLong(), is(GROUP_ID));
-
-        assertThat(entry.getInt(), is(expectedPayload.length));
-
-        byte[] actualPayload = new byte[expectedPayload.length];
-        entry.get(actualPayload);
-
-        assertThat(actualPayload, is(expectedPayload));
-
-        int entrySizeWithoutCrc = entry.position();
-        int actualCrc = entry.getInt();
-        int expectedCrc = FastCrc.calcCrc(entry.rewind(), entrySizeWithoutCrc);
-
-        assertThat(actualCrc, is(expectedCrc));
+        return payloads;
     }
 }

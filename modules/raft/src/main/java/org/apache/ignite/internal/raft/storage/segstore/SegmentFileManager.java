@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
+import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
 /**
  * File manager responsible for allocating and maintaining a pointer to the current segment file.
@@ -48,7 +50,15 @@ import org.apache.ignite.internal.raft.storage.segstore.SegmentFile.WriteBuffer;
  * +------------------------+-------------------+
  * </pre>
  *
- * <p>Payload structure is defined by the outer callers.
+ * <p>Every appended entry is converted into its serialized form (a.k.a. "payload"), defined by a {@link LogEntryEncoder},
+ * and stored in a segment file.
+ *
+ * <p>Binary representation of each entry is as follows:
+ * <pre>
+ * +---------------+---------+--------------------------+---------+----------------+
+ * | Raft Group ID (8 bytes) | Payload Length (4 bytes) | Payload | Hash (4 bytes) |
+ * +---------------+---------+--------------------------+---------+----------------+
+ * </pre>
  *
  * <p>When a rollover happens and the segment file being replaced has at least 8 bytes left, a special {@link #SWITCH_SEGMENT_RECORD} is
  * written at the end of the file. If there are less than 8 bytes left, no switch records are written.
@@ -87,6 +97,8 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private final AtomicReference<SegmentFile> currentSegmentFile = new AtomicReference<>();
 
+    private final IndexMemTable memTable;
+
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
 
@@ -104,13 +116,15 @@ class SegmentFileManager implements ManuallyCloseable {
      */
     private boolean isStopped;
 
-    SegmentFileManager(Path baseDir, long fileSize) {
+    SegmentFileManager(Path baseDir, long fileSize, int stripes) {
         if (fileSize <= HEADER_RECORD.length) {
             throw new IllegalArgumentException("File size must be greater than the header size: " + fileSize);
         }
 
         this.baseDir = baseDir;
         this.fileSize = fileSize;
+
+        memTable = new IndexMemTable(stripes);
     }
 
     void start() throws IOException {
@@ -132,20 +146,31 @@ class SegmentFileManager implements ManuallyCloseable {
         return String.format(SEGMENT_FILE_NAME_FORMAT, fileIndex, generation);
     }
 
-    WriteBuffer reserve(int size) throws IOException {
-        if (size > maxEntrySize()) {
+    void appendEntry(long groupId, LogEntry entry, LogEntryEncoder encoder) throws IOException {
+        var segmentPayload = new SegmentPayload(groupId, entry, encoder);
+
+        int payloadSize = segmentPayload.size();
+
+        if (payloadSize > maxEntrySize()) {
             throw new IllegalArgumentException(String.format(
-                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", size, maxEntrySize()
+                    "Entry size is too big (%d bytes), maximum allowed entry size: %d bytes.", payloadSize, maxEntrySize()
             ));
         }
 
         while (true) {
             SegmentFile segmentFile = currentSegmentFile();
 
-            WriteBuffer writeBuffer = segmentFile.reserve(size);
+            try (WriteBuffer writeBuffer = segmentFile.reserve(payloadSize)) {
+                if (writeBuffer != null) {
+                    int segmentOffset = writeBuffer.buffer().position();
 
-            if (writeBuffer != null) {
-                return writeBuffer;
+                    segmentPayload.writeTo(writeBuffer.buffer());
+
+                    // Append to memtable before write buffer is released to avoid races with checkpoint on rollover.
+                    memTable.appendSegmentFileOffset(groupId, entry.getId().getIndex(), segmentOffset);
+
+                    return;
+                }
             }
 
             // Segment file does not have enough space. Try to switch to a new one and retry the write attempt.
