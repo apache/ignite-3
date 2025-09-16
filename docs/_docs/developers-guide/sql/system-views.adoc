@@ -22,7 +22,7 @@ You access system views in Ignite by using SQL and selecting data from the syste
 
 [source, sql]
 ----
-SELECT id, schema, name FROM system.system_views WHERE type = 'NODE'
+SELECT * FROM system.system_views
 ----
 
 You can also use joins to combine data from multiple views. The example below returns all columns of a view that was found in the `SYSTEM_VIEWS` view:
@@ -37,6 +37,25 @@ SELECT svc.*
 
 == Available Views
 
+=== COMPUTE_TASKS
+
+[width="100%", cols="15%a, 15%a, 60%a",opts="header"]
+|=======
+|Column	|Data Type| Description
+
+|COORDINATOR_NODE_ID|STRING|The task's coordinator node ID.
+|COMPUTE_TASK_ID|STRING|The compute task ID.
+|COMPUTE_TASK_STATUS|STRING|The task status.
+|COMPUTE_TASK_CREATE_TIME|TIMESTAMP WITH LOCAL TIME ZONE|The task creation timestamp.
+|COMPUTE_TASK_START_TIME|TIMESTAMP WITH LOCAL TIME ZONE|The task start timestamp.
+|COMPUTE_TASK_FINISH_TIME|TIMESTAMP WITH LOCAL TIME ZONE|The task finish timestamp.
+|ID|STRING|*Deprecated*. The compute task ID.
+|STATUS|STRING|*Deprecated*.The task status.
+|CREATE_TIME|TIMESTAMP WITH LOCAL TIME ZONE|*Deprecated*.The task creation timestamp.
+|START_TIME|TIMESTAMP WITH LOCAL TIME ZONE|*Deprecated*.The task start timestamp.
+|FINISH_TIME|TIMESTAMP WITH LOCAL TIME ZONE|*Deprecated*.The task finish timestamp.
+|=======
+
 === SYSTEM_VIEWS
 
 Describes available system views.
@@ -45,10 +64,18 @@ Describes available system views.
 |=======
 |Column	|Data Type| Description
 
-| ID | INT32 | System view ID.
-| SCHEMA | STRING | Name of the schema used. Default is `SYSTEM`.
-| NAME | STRING | System view name.
-| TYPE | STRING | System view type. Possible values:
+| VIEW_ID | INT32 | System view ID.
+| SCHEMA_NAME | STRING | Name of the schema used. Default is `SYSTEM`.
+| VIEW_NAME | STRING | System view name.
+| VIEW_TYPE | STRING | System view type. Possible values:
+
+* NODE - The view provides node-specific information. Data will be collected from all nodes, and represented in the view.
+* CLUSTER - The view provides cluster-wide information. Data will be collected from one node, chosen to represent the cluster.
+
+| ID | INT32 | *Deprecated*. System view ID.
+| SCHEMA | STRING | *Deprecated*. Name of the schema used. Default is `SYSTEM`.
+| NAME | STRING | *Deprecated*. System view name.
+| TYPE | STRING | *Deprecated*. System view type. Possible values:
 
 * NODE - The view provides node-specific information. Data will be collected from all nodes, and represented in the view.
 * CLUSTER - The view provides cluster-wide information. Data will be collected from one node, chosen to represent the cluster.
@@ -64,12 +91,19 @@ Describes available system view columns.
 |Column	|Data Type| Description
 
 | VIEW_ID | INT32 | System view ID.
-| NAME | STRING | Column name.
-| TYPE | STRING | Column type. Can by any of the link:sql-reference/data-types[supported types].
-| NULLABLE | BOOLEAN |Defines if the column can be empty.
-| PRECISION | INT32 |Maximum number of digits.
-| SCALE | INT32 |Maximum number of decimal places.
-| LENGTH | INT32 |Maximum length of the value. Symbols for string values or bytes for binary values.
+| VIEW_NAME | STRING | Column name.
+| COLUMN_TYPE | STRING | Column type. Can be any of the link:sql-reference/data-types[supported types].
+| IS_NULLABLE_COLUMN | BOOLEAN |Defines if the column can be empty.
+| COLUMN_PRECISION | INT32 |Maximum number of digits.
+| COLUMN_SCALE | INT32 |Maximum number of decimal places.
+| COLUMN_LENGTH | INT32 |Maximum length of the value. Symbols for string values or bytes for binary values.
+
+| NAME | STRING | *Deprecated*. Column name.
+| TYPE | STRING | *Deprecated*. Column type. Can be any of the link:sql-reference/data-types[supported types].
+| NULLABLE | BOOLEAN | *Deprecated*. Defines if the column can be empty.
+| PRECISION | INT32 | *Deprecated*. Maximum number of digits.
+| SCALE | INT32 | *Deprecated*. Maximum number of decimal places.
+| LENGTH | INT32 | *Deprecated*. Maximum length of the value. Symbols for string values or bytes for binary values.
 
 |=======
 
