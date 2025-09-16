@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -160,8 +161,6 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final Cache<CacheKey, Object> weakCache;
 
-    private static final Object IGNORED_VAL = new Object();
-
     private ExecutorService planUpdater;
 
     /**
@@ -268,7 +267,8 @@ public class PrepareServiceImpl implements PrepareService {
         );
 
         planUpdater.scheduleAtFixedRate(() -> {
-            for (CacheKey key : weakCache.asMap().keySet()) {
+            for (Entry<CacheKey, Object> ent : weakCache.asMap().entrySet()) {
+                CacheKey key = ent.getKey();
                 CompletableFuture<PlanInfo> fut = cache.get(key);
 
                 // can be evicted
@@ -281,13 +281,13 @@ public class PrepareServiceImpl implements PrepareService {
                     int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
 
                     if (currentCatalogVersion == key.catalogVersion()) {
-                        SqlQueryType queryType = key.parsedResult().queryType();
+                        SqlQueryType queryType = key.queryType();
 
                         if (queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML) {
                             CompletableFuture<PlanInfo> newPlanFut = CompletableFuture.supplyAsync(
                                     () -> buildPlan(queryType, key, info.statement, info.context), planningPool)
                                     .exceptionally(e -> {
-                                        LOG.warn("Failed to re-planning query: " + key.parsedResult().originalQuery(), e);
+                                        LOG.warn("Failed to re-planning query: " + key.query(), e);
 
                                         return null;
                                     });
@@ -303,10 +303,11 @@ public class PrepareServiceImpl implements PrepareService {
                                     cache.asMap().computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(newPlan));
                                 }
                             } catch (Exception ex) {
-                                LOG.warn("Failed to re-planning query: " + key.parsedResult().originalQuery(), ex);
+                                LOG.warn("Failed to re-planning query: " + key.query(), ex);
                             }
 
-                            weakCache.invalidate(key);
+                            // It`s possible that planning occupy more time than sequential table statistic updates
+                            weakCache.asMap().remove(key, ent.getValue());
                         } else {
                             throw new AssertionError("Unexpected queryType=" + queryType);
                         }
@@ -602,7 +603,7 @@ public class PrepareServiceImpl implements PrepareService {
                 relWithMetadata.ppMetadata
         );
 
-        logPlan(key.parsedResult().originalQuery(), plan);
+        logPlan(stmt.parsedResult().originalQuery(), plan);
 
         int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
 
@@ -627,7 +628,8 @@ public class PrepareServiceImpl implements PrepareService {
                 PlanInfo info = fut.join();
 
                 if (info.sources.contains(tableId)) {
-                    weakCache.put(ent.getKey(), IGNORED_VAL);
+                    // Object as value is need for correct invalidation
+                    weakCache.put(ent.getKey(), new Object());
                 }
             }
         }
@@ -794,7 +796,7 @@ public class PrepareServiceImpl implements PrepareService {
             );
         }
 
-        logPlan(key.parsedResult().originalQuery(), plan);
+        logPlan(stmt.parsedResult().originalQuery(), plan);
 
         int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
 
@@ -874,7 +876,8 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes[idx++] = columnType;
         }
 
-        return new CacheKey(catalogVersion, schemaName, parsedResult, true /* distributed */, paramTypes);
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), parsedResult.queryType(),
+                true /* distributed */, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
@@ -897,7 +900,8 @@ public class PrepareServiceImpl implements PrepareService {
             paramTypes = result;
         }
 
-        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult, distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), parsedResult.queryType(),
+                distributed, paramTypes);
     }
 
     private static Set<Integer> resolveSources(IgniteRel rel) {
@@ -1080,6 +1084,10 @@ public class PrepareServiceImpl implements PrepareService {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
+        }
+
+        ParsedResult parsedResult() {
+            return parsedResult;
         }
     }
 

@@ -45,9 +45,9 @@ public class ValidationResult {
      */
     ValidationResult(
             SqlNode sqlNode,
-            @Nullable RelDataType dataType,
-            @Nullable List<List<String>> origins,
-            @Nullable List<String> aliases
+            RelDataType dataType,
+            List<List<String>> origins,
+            List<String> aliases
     ) {
         this.sqlNode = sqlNode;
         this.dataType = dataType;
