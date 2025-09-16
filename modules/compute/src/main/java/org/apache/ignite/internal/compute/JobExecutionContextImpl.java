@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +38,8 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final @Nullable Partition partition;
 
+    private final Collection<DeploymentUnitInfo> units;
+
     /**
      * Constructor.
      *
@@ -44,11 +48,17 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * @param classLoader Job class loader.
      * @param partition Partition associated with this job.
      */
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader, @Nullable Partition partition) {
+    public JobExecutionContextImpl(
+            Ignite ignite,
+            AtomicBoolean isInterrupted,
+            JobClassLoader classLoader,
+            @Nullable Partition partition,
+            Collection<DeploymentUnitInfo> units) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
         this.partition = partition;
+        this.units = units;
     }
 
     @Override
@@ -64,6 +74,11 @@ public class JobExecutionContextImpl implements JobExecutionContext {
     @Override
     public @Nullable Partition partition() {
         return partition;
+    }
+
+    @Override
+    public Collection<DeploymentUnitInfo> deploymentUnits() {
+        return units;
     }
 
     /**
