@@ -224,7 +224,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @Test
     void jobContextProvidesDeploymentUnitInfo() {
-        JobDescriptor<Void, String> job = JobDescriptor.builder(DeploymentUnitInfoJob.class).units(units).build();
+        var units0 = List.of(
+                new DeploymentUnit(unit.name(), Version.LATEST),
+                unit);
+
+        JobDescriptor<Void, String> job = JobDescriptor.builder(DeploymentUnitInfoJob.class).units(units0).build();
 
         String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
 
