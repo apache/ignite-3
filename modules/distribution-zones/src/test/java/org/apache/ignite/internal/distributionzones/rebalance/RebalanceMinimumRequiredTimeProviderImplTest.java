@@ -113,9 +113,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testNoAssignments() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        createTable();
 
-        createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -136,9 +136,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testOldStableAssignments1() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -161,9 +161,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testOldStableAssignments2() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -239,9 +239,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testNewStableAssignments() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -265,9 +265,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPendingAssignmentsNotAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -290,9 +290,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPendingAssignmentsAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -315,9 +315,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPlannedAssignmentsNotAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -345,9 +345,9 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     void testPlannedAssignmentsAllPartitions() throws Exception {
         startDistributionZoneManager();
 
-        String defaultZoneName = getDefaultZone().name();
+        int tableId = createTable();
 
-        int tableId = createTable(defaultZoneName);
+        String defaultZoneName = getDefaultZone().name();
 
         Catalog earliestCatalog = latestCatalogVersion();
 
@@ -381,13 +381,17 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         return latestCatalog;
     }
 
-    private int createTable(String defaultZoneName) throws Exception {
+    private int createTable() throws Exception {
+        return createTable(null);
+    }
+
+    private int createTable(@Nullable String zoneName) throws Exception {
         CompletableFuture<CatalogApplyResult> tableFuture = catalogManager.execute(CreateTableCommand.builder()
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
-                .zone(defaultZoneName)
                 .columns(List.of(ColumnParams.builder().name("key").type(ColumnType.INT32).build()))
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key")).build())
+                .zone(zoneName)
                 .build()
         );
 

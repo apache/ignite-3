@@ -277,7 +277,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 column("VAL_NOT_NULLABLE", columnType, precision, scale, false)
                         ))
                         .primaryKey(primaryKey("ID"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -347,7 +346,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -400,7 +398,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)
-                        .zone("Default")
                         .build()
         )));
 
@@ -447,8 +444,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C3").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C4").type(ColumnType.INT32).build()
                 ))
-                .primaryKey(primaryKey("C1", "C2", "C3", "C4"))
-                .zone("Default");
+                .primaryKey(primaryKey("C1", "C2", "C3", "C4"));
 
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
@@ -920,7 +916,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKey(TableHashPrimaryKey.builder()
                         .columns(List.of("ID"))
                         .build())
-                .zone("Default")
                 .build();
     }
 
