@@ -24,7 +24,7 @@ import org.apache.ignite.deployment.version.Version;
 /**
  * Information about a deployment unit used by a job.
  */
-public class DeploymentUnitInfo {
+public final class DeploymentUnitInfo {
     private final String name;
     private final Version version;
     private final Path path;
@@ -61,6 +61,15 @@ public class DeploymentUnitInfo {
      */
     public Path path() {
         return path;
+    }
+
+    @Override
+    public String toString() {
+        return "DeploymentUnitInfo{" +
+                "name='" + name + '\'' +
+                ", version=" + version +
+                ", path=" + path +
+                '}';
     }
 }
 

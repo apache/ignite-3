@@ -24,11 +24,11 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job. */
-public class UnitPathsJob implements ComputeJob<Void, String> {
+public class DeploymentUnitInfoJob implements ComputeJob<Void, String> {
     @Override
     public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
         String paths = context.deploymentUnits().stream()
-                .map(x -> x.path().toString())
+                .map(Object::toString)
                 .reduce((x, y) -> x + ";" + y)
                 .orElse("");
 
