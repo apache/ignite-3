@@ -1331,6 +1331,20 @@ public class ClientInboundMessageHandler
         return new IgniteException(traceId, code, message, cause);
     }
 
+    private static void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
+        packer.packInt(deploymentUnitPaths.size());
+        for (String path : deploymentUnitPaths) {
+            packer.packString(path);
+        }
+    }
+
+    private static void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
+        packer.packInt(deploymentUnits.size());
+        for (DeploymentUnitInfo unit : deploymentUnits) {
+            packer.packString(unit.path());
+        }
+    }
+
     private class ComputeConnection implements PlatformComputeConnection {
         @Override
         public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
@@ -1385,20 +1399,6 @@ public class ClientInboundMessageHandler
         public boolean isActive() {
             ChannelHandlerContext ctx = channelHandlerContext;
             return ctx != null && ctx.channel().isActive();
-        }
-
-        private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
-            packer.packInt(deploymentUnitPaths.size());
-            for (String path : deploymentUnitPaths) {
-                packer.packString(path);
-            }
-        }
-
-        private void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
-            packer.packInt(deploymentUnits.size());
-            for (DeploymentUnitInfo unit : deploymentUnits) {
-                packer.packString(unit.path());
-            }
         }
     }
 }
