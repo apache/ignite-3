@@ -195,7 +195,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
-        ArrayList<String> unitPaths = new ArrayList<>();
+        ArrayList<String> unitPaths = new ArrayList<>(classLoader.units().size());
 
         for (DisposableDeploymentUnit unit : classLoader.units()) {
             try {
