@@ -53,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -66,6 +65,7 @@ import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -136,15 +136,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     // @formatter:off
     private final TestCluster cluster = TestBuilders.cluster()
             .nodes("N1", "N2")
-            .addTable()
-                .name("T1")
-                .addKeyColumn("ID", NativeTypes.INT32)
-                .addColumn("VAL", NativeTypes.stringOf(64))
-                .addSortedIndex()
-                    .name("SORTED_IDX")
-                    .addColumn("ID", Collation.ASC_NULLS_FIRST)
-                    .end()
-                .end()
             .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
                     .mapToObj(part -> List.of(part % 2 == 0 ? "N1" : "N2"))
                     .collect(Collectors.toList())
@@ -174,13 +165,20 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.stop();
     }
 
+    @BeforeEach
+    public void initCluster() {
+        cluster.start();
+
+        cluster.node("N1").initSchema(
+                "CREATE TABLE t1 (id INT, val VARCHAR(64), CONSTRAINT sorted_idx PRIMARY KEY USING SORTED (id))"
+        );
+    }
+
     /**
      * Runs a simple SELECT query.
      */
     @Test
     public void testSimpleQuery() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT * FROM t1";
 
@@ -197,8 +195,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSimpleFromCreatedTableByDdl() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema(
@@ -220,8 +216,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSelectByKey() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT val, 100 FROM t1 WHERE ID = 1";
 
@@ -237,8 +231,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSelectRange() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
         String query = "SELECT * FROM t1 WHERE ID > 1";
 
@@ -251,14 +243,12 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         // Ensure the plan uses index.
         assertInstanceOf(MultiStepPlan.class, plan);
         assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).getRel()));
-        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).getRel())).indexName());
+        assertEquals("T1_PK", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).getRel())).indexName());
     }
 
     /** Check that already stopped message service correctly process incoming message. */
     @Test
     public void stoppedMessageServiceNotThrowsException() throws Exception {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         TestNode stoppedNode = cluster.node("N2");
@@ -285,8 +275,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     /** Checks the propagation of hybrid logical time from the initiator to other nodes. */
     @Test
     public void testHybridTimestampPropagationFromInitiator() {
-        cluster.start();
-
         TestNode initiator = cluster.node("N1");
 
         HybridClock initiatorClock = initiator.clock();
@@ -308,8 +296,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     /** Checks the propagation of hybrid logical time from other nodes to the initiator. */
     @Test
     public void testHybridTimestampPropagationToInitiator() {
-        cluster.start();
-
         TestNode initiator = cluster.node("N1");
         TestNode otherNode = cluster.node("N2");
 
@@ -339,8 +325,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testQuerySystemViews() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         BatchedResult<InternalSqlRow> results = await(
@@ -354,8 +338,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testNodeInitSchema() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
@@ -366,8 +348,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testGetCountPlan() {
-        cluster.start();
-
         TestNode gatewayNode = cluster.node("N1");
 
         BatchedResult<InternalSqlRow> results = await(
@@ -381,8 +361,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testExecutionWithDynamicParam() {
-        cluster.start();
-
         TestNode node = cluster.node("N1");
         Object[] params = {1, null};
 
@@ -398,8 +376,6 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testExecutionWithMissingDynamicParam() {
-        cluster.start();
-
         TestNode node = cluster.node("N1");
 
         SqlTestUtils.assertThrowsSqlException(

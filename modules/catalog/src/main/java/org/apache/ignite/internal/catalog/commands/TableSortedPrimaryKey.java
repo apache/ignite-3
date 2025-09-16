@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Primary key that uses sort index. */
 public class TableSortedPrimaryKey extends TablePrimaryKey {
@@ -33,8 +34,8 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
      * @param columns List of columns.
      * @param collations List of column collations.
      */
-    private TableSortedPrimaryKey(List<String> columns, List<CatalogColumnCollation> collations) {
-        super(columns);
+    private TableSortedPrimaryKey(@Nullable String name, List<String> columns, List<CatalogColumnCollation> collations) {
+        super(name, columns);
         this.collations = collations != null ? List.copyOf(collations) : List.of();
     }
 
@@ -66,7 +67,7 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
 
     /** Builder to create a primary index that uses a sorted index. */
     public static class Builder extends TablePrimaryKeyBuilder<Builder> {
-
+        private @Nullable String name;
         private List<String> columns;
 
         private List<CatalogColumnCollation> collations;
@@ -88,10 +89,16 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
             return this;
         }
 
+        @Override
+        public Builder name(@Nullable String name) {
+            this.name = name;
+            return this;
+        }
+
         /** Crates a primary key that uses a sorted index. */
         @Override
         public TableSortedPrimaryKey build() {
-            return new TableSortedPrimaryKey(columns, collations);
+            return new TableSortedPrimaryKey(name, columns, collations);
         }
     }
 }
