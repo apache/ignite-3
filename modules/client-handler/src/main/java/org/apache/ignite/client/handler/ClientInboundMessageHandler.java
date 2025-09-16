@@ -40,7 +40,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
-import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
