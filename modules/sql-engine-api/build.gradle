@@ -21,7 +21,10 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-transactions')
 
     implementation libs.jetbrains.annotations
 }

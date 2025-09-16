@@ -162,6 +162,13 @@ class DeployFiles {
         return builder.build();
     }
 
+    public static void staticDeploy(String id, Version version, DeployFile file, Path workDir) throws IOException {
+        Path deploymentRootFolder = workDir.resolve("deployment");
+        Path unitFile = deploymentRootFolder.resolve(id).resolve(version.render()).resolve(file.file().getFileName());
+        Files.createDirectories(unitFile.getParent());
+        Files.copy(file.file(), unitFile);
+    }
+
     private static DeploymentUnit fromPaths(List<Path> paths) {
         Objects.requireNonNull(paths);
         Map<String, InputStream> map = new HashMap<>();

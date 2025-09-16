@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -78,19 +76,5 @@ public final class ParameterType {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /** Creates parameter metadata from the given logical type. */
-    static ParameterType fromRelDataType(RelDataType type) {
-        ColumnType columnType = TypeUtils.columnType(type);
-        assert columnType != null : "No column type for " + type;
-
-        int precision = columnType.lengthAllowed() || columnType.precisionAllowed()
-                ? type.getPrecision()
-                : ColumnMetadata.UNDEFINED_PRECISION;
-
-        int scale = columnType.scaleAllowed() ? type.getScale() : ColumnMetadata.UNDEFINED_SCALE;
-
-        return new ParameterType(columnType, precision, scale, type.isNullable());
     }
 }

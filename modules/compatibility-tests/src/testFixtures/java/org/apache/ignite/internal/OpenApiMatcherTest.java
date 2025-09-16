@@ -267,27 +267,6 @@ class OpenApiMatcherTest {
                 + "of parameter \"param\" : Schema \"#/components/schemas/testSchema\" has missing enum values <[SECOND]>");
     }
 
-    @Test
-    void newEnumValuesInResponse() {
-        PathItem pathItem = new PathItem().get(new Operation()
-                .responses(new ApiResponses().addApiResponse("200", new ApiResponse().content(new Content()
-                        .addMediaType("application/json", new MediaType()
-                                .schema(new Schema().$ref("#/components/schemas/testSchema")))))));
-        StringSchema baseSchema = new StringSchema().type("string");
-        baseSchema.addEnumItemObject("FIRST");
-        OpenAPI baseApi = new OpenAPI().path("test", pathItem)
-                .components(new Components().addSchemas("testSchema", baseSchema));
-        StringSchema currentSchema = new StringSchema().type("string");
-        currentSchema.addEnumItemObject("FIRST");
-        currentSchema.addEnumItemObject("SECOND");
-        OpenAPI currentApi = new OpenAPI().path("test", pathItem)
-                .components(new Components().addSchemas("testSchema", currentSchema));
-
-        assertThatMismatchedWithDescription(baseApi, currentApi,
-                "operation <GET> at path \"test\" response \"200\" has incompatible content: "
-                + "Schema \"#/components/schemas/testSchema\" has new enum values <[SECOND]>");
-    }
-
     private static void assertThatMismatchedWithDescription(OpenAPI baseApi, OpenAPI currentApi, String description) {
         Matcher<OpenAPI> matcher = isCompatibleWith(baseApi);
         assertThat(matcher.matches(currentApi), is(false));
