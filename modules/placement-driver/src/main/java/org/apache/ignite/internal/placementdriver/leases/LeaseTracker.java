@@ -21,8 +21,10 @@ import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.Utils.extractZoneIdFromGroupId;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
@@ -36,6 +38,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,7 +46,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -103,16 +109,28 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     private final ClockService clockService;
 
+    private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
+
+    private final NodeProperties nodeProperties;
+
     /**
      * Constructor.
      *
      * @param msManager Meta storage manager.
      * @param clockService Clock service.
      */
-    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver, ClockService clockService) {
+    public LeaseTracker(
+            MetaStorageManager msManager,
+            ClusterNodeResolver clusterNodeResolver,
+            ClockService clockService,
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
+            NodeProperties nodeProperties
+    ) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
+        this.currentDataNodesProvider = currentDataNodesProvider;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -281,16 +299,37 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             TimeUnit unit
     ) {
         return awaitPrimaryReplicaImpl(groupId, timestamp, System.nanoTime(), unit.toNanos(timeout))
-                .exceptionally(e -> {
-                    if (hasCause(e, TimeoutException.class)) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
-                    } else if (hasCause(e, TrackerClosedException.class)) {
-                        // TrackerClosedException is thrown when trackers are closed on node stop.
-                        throw new CompletionException(new NodeStoppingException(e));
+                .handle((replicaMeta, e) -> {
+                    if (e == null) {
+                        return completedFuture(replicaMeta);
                     } else {
-                        throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
+                        CompletableFuture<ReplicaMeta> failed = new CompletableFuture<>();
+
+                        if (hasCause(e, TimeoutException.class)) {
+                            checkDataNodes(groupId)
+                                    .thenRun(() -> {
+                                        throw new PrimaryReplicaAwaitTimeoutException(
+                                                groupId,
+                                                timestamp,
+                                                leases.leaseByGroupId().get(groupId),
+                                                e
+                                        );
+                                    })
+                                    .exceptionally(ex -> {
+                                        failed.completeExceptionally(ex);
+                                        return null;
+                                    });
+                        } else if (hasCause(e, TrackerClosedException.class)) {
+                            // TrackerClosedException is thrown when trackers are closed on node stop.
+                            failed.completeExceptionally(new CompletionException(new NodeStoppingException(e)));
+                        } else {
+                            failed.completeExceptionally(new PrimaryReplicaAwaitException(groupId, timestamp, e));
+                        }
+
+                        return failed;
                     }
-                });
+                })
+                .thenCompose(identity());
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaImpl(
@@ -319,6 +358,21 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         return awaitPrimaryReplicaImpl(groupId, replicaMeta.getExpirationTime().tick(), startNanoTime, timeoutNanos);
                     });
         });
+    }
+
+    private CompletableFuture<Void> checkDataNodes(ReplicationGroupId groupId) {
+        Integer zoneId = extractZoneIdFromGroupId(groupId, nodeProperties.colocationEnabled());
+
+        if (zoneId != null) {
+            return currentDataNodesProvider.apply(zoneId)
+                    .thenAccept(dataNodes -> {
+                        if (dataNodes.isEmpty()) {
+                            throw new EmptyDataNodesException(zoneId);
+                        }
+                    });
+        } else {
+            return nullCompletedFuture();
+        }
     }
 
     private boolean isValidReplicaMeta(@Nullable ReplicaMeta replicaMeta) {

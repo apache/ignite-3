@@ -142,7 +142,8 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new SystemPropertiesNodeProperties(),
                 replicationConfiguration,
                 Runnable::run,
-                mock(MetricManager.class)
+                mock(MetricManager.class),
+                zoneId -> completedFuture(Set.of())
         );
 
         assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

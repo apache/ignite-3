@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -929,7 +930,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, new ClusterNodeResolver() {
+        var clusterNodeResolver = new ClusterNodeResolver() {
             @Override
             public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
                 return leaseholder;
@@ -939,10 +940,23 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             public @Nullable InternalClusterNode getById(UUID id) {
                 return leaseholder;
             }
-        }, clockService);
+        };
+
+        return new LeaseTracker(
+                metastore,
+                clusterNodeResolver,
+                clockService,
+                zoneId -> completedFuture(Set.of()),
+                new SystemPropertiesNodeProperties()
+        );
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
-        return new AssignmentsTracker(metastore, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
+        return new AssignmentsTracker(
+                metastore,
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of())
+        );
     }
 }

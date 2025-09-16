@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -29,9 +30,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -125,6 +128,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param failureProcessor Failure processor.
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      * @param metricManager Metric manager.
+     * @param currentDataNodesProvider Provider of the current data nodes in the cluster.
      */
     public PlacementDriverManager(
             String nodeName,
@@ -140,7 +144,8 @@ public class PlacementDriverManager implements IgniteComponent {
             NodeProperties nodeProperties,
             ReplicationConfiguration replicationConfiguration,
             Executor throttledLogExecutor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -152,9 +157,15 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
+        this.leaseTracker = new LeaseTracker(
+                metastore,
+                clusterService.topologyService(),
+                clockService,
+                currentDataNodesProvider,
+                nodeProperties
+        );
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties);
+        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties, currentDataNodesProvider);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,

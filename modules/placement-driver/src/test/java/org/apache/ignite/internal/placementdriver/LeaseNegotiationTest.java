@@ -197,12 +197,19 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         LeaseTracker leaseTracker = new LeaseTracker(
                 metaStorageManager,
                 pdClusterService.topologyService(),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                zoneId -> completedFuture(Set.of()),
+                new SystemPropertiesNodeProperties()
         );
 
         leaseTracker.startTrack(0L);
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
+        assignmentsTracker = new AssignmentsTracker(
+                metaStorageManager,
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
+                zoneId -> completedFuture(Set.of())
+        );
 
         assignmentsTracker.startTrack();
 

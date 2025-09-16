@@ -328,7 +328,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     new SystemPropertiesNodeProperties(),
                     replicationConfiguration,
                     Runnable::run,
-                    mock(MetricManager.class)
+                    mock(MetricManager.class),
+                    zoneId -> completedFuture(Set.of())
             );
 
             res.add(new Node(

@@ -874,7 +874,8 @@ public class IgniteImpl implements Ignite {
                 nodeProperties,
                 replicationConfig,
                 threadPoolsManager.commonScheduler(),
-                metricManager
+                metricManager,
+                zoneId -> distributionZoneManager().currentDataNodes(zoneId)
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
