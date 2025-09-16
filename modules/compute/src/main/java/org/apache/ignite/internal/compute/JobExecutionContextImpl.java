@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -99,8 +100,12 @@ public class JobExecutionContextImpl implements JobExecutionContext {
         List<DisposableDeploymentUnit> units = classLoader.units();
         ArrayList<DeploymentUnitInfo> result = new ArrayList<>(units.size());
 
-        for (DisposableDeploymentUnit unit : units) {
-            result.add(new DeploymentUnitInfo(unit.unit().name(), unit.unit().version(), unit.path()));
+        try {
+            for (DisposableDeploymentUnit unit : units) {
+                result.add(new DeploymentUnitInfo(unit.unit().name(), unit.unit().version(), unit.path().toRealPath()));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
         return result;

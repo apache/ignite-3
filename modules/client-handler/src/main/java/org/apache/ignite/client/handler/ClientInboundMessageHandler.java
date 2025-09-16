@@ -1341,13 +1341,8 @@ public class ClientInboundMessageHandler
 
     private static void packDeploymentUnitPaths(Collection<DeploymentUnitInfo> deploymentUnits, ClientMessagePacker packer) {
         packer.packInt(deploymentUnits.size());
-
-        try {
-            for (DeploymentUnitInfo unit : deploymentUnits) {
-                packer.packString(unit.path().toRealPath().toString());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        for (DeploymentUnitInfo unit : deploymentUnits) {
+            packer.packString(unit.path().toString());
         }
     }
 
