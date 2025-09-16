@@ -36,12 +36,18 @@ class SegmentPayload {
 
     private final long groupId;
 
-    private final byte[] payload;
+    private final int payloadSize;
+
+    private final LogEntry logEntry;
+
+    private final LogEntryEncoder logEntryEncoder;
 
     SegmentPayload(long groupId, LogEntry logEntry, LogEntryEncoder logEntryEncoder) {
         this.groupId = groupId;
-        // TODO: optimize, see https://issues.apache.org/jira/browse/IGNITE-26419
-        this.payload = logEntryEncoder.encode(logEntry);
+        this.logEntry = logEntry;
+        this.logEntryEncoder = logEntryEncoder;
+
+        payloadSize = logEntryEncoder.size(logEntry);
     }
 
     void writeTo(ByteBuffer buffer) {
@@ -49,8 +55,9 @@ class SegmentPayload {
 
         buffer
                 .putLong(groupId)
-                .putInt(payload.length)
-                .put(payload);
+                .putInt(payloadSize);
+
+        logEntryEncoder.encode(buffer, logEntry);
 
         int dataSize = buffer.position() - originalPos;
 
@@ -64,7 +71,7 @@ class SegmentPayload {
     }
 
     int size() {
-        return overheadSize() + payload.length;
+        return overheadSize() + payloadSize;
     }
 
     static int overheadSize() {
