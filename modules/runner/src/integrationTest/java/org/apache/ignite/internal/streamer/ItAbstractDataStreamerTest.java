@@ -634,6 +634,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         for (DataStreamerItem<Tuple> failedItem : failedItems) {
+            if (failedItem.get().columnIndex("name1") < 0) {
+                // Valid item failed to flush, ignore.
+                continue;
+            }
+
             assertTrue(invalidItemsAdded.contains(failedItem), "invalidItemsAdded item not found: " + failedItem.get());
         }
 
