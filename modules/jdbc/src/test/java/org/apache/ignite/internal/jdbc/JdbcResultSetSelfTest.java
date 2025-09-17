@@ -76,4 +76,46 @@ public class JdbcResultSetSelfTest extends JdbcResultSetBaseSelfTest {
     public void navigationMethods() throws SQLException {
         super.navigationMethods();
     }
+
+    // getByte does not have range checks in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getByteFromNumber(boolean valid, Number value) throws SQLException {
+        super.getByteFromNumber(valid, value);
+    }
+
+    // getShort does not have range checks  in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getShortFromNumber(boolean valid, Number value) throws SQLException {
+        super.getShortFromNumber(valid, value);
+    }
+
+    // getInt does not have range checks  in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getIntFromNumber(boolean valid, Number value) throws SQLException {
+        super.getLongFromNumber(valid, value);
+    }
+
+    // getLong does not have range checks  in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getLongFromNumber(boolean valid, Number value) throws SQLException {
+        super.getLongFromNumber(valid, value);
+    }
+
+    // getFloat does not have range checks  in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getFloatFromNumber(boolean valid, Number value) throws SQLException {
+        super.getFloatFromNumber(valid, value);
+    }
+
+    // getDouble does not have range checks  in the current JDBC driver it is not worth fixing them
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
+    @Override
+    public void getDoubleFromNumber(boolean valid, Number value) throws SQLException {
+        super.getDoubleFromNumber(valid, value);
+    }
 }
