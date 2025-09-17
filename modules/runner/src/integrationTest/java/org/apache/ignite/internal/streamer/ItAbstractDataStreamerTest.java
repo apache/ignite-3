@@ -630,11 +630,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         Set<DataStreamerItem<Tuple>> failedItems = (Set<DataStreamerItem<Tuple>>) cause.failedItems();
 
         for (DataStreamerItem<Tuple> invalidAddedItem : invalidItemsAdded) {
-            assertTrue(failedItems.contains(invalidAddedItem), "invalidAddedItem not found: " + invalidAddedItem.get());
+            assertTrue(failedItems.contains(invalidAddedItem), "failedItems item not found: " + invalidAddedItem.get());
         }
 
         for (DataStreamerItem<Tuple> failedItem : failedItems) {
-            assertTrue(invalidItemsAdded.contains(failedItem), "invalidAddedItem not found: " + failedItem.get());
+            assertTrue(invalidItemsAdded.contains(failedItem), "invalidItemsAdded item not found: " + failedItem.get());
         }
 
         assertThat(invalidItemsAdded.size(), is(greaterThan(10)));
