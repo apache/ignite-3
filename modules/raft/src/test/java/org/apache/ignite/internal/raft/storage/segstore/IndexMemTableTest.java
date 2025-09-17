@@ -17,27 +17,17 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.ArrayList;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(ExecutorServiceExtension.class)
 class IndexMemTableTest extends BaseIgniteAbstractTest {
     private static final int STRIPES = 10;
 
@@ -65,53 +55,59 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
         assertThat(memTable.getSegmentFileOffset(0, 6), is(0));
     }
 
-    @Test
-    void testMultithreadedPutGet(@InjectExecutorService(threadCount = STRIPES * 2) ExecutorService executor) {
+    @RepeatedTest(10)
+    void testOneWriterMultipleReaders() {
+        int numItems = 1000;
+
+        // One thread writes and two threads read from the same group ID.
+        RunnableX writer = () -> {
+            for (int i = 0; i < numItems; i++) {
+                memTable.appendSegmentFileOffset(0, i, i + 1);
+            }
+        };
+
+        RunnableX reader = () -> {
+            for (int i = 0; i < numItems; i++) {
+                int offset = memTable.getSegmentFileOffset(0, i);
+
+                assertThat(offset, either(is(i + 1)).or(is(0)));
+            }
+        };
+
+        runRace(writer, reader, reader);
+    }
+
+    @RepeatedTest(10)
+    void testMultithreadedPutGet() {
         int itemsPerGroup = 1000;
 
-        var barrier = new CyclicBarrier(STRIPES * 2);
+        var actions = new ArrayList<RunnableX>(STRIPES * 2);
 
-        var writeTasks = new CompletableFuture<?>[STRIPES];
-
-        for (int i = 0; i < writeTasks.length; i++) {
+        for (int i = 0; i < STRIPES; i++) {
             long groupId = i;
 
-            writeTasks[i] = runAsync(() -> {
-                try {
-                    barrier.await(1, TimeUnit.SECONDS);
-                } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
-                    throw new CompletionException(e);
-                }
-
+            actions.add(() -> {
                 for (int j = 0; j < itemsPerGroup; j++) {
                     memTable.appendSegmentFileOffset(groupId, j, j + 1);
                 }
-            }, executor);
+            });
         }
 
-        var readTasks = new CompletableFuture<?>[STRIPES];
-
-        for (int i = 0; i < readTasks.length; i++) {
+        for (int i = 0; i < STRIPES; i++) {
             long groupId = i;
 
-            readTasks[i] = runAsync(() -> {
-                try {
-                    barrier.await(1, TimeUnit.SECONDS);
-                } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
-                    throw new CompletionException(e);
-                }
-
+            actions.add(() -> {
                 for (int j = 0; j < itemsPerGroup; j++) {
                     int offset = memTable.getSegmentFileOffset(groupId, j);
 
                     assertThat(offset, either(is(j + 1)).or(is(0)));
                 }
-            }, executor);
+            });
         }
 
-        assertThat(allOf(writeTasks), willCompleteSuccessfully());
-        assertThat(allOf(readTasks), willCompleteSuccessfully());
+        runRace(actions.toArray(RunnableX[]::new));
 
+        // Check that all values are present after all writes completed.
         for (int groupId = 0; groupId < STRIPES; groupId++) {
             for (int j = 0; j < itemsPerGroup; j++) {
                 assertThat(memTable.getSegmentFileOffset(groupId, j), is(j + 1));

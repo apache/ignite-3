@@ -17,40 +17,51 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
  * Mutable index memtable.
  *
  * <p>This class represents an in-memory index of the current segment file used by a {@link SegmentFileManager}. Index is
- * essentially a mapping from {@code [groupId, logIndex]} to the offset in the segment file where the corresponding log entry is
- * stored.
+ * essentially a mapping from {@code [groupId, logIndex]} to the offset in the segment file where the corresponding log entry is stored.
  *
  * <p>It is expected that entries for each {@code groupId} are written by one thread, therefore concurrent writes to the same
  * {@code groupId} are not safe. However, reads from multiple threads are safe in relation to the aforementioned writes.
  */
 class IndexMemTable {
     private static class Stripe {
+        /** Map from group ID to SegmentInfo. */
         private final ConcurrentMap<Long, SegmentInfo> memTable = new ConcurrentHashMap<>();
     }
 
     private static class SegmentInfo {
-        private static final AtomicReferenceFieldUpdater<SegmentInfo, int[]> SEGMENT_FILE_OFFSETS_UPDATER =
-                AtomicReferenceFieldUpdater.newUpdater(SegmentInfo.class, int[].class, "segmentFileOffsets");
+        private static final VarHandle SEGMENT_FILE_OFFSETS_VH;
 
         private static final int INITIAL_SEGMENT_FILE_OFFSETS_CAPACITY = 10;
 
+        static {
+            try {
+                SEGMENT_FILE_OFFSETS_VH = MethodHandles.lookup()
+                        .findVarHandle(SegmentInfo.class, "segmentFileOffsets", int[].class);
+            } catch (ReflectiveOperationException e) {
+                throw new ExceptionInInitializerError(e);
+            }
+        }
+
         /**
-         * Base log index. All log indexes in the memtable are relative to this value.
+         * Base log index. All log indexes in this memtable lie in the
+         * {@code [logIndexBase, logIndexBase + segmentFileOffsets.length]} range.
          */
         private final long logIndexBase;
 
         /**
          * Offsets in a segment file.
          */
+        @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
         private volatile int[] segmentFileOffsets = new int[INITIAL_SEGMENT_FILE_OFFSETS_CAPACITY];
 
         /**
@@ -70,7 +81,9 @@ class IndexMemTable {
             int[] segmentFileOffsets = originalSegmentFileOffsets;
 
             // Check that log indexes are monotonically increasing.
-            assert segmentFileOffsetSize == logIndex - logIndexBase;
+            assert segmentFileOffsetSize == logIndex - logIndexBase :
+                    String.format("Log indexes are not monotonically increasing [logIndex=%d, expectedLogIndex=%d].",
+                            logIndex, logIndexBase + segmentFileOffsetSize);
 
             if (segmentFileOffsets.length == segmentFileOffsetSize) {
                 segmentFileOffsets = Arrays.copyOf(segmentFileOffsets, segmentFileOffsets.length * 2);
@@ -80,7 +93,7 @@ class IndexMemTable {
 
             // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
             // this invariant, just in case.
-            boolean updated = SEGMENT_FILE_OFFSETS_UPDATER.compareAndSet(this, originalSegmentFileOffsets, segmentFileOffsets);
+            boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, originalSegmentFileOffsets, segmentFileOffsets);
 
             assert updated : "Concurrent writes detected";
         }
@@ -115,7 +128,7 @@ class IndexMemTable {
 
     void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset) {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
-        assert segmentFileOffset != 0 : "Segment file offset must not be 0";
+        assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
         SegmentInfo segmentInfo = stripe(groupId).memTable.computeIfAbsent(groupId, id -> new SegmentInfo(logIndex));
 
