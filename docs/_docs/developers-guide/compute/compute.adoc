@@ -24,6 +24,12 @@ The cluster also supports <<MapReduce Tasks>>, allowing for efficient processing
 
 When sending code and data between nodes, objects are converted into a transferable format so they can be accurately rebuilt. Ignite 3 automatically handles marshalling for common types like tuples, POJOs, and native types, but for more complex or custom objects, you may need to implement your own link:developers-guide/compute/serialization[marshalling] logic.
 
+== Compute Job Code Deployment
+
+Before submitting your compute job, ensure that the required code is link:developers-guide/code-deployment/code-deployment[deployed] to the nodes where it will execute.
+
+If you are using link:quick-start/embedded-mode[embedded nodes], any code that is included in the project classpath will also be available to your compute jobs.
+
 == Configuring Jobs
 
 In Ignite 3, compute job's execution is defined by two key components: `JobTarget` and `JobDescriptor`. These components determine on which nodes the job will run and how it will be structured, including input and output types, marshallers, and the deployed class that represents the job.
@@ -52,37 +58,44 @@ Examples below assumes that the `NodeNameJob` class has been deployed to the nod
 +
 [source, java]
 ----
-String result = client.compute().execute(
-    JobTarget.anyNode(client.cluster().nodes()),
-    JobDescriptor.builder(WordPrintJob.class)
-        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-        .resultClass(String.class)
-        .build(),
-    "Hello, Ignite!"
-);
+JobDescriptor<String, Integer> job = JobDescriptor.builder(WordCountJob.class)
+.units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+.build();
+
+JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+
+String phrase = "Count characters using callable";
+
+System.out.println("\nExecuting compute job for the phrase '" + phrase + "'...");
+
+Integer wordCnt = client.compute().execute(jobTarget, job, phrase);
 ----
 
 - This example shows how to create a custom job descriptor for a job that takes a user-defined `MyJobArgument`, runs on a random cluster node, and returns a `MyJobResult` object using custom marshallers:
 +
 [source, java]
 ----
-MyJobResult result = client.compute().execute(
-    JobTarget.anyNode(client.cluster().nodes()),
-    JobDescriptor.<MyJobArgument, MyJobResult>builder(WordPrintJob.class)
-        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-        .resultClass(MyJobResult.class)
-        .argumentMarshaller(new ArgMarshaller())
-        .resultMarshaller(new ResultMarshaller())
-        .build(),
-    new MyJobArgument("Hello, Ignite!")
-);
+JobDescriptor<String, WordInfoResult> job = JobDescriptor.builder(WordInfoJob.class)
+    .resultMarshaller(new WordInfoResultMarshaller())
+    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+    .build();
+
+JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+ArrayList<WordInfoResult> results = new ArrayList<>();
+
+String phrase = "Count characters using compute job";
+
+for (String word : phrase.split(" ")) {
+    System.out.println("\nExecuting compute job for the word '" + word + "'...");
+    WordInfoResult result = client.compute().execute(jobTarget, job, word);
+    results.add(result);
 ----
 
-For more details on configuring jobs refer to the corresponding link:https://ignite.apache.org/releases/3.0.0/javadoc/org/apache/ignite/compute/JobDescriptor.html[API] section.
+For more details on configuring jobs refer to the corresponding link:https://www.gridgain.com/sdk/gridgain9/latest/javadoc/org/apache/ignite/compute/JobDescriptor.html[API] section.
 
 == Executing Jobs
 
-Ignite compute jobs can run on a specific node, any node, or using a colocated approach when job is executed on the node holding the relevant data key.
+GridGain compute jobs can run on a specific node, any node, or using a colocated approach when job is executed on the node holding the relevant data key.
 
 === Single Node Execution
 
@@ -97,30 +110,26 @@ Often, you need to perform a job on one node in the cluster. In this case, there
 [tabs]
 --
 tab:Java[]
-[source, java]
+[source,java]
 ----
 try (IgniteClient client = IgniteClient.builder()
-        .addresses("127.0.0.1:10800")
-        .build()
+    .addresses("127.0.0.1:10800")
+    .build()
 ) {
 
-    System.out.println("\nConfiguring compute job...");
-
     JobDescriptor<String, Void> job = JobDescriptor.builder(WordPrintJob.class)
-            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-            .build();
+        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+        .build();
 
-    JobTarget jobTarget = JobTarget.anyNode(client.clusterNodes());
-
+    JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
 
     for (String word : "Print words using runnable".split(" ")) {
-
         System.out.println("\nExecuting compute job for word '" + word + "'...");
-
         client.compute().execute(jobTarget, job, word);
     }
 }
 ----
+
 
 
 tab:.NET[]
@@ -130,9 +139,9 @@ ICompute compute = Client.Compute;
 IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
 
 IJobExecution<string> execution = await compute.SubmitAsync(
-JobTarget.AnyNode(nodes),
-new JobDescriptor<string, string>("org.example.NodeNameJob"),
-arg: "Hello");
+    JobTarget.AnyNode(nodes),
+    new JobDescriptor<string, string>("org.example.NodeNameJob"),
+    arg: "Hello");
 
 string result = await execution.GetResultAsync();
 ----
@@ -147,8 +156,8 @@ std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
 auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
-.deployment_units({deployment_unit{"unitName", "1.1.1"}})
-.build();
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
 job_execution execution = comp.submit(job_target::any_node(nodes), job_desc, {std::string("Hello")}, {});
 std::string result = execution.get_result()->get<std::string>();
@@ -171,27 +180,12 @@ You can control what nodes the task is executed on by setting the list of nodes:
 tab:Java[]
 [source, java]
 ----
-try (IgniteClient client = IgniteClient.builder()
-        .addresses("127.0.0.1:10800")
-        .build()
-) {
+JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
+                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                    .build();
 
-    System.out.println("\nConfiguring compute job...");
-
-
-    JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
-            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-            .build();
-
-    BroadcastJobTarget target = BroadcastJobTarget.nodes(client.cluster().nodes());
-
-
-    System.out.println("\nExecuting compute job...");
-
-    client.compute().execute(target, job, "John");
-
-    System.out.println("\nCompute job executed...");
-}
+BroadcastJobTarget target = table("Person");
+client.compute().execute(target, job, "John");
 ----
 
 
@@ -202,14 +196,14 @@ ICompute compute = Client.Compute;
 IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
 
 IBroadcastExecution<string> execution = await compute.SubmitBroadcastAsync(
-BroadcastJobTarget.Nodes(nodes),
-new JobDescriptor<object, string>("org.example.NodeNameJob"),
-arg: "Hello");
+  BroadcastJobTarget.Nodes(nodes),
+  new JobDescriptor<object, string>("org.example.NodeNameJob"),
+  arg: "Hello");
 
 foreach (IJobExecution<string> jobExecution in execution.JobExecutions)
 {
-string jobResult = await jobExecution.GetResultAsync();
-Console.WriteLine($"Job result from node {jobExecution.Node}: {jobResult}");
+  string jobResult = await jobExecution.GetResultAsync();
+  Console.WriteLine($"Job result from node {jobExecution.Node}: {jobResult}");
 }
 ----
 
@@ -223,12 +217,12 @@ std::vector<cluster_node> nodes = client.get_nodes();
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
 auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
-.deployment_units({deployment_unit{"unitName", "1.1.1"}})
-.build();
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
 broadcast_execution execution = comp.submit_broadcast(broadcast_job_target::nodes(nodes), job_desc, {std::string("Hello")}, {});
 for (auto &exec: execution.get_job_executions()) {
-std::string result = exec.get_result()->get<std::string>();
+    std::string result = exec.get_result()->get<std::string>();
 }
 ----
 --
@@ -238,8 +232,7 @@ std::string result = exec.get_result()->get<std::string>();
 In Ignite 3, you can execute colocated computations by specifying a job target that directs the task to run on the node holding the required data.
 
 In the example below, the job runs on the node that owns the partition for the row in the `accounts` table identified by the primary key `accountNumber`.
-
-Pass the key both to `JobTarget.colocated()` to select the node and as the
+We pass the key both to `JobTarget.colocated()` to select the node and as the
 job argument, so the job knows which record to read.
 
 
@@ -249,18 +242,34 @@ tab:Java[]
 [source, java]
 ----
 try (IgniteClient client = IgniteClient.builder()
-        .addresses("127.0.0.1:10800")
-        .build()) {
+    .addresses("127.0.0.1:10800")
+    .build()
+) {
+    client.sql().executeScript(
+        "CREATE TABLE accounts ("
+            + "accountNumber INT PRIMARY KEY,"
+            + "name VARCHAR)"
+    );
+
+    RecordView<Tuple> view = client.tables().table("accounts").recordView();
+    System.out.println("\nCreating account records...");
+
+    for (int i = 0; i < ACCOUNTS_COUNT; i++) {
+        view.insert(null, account(i));
+    }
 
     System.out.println("\nConfiguring compute job...");
 
     JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .build();
+        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+        .build();
 
     int accountNumber = ThreadLocalRandom.current().nextInt(ACCOUNTS_COUNT);
 
     JobTarget jobTarget = JobTarget.colocated("accounts", accountKey(accountNumber));
+
+    System.out.println("\nExecuting compute job for the accountNumber '" + accountNumber + "'...");
+
     client.compute().execute(jobTarget, job, accountNumber);
 }
 ----
@@ -272,9 +281,9 @@ string table = "Person";
 string key = "John";
 
 IJobExecution<string> execution = await Client.Compute.SubmitAsync(
-JobTarget.Colocated(table, key),
-new JobDescriptor<string, string>("org.example.NodeNameJob"),
-arg: "Hello");
+    JobTarget.Colocated(table, key),
+    new JobDescriptor<string, string>("org.example.NodeNameJob"),
+    arg: "Hello");
 
 string result = await execution.GetResultAsync();
 
@@ -290,28 +299,15 @@ std::string key{"John"};
 
 // Unit `unitName:1.1.1` contains NodeNameJob class.
 auto job_desc = job_descriptor::builder("org.company.package.NodeNameJob")
-.deployment_units({deployment_unit{"unitName", "1.1.1"}})
-.build();
+	.deployment_units({deployment_unit{"unitName", "1.1.1"}})
+	.build();
 
 job_execution execution = comp.submit(job_target::colocated(table, key), job_desc, {std::string("Hello")}, {});
 std::string result = execution.get_result()->get<std::string>();
 ----
 --
 
-If you do not specify the table schema, the `PUBLIC` schema will be used. To use a different schema, specify a fully qualified table name. You can provide it in a string or by creating the `QualifiedName` object:
-
-[source, java]
-----
-QualifiedName myTableName = QualifiedName.parse("PUBLIC.MY_QUALIFIED_TABLE");
-String executionResult = client.compute()
-.execute(
-JobTarget.colocated(myTableName, Tuple.create(Map.of("k", 1))),
-JobDescriptor.builder(NodeNameJob.class).build(),
-null
-);
-----
-
-Alternatively, you can execute the compute job on all nodes in the cluster that hold partitions for the specified table by creating a `BroadcastJobTarget.table()` target. In this case, Ignite will automatically find all nodes that hold data partitions for the specified table and execute the job on all of them.
+Alternatively, you can execute the compute job on all nodes in the cluster that hold partitions for the specified table by creating a `BroadcastJobTarget.table()` target. In this case, GridGain will automatically find all nodes that hold data partitions for the specified table and execute the job on all of them.
 
 == .NET Compute Jobs
 
@@ -321,13 +317,13 @@ You can have multiple versions of the same job (assembly) deployed to the cluste
 
 NOTE: .NET compute jobs are executed in a separate process (link:https://learn.microsoft.com/en-us/azure/architecture/patterns/sidecar[Sidecar]) on the server node. The process is started on the first .NET job call and then reused for subsequent jobs.
 
-Compute job classes may implement `IDisposable` and `IAsyncDisposable` interfaces. Ignite will call `Dispose` or `DisposeAsync` after job execution whether it succeeds or fails.
+Compute job classes may implement `IDisposable` and `IAsyncDisposable` interfaces. GridGain will call `Dispose` or `DisposeAsync` after job execution whether it succeeds or fails.
 
 [discrete]
 === .NET Compute Requirements
 
 * .NET 8 Runtime or later (not SDK) is required on each server node.
-* When using ZIP, DEB, RPM installation, you have to install .NET runtime yourself. Ignite Docker image includes .NET 8 runtime, so you can run .NET jobs in Docker out of the box.
+* When using ZIP, DEB, RPM installation, you have to install .NET runtime yourself. GridGain Docker image includes .NET 8 runtime, so you can run .NET jobs in Docker out of the box.
 
 === Implementing .NET Compute Jobs
 
@@ -357,8 +353,8 @@ dotnet add package Apache.Ignite
 ----
 public class HelloJob : IComputeJob<string, string>
 {
-public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
-ValueTask.FromResult("Hello " + arg);
+    public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
+        ValueTask.FromResult("Hello " + arg);
 }
 ----
 +
@@ -373,11 +369,11 @@ cp bin/Release/net8.0/MyComputeJobs.dll deploy/
 ignite cluster unit deploy --name MyDotNetJobsUnit --path ./deploy
 ----
 +
-. Copy the resulting dll file and any extra dependencies to a separate directory, *excluding* Ignite dlls.
+. Copy the resulting dll file and any extra dependencies to a separate directory, *excluding* GridGain dlls.
 +
 NOTE: The directory with the dll must not contain any subdirectories.
 +
-. Use the Ignite CLI command `cluster unit deploy command` to link:code-deployment/code-deployment[deploy] the directory to the cluster as a deployment unit. The deployed code will be available on the cluster.
+. Use the GridGain CLI command `cluster unit deploy command` to link:code-deployment/code-deployment[deploy] the directory to the cluster as a deployment unit. The deployed code will be available on the cluster.
 
 === Running .NET Compute Jobs
 
@@ -428,40 +424,20 @@ try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800")
 
 JobDescriptor<String, String> jobDesc = JobDescriptor.<String, String>builder().jobClassName("MyNamespace.HelloJob, MyComputeJobsAssembly").deploymentUnits(new DeploymentUnit("MyDeploymentUnit")).executionOptions(new JobExecutionOptions().executorType(JobExecutorType.DotNetSidecar)).build();
 
-JobTarget jobTarget = JobTarget.anyNode(client.clusterNodes());
-for (String word : "Print words using runnable".split(" ")) {
+JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+    for (String word : "Print words using runnable".split(" ")) {
 
     System.out.println("\nExecuting compute job for word '" + word + "'...");
 
     client.compute().execute(jobTarget, job, word);
     }
 }
-
 ----
 
 
 == Using Qualified Table Names
 
-The below example executes the same job on all nodes in the cluster that have partitions for the `Person` table:
-
-[tabs]
---
-tab:Java[]
-[source, java]
-----
-JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .build();
-
-BroadcastJobTarget target = BroadcastJobTarget.nodes(client.cluster().nodes());
-----
-
-tab:.NET[unsupported]
-
-tab:C++[unsupported]
---
-
-Just like with execution on a single node, you can use the `QualifiedName` object to specify a qualified table name:
+If you do not specify the table schema, the `PUBLIC` schema will be used. To use a different schema, specify a fully qualified table name. You can provide it in a string or by creating the `QualifiedName` object:
 
 [tabs]
 --
@@ -470,7 +446,32 @@ tab:Java[]
 ----
 QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
 
-client.compute().execute(BroadcastJobTarget.table(customSchemaTable), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+client.compute().execute(
+    JobTarget.colocated(customSchemaTable, accountKey(accountNumber)),
+    JobDescriptor.builder(PrintAccountInfoJob.class).build(),
+    null
+);
+----
+
+tab:.NET[unsupported]
+
+tab:C++[unsupported]
+--
+
+Just like with execution on a single node, you can use the `QualifiedName` object to specify a qualified table name and run a job on multiple nodes using `BroadcastJobTarget`:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+QualifiedName customSchemaTable = QualifiedName.parse("CUSTOM_SCHEMA.MY_QUALIFIED_TABLE");
+
+String executionResult = client.compute().execute(
+    BroadcastJobTarget.table(customSchemaTable),
+    JobDescriptor.builder(HelloMessageJob.class).build(),
+    null
+);
 ----
 --
 
@@ -483,7 +484,11 @@ tab:Java[]
 ----
 QualifiedName customSchemaTableName = QualifiedName.of("PUBLIC", "MY_TABLE");
 
-client.compute().execute(BroadcastJobTarget.table(customSchemaTableName), JobDescriptor.builder(HelloMessageJob.class).build(), null);
+client.compute().execute(
+    BroadcastJobTarget.table(customSchemaTableName),
+    JobDescriptor.builder(HelloMessageJob.class).build(),
+    null
+);
 ----
 --
 
@@ -509,19 +514,18 @@ When using asynchronous API, you can keep track of the status of the job on the 
 tab:Java[]
 [source, java]
 ----
-public static void example() throws ExecutionException, InterruptedException {
-IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()), JobDescriptor.builder(WordPrintJob.class).build(), null);
+CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(
+    JobTarget.anyNode(client.cluster().nodes()),
+    JobDescriptor.builder(WordPrintJob.class).build(),
+    null
+);
 
 execution.get().stateAsync().thenApply(state -> {
-                if (state.status() == FAILED) {
-                    System.out.println("\nJob failed...");
-                }
-                return null;
-            });
-            System.out.println(execution.resultAsync().get());
-}
+    if (state.status() == FAILED) {
+        System.out.println("\nJob failed...");
+    }
+    return null;
+});
 ----
 
 tab:.NET[]
@@ -590,7 +594,7 @@ The table below lists the possible job statuses:
 
 |=======================================================================
 
-If all job execution threads are busy, new jobs received by the node are put into job queue according to their <<Job Priority>>. Ignite sorts all incoming jobs first by priority, then by the time, executing jobs queued earlier first.
+If all job execution threads are busy, new jobs received by the node are put into job queue according to their <<Job Priority>>. GridGain sorts all incoming jobs first by priority, then by the time, executing jobs queued earlier first.
 
 === Cancelling Executing Jobs
 
@@ -603,10 +607,19 @@ To be able to cancel a compute job, you first create a cancel handler and retrie
 tab:Java[]
 [source, java]
 ----
-CancelHandle cancelHandle = CancelHandle.create();
-CancellationToken cancelToken = cancelHandle.token();
+JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
+    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+    .build();
 
-CompletableFuture<Void> execution = client.compute().executeAsync(JobTarget.anyNode(client.clusterNodes()), JobDescriptor.builder(NodeNameJob.class).build(), cancelToken, null);
+JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
+CancelHandle cancelHandle = CancelHandle.create();
+
+CompletableFuture<Void> resultFuture = client.compute().executeAsync(
+    jobTarget,
+    job,
+    null,
+    cancelHandle.token()
+);
 
 cancelHandle.cancel();
 ----
@@ -616,9 +629,9 @@ tab:.NET[]
 var cts = new CancellationTokenSource();
 CancellationToken cancelToken = cts.Token;
 
-var execution = client.Compute.ExecuteAsync(
+IJobExecution<string> execution = await client.Compute.SubmitAsync(
 JobTarget.AnyNode(await client.GetClusterNodesAsync()),
-new JobDescriptor(typeof(NodeNameJob)),
+JobDescriptor.Of(new NodeNameJob()),
 cancelToken);
 
 cts.Cancel();
@@ -630,28 +643,34 @@ Another way to cancel jobs is by using the SQL link:sql-reference/operational-co
 
 == Job Configuration
 
+When jobs arrive at the destination node, they are submitted to a thread pool and scheduled for execution in random order.
+However, you can change job ordering by configuring `CollisionSpi`.
+The `CollisionSpi` interface provides a way to control how jobs are scheduled for processing on each node.
+
+Ignite provides several implementations of the `CollisionSpi` interface:
+
+- `FifoQueueCollisionSpi` — simple FIFO ordering in multiple threads. This implementation is used by default;
+- `PriorityQueueCollisionSpi` — priority ordering;
+- `JobStealingFailoverSpi` — use this implementation to enable link:distributed-computing/load-balancing#job-stealing[job stealing].
+
+To enable a specific collision spi, change the `IgniteConfiguration.collisionSpi` property.
+
 === Job Priority
 
-You can specify a job priority by setting the `JobExecutionOptions.priority` property. Jobs with a higher priority will be queued before jobs with lower priority (for exammple, a job with priority 4 will be executed before the job with priority 2).
+You can specify a job priority by setting the `JobExecutionOptions.priority` property. Jobs with a higher priority will be queued before jobs with lower priority (for example, a job with priority 4 will be executed before the job with priority 2).
 
 [tabs]
 --
 tab:Java[]
 [source, java]
 ----
-public static void example() throws ExecutionException, InterruptedException {
-try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
-
-    // Create job execution options
-    JobExecutionOptions options = JobExecutionOptions.builder().priority(1).build();
-
-    String executionResult = client.compute().execute(JobTarget.anyNode(client.cluster().nodes()),
-            JobDescriptor.builder(HighPriorityJob.class).options(options).build(), null
-    );
-
-    System.out.println(executionResult);
-    }
-}
+JobDescriptor<Integer, String> highPriorityJob = JobDescriptor.builder(HighPriorityJob.class)
+    .options(JobExecutionOptions.builder()
+        .priority(1)
+        .build()
+    )
+    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+    .build();
 ----
 
 tab:.NET[]
@@ -695,21 +714,14 @@ You can set the number the job will be retried on failure by setting the `JobExe
 tab:Java[]
 [source, java]
 ----
-public static void example() throws ExecutionException, InterruptedException {
-try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
-
-   // Create job execution options with maxRetries set to 5.
-    JobExecutionOptions options = JobExecutionOptions.builder()
-                                                          .maxRetries(5)
-                                                          .build();
-
-    String executionResult = client.compute().execute(JobTarget.anyNode(client.clusterNodes()),
-            JobDescriptor.builder(NodeNameJob.class).options(options).build(), null
-    );
-
-    System.out.println(executionResult);
-    }
-}
+JobDescriptor<Integer, String> lowPriorityJob = JobDescriptor.builder(LowPriorityJob.class)
+    .options(JobExecutionOptions.builder()
+        .priority(0)
+        .maxRetries(5)
+        .build()
+    )
+    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+    .build();
 ----
 
 tab:.NET[]
@@ -781,39 +793,45 @@ All MapReduce jobs must be submitted to a node that has an appropriate class lin
 tab:Java[]
 [source, java]
 ----
-public static class PhraseWordLengthCountMapReduceTask implements MapReduceTask<String, String, Integer, Integer> {
-    /** {@inheritDoc} */
+public static class PhraseWordLengthCountMapReduceTask
+    implements MapReduceTask<String, String, Integer, Integer> {
+
     @Override
     public CompletableFuture<List<MapReduceJob<String, Integer>>> splitAsync(
-            TaskExecutionContext taskContext,
-            String input) {
+        TaskExecutionContext taskContext,
+        String input
+    ) {
         assert input != null;
 
         var job = JobDescriptor.builder(WordLengthJob.class)
-                .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                .build();
+            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+            .build();
 
         List<MapReduceJob<String, Integer>> jobs = new ArrayList<>();
 
         for (String word : input.split(" ")) {
             jobs.add(
-                    MapReduceJob.<String, Integer>builder()
-                            .jobDescriptor(job)
-                            .nodes(taskContext.ignite().cluster().nodes())
-                            .args(word)
-                            .build()
+                MapReduceJob.<String, Integer>builder()
+                    .jobDescriptor(job)
+                    .nodes(taskContext.ignite().cluster.nodes())
+                    .args(word)
+                    .build()
             );
         }
 
         return completedFuture(jobs);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Integer> results) {
-        return completedFuture(results.values().stream()
+    public CompletableFuture<Integer> reduceAsync(
+        TaskExecutionContext taskContext,
+        Map<UUID, Integer> results
+    ) {
+        return completedFuture(
+            results.values().stream()
                 .reduce(Integer::sum)
-                .orElseThrow());
+                .orElseThrow()
+        );
     }
 }
 ----
@@ -835,25 +853,13 @@ The node that the MapReduce task is sent to must have a class implementing the `
 tab:Java[]
 [source, java]
 ----
-try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
+TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
+    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+    .build();
 
-    System.out.println("\nConfiguring map reduce task...");
+String phrase = "Count characters using map reduce";
 
-
-    TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
-            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-            .build();
-
-
-    System.out.println("\nExecuting map reduce task...");
-
-    String phrase = "Count characters using map reduce";
-
-    Integer result = client.compute().executeMapReduce(taskDescriptor, phrase);
-
-
-    System.out.println("\nTotal number of characters in the words is '" + result + "'.");
-}
+Integer result = client.compute().executeMapReduce(taskDescriptor, phrase);
 ----
 
 tab:.NET[]
