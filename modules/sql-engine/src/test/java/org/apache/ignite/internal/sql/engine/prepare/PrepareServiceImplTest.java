@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.VersionedSchemaManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -72,7 +72,9 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -83,6 +85,7 @@ import org.apache.ignite.sql.SqlException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -91,10 +94,12 @@ import org.mockito.Mockito;
 /**
  * Tests to verify {@link PrepareServiceImpl}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    @InjectExecutorService
+    private static ScheduledExecutorService commonExecutor;
 
     @AfterEach
     public void stopServices() throws Exception {
@@ -103,11 +108,6 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         createdServices.clear();
-    }
-
-    @AfterEach
-    public void stopScheduler() {
-        scheduler.shutdownNow();
     }
 
     @ParameterizedTest
@@ -394,7 +394,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         assertThat(service.cache.size(), is(2));
 
-        service.updatePlans(table.id());
+        service.statisticsChanged(table.id());
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
@@ -434,21 +434,21 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         await(service.prepareAsync(parse(selectQuery), operationContext().build()));
 
         assertThat(service.cache.size(), is(1));
-        CacheKey key1 = service.cache.asMap().keySet().iterator().next();
+        CacheKey key1 = service.cache.entrySet().iterator().next().getKey();
 
         // different table
         String insertQuery = "SELECT * FROM test.t2 WHERE c = 1";
         QueryPlan plan2 = await(service.prepareAsync(parse(insertQuery), operationContext().build()));
         assertThat(service.cache.size(), is(1));
-        CacheKey key2 = service.cache.asMap().keySet().iterator().next();
+        CacheKey key2 = service.cache.entrySet().iterator().next().getKey();
 
         assertNotEquals(key1, key2);
 
         // not cached table
-        service.updatePlans(table1.id());
+        service.statisticsChanged(table1.id());
 
         // cached table
-        service.updatePlans(table2.id());
+        service.statisticsChanged(table2.id());
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
@@ -462,8 +462,13 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     public void planUpdatesForCurrentCatalogVersion() {
         IgniteTable table1 = TestBuilders.table()
                 .name("T1")
-                .addColumn("C", NativeTypes.INT32)
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
                 .distribution(IgniteDistributions.single())
+                .sortedIndex()
+                .name("T1_C1_IDX")
+                .addColumn("C1", Collation.ASC_NULLS_LAST)
+                .end()
                 .build();
 
         IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
@@ -472,7 +477,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         PrepareServiceImpl service = createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 10000,
                 Integer.MAX_VALUE, 1000, ver);
 
-        String selectQuery = "SELECT * FROM test.t1 WHERE c = 1";
+        String selectQuery = "SELECT /*+ FORCE_INDEX(T1_C1_IDX) */ * FROM test.t1 WHERE c1 = 1";
         QueryPlan plan1 = await(service.prepareAsync(parse(selectQuery), operationContext().build()));
 
         // catalog version 1
@@ -487,7 +492,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 );
 
         assertThat(service.cache.size(), is(2));
-        service.updatePlans(table1.id());
+        service.statisticsChanged(table1.id());
 
         Awaitility.await()
                 .atMost(Duration.ofMillis(2 * PLAN_UPDATER_INITIAL_DELAY))
@@ -712,7 +717,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new PredefinedSchemaManager(schemas), clockService);
+                new PredefinedSchemaManager(schemas), clockService, commonExecutor);
 
         createdServices.add(service);
 
@@ -735,7 +740,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new VersionedSchemaManager(schemas, ver), clockService);
+                new VersionedSchemaManager(schemas, ver), clockService, commonExecutor);
 
         createdServices.add(service);
 
@@ -764,11 +769,6 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         @Override
         public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
             return (Cache<K, V>) cache;
-        }
-
-        @Override
-        public <K, V> Cache<K, V> createWithWeakKeys() {
-            return CaffeineCacheFactory.INSTANCE.createWithWeakKeys();
         }
     }
 }

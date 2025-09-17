@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
+import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
 import static org.hamcrest.Matchers.is;
 
@@ -25,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -38,17 +41,47 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
-        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
+
+        sqlScript(""
+                + "CREATE TABLE t1(ID INTEGER PRIMARY KEY, VAL INTEGER);"
+                + "CREATE TABLE t2(ID INTEGER PRIMARY KEY, VAL INTEGER);"
+        );
     }
 
     @AfterAll
     void afterAll() {
-        sql("DROP TABLE IF EXISTS t");
+        sqlScript(""
+                + "DROP TABLE IF EXISTS t1;"
+                + "DROP TABLE IF EXISTS t2;");
     }
 
-    @Override
-    protected int initialNodes() {
-        return 1;
+    @Test
+    public void statisticUpdatesChangeQueryPlans() {
+        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
+
+        sql("INSERT INTO t1 SELECT x, x FROM system_range(?, ?)", 0, 10);
+
+        sqlStatisticManager.forceUpdateAll();
+
+        String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
+                + "t1.* FROM t2, t1 WHERE t2.id = t1.id";
+
+        assertQuery(query)
+                // expecting right source has less rows than left
+                .matches(QueryChecker.matches(".*TableScan.*PUBLIC.T1.*TableScan.*PUBLIC.T2.*"))
+                .returnNothing()
+                .check();
+
+        sql("INSERT INTO t2 SELECT x, x FROM system_range(?, ?)", 0, 100);
+
+        sqlStatisticManager.forceUpdateAll();
+
+        Awaitility.await().timeout(Math.max(10_000, 2 * PLAN_UPDATER_INITIAL_DELAY), TimeUnit.MILLISECONDS).untilAsserted(() ->
+                assertQuery(query)
+                        // expecting right source has less rows than left
+                        .matches(QueryChecker.matches(".*TableScan.*PUBLIC.T2.*TableScan.*PUBLIC.T1.*"))
+                        .check()
+        );
     }
 
     @Test
@@ -81,7 +114,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     private void insertAndUpdateRunQuery(int numberOfRecords) throws ExecutionException, TimeoutException, InterruptedException {
         int start = counter.get();
         int end = counter.addAndGet(numberOfRecords) - 1;
-        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", start, end);
+        sql("INSERT INTO t1 SELECT x, x FROM system_range(?, ?)", start, end);
 
         // run unique sql to update statistics
         sql(getUniqueQuery());
@@ -91,6 +124,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     private static String getUniqueQuery() {
-        return "SELECT " + counter.incrementAndGet() + " FROM t";
+        return "SELECT " + counter.incrementAndGet() + " FROM t1";
     }
 }

@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -79,7 +80,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 Integer.MAX_VALUE,
                 new MetricManagerImpl(),
                 new PredefinedSchemaManager(schema),
-                mock(ClockServiceImpl.class)
+                mock(ClockServiceImpl.class),
+                mock(ScheduledExecutorService.class)
         );
         prepareService.start();
         try {

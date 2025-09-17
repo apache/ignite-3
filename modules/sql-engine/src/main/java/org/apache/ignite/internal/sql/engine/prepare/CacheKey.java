@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -40,8 +39,6 @@ public class CacheKey {
 
     private final Object[] paramTypes;
 
-    private final SqlQueryType queryType;
-
     private int hashCode = 0;
 
     /**
@@ -50,18 +47,22 @@ public class CacheKey {
      * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
      * @param query      Query string.
-     * @param queryType  Query type.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, SqlQueryType queryType, Object contextKey, ColumnType[] paramTypes) {
+    public CacheKey(
+            int catalogVersion,
+            String schemaName,
+            String query,
+            Object contextKey,
+            ColumnType[] paramTypes
+    ) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
-        this.queryType = queryType;
     }
 
     int catalogVersion() {
@@ -70,10 +71,6 @@ public class CacheKey {
 
     String query() {
         return query;
-    }
-
-    SqlQueryType queryType() {
-        return queryType;
     }
 
     /** {@inheritDoc} */
@@ -94,9 +91,6 @@ public class CacheKey {
         if (!schemaName.equals(cacheKey.schemaName)) {
             return false;
         }
-        if (queryType != cacheKey.queryType) {
-            return false;
-        }
         if (!query.equals(cacheKey.query)) {
             return false;
         }
@@ -113,7 +107,6 @@ public class CacheKey {
             int result = catalogVersion;
             result = 31 * result + schemaName.hashCode();
             result = 31 * result + query.hashCode();
-            result = 31 * result + queryType.hashCode();
             result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
             result = 31 * result + Arrays.deepHashCode(paramTypes);
 

@@ -753,6 +753,10 @@ public class TestBuilders {
 
             when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
 
+            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
+            );
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
@@ -763,7 +767,8 @@ public class TestBuilders {
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
                     schemaManager,
-                    clockService
+                    clockService,
+                    scheduledExecutor
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -774,10 +779,6 @@ public class TestBuilders {
                     systemViewsByNode.computeIfAbsent(nodeName, (k) -> new ArrayList<>()).add(systemViewName);
                 }
             }
-
-            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
-            );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));

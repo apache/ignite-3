@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util.cache;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -76,6 +76,22 @@ public interface Cache<K, V> {
     V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
 
     /**
+     * If the value for the specified key is present and non-null, attempts to compute a new mapping
+     * given the key and its current mapped value.
+     * If the remapping function returns null, the mapping is removed.
+     * If the remapping function itself throws an (unchecked) exception, the exception is rethrown,
+     * and the current mapping is left unchanged.
+     *
+     * @param key Key with which the specified value is to be associated.
+     * @param remappingFunction The remapping function to compute a value.
+     * @return The new value associated with the specified key, or null if none.
+     */
+    @Nullable V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction);
+
+    /** Returns a {@link Set} view of the mappings contained in this map. */
+    Set<Map.Entry<K, V>> entrySet();
+
+    /**
      * Removes all cache entries whose values match the specified predicate.
      *
      * @param valueFilter A predicate which returns {@code true} for the values of entries to be removed.
@@ -95,12 +111,4 @@ public interface Cache<K, V> {
      * @return The number of entries in the cache.
      */
     int size();
-
-    /**
-     * Returns a view of the entries stored in this cache as a thread-safe map. Modifications made to
-     * the map directly affect the cache.
-     *
-     * @return A thread-safe view of this cache supporting all of the optional {@link Map} operations.
-     */
-    ConcurrentMap<K, V> asMap();
 }
