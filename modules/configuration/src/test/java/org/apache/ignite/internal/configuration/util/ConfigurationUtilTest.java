@@ -24,6 +24,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.tree.NamedListNode.IDS;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
@@ -44,6 +45,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasToString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
@@ -430,6 +432,33 @@ public class ConfigurationUtilTest {
         ));
 
         assertEquals("value1", parentChange.elements().get("name1").child().str());
+        assertEquals("value2", parentChange.elements().get("name2").child().str());
+    }
+
+    @Test
+    public void fillFromPrefixMapWithNotFullNamedListSuccessfully() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        // Entry with order index 0 is filtered
+        ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
+                "elements", Map.of(
+                        "01234567-89ab-cdef-0123-456789abcdef", Map.of(
+                                "child", Map.of("str", "value2"),
+                                ORDER_IDX, 1,
+                                NAME, "name2"
+                        ),
+                        IDS, Map.of("name2", "01234567-89ab-cdef-0123-456789abcdef")
+                )
+        ));
+
+        List<String> listKeys = parentChange.elements().namedListKeys();
+        assertEquals(1, listKeys.size());
+
+        String key = listKeys.get(0);
+        assertEquals("name2", key);
+
         assertEquals("value2", parentChange.elements().get("name2").child().str());
     }
 
