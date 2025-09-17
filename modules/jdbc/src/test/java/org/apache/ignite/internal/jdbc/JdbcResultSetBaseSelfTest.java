@@ -210,14 +210,17 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getBoolean(1), "Cannot convert to boolean: " + value);
-                expectSqlException(() -> rs.getBoolean("C"), "Cannot convert to boolean: " + value);
+                String error = "Cannot convert to boolean: " + value;
 
-                expectSqlException(() -> rs.getObject(1, Boolean.class), "Cannot convert to boolean: " + value);
-                expectSqlException(() -> rs.getObject("C", Boolean.class), "Cannot convert to boolean: " + value);
+                expectSqlException(() -> rs.getBoolean(1), error);
+                expectSqlException(() -> rs.getBoolean("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Boolean.class), error);
+                expectSqlException(() -> rs.getObject("C", Boolean.class), error);
 
             } else {
                 boolean expected = Boolean.parseBoolean(result);
+
                 assertEquals(expected, rs.getBoolean(1));
                 assertEquals(expected, rs.getBoolean("C"));
 
@@ -333,11 +336,20 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getByte(1), "Cannot convert to byte: " + value);
-                expectSqlException(() -> rs.getByte("C"), "Cannot convert to byte: " + value);
+                String error = "Cannot convert to byte: " + value;
+
+                expectSqlException(() -> rs.getByte(1), error);
+                expectSqlException(() -> rs.getByte("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Byte.class), error);
+                expectSqlException(() -> rs.getObject("C", Byte.class), error);
             } else {
-                assertEquals(Byte.parseByte(result), rs.getByte(1));
-                assertEquals(Byte.parseByte(result), rs.getByte("C"));
+                byte expected = Byte.parseByte(result);
+                assertEquals(expected, rs.getByte(1));
+                assertEquals(expected, rs.getByte("C"));
+
+                assertEquals(expected, rs.getObject(1, Byte.class));
+                assertEquals(expected, rs.getObject("C", Byte.class));
             }
         }
     }
@@ -527,11 +539,21 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getShort(1), "Cannot convert to short: " + value);
-                expectSqlException(() -> rs.getShort("C"), "Cannot convert to short: " + value);
+                String error = "Cannot convert to short: " + value;
+
+                expectSqlException(() -> rs.getShort(1), error);
+                expectSqlException(() -> rs.getShort("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Short.class), error);
+                expectSqlException(() -> rs.getObject("C", Short.class), error);
             } else {
-                assertEquals(Short.parseShort(result), rs.getShort(1));
-                assertEquals(Short.parseShort(result), rs.getShort("C"));
+                short expected = Short.parseShort(result);
+
+                assertEquals(expected, rs.getShort(1));
+                assertEquals(expected, rs.getShort("C"));
+
+                assertEquals(expected, rs.getObject(1, Short.class));
+                assertEquals(expected, rs.getObject("C", Short.class));
             }
         }
     }
@@ -726,11 +748,21 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getInt(1), "Cannot convert to int: " + value);
-                expectSqlException(() -> rs.getInt("C"), "Cannot convert to int: " + value);
+                String error = "Cannot convert to int: " + value;
+
+                expectSqlException(() -> rs.getInt(1), error);
+                expectSqlException(() -> rs.getInt("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Integer.class), error);
+                expectSqlException(() -> rs.getObject("C", Integer.class), error);
             } else {
-                assertEquals(Integer.parseInt(result), rs.getInt(1));
-                assertEquals(Integer.parseInt(result), rs.getInt("C"));
+                int expected = Integer.parseInt(result);
+
+                assertEquals(expected, rs.getInt(1));
+                assertEquals(expected, rs.getInt("C"));
+
+                assertEquals(expected, rs.getObject(1, Integer.class));
+                assertEquals(expected, rs.getObject("C", Integer.class));
             }
         }
     }
@@ -927,11 +959,21 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getLong(1), "Cannot convert to long: " + value);
-                expectSqlException(() -> rs.getLong("C"), "Cannot convert to long: " + value);
+                String error = "Cannot convert to long: " + value;
+
+                expectSqlException(() -> rs.getLong(1), error);
+                expectSqlException(() -> rs.getLong("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Long.class), error);
+                expectSqlException(() -> rs.getObject("C", Long.class), error);
             } else {
-                assertEquals(Long.parseLong(result), rs.getLong(1));
-                assertEquals(Long.parseLong(result), rs.getLong("C"));
+                long expected = Long.parseLong(result);
+
+                assertEquals(expected, rs.getLong(1));
+                assertEquals(expected, rs.getLong("C"));
+
+                assertEquals(expected, rs.getObject(1, Long.class));
+                assertEquals(expected, rs.getObject("C", Long.class));
             }
         }
     }
@@ -1119,11 +1161,21 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getFloat(1), "Cannot convert to float: " + value);
-                expectSqlException(() -> rs.getFloat("C"), "Cannot convert to float: " + value);
+                String error = "Cannot convert to float: " + value;
+
+                expectSqlException(() -> rs.getFloat(1), error);
+                expectSqlException(() -> rs.getFloat("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Float.class), error);
+                expectSqlException(() -> rs.getObject("C", Float.class), error);
             } else {
-                assertEquals(Float.parseFloat(result), rs.getFloat(1));
-                assertEquals(Float.parseFloat(result), rs.getFloat("C"));
+                float expected = Float.parseFloat(result);
+
+                assertEquals(expected, rs.getFloat(1));
+                assertEquals(expected, rs.getFloat("C"));
+
+                assertEquals(expected, rs.getObject(1, Float.class));
+                assertEquals(expected, rs.getObject("C", Float.class));
             }
         }
     }
@@ -1297,11 +1349,21 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getDouble(1), "Cannot convert to double: " + value);
-                expectSqlException(() -> rs.getDouble("C"), "Cannot convert to double: " + value);
+                String error = "Cannot convert to double: " + value;
+
+                expectSqlException(() -> rs.getDouble(1), error);
+                expectSqlException(() -> rs.getDouble("C"), error);
+
+                expectSqlException(() -> rs.getObject(1, Double.class), error);
+                expectSqlException(() -> rs.getObject("C", Double.class), error);
             } else {
-                assertEquals(Double.parseDouble(result), rs.getDouble(1));
-                assertEquals(Double.parseDouble(result), rs.getDouble("C"));
+                double expected = Double.parseDouble(result);
+
+                assertEquals(expected, rs.getDouble(1));
+                assertEquals(expected, rs.getDouble("C"));
+
+                assertEquals(expected, rs.getObject(1, Double.class));
+                assertEquals(expected, rs.getObject("C", Double.class));
             }
         }
     }
@@ -1470,11 +1532,18 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             assertTrue(rs.next());
 
             if (!valid) {
-                expectSqlException(() -> rs.getBigDecimal(1), "Cannot convert to BigDecimal: " + value);
-                expectSqlException(() -> rs.getBigDecimal("C"), "Cannot convert to BigDecimal: " + value);
+                String error = "Cannot convert to BigDecimal: " + value;
+
+                expectSqlException(() -> rs.getBigDecimal(1), error);
+                expectSqlException(() -> rs.getBigDecimal("C"), error);
             } else {
-                assertEquals(new BigDecimal(result), rs.getBigDecimal(1));
-                assertEquals(new BigDecimal(result), rs.getBigDecimal("C"));
+                BigDecimal expected = new BigDecimal(result);
+
+                assertEquals(expected, rs.getBigDecimal(1));
+                assertEquals(expected, rs.getBigDecimal("C"));
+
+                assertEquals(expected, rs.getObject(1, BigDecimal.class));
+                assertEquals(expected, rs.getObject("C", BigDecimal.class));
             }
         }
     }
