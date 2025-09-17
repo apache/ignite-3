@@ -485,10 +485,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 nodeProperties.colocationEnabled()
         );
 
+        // TODO FIXME broken for implicit batches
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
         if (!implicit) {
+            // TODO FIXME no unregister called.
             transactionExpirationRegistry.register(transaction);
 
             if (isStopping) {
@@ -695,7 +697,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         commit,
                         enlistedGroups,
                         txId,
-                        finishingStateMeta.txFinishFuture()
+                        finishingStateMeta.txFinishFuture(),
+                        txContext.isNoWrites()
                 )
         ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
@@ -731,7 +734,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
-            CompletableFuture<TransactionMeta> txFinishFuture
+            CompletableFuture<TransactionMeta> txFinishFuture,
+            boolean unlock
     ) {
         HybridTimestamp commitTimestamp = commitTimestamp(commit);
         // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
@@ -746,6 +750,28 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
                             Map<ReplicationGroupId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
+
+                            if (unlock) {
+                                return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
+                                        .thenAccept(ignored -> {
+                                            TxStateMeta updatedMeta = updateTxMeta(txId, old ->
+                                                    new TxStateMeta(
+                                                            verifiedCommit ? COMMITTED : ABORTED,
+                                                            localNodeId,
+                                                            old == null ? null : old.commitPartitionId(),
+                                                            commitTimestamp, // Don't needed for fast finish.
+                                                            old == null ? null : old.tx(),
+                                                            old == null ? null : old.initialVacuumObservationTimestamp(),
+                                                            old == null ? null : old.cleanupCompletionTimestamp(),
+                                                            old == null ? null : old.isFinishedDueToTimeout()
+                                                    ));
+
+                                            assert isFinalState(updatedMeta.txState()) :
+                                                    "Unexpected transaction state [id=" + txId + ", state=" + updatedMeta.txState() + "].";
+
+                                            txFinishFuture.complete(updatedMeta);
+                                        });
+                            }
 
                             return durableFinish(
                                     observableTimestampTracker,
@@ -1095,13 +1121,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        assertReplicationGroupType(commitPartitionId);
         for (ReplicationGroupId replicationGroupId : enlistedPartitions.keySet()) {
             assertReplicationGroupType(replicationGroupId);
         }
