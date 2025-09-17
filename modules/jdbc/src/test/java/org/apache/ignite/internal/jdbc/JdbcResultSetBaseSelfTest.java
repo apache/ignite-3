@@ -192,6 +192,42 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
+    @CsvSource({
+            "true, 1, true",
+            "true, 0, false",
+            "false, -1, ",
+            "true, 0, ",
+            "false, -129, ",
+            "false, 128, ",
+            "false, xyz, ",
+            "false,, "
+    })
+    public void getBooleanFromString(boolean valid, String value, String result) throws SQLException {
+        if (value == null) {
+            value = "";
+        }
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.STRING, 0, 0, false), value)) {
+            assertTrue(rs.next());
+
+            if (!valid) {
+                expectSqlException(() -> rs.getBoolean(1), "Cannot convert to boolean: " + value);
+                expectSqlException(() -> rs.getBoolean("C"), "Cannot convert to boolean: " + value);
+
+                expectSqlException(() -> rs.getObject(1, Boolean.class), "Cannot convert to boolean: " + value);
+                expectSqlException(() -> rs.getObject("C", Boolean.class), "Cannot convert to boolean: " + value);
+
+            } else {
+                boolean expected = Boolean.parseBoolean(result);
+                assertEquals(expected, rs.getBoolean(1));
+                assertEquals(expected, rs.getBoolean("C"));
+
+                assertEquals(expected, rs.getObject(1, Boolean.class));
+                assertEquals(expected, rs.getObject("C", Boolean.class));
+            }
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(bytes = {-42, -1, 0, 1, 42})
     public void getByte(byte value) throws SQLException {
         try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.INT8, 0, 0, false), value)) {
@@ -1479,7 +1515,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     private static Stream<Arguments> getBigDecimalNumbers() {
         return Stream.of(
                 Arguments.of(true, (byte) 42),
-                Arguments.of(true, (byte) 42),
                 Arguments.of(true, (short) 42),
 
                 Arguments.of(true, 42),
@@ -1487,12 +1522,12 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of(true, Long.MIN_VALUE),
 
                 Arguments.of(true, 42.0f),
-                Arguments.of(true, (float) (Long.MAX_VALUE)),
-                Arguments.of(true, (float) (Long.MIN_VALUE)),
+                Arguments.of(true, Float.MAX_VALUE),
+                Arguments.of(true, -Float.MAX_VALUE),
 
                 Arguments.of(true, 42.0d),
-                Arguments.of(true, (double) (Long.MAX_VALUE)),
-                Arguments.of(true, (double) (Long.MIN_VALUE)),
+                Arguments.of(true, Double.MAX_VALUE),
+                Arguments.of(true, -Double.MAX_VALUE),
 
                 Arguments.of(true, BigDecimal.valueOf(42.0d)),
                 Arguments.of(true, BigDecimal.valueOf(42.123d)),
