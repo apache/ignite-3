@@ -46,6 +46,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
@@ -175,20 +177,31 @@ public class JdbcResultSet implements ResultSet {
             return false;
         }
 
-        if (val instanceof Boolean) {
-            return ((Boolean) val);
-        } else if ("0".equals(val)) {
-            return false;
-        } else if ("1".equals(val)) {
-            return true;
-        } else if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
-            long num = ((Number) val).longValue();
-
-            if (num == 0) {
-                return false;
-            } else if (num == 1) {
-                return true;
-            }
+        ColumnMetadata column = rsMetadata.columns().get(colIdx - 1);
+        switch (column.type()) {
+            case BOOLEAN:
+                return ((Boolean) val);
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+                long num = ((Number) val).longValue();
+                if (num == 0) {
+                    return false;
+                } else if (num == 1) {
+                    return true;
+                }
+                break;
+            case STRING:
+                String str = (String) val;
+                if ("0".equals(str)) {
+                    return false;
+                } else if ("1".equals(str)) {
+                    return true;
+                }
+                break;
+            default:
+                // Fallthrough
         }
 
         throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
@@ -211,19 +224,34 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        if (val instanceof Number) {
-            //noinspection NumericCastThatLosesPrecision
-            return (byte) getLongValue((Number) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
-        } else if (val instanceof Boolean) {
-            return (Boolean) val ? (byte) 1 : (byte) 0;
-        } else if (val instanceof String) {
-            try {
-                return Byte.parseByte(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? (byte) 1 : (byte) 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+            case INT32:
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getLongValue(((Number) val).longValue(), Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getFloatValueAsLong((float) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getDoubleValueAsLong((double) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (byte) getDecimalValueAsLong((BigDecimal) val, Byte.TYPE.getTypeName(), Byte.MIN_VALUE, Byte.MAX_VALUE);
+            case STRING:
+                try {
+                    return Byte.parseByte(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to byte: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -244,19 +272,35 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        if (val instanceof Number) {
-            //noinspection NumericCastThatLosesPrecision
-            return (short) getLongValue((Number) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
-        } else if (val instanceof Boolean) {
-            return (Boolean) val ? (short) 1 : (short) 0;
-        } else if (val instanceof String) {
-            try {
-                return Short.parseShort(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? (short) 1 : (short) 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getLongValue(((Number) val).longValue(), Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getFloatValueAsLong((float) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getDoubleValueAsLong((double) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (short) getDecimalValueAsLong((BigDecimal) val, Short.TYPE.getTypeName(), Short.MIN_VALUE, Short.MAX_VALUE);
+            case STRING:
+                try {
+                    return Short.parseShort(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to short: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -277,19 +321,36 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        if (val instanceof Number) {
-            //noinspection NumericCastThatLosesPrecision
-            return (int) getLongValue((Number) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
-        } else if (val instanceof Boolean) {
-            return (Boolean) val ? 1 : 0;
-        } else if (val instanceof String) {
-            try {
-                return Integer.parseInt(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? 1 : 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+                return (int) val;
+            case INT64:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getLongValue(((Number) val).longValue(), Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case FLOAT:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getFloatValueAsLong((float) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case DOUBLE:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getDoubleValueAsLong((double) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case DECIMAL:
+                //noinspection NumericCastThatLosesPrecision
+                return (int) getDecimalValueAsLong((BigDecimal) val, Integer.TYPE.getTypeName(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            case STRING:
+                try {
+                    return Integer.parseInt(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to int: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -309,18 +370,33 @@ public class JdbcResultSet implements ResultSet {
         if (val == null) {
             return 0;
         }
-        if (val instanceof Number) {
-            return getLongValue((Number) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
-        } else if (val instanceof Boolean) {
-            return ((Boolean) val ? 1 : 0);
-        } else if (val instanceof String) {
-            try {
-                return Long.parseLong(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED);
+
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case BOOLEAN:
+                return (Boolean) val ? 1 : 0;
+            case INT8:
+                return (byte) val;
+            case INT16:
+                return (short) val;
+            case INT32:
+                return (int) val;
+            case INT64:
+                return (long) val;
+            case FLOAT:
+                return getFloatValueAsLong((float) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case DOUBLE:
+                return getDoubleValueAsLong((double) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case DECIMAL:
+                return getDecimalValueAsLong((BigDecimal) val, Long.TYPE.getTypeName(), Long.MIN_VALUE, Long.MAX_VALUE);
+            case STRING:
+                try {
+                    return Long.parseLong(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to long: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -341,16 +417,35 @@ public class JdbcResultSet implements ResultSet {
             return 0;
         }
 
-        if (val instanceof Number) {
-            return getFloatValue((Number) val);
-        } else if (val instanceof String) {
-            try {
-                return Float.parseFloat(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+                return ((Number) val).floatValue();
+            case DOUBLE:
+                double num = (double) val;
+                if (num < -Float.MAX_VALUE || num > Float.MAX_VALUE) {
+                    throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
+                }
+                //noinspection NumericCastThatLosesPrecision
+                return (float) num;
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) val;
+                if (bd.doubleValue() < -Float.MAX_VALUE || bd.doubleValue() > Float.MAX_VALUE) {
+                    throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
+                }
+                return bd.floatValue();
+            case STRING:
+                try {
+                    return Float.parseFloat(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to float: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -371,20 +466,34 @@ public class JdbcResultSet implements ResultSet {
             return 0.0d;
         }
 
-        if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long
-                || val instanceof Float || val instanceof Double
-        ) {
-            return ((Number) val).doubleValue();
-        } else if (val instanceof BigDecimal) {
-            return getDoubleValue((BigDecimal) val);
-        } else if (val instanceof String) {
-            try {
-                return Double.parseDouble(val.toString());
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
+        ColumnType columnType = getColumnType(colIdx);
+        switch (columnType) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+                return ((Number) val).doubleValue();
+            case DOUBLE:
+                return (double) val;
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) val;
+
+                BigDecimal min = BigDecimal.valueOf(-Double.MAX_VALUE);
+                BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
+
+                if (bd.compareTo(min) < 0 || bd.compareTo(max) > 0) {
+                    throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
+                }
+                return bd.doubleValue();
+            case STRING:
+                try {
+                    return Double.parseDouble(val.toString());
+                } catch (NumberFormatException e) {
+                    throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED, e);
+                }
+            default:
+                throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
         }
     }
 
@@ -1927,36 +2036,47 @@ public class JdbcResultSet implements ResultSet {
         }
     }
 
-    private static long getLongValue(Number num, String typeName, long min, long max) throws SQLException {
+    private ColumnType getColumnType(int colIdx) {
+        ColumnMetadata column = rsMetadata.columns().get(colIdx - 1);
+        return column.type();
+    }
+
+    private static long getLongValue(long val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max) {
+            throw new SQLException("Cannot convert to " + typeName + ": " + val, SqlStateCode.CONVERSION_FAILED);
+        }
+        return val;
+    }
+
+    private static long getFloatValueAsLong(float val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max || Float.isInfinite(val) || Float.isNaN(val)) {
+            throw new SQLException("Cannot convert to " + typeName + ": " + val, SqlStateCode.CONVERSION_FAILED);
+        }
+        //noinspection NumericCastThatLosesPrecision
+        return (long) val;
+    }
+
+    private static long getDoubleValueAsLong(double val, String typeName, long min, long max) throws SQLException {
+        if (val < min || val > max || Double.isInfinite(val) || Double.isNaN(val)) {
+            throw new SQLException("Cannot convert to " + typeName + ": " + val, SqlStateCode.CONVERSION_FAILED);
+        }
+        //noinspection NumericCastThatLosesPrecision
+        return (long) val;
+    }
+
+    private static long getDecimalValueAsLong(BigDecimal num, String typeName, long min, long max) throws SQLException {
         long val;
         boolean failed;
 
-        if (num instanceof BigDecimal) {
-            // We can safely remove a fractional part, conversion from one int type to another involves rounding but 
-            // longValueExact fails if a fractional part present.
-            BigDecimal intNum = ((BigDecimal) num).setScale(0, RoundingMode.DOWN);
-            try {
-                val = intNum.longValueExact();
-                failed = false;
-            } catch (ArithmeticException e) {
-                failed = true;
-                val = 0;
-            }
-        } else if (num instanceof Float) {
-            float fpVal = num.floatValue();
-            failed = fpVal < min || fpVal > max || Float.isInfinite(fpVal) || Float.isNaN(fpVal);
-
-            //noinspection NumericCastThatLosesPrecision
-            val = (long) fpVal;
-        } else if (num instanceof Double) {
-            double fpVal = num.doubleValue();
-            failed = fpVal < min || fpVal > max || Double.isInfinite(fpVal) || Double.isNaN(fpVal);
-
-            //noinspection NumericCastThatLosesPrecision
-            val = (long) fpVal;
-        } else {
-            val = num.longValue();
+        // We can safely remove a fractional part, conversion from one int type to another involves rounding but 
+        // longValueExact fails if a fractional part present.
+        BigDecimal intNum = num.setScale(0, RoundingMode.DOWN);
+        try {
+            val = intNum.longValueExact();
             failed = false;
+        } catch (ArithmeticException e) {
+            failed = true;
+            val = 0;
         }
 
         if (failed || val < min || val > max) {
@@ -1964,58 +2084,6 @@ public class JdbcResultSet implements ResultSet {
         }
 
         return val;
-    }
-
-    private static float getFloatValue(Number num) throws SQLException {
-        if (num instanceof Byte || num instanceof Short
-                || num instanceof Integer || num instanceof Long 
-                || num instanceof Float
-        ) {
-            return num.floatValue();
-        }
-
-        boolean failed;
-        float val;
-
-        if (num instanceof BigDecimal) {
-            BigDecimal bd = (BigDecimal) num;
-            BigDecimal min = BigDecimal.valueOf(-Float.MAX_VALUE);
-            BigDecimal max = BigDecimal.valueOf(Float.MAX_VALUE);
-            failed = bd.compareTo(min) < 0 || bd.compareTo(max) > 0;
-
-            val = bd.floatValue();
-        } else {
-            double fpVal = num.doubleValue();
-            failed = fpVal < -Float.MAX_VALUE || fpVal > Float.MAX_VALUE || Double.isInfinite(fpVal) || Double.isNaN(fpVal);
-
-            //noinspection NumericCastThatLosesPrecision
-            val = (float) fpVal;
-        }
-
-        if (failed) {
-            throw new SQLException("Cannot convert to float: " + num, SqlStateCode.CONVERSION_FAILED);
-        }
-
-        return val;
-    }
-
-    private static double getDoubleValue(Number num) throws SQLException {
-        if (num instanceof Byte || num instanceof Short
-                || num instanceof Integer || num instanceof Long
-                || num instanceof Float || num instanceof Double
-        ) {
-            return num.doubleValue();
-        }
-
-        BigDecimal bd = (BigDecimal) num;
-        BigDecimal min = BigDecimal.valueOf(-Double.MAX_VALUE);
-        BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
-
-        if (bd.compareTo(min) < 0 || bd.compareTo(max) > 0) {
-            throw new SQLException("Cannot convert to double: " + num, SqlStateCode.CONVERSION_FAILED);
-        }
-
-        return num.doubleValue();
     }
 
     private JdbcResultSetMetadata initMetadata() {

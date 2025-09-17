@@ -101,6 +101,18 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
         return createMultiRow(null, columns, values);
     }
 
+    private static ColumnType columnTypefromObject(Object value) {
+        if (value == null) {
+            return ColumnType.NULL;
+        }
+        for (ColumnType columnType : ColumnType.values()) {
+            if (columnType.javaClass().equals(value.getClass())) {
+                return columnType;
+            }
+        }
+        throw new IllegalArgumentException("No column type for " + value);
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void getBoolean(boolean boolValue) throws SQLException {
@@ -313,7 +325,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getByteNumbers")
     public void getByteFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -505,7 +519,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getShortNumbers")
     public void getShortFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -702,7 +718,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getIntNumbers")
     public void getIntFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -734,7 +752,6 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of(false, Integer.MIN_VALUE - 1L),
 
                 Arguments.of(true, 42.0f),
-                Arguments.of(false, (float) (Integer.MAX_VALUE + 1L)),
                 Arguments.of(false, Float.NaN),
                 Arguments.of(false, Float.NEGATIVE_INFINITY),
                 Arguments.of(false, Float.POSITIVE_INFINITY),
@@ -902,7 +919,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getLongNumbers")
     public void getLongFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -1076,7 +1095,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getFloatNumbers")
     public void getFloatFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -1114,7 +1135,7 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of(true, 42.0d),
                 Arguments.of(true, (double) (Long.MAX_VALUE)),
                 Arguments.of(true, (double) (Long.MIN_VALUE)),
-                Arguments.of(false, Double.NaN),
+                Arguments.of(true, Double.NaN),
                 Arguments.of(false, Double.NEGATIVE_INFINITY),
                 Arguments.of(false, Double.POSITIVE_INFINITY),
 
@@ -1252,7 +1273,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getDoubleNumbers")
     public void getDoubleFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -1423,7 +1446,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("getBigDecimalNumbers")
     public void getBigDecimalFromNumber(boolean valid, Number value) throws SQLException {
-        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false), value)) {
+        ColumnType columnType = columnTypefromObject(value);
+
+        try (ResultSet rs = createSingleRow(new ColumnDefinition("C", columnType, 0, 0, false), value)) {
             assertTrue(rs.next());
 
             if (valid) {
@@ -1473,7 +1498,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of(true, BigDecimal.valueOf(42.123d)),
                 Arguments.of(true, BigDecimal.valueOf(45.9d)),
                 Arguments.of(true, BigDecimal.valueOf(Double.MAX_VALUE)),
-                Arguments.of(true, BigDecimal.valueOf(-Double.MAX_VALUE))
+                Arguments.of(true, BigDecimal.valueOf(-Double.MAX_VALUE)),
+                Arguments.of(true, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.TEN)),
+                Arguments.of(true, BigDecimal.valueOf(-Double.MAX_VALUE).add(BigDecimal.TEN.negate()))
         );
     }
 
