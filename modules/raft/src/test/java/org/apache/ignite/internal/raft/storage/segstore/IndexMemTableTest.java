@@ -24,8 +24,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
 
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -64,12 +69,20 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
     void testMultithreadedPutGet(@InjectExecutorService(threadCount = STRIPES * 2) ExecutorService executor) {
         int itemsPerGroup = 1000;
 
+        var barrier = new CyclicBarrier(STRIPES * 2);
+
         var writeTasks = new CompletableFuture<?>[STRIPES];
 
         for (int i = 0; i < writeTasks.length; i++) {
             long groupId = i;
 
             writeTasks[i] = runAsync(() -> {
+                try {
+                    barrier.await(1, TimeUnit.SECONDS);
+                } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+                    throw new CompletionException(e);
+                }
+
                 for (int j = 0; j < itemsPerGroup; j++) {
                     memTable.appendSegmentFileOffset(groupId, j, j + 1);
                 }
@@ -82,6 +95,12 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
             long groupId = i;
 
             readTasks[i] = runAsync(() -> {
+                try {
+                    barrier.await(1, TimeUnit.SECONDS);
+                } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+                    throw new CompletionException(e);
+                }
+
                 for (int j = 0; j < itemsPerGroup; j++) {
                     int offset = memTable.getSegmentFileOffset(groupId, j);
 
