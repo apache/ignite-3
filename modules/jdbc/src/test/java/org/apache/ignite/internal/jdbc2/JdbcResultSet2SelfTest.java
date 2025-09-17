@@ -93,7 +93,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     }
 
     // getXXX are not implemented yet
-    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
     // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Test
