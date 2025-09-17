@@ -194,7 +194,8 @@ class ApacheIgnite3Teamcity {
         )
         private val IGNITE__COMPATIBILITY = GradleModule(
             "Compatibility",
-            "ignite-compatibility-tests"
+            "ignite-compatibility-tests",
+            dependencies = listOf(":ignite-compatibility-tests:resolveCompatibilityTestDependencies")
         )
         private val MIGRATION_TOOLS_CLI = GradleModule(
             "Migration Tools - CLI",
