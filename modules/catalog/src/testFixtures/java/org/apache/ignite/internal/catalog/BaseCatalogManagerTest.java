@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -252,6 +253,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
         TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .name(CatalogUtils.pkIndexName(tableName))
                 .columns(primaryKeys)
                 .build();
 

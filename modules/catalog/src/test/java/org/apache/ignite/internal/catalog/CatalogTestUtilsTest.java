@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.hasSize;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
@@ -59,15 +60,27 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C1").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C2").type(ColumnType.INT32).build()
                 ))
-                .primaryKey(TableHashPrimaryKey.builder()
-                        .columns(List.of("C1"))
-                        .build());
+                ;
 
-        assertThat(manager.execute(createTableTemplate.tableName("T1").build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createTableTemplate
+                .tableName("T1")
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(CatalogUtils.pkIndexName("T1"))
+                        .columns(List.of("C1"))
+                        .build())
+                .build()
+        ), willCompleteSuccessfully());
 
         int version1 = manager.latestCatalogVersion();
 
-        assertThat(manager.execute(createTableTemplate.tableName("T2").build()), willCompleteSuccessfully());
+        assertThat(manager.execute(createTableTemplate
+                .tableName("T2")
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(CatalogUtils.pkIndexName("T2"))
+                        .columns(List.of("C1"))
+                        .build())
+                .build()
+        ), willCompleteSuccessfully());
 
         int version2 = manager.latestCatalogVersion();
 

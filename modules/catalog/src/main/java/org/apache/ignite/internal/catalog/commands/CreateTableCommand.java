@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -150,9 +149,6 @@ public class CreateTableCommand extends AbstractTableCommand {
         );
 
         String indexName = primaryKey.name();
-        if (indexName == null) {
-            indexName = pkIndexName(tableName);
-        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 

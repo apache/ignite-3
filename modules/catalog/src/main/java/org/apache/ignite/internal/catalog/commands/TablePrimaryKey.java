@@ -25,20 +25,20 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.jetbrains.annotations.Nullable;
 
 /** Base class for a primary key. */
 public abstract class TablePrimaryKey {
 
-    private final @Nullable String name;
+    private final String name;
     private final List<String> columns;
 
     /**
      * Constructor.
      *
+     * @param name Name of the primary key index.
      * @param columns List of columns.
      */
-    TablePrimaryKey(@Nullable String name, List<String> columns) {
+    TablePrimaryKey(String name, List<String> columns) {
         this.name = name;
         this.columns = columns != null ? List.copyOf(columns) : List.of();
     }
@@ -48,15 +48,13 @@ public abstract class TablePrimaryKey {
         return columns;
     }
 
-    public @Nullable String name() {
+    public String name() {
         return name;
     }
 
     /** Performs additional validation of this primary key. */
     void validate(List<ColumnParams> allColumns) {
-        if (name != null) {
-            validateIdentifier(name, "Name of the primary key constraint");
-        }
+        validateIdentifier(name, "Name of the primary key constraint");
 
         Set<String> allColumnNames = new HashSet<>(allColumns.size());
         for (ColumnParams column : allColumns) {
@@ -89,8 +87,8 @@ public abstract class TablePrimaryKey {
         /** Specifies a list of primary key columns. */
         public abstract T columns(List<String> columns);
 
-        /** Specifies a name of primary key. May be null. */
-        public abstract T name(@Nullable String name);
+        /** Specifies a name of primary key. */
+        public abstract T name(String name);
 
         /** Creates primary key. */
         public abstract TablePrimaryKey build();

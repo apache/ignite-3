@@ -169,7 +169,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("KEY1", INT32), columnParams("VAL", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("KEY1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("KEY1")).build())
                 .colocationColumns(List.of("KEY1"))
                 .build();
 
@@ -224,7 +224,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("KEY1", INT32), columnParams("VAL", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("KEY1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("KEY1")).build())
                 .colocationColumns(List.of("KEY1"))
                 .build();
 
@@ -273,7 +273,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("KEY1", INT32), columnParams("VAL", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("KEY1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("KEY1")).build())
                 .colocationColumns(List.of("KEY1"))
                 .build();
 
@@ -320,7 +320,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("KEY1", INT32), columnParams("VAL", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("KEY1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("KEY1")).build())
                 .colocationColumns(List.of("KEY1"))
                 .build();
 
@@ -418,7 +418,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("T1")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("T1")).columns(List.of("key1")).build())
                 .colocationColumns(List.of("key1"))
                 .build();
 
@@ -546,7 +546,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("key1")).build())
                 .colocationColumns(List.of("key1"));
 
         int firstVersion = catalogManager.earliestCatalogVersion();
@@ -610,7 +610,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .tableName("TEST")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .primaryKey(TableHashPrimaryKey.builder().name(CatalogUtils.pkIndexName("TEST")).columns(List.of("key1")).build())
                 .colocationColumns(List.of("key1"));
 
         int firstVersion = catalogManager.earliestCatalogVersion();

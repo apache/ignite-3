@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.util.List;
@@ -115,13 +114,16 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                         .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columns(List.of(columnParams))
-                        .primaryKey(primaryKey(columnParams.name()))
+                        .primaryKey(TableHashPrimaryKey.builder()
+                                .name("TEST_PK")
+                                .columns(List.of("C"))
+                                .build())
                         .build()
         );
 
         CatalogCommand command = DropIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
-                .indexName(pkIndexName(TABLE_NAME))
+                .indexName("TEST_PK")
                 .build();
 
         assertThrowsWithCause(

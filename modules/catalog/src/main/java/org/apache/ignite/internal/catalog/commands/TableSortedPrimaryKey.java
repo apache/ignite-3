@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /** Primary key that uses sort index. */
 public class TableSortedPrimaryKey extends TablePrimaryKey {
@@ -31,10 +30,11 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
     /**
      * Constructor.
      *
+     * @param name Name of the primary key index.
      * @param columns List of columns.
      * @param collations List of column collations.
      */
-    private TableSortedPrimaryKey(@Nullable String name, List<String> columns, List<CatalogColumnCollation> collations) {
+    private TableSortedPrimaryKey(String name, List<String> columns, List<CatalogColumnCollation> collations) {
         super(name, columns);
         this.collations = collations != null ? List.copyOf(collations) : List.of();
     }
@@ -67,7 +67,7 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
 
     /** Builder to create a primary index that uses a sorted index. */
     public static class Builder extends TablePrimaryKeyBuilder<Builder> {
-        private @Nullable String name;
+        private String name;
         private List<String> columns;
 
         private List<CatalogColumnCollation> collations;
@@ -90,7 +90,7 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
         }
 
         @Override
-        public Builder name(@Nullable String name) {
+        public Builder name(String name) {
             this.name = name;
             return this;
         }

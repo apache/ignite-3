@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFI
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.UNSPECIFIED_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
@@ -279,6 +280,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 // Any type of a primary key index can be used.
                 .primaryKey(TableHashPrimaryKey.builder()
+                        .name(pkIndexName(tableName))
                         .columns(List.of(COLUMN_NAME))
                         .build()
                 )

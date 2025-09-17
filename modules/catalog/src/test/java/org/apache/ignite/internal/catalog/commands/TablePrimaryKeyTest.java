@@ -42,7 +42,10 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("primaryKeys")
     void pkCanNotIncludeDuplicateColumns(TablePrimaryKeyBuilder<?> builder) {
-        TablePrimaryKey pk = builder.columns(List.of("C1", "C2", "C1")).build();
+        TablePrimaryKey pk = builder
+                .name("PK")
+                .columns(List.of("C1", "C2", "C1"))
+                .build();
 
         assertThrowsWithCause(
                 () -> pk.validate(createSimpleColumnParams("C1", "C2", "C3")),
@@ -65,8 +68,8 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> primaryKeys() {
         return Stream.of(
-                Arguments.of(named("hash pk builder", TableHashPrimaryKey.builder())),
-                Arguments.of(named("sorted pk builder", TableSortedPrimaryKey.builder()))
+                Arguments.of(named("hash pk builder", TableHashPrimaryKey.builder().name("PK"))),
+                Arguments.of(named("sorted pk builder", TableSortedPrimaryKey.builder().name("PK")))
         );
     }
 
@@ -123,6 +126,7 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
                 .filter(c -> c != collation).findAny().get();
 
         TableSortedPrimaryKey pk = TableSortedPrimaryKey.builder()
+                .name("PK")
                 .columns(List.of("C1", "C2"))
                 .collations(List.of(collation, otherCollation))
                 .build();
@@ -136,6 +140,7 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
     @Test
     void sortedPkShouldHaveTheSameNumberOfColumnsAndCollations() {
         TableSortedPrimaryKey pk = TableSortedPrimaryKey.builder()
+                .name("PK")
                 .columns(List.of("C1", "C2"))
                 .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
                 .build();

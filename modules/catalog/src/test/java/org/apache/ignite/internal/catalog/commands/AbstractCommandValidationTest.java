@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -61,9 +62,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
     static final String INDEX_NAME = "IDX";
-    static final TablePrimaryKey ID_PK = TableHashPrimaryKey.builder()
-            .columns(List.of("ID"))
-            .build();
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
             0,
@@ -194,7 +192,10 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("ID").type(INT32).build(),
                         ColumnParams.builder().name("VAL").type(INT32).build()
                 ))
-                .primaryKey(ID_PK)
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(pkIndexName(tableName))
+                        .columns(List.of("ID"))
+                        .build())
                 .build();
     }
 
@@ -306,6 +307,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         pkColumns.addAll(Arrays.asList(columns));
 
         return TableHashPrimaryKey.builder()
+                .name(column + "_" + String.join("_", columns) + "PK")
                 .columns(pkColumns)
                 .build();
     }

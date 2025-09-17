@@ -124,7 +124,10 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(pkIndexName(TABLE_NAME))
+                        .columns(List.of("key1", "key2"))
+                        .build())
                 .colocationColumns(List.of("key2"))
                 .build();
 
@@ -269,7 +272,10 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(pkIndexName(TABLE_NAME))
+                        .columns(List.of("key1", "key2"))
+                        .build())
                 .build();
 
         tryApplyAndExpectApplied(command1);
@@ -1181,7 +1187,10 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
                 .columns(List.of(key1, columnParams("key2", INT32)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build());
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .name(pkIndexName(TABLE_NAME))
+                        .columns(List.of("key1"))
+                        .build());
 
         String error = "[col=key1, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]";
         assertThrows(CatalogValidationException.class, commandBuilder::build, error);

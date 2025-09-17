@@ -24,6 +24,7 @@ import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
@@ -364,12 +365,13 @@ public class DdlSqlToCommandConverter {
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
+        String tableName = deriveObjectName(createTblNode.name(), ctx, "tableName");
         IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
-        String pkName = null;
         SqlIdentifier pkIdentifier = pkConstraint.getName();
-        if (pkIdentifier != null) {
-            pkName = deriveObjectName(pkIdentifier, ctx, "name of pk constraint");
-        }
+        String pkName = pkIdentifier != null
+                ? deriveObjectName(pkIdentifier, ctx, "name of pk constraint")
+                : pkIndexName(tableName);
+
         SqlNodeList columnNodes = pkConstraint.getColumnList();
 
         List<String> pkColumns = new ArrayList<>(columnNodes.size());
@@ -438,7 +440,7 @@ public class DdlSqlToCommandConverter {
         String zone = createTblNode.zone() == null ? null : createTblNode.zone().getSimple();
 
         CatalogCommand command = tblBuilder.schemaName(deriveSchemaName(createTblNode.name(), ctx))
-                .tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"))
+                .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)
                 .colocationColumns(colocationColumns)

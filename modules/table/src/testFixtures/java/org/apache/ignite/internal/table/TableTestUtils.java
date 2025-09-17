@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -135,6 +136,7 @@ public class TableTestUtils {
                 // Hash index for primary key is being used here,
                 // because such index only requests a list of column names.
                 .primaryKey(TableHashPrimaryKey.builder()
+                        .name(CatalogUtils.pkIndexName(tableName))
                         .columns(pkColumns)
                         .build())
                 .build();

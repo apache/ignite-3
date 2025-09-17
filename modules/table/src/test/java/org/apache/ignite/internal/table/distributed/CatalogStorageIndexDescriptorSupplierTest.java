@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.nullValue;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -185,6 +186,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
     private int createIndex() {
         TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .name(CatalogUtils.pkIndexName(TABLE_NAME))
                 .columns(List.of("foo"))
                 .build();
 
