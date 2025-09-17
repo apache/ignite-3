@@ -65,6 +65,10 @@ public class JdbcResultSet implements ResultSet {
 
     private static final ResultSetMetadata EMPTY_METADATA = new ResultSetMetadataImpl(List.of());
 
+    private static final BigDecimal MIN_DOUBLE = BigDecimal.valueOf(-Double.MAX_VALUE);
+
+    private static final BigDecimal MAX_DOUBLE = BigDecimal.valueOf(Double.MAX_VALUE);
+
     private final org.apache.ignite.sql.ResultSet<SqlRow> rs;
 
     private final ResultSetMetadata rsMetadata;
@@ -478,11 +482,7 @@ public class JdbcResultSet implements ResultSet {
                 return (double) val;
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) val;
-
-                BigDecimal min = BigDecimal.valueOf(-Double.MAX_VALUE);
-                BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
-
-                if (bd.compareTo(min) < 0 || bd.compareTo(max) > 0) {
+                if (bd.compareTo(MIN_DOUBLE) < 0 || bd.compareTo(MAX_DOUBLE) > 0) {
                     throw new SQLException("Cannot convert to double: " + val, SqlStateCode.CONVERSION_FAILED);
                 }
                 return bd.doubleValue();
