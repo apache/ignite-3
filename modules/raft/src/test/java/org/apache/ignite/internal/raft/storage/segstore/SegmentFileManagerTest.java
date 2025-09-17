@@ -25,8 +25,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.HEADER_RECORD;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentFileManager.SWITCH_SEGMENT_RECORD;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,6 +36,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -48,9 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -58,6 +61,7 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -189,29 +193,23 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         }
     }
 
-    @Test
-    void testConcurrentWrites(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
+    @RepeatedTest(10)
+    void testConcurrentWrites() throws IOException {
         int batchSize = FILE_SIZE / 10;
 
-        List<byte[]> batches = randomData(batchSize, 100);
+        List<byte[]> batches = randomData(batchSize, 10);
 
-        var futures = new CompletableFuture<?>[batches.size()];
+        var tasks = new RunnableX[batches.size()];
 
         for (int i = 0; i < batches.size(); i++) {
             byte[] batch = batches.get(i);
 
             int index = i;
 
-            futures[i] = runAsync(() -> {
-                try {
-                    appendBytes(index + 1, batch, index);
-                } catch (Exception e) {
-                    throw new CompletionException(e);
-                }
-            }, executor);
+            tasks[i] = () -> appendBytes(index + 1, batch, index);
         }
 
-        assertThat(allOf(futures), willCompleteSuccessfully());
+        runRace(tasks);
 
         assertThat(segmentFiles(), hasSize(greaterThan(1)));
 
@@ -223,25 +221,34 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         assertThat(actualData, contains(batches.toArray()));
     }
 
-    @Test
-    void testConcurrentWritesWithClose(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws IOException {
+    @RepeatedTest(10)
+    void testConcurrentWritesWithClose(@InjectExecutorService(threadCount = 10) ExecutorService executor) throws Exception {
         int batchSize = FILE_SIZE / 10;
 
-        List<byte[]> batches = randomData(batchSize, 1000);
+        List<byte[]> batches = randomData(batchSize, 100);
 
         @SuppressWarnings("unchecked")
         CompletableFuture<byte[]>[] tasks = new CompletableFuture[batches.size()];
 
+        CompletableFuture<Void> stopTask = null;
+
         for (int i = 0; i < batches.size(); i++) {
             // Close the manager somewhere in between.
             if (i == batches.size() / 2) {
-                runAsync(() -> {
+                stopTask = runAsync(() -> {
                     try {
                         fileManager.close();
                     } catch (Exception e) {
                         throw new CompletionException(e);
                     }
                 }, executor);
+            }
+
+            // Wait for the stop task to complete on the last iteration to guarantee that at least one task will finish with an exception.
+            if (i == batches.size() - 1) {
+                assertNotNull(stopTask);
+
+                stopTask.get(1, TimeUnit.SECONDS);
             }
 
             byte[] batch = batches.get(i);
@@ -276,14 +283,15 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
             }
         }
 
-        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, batches.size()).stream()
+        assertThat(writtenBatches, is(not(empty())));
+        assertThat(exceptions, is(not(empty())));
+
+        List<byte[]> actualData = readDataFromSegmentFiles(batchSize, writtenBatches.size()).stream()
                 .sorted(comparingLong(DeserializedSegmentPayload::groupId))
                 .map(DeserializedSegmentPayload::payload)
                 .collect(toList());
 
         assertThat(actualData, contains(writtenBatches.toArray()));
-
-        assertThat(exceptions, is(not(empty())));
 
         for (IgniteInternalException e : exceptions) {
             assertThat(e.code(), is(NODE_STOPPING_ERR));
