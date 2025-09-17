@@ -390,6 +390,12 @@ public class RebalanceUtil {
 
         return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIds)
                 .thenCompose(stableAssignments -> {
+                    // In a case of empty assignments due to initially empty data nodes, assignments will be recalculated
+                    // after the transition to non-empty data nodes.
+                    // In a case of empty assignments due to interrupted table creation, assignments will be written
+                    // during the node recovery and then replicas will be started.
+                    // In a case when data nodes become empty, assignments are not recalculated
+                    // (see DistributionZoneRebalanceEngine.createDistributionZonesDataNodesListener).
                     if (stableAssignments.isEmpty()) {
                         return nullCompletedFuture();
                     }
@@ -425,8 +431,6 @@ public class RebalanceUtil {
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-26395 We should distinguish empty stable assignments on
-            // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
             futures[partId] = updatePendingAssignmentsKeys(
                     tableDescriptor,
                     replicaGrpId,
