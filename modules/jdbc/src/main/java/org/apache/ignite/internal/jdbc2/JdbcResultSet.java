@@ -398,6 +398,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(int colIdx, int scale) throws SQLException {
         BigDecimal val = getBigDecimal(colIdx);
 
@@ -406,6 +407,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(int colIdx) throws SQLException {
         Object val = getValue(colIdx);
 
@@ -434,6 +436,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(String colLb, int scale) throws SQLException {
         int colIdx = findColumn(colLb);
 
@@ -442,6 +445,7 @@ public class JdbcResultSet implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public BigDecimal getBigDecimal(String colLb) throws SQLException {
         int colIdx = findColumn(colLb);
 
