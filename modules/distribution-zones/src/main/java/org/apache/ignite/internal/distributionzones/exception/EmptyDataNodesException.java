@@ -22,9 +22,17 @@ import static org.apache.ignite.lang.ErrorGroups.DistributionZones.EMPTY_DATA_NO
 
 import org.apache.ignite.lang.IgniteException;
 
+/**
+ * Exception thrown when there are no data nodes for the given zone.
+ */
 public class EmptyDataNodesException extends IgniteException {
     private static final long serialVersionUID = 5691362165660196984L;
 
+    /**
+     * Constructor.
+     *
+     * @param zoneId Zone ID.
+     */
     public EmptyDataNodesException(int zoneId) {
         super(EMPTY_DATA_NODES_ERR, format("Empty data nodes for zone [zoneId={}].", zoneId));
     }

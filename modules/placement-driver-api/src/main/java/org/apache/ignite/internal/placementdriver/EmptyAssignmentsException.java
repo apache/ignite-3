@@ -29,6 +29,11 @@ import org.apache.ignite.lang.IgniteException;
 public class EmptyAssignmentsException extends IgniteException {
     private static final long serialVersionUID = 1698246028174494488L;
 
+    /**
+     * Constructor.
+     *
+     * @param groupId Replication group id.
+     */
     public EmptyAssignmentsException(ReplicationGroupId groupId) {
         super(EMPTY_ASSIGNMENTS_ERR, format("Empty assignments for group [groupId={}].", groupId));
     }
