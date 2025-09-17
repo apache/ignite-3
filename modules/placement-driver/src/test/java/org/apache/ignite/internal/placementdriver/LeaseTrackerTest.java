@@ -87,6 +87,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 clusterNodeResolver,
                 new TestClockService(clock),
                 zoneId -> completedFuture(Set.of()),
+                id -> null,
                 new SystemPropertiesNodeProperties()
         );
 

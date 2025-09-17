@@ -111,6 +111,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
 
+    /** Resolver of zone id by table id (result may be {@code null}). */
+    private final Function<Integer, Integer> zoneIdByTableIdResolver;
+
     private final NodeProperties nodeProperties;
 
     /**
@@ -124,12 +127,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             ClusterNodeResolver clusterNodeResolver,
             ClockService clockService,
             Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
+            Function<Integer, Integer> zoneIdByTableIdResolver,
             NodeProperties nodeProperties
     ) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
         this.currentDataNodesProvider = currentDataNodesProvider;
+        this.zoneIdByTableIdResolver = zoneIdByTableIdResolver;
         this.nodeProperties = nodeProperties;
     }
 
@@ -361,7 +366,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> checkDataNodes(ReplicationGroupId groupId) {
-        Integer zoneId = extractZoneIdFromGroupId(groupId, nodeProperties.colocationEnabled());
+        Integer zoneId = extractZoneIdFromGroupId(groupId, nodeProperties.colocationEnabled(), zoneIdByTableIdResolver);
 
         if (zoneId != null) {
             return currentDataNodesProvider.apply(zoneId)

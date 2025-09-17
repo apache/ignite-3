@@ -947,6 +947,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 clusterNodeResolver,
                 clockService,
                 zoneId -> completedFuture(Set.of("A")),
+                id -> null,
                 new SystemPropertiesNodeProperties()
         );
     }

@@ -199,6 +199,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 pdClusterService.topologyService(),
                 new TestClockService(new HybridClockImpl()),
                 zoneId -> completedFuture(Set.of()),
+                id -> null,
                 new SystemPropertiesNodeProperties()
         );
 

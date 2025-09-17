@@ -127,6 +127,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param throttledLogExecutor Executor to clean up the throttled logger cache.
      * @param metricManager Metric manager.
      * @param currentDataNodesProvider Provider of the current data nodes in the cluster.
+     * @param zoneIdByTableIdResolver Resolver of zone id by table id (result may be {@code null}).
      */
     public PlacementDriverManager(
             String nodeName,
@@ -143,7 +144,8 @@ public class PlacementDriverManager implements IgniteComponent {
             ReplicationConfiguration replicationConfiguration,
             Executor throttledLogExecutor,
             MetricManager metricManager,
-            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
+            Function<Integer, Integer> zoneIdByTableIdResolver
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -160,6 +162,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 clusterService.topologyService(),
                 clockService,
                 currentDataNodesProvider,
+                zoneIdByTableIdResolver,
                 nodeProperties
         );
 

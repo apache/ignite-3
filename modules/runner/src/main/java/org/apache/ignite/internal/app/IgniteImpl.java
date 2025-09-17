@@ -73,6 +73,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -857,6 +858,16 @@ public class IgniteImpl implements Ignite {
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
 
+        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
+
+        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr, failureManager),
+                clockService,
+                failureManager,
+                nodeProperties,
+                delayDurationMsSupplier
+        );
+
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
                 .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
 
@@ -875,7 +886,11 @@ public class IgniteImpl implements Ignite {
                 replicationConfig,
                 threadPoolsManager.commonScheduler(),
                 metricManager,
-                zoneId -> distributionZoneManager().currentDataNodes(zoneId)
+                zoneId -> distributionZoneManager().currentDataNodes(zoneId),
+                tableId -> {
+                    CatalogTableDescriptor table = catalogManager.activeCatalog(clock.now().longValue()).table(tableId);
+                    return table == null ? null : table.zoneId();
+                }
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
@@ -950,16 +965,6 @@ public class IgniteImpl implements Ignite {
         );
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService(), failureManager);
-
-        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
-
-        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr, failureManager),
-                clockService,
-                failureManager,
-                nodeProperties,
-                delayDurationMsSupplier
-        );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
         nodeAttributesCollector.register(systemViewManager);

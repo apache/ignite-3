@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.util.function.Function;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,14 +32,19 @@ public class Utils {
      *
      * @param groupId Replication group ID.
      * @param colocationEnabled Whether colocation is enabled.
-     * @return Zone ID or {@code null} if colocation is disabled or group ID is not a {@link ZonePartitionId}.
+     * @param zoneIdByTableIdResolver Function to resolve zone ID by table ID if colocation is disabled.
+     * @return Zone ID or {@code null}.
      */
     @Nullable
-    public static Integer extractZoneIdFromGroupId(ReplicationGroupId groupId, boolean colocationEnabled) {
+    public static Integer extractZoneIdFromGroupId(
+            ReplicationGroupId groupId,
+            boolean colocationEnabled,
+            Function<Integer, Integer> zoneIdByTableIdResolver
+    ) {
         if (colocationEnabled && groupId instanceof ZonePartitionId) {
             return ((ZonePartitionId) groupId).zoneId();
         } else {
-            return null;
+            return zoneIdByTableIdResolver.apply(((TablePartitionId) groupId).tableId());
         }
     }
 }
