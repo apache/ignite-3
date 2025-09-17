@@ -152,7 +152,7 @@ public class TransactionInflights {
     ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new ReadWriteTxContext(placementDriver, clockService, false); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
@@ -190,8 +190,6 @@ public class TransactionInflights {
         abstract boolean isTxFinishing();
 
         abstract boolean isReadyToFinish();
-
-        abstract boolean isTimeoutExceeded();
     }
 
     /**
@@ -234,11 +232,6 @@ public class TransactionInflights {
         }
 
         @Override
-        boolean isTimeoutExceeded() {
-            return timeoutExceeded;
-        }
-
-        @Override
         public String toString() {
             return "ReadOnlyTxContext [inflights=" + inflights + ']';
         }
@@ -247,19 +240,19 @@ public class TransactionInflights {
     static class ReadWriteTxContext extends TxContext {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
+        private final boolean noWrites;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
         private volatile Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
         private final ClockService clockService;
-        private volatile boolean timeoutExceeded;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
             this(placementDriver, clockService, false);
         }
 
-        private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService, boolean timeoutExceeded) {
+        private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService, boolean noWrites) {
             this.placementDriver = placementDriver;
             this.clockService = clockService;
-            this.timeoutExceeded = timeoutExceeded;
+            this.noWrites = noWrites;
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
@@ -326,8 +319,7 @@ public class TransactionInflights {
                             });
                 }
 
-                return allOfToList(futures)
-                        .thenCompose(unused -> waitNoInflights());
+                return allOfToList(futures).thenCompose(unused -> waitNoInflights());
             } else {
                 return nullCompletedFuture();
             }
@@ -354,7 +346,6 @@ public class TransactionInflights {
         @Override
         public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
             this.enlistedGroups = enlistedGroups;
-            this.timeoutExceeded = timeoutExceeded;
             finishInProgressFuture = new CompletableFuture<>();
         }
 
@@ -368,15 +359,14 @@ public class TransactionInflights {
             return waitRepFut.isDone();
         }
 
-        @Override
-        boolean isTimeoutExceeded() {
-            return timeoutExceeded;
+        boolean isNoWrites() {
+            return noWrites;
         }
 
         @Override
         public String toString() {
             return "ReadWriteTxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut
-                    + ", finishFut=" + finishInProgressFuture + ']';
+                    + ", noWrites=" + noWrites + ", finishFut=" + finishInProgressFuture + ']';
         }
     }
 }

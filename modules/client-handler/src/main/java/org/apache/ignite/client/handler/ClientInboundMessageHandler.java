@@ -1089,7 +1089,7 @@ public class ClientInboundMessageHandler
                 && primaryReplicaMaxStartTime.compareAndSet(lastSentMaxStartTime, currentMaxStartTime);
 
         if (primaryReplicasUpdated && LOG.isInfoEnabled()) {
-            LOG.info("Partition primary replica changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
+            LOG.info("Partition primary replicas have changed, notifying the client [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + ']');
         }
 
