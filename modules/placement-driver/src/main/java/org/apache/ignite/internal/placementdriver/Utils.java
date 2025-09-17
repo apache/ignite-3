@@ -25,6 +25,13 @@ import org.jetbrains.annotations.Nullable;
  * Utils for placement driver.
  */
 public class Utils {
+    /**
+     * Extracts zone ID from the given group id.
+     *
+     * @param groupId Replication group ID.
+     * @param colocationEnabled Whether colocation is enabled.
+     * @return Zone ID or {@code null} if colocation is disabled or group ID is not a {@link ZonePartitionId}.
+     */
     @Nullable
     public static Integer extractZoneIdFromGroupId(ReplicationGroupId groupId, boolean colocationEnabled) {
         if (colocationEnabled && groupId instanceof ZonePartitionId) {
