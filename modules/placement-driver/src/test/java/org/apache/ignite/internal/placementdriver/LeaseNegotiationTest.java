@@ -207,8 +207,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assignmentsTracker = new AssignmentsTracker(
                 metaStorageManager,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                zoneId -> completedFuture(Set.of())
+                new SystemPropertiesNodeProperties()
         );
 
         assignmentsTracker.startTrack();

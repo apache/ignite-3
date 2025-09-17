@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -34,7 +33,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -165,7 +163,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 nodeProperties
         );
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties, currentDataNodesProvider);
+        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,

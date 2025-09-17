@@ -17,16 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
-import static org.apache.ignite.internal.placementdriver.Utils.extractZoneIdFromGroupId;
-import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -39,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -93,21 +87,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Pending assignment Meta storage watch listener. */
     private final WatchListener pendingAssignmentsListener;
 
-    private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
-
     /**
      * The constructor.
      *
      * @param msManager Meta storage manager.
      * @param failureProcessor Failure processor.
      * @param nodeProperties Node properties.
-     * @param currentDataNodesProvider Provider of the current data nodes in the cluster.
      */
     public AssignmentsTracker(
             MetaStorageManager msManager,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
-            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider
+            NodeProperties nodeProperties
     ) {
         this.msManager = msManager;
         this.failureProcessor = failureProcessor;
@@ -118,7 +108,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
         this.groupPendingAssignments = new ConcurrentHashMap<>();
         this.pendingAssignmentsListener = createPendingAssignmentsListener();
-        this.currentDataNodesProvider = currentDataNodesProvider;
     }
 
     /**
@@ -163,48 +152,13 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return msManager
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
-                .thenCompose(ignored -> inBusyLock(busyLock, () -> {
+                .thenApply(ignored -> inBusyLock(busyLock, () -> {
                     Map<ReplicationGroupId, TokenizedAssignments> assignments = stableAssignments();
 
-                    List<CompletableFuture<Void>> futures = new ArrayList<>();
-                    List<TokenizedAssignments> result = new ArrayList<>(replicationGroupIds.size());
-                    for (ReplicationGroupId groupId : replicationGroupIds) {
-                        TokenizedAssignments a = assignments.get(groupId);
-                        result.add(a);
-
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-25283 add waiting
-                        if (a.nodes().isEmpty()) {
-                            Integer zoneId = extractZoneIdFromGroupId(groupId, nodeProperties.colocationEnabled());
-
-                            if (zoneId != null) {
-                                futures.add(
-                                        currentDataNodesProvider.apply(zoneId)
-                                                .thenAccept(dataNodes -> {
-                                                    if (dataNodes.isEmpty()) {
-                                                        throw new EmptyDataNodesException(zoneId);
-                                                    }
-                                                })
-                                );
-                            }
-                        }
-                    }
-
-                    if (futures.isEmpty()) {
-                        return completedFuture(result);
-                    } else {
-                        return allOf(futures)
-                                .thenApply(unused -> {
-                                    forEachIndexed(result, (e, i) -> {
-                                        if (e.nodes().isEmpty()) {
-                                            throw new EmptyAssignmentsException(replicationGroupIds.get(i));
-                                        }
-                                    });
-
-                                    return result;
-                                });
-                    }
-                }))
-                .thenApply(identity());
+                    return replicationGroupIds.stream()
+                            .map(assignments::get)
+                            .collect(Collectors.toList());
+                }));
     }
 
     /**
