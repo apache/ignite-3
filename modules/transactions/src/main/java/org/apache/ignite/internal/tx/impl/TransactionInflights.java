@@ -65,13 +65,35 @@ public class TransactionInflights {
     }
 
     /**
-     * Registers the inflight update for a transaction.
+     * Registers the inflight update for a RW transaction.
      *
      * @param txId The transaction id.
-     * @param readOnly Whether the transaction is read-only.
      * @return {@code True} if the inflight was registered. The update must be failed on false.
      */
-    public boolean addInflight(UUID txId, boolean readOnly) {
+    public boolean addInflight(UUID txId) {
+        boolean[] res = {true};
+
+        txCtxMap.compute(txId, (uuid, ctx) -> {
+            if (ctx == null) {
+                ctx = new ReadWriteTxContext(placementDriver, clockService);
+            }
+
+            res[0] = ctx.addInflight();
+
+            return ctx;
+        });
+
+        return res[0];
+    }
+
+    /**
+     * Track the given transaction start.
+     *
+     * @param txId The transaction id.
+     * @param readOnly
+     * @return {@code True} if the was registered and is in active state.
+     */
+    public boolean track(UUID txId, boolean readOnly) {
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, ctx) -> {
@@ -79,7 +101,7 @@ public class TransactionInflights {
                 ctx = readOnly ? new ReadOnlyTxContext() : new ReadWriteTxContext(placementDriver, clockService);
             }
 
-            res[0] = ctx.addInflight();
+            res[0] = !ctx.isTxFinishing();
 
             return ctx;
         });
@@ -137,13 +159,13 @@ public class TransactionInflights {
         }
     }
 
-    void markReadOnlyTxFinished(UUID txId, boolean timeoutExceeded) {
+    void markReadOnlyTxFinished(UUID txId) {
         txCtxMap.compute(txId, (k, ctx) -> {
             if (ctx == null) {
-                ctx = new ReadOnlyTxContext(timeoutExceeded);
+                ctx = new ReadOnlyTxContext();
             }
 
-            ctx.finishTx(null, timeoutExceeded);
+            ctx.finishTx(null);
 
             return ctx;
         });
@@ -157,7 +179,7 @@ public class TransactionInflights {
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
-            tuple0.finishTx(enlistedGroups, false);
+            tuple0.finishTx(enlistedGroups);
 
             return tuple0;
         });
@@ -185,7 +207,7 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded);
+        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -201,14 +223,9 @@ public class TransactionInflights {
      */
     private static class ReadOnlyTxContext extends TxContext {
         private volatile boolean markedFinished;
-        private volatile boolean timeoutExceeded;
 
         ReadOnlyTxContext() {
             // No-op.
-        }
-
-        ReadOnlyTxContext(boolean timeoutExceeded) {
-            this.timeoutExceeded = timeoutExceeded;
         }
 
         @Override
@@ -217,7 +234,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
+        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -344,7 +361,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
+        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
             this.enlistedGroups = enlistedGroups;
             finishInProgressFuture = new CompletableFuture<>();
         }
