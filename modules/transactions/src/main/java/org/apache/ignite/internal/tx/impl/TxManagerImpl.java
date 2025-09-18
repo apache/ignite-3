@@ -762,7 +762,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                                             commitTimestamp, // Don't needed for fast finish.
                                                             old == null ? null : old.tx(),
                                                             old == null ? null : old.initialVacuumObservationTimestamp(),
-                                                            old == null ? null : old.cleanupCompletionTimestamp(),
+                                                            System.currentTimeMillis(),
                                                             old == null ? null : old.isFinishedDueToTimeout()
                                                     ));
 
@@ -1194,12 +1194,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
+    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp) {
         UUID txId = txIdAndTimestamp.getTxId();
 
         txMetrics.onReadOnlyTransactionFinished(txId, commitIntent);
 
-        transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
+        transactionInflights.markReadOnlyTxFinished(txId);
     }
 
     @Override
