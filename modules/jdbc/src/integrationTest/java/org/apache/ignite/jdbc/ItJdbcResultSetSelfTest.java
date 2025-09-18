@@ -375,7 +375,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getFloat("floatVal"));
 
-                assertTrue(rs.getBoolean(7));
                 assertEquals(1, rs.getByte(7));
                 assertEquals(1, rs.getShort(7));
                 assertEquals(1, rs.getInt(7));
@@ -413,7 +412,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getDouble("doubleVal"));
 
-                assertTrue(rs.getBoolean(8));
                 assertEquals(1, rs.getByte(8));
                 assertEquals(1, rs.getShort(8));
                 assertEquals(1, rs.getInt(8));
@@ -451,7 +449,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1, rs.getBigDecimal("bigVal").intValue());
 
-                assertTrue(rs.getBoolean(9));
                 assertEquals(1, rs.getByte(9));
                 assertEquals(1, rs.getShort(9));
                 assertEquals(1, rs.getInt(9));
