@@ -115,7 +115,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.3"
-spotbugs = "com.github.spotbugs:6.3.0"
+spotbugs = "com.github.spotbugs:6.4.2"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
 
