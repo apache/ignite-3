@@ -69,10 +69,6 @@ public class CacheKey {
         return catalogVersion;
     }
 
-    String query() {
-        return query;
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

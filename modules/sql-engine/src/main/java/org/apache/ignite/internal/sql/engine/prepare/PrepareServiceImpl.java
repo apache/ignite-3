@@ -310,7 +310,7 @@ public class PrepareServiceImpl implements PrepareService {
                                     cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(newPlan));
                                 }
                             } catch (Exception ex) {
-                                LOG.warn("Failed to re-planning query: " + key.query(), ex);
+                                LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
                             }
 
                             // It`s possible that planning occupy more time than sequential table statistic updates
