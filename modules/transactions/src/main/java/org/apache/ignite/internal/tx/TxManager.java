@@ -193,7 +193,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Map of enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -201,7 +201,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -213,7 +213,7 @@ public interface TxManager extends IgniteComponent {
      *
      * <p>The nodes to sends the request to are calculated by the placement driver.
      *
-     * @param commitPartitionId Commit partition id.
+     * @param commitPartitionId Commit partition id. {@code Null} for unlock only path.
      * @param enlistedPartitions Enlisted partitions.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
@@ -221,7 +221,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ReplicationGroupId commitPartitionId,
+            @Nullable ReplicationGroupId commitPartitionId,
             Collection<EnlistedPartitionGroup> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -229,7 +229,7 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
-     * Sends cleanup request to the nodes than initiated recovery.
+     * Sends cleanup request to a node that had initiated the recovery.
      *
      * @param commitPartitionId Commit partition id.
      * @param node Target node.

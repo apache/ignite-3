@@ -37,21 +37,13 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
 
     @Override
     public void registerOperationStart(InternalTransaction tx) {
-        if (shouldBeTracked(tx)) {
-            if (!delegate.addInflight(tx.id(), tx.isReadOnly())) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
-            }
+        if (!delegate.track(tx.id(), tx.isReadOnly())) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
         }
     }
 
     @Override
     public void registerOperationFinish(InternalTransaction tx) {
-        if (shouldBeTracked(tx)) {
-            delegate.removeInflight(tx.id());
-        }
+        // No-op.
     }
-
-    private static boolean shouldBeTracked(InternalTransaction tx) {
-        return tx.isReadOnly() && !tx.implicit();
-    } 
 }
