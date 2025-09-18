@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -355,7 +357,22 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         entry.setId(new LogId(index, 0));
 
-        fileManager.appendEntry(groupId, entry, e -> serializedEntry);
+        fileManager.appendEntry(groupId, entry, new LogEntryEncoder() {
+            @Override
+            public byte[] encode(LogEntry log) {
+                return serializedEntry;
+            }
+
+            @Override
+            public void encode(ByteBuffer buffer, LogEntry log) {
+                buffer.put(serializedEntry);
+            }
+
+            @Override
+            public int size(LogEntry logEntry) {
+                return serializedEntry.length;
+            }
+        });
     }
 
     private static void validateEntry(byte[] entry, byte[] expectedPayload) {

@@ -26,10 +26,12 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -102,7 +104,15 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
     void testAppendEntry() throws IOException {
         byte[] payload = {1, 2, 3, 4, 5};
 
-        when(encoder.encode(any())).thenReturn(payload);
+        doAnswer(invocation -> {
+            ByteBuffer buffer = invocation.getArgument(0);
+
+            buffer.put(payload);
+
+            return null;
+        }).when(encoder).encode(any(), any());
+
+        when(encoder.size(any())).thenAnswer(invocation -> payload.length);
 
         logStorage.appendEntry(new LogEntry());
 
@@ -125,9 +135,36 @@ class SegstoreLogStorageTest extends IgniteAbstractTest {
     void testAppendEntries() throws IOException {
         List<byte[]> payloads = generateRandomData();
 
-        Iterator<byte[]> payloadsIterator = payloads.iterator();
+        var iteratorEncoder = new LogEntryEncoder() {
+            private final Iterator<byte[]> payloadsIterator = payloads.iterator();
 
-        when(encoder.encode(any())).thenAnswer(invocation -> payloadsIterator.next());
+            private byte[] nextPayload;
+
+            @Override
+            public byte[] encode(LogEntry log) {
+                return fail("Should not be called.");
+            }
+
+            @Override
+            public void encode(ByteBuffer buffer, LogEntry log) {
+                buffer.put(nextPayload);
+            }
+
+            @Override
+            public int size(LogEntry logEntry) {
+                nextPayload = payloadsIterator.next();
+
+                return nextPayload.length;
+            }
+        };
+
+        doAnswer(invocation -> {
+            iteratorEncoder.encode(invocation.getArgument(0), invocation.getArgument(1));
+
+            return null;
+        }).when(encoder).encode(any(), any());
+
+        when(encoder.size(any())).thenAnswer(invocation -> iteratorEncoder.size(invocation.getArgument(0)));
 
         List<LogEntry> entries = IntStream.range(0, payloads.size())
                 .mapToObj(i -> {
