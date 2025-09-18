@@ -41,47 +41,51 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
-
-        sqlScript(""
-                + "CREATE TABLE t1(ID INTEGER PRIMARY KEY, VAL INTEGER);"
-                + "CREATE TABLE t2(ID INTEGER PRIMARY KEY, VAL INTEGER);"
-        );
+        sql("CREATE TABLE t(ID INTEGER PRIMARY KEY, VAL INTEGER)");
     }
 
     @AfterAll
     void afterAll() {
-        sqlScript(""
-                + "DROP TABLE IF EXISTS t1;"
-                + "DROP TABLE IF EXISTS t2;");
+        sql("DROP TABLE IF EXISTS t");
     }
 
     @Test
     public void statisticUpdatesChangeQueryPlans() {
-        sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
+        try {
+            sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
 
-        sql("INSERT INTO t1 SELECT x, x FROM system_range(?, ?)", 0, 10);
+            sqlScript(""
+                    + "CREATE TABLE j1(ID INTEGER PRIMARY KEY, VAL INTEGER);"
+                    + "CREATE TABLE j2(ID INTEGER PRIMARY KEY, VAL INTEGER);"
+            );
+            sql("INSERT INTO j1 SELECT x, x FROM system_range(?, ?)", 0, 10);
 
-        sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.forceUpdateAll();
 
-        String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
-                + "t1.* FROM t2, t1 WHERE t2.id = t1.id";
+            String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
+                    + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
 
-        assertQuery(query)
-                // expecting right source has less rows than left
-                .matches(QueryChecker.matches(".*TableScan.*PUBLIC.T1.*TableScan.*PUBLIC.T2.*"))
-                .returnNothing()
-                .check();
+            assertQuery(query)
+                    // expecting right source has less rows than left
+                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
+                    .returnNothing()
+                    .check();
 
-        sql("INSERT INTO t2 SELECT x, x FROM system_range(?, ?)", 0, 100);
+            sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 100);
 
-        sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.forceUpdateAll();
 
-        Awaitility.await().timeout(Math.max(10_000, 2 * PLAN_UPDATER_INITIAL_DELAY), TimeUnit.MILLISECONDS).untilAsserted(() ->
-                assertQuery(query)
-                        // expecting right source has less rows than left
-                        .matches(QueryChecker.matches(".*TableScan.*PUBLIC.T2.*TableScan.*PUBLIC.T1.*"))
-                        .check()
-        );
+            Awaitility.await().timeout(Math.max(10_000, 2 * PLAN_UPDATER_INITIAL_DELAY), TimeUnit.MILLISECONDS).untilAsserted(() ->
+                    assertQuery(query)
+                            // expecting right source has less rows than left
+                            .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
+                            .check()
+            );
+        } finally {
+            sqlScript(""
+                    + "DROP TABLE IF EXISTS j1;"
+                    + "DROP TABLE IF EXISTS j2;");
+        }
     }
 
     @Test
@@ -114,7 +118,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     private void insertAndUpdateRunQuery(int numberOfRecords) throws ExecutionException, TimeoutException, InterruptedException {
         int start = counter.get();
         int end = counter.addAndGet(numberOfRecords) - 1;
-        sql("INSERT INTO t1 SELECT x, x FROM system_range(?, ?)", start, end);
+        sql("INSERT INTO t SELECT x, x FROM system_range(?, ?)", start, end);
 
         // run unique sql to update statistics
         sql(getUniqueQuery());
@@ -124,6 +128,6 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     private static String getUniqueQuery() {
-        return "SELECT " + counter.incrementAndGet() + " FROM t1";
+        return "SELECT " + counter.incrementAndGet() + " FROM t";
     }
 }
