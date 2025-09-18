@@ -662,6 +662,13 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
+        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+        // no need to re-calculate outdated plans
+        if (currentCatalogVersion != key.catalogVersion()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         if (queryType == SqlQueryType.QUERY) {
             return prepareQuery(parsedRes, ctx, key);
         } else if (queryType == SqlQueryType.DML) {
