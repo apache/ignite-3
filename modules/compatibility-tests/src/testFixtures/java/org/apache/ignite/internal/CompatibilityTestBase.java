@@ -41,7 +41,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -242,7 +241,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         ByteArray prefix = pendingAssignmentsQueuePrefix(node.nodeProperties().colocationEnabled());
 
         return subscribeToList(node.metaStorageManager().prefix(prefix))
-                .thenApply(assignments -> assignments.stream().noneMatch(Predicate.not(Entry::tombstone)));
+                .thenApply(List::isEmpty);
     }
 
     private static ByteArray pendingAssignmentsQueuePrefix(boolean colocationEnabled) {
