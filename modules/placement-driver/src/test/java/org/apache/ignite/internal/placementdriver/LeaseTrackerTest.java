@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Collections.synchronizedList;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
@@ -36,9 +37,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -82,7 +85,10 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         leaseTracker = new LeaseTracker(
                 msManager,
                 clusterNodeResolver,
-                new TestClockService(clock)
+                new TestClockService(clock),
+                zoneId -> completedFuture(Set.of()),
+                id -> null,
+                new SystemPropertiesNodeProperties()
         );
 
         assertThat(msManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
