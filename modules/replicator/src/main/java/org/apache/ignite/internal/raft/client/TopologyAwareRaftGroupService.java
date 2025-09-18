@@ -259,7 +259,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     private void sendWithRetry(InternalClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
 
-        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
+        clusterService.messagingService().invoke(node.name(), msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
             if (invokeThrowable == null) {
                 msgSendFut.complete(true);
 
