@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -287,8 +288,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         return;
                     }
 
-                    if (logicalTopologySnapshot.nodes().contains(node)) {
-                        sendWithRetry(node, msg, msgSendFut);
+                    // We need this because ClusterNodeImpl doesn't include 'id' in the equals/hashCode. So we have to find the node that
+                    // is 'equals' in the topology snapshot and take it from the set, not from the current node, since it can have an old id
+                    // in case the exception is RecipientLeftException
+                    Optional<LogicalNode> newNode = logicalTopologySnapshot.nodes().stream()
+                            .filter(logicalNode -> logicalNode.equals(node))
+                            .findFirst();
+                    if (newNode.isPresent()) {
+                        sendWithRetry(newNode.get(), msg, msgSendFut);
                     } else {
                         LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
                                 + " cluster: [node={}]", node);
