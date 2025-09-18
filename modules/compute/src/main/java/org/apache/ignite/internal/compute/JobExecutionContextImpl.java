@@ -26,6 +26,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +42,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final @Nullable Partition partition;
 
-    private Collection<DeploymentUnitInfo> deploymentUnits;
+    private final Lazy<Collection<DeploymentUnitInfo>> deploymentUnits;
 
     /**
      * Constructor.
@@ -56,6 +57,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
         this.partition = partition;
+        this.deploymentUnits = new Lazy<>(this::initDeploymentUnits);
     }
 
     @Override
@@ -75,11 +77,8 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     @Override
     public Collection<DeploymentUnitInfo> deploymentUnits() {
-        if (deploymentUnits == null) {
-            deploymentUnits = initDeploymentUnits();
-        }
-
-        return deploymentUnits;
+        //noinspection DataFlowIssue
+        return deploymentUnits.get();
     }
 
     /**
