@@ -442,12 +442,8 @@ public class JdbcResultSet implements ResultSet {
             return ((Boolean) val);
         } else if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
             long num = ((Number) val).longValue();
-
-            if (num == 0) {
-                return false;
-            } else if (num == 1) {
-                return true;
-            }
+            // 0 - false, anything else is true.
+            return num != 0;
         }
 
         throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);

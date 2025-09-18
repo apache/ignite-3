@@ -192,12 +192,7 @@ public class JdbcResultSet implements ResultSet {
             case INT32:
             case INT64:
                 long num = ((Number) val).longValue();
-                if (num == 0) {
-                    return false;
-                } else if (num == 1) {
-                    return true;
-                }
-                break;
+                return num != 0;
             case STRING:
                 String str = (String) val;
                 if ("0".equals(str)) {

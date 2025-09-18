@@ -243,12 +243,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             if (value == 0) {
                 assertFalse(rs.getBoolean(1));
                 assertFalse(rs.getBoolean("C"));
-            } else if (value == 1) {
+            } else {
                 assertTrue(rs.getBoolean(1));
                 assertTrue(rs.getBoolean("C"));
-            } else {
-                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
             }
 
             assertEquals(value, rs.getByte(1));
@@ -442,12 +439,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             if (value == 0) {
                 assertFalse(rs.getBoolean(1));
                 assertFalse(rs.getBoolean("C"));
-            } else if (value == 1) {
+            } else {
                 assertTrue(rs.getBoolean(1));
                 assertTrue(rs.getBoolean("C"));
-            } else {
-                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
             }
 
             //noinspection NumericCastThatLosesPrecision
@@ -647,12 +641,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             if (value == 0) {
                 assertFalse(rs.getBoolean(1));
                 assertFalse(rs.getBoolean("C"));
-            } else if (value == 1) {
+            } else {
                 assertTrue(rs.getBoolean(1));
                 assertTrue(rs.getBoolean("C"));
-            } else {
-                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
             }
 
             //noinspection NumericCastThatLosesPrecision
@@ -854,12 +845,9 @@ public abstract class JdbcResultSetBaseSelfTest extends BaseIgniteAbstractTest {
             if (value == 0) {
                 assertFalse(rs.getBoolean(1));
                 assertFalse(rs.getBoolean("C"));
-            } else if (value == 1) {
+            } else {
                 assertTrue(rs.getBoolean(1));
                 assertTrue(rs.getBoolean("C"));
-            } else {
-                expectSqlConversionError(() -> rs.getBoolean(1), "boolean");
-                expectSqlConversionError(() -> rs.getBoolean("C"), "boolean");
             }
 
             //noinspection NumericCastThatLosesPrecision
