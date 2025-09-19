@@ -76,7 +76,7 @@ class SegmentInfo {
     }
 
     /**
-     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.length]} range.
+     * Base log index. All log indexes in this memtable lie in the {@code [logIndexBase, logIndexBase + segmentFileOffsets.size]} range.
      */
     private final long logIndexBase;
 
