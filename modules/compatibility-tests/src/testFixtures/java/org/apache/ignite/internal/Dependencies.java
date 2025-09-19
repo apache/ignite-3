@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -28,7 +26,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.properties.IgniteProperties;
 import org.gradle.tooling.GradleConnectionException;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
@@ -44,14 +41,7 @@ public class Dependencies {
     /**
      * Provides the path to the dependency(s). Uses ; to separate jar files.
      */
-    public static String path(String module, String newVersion, boolean transitive) {
-        boolean currentVersion = nullOrEmpty(newVersion);
-        if (currentVersion) {
-            newVersion = IgniteProperties.get(IgniteProperties.VERSION);
-        }
-
-        String dependencyNotation = "org.apache.ignite:" + module + ":" + newVersion;
-
+    public static String path(String dependencyNotation, boolean transitive, boolean currentVersion) {
         LOG.info("Resolving path for dependency: " + dependencyNotation);
         File projectRoot = getProjectRoot();
 

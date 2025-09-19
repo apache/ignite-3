@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.compatibility.api;
 
+import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
+
+import org.apache.ignite.internal.properties.IgniteProperties;
+
 class CompatibilityInput {
     private final String module;
     private final String oldVersion;
     private final String newVersion;
     private final String exclude;
     private final boolean errorOnIncompatibility;
+    private final boolean currentVersion;
 
     CompatibilityInput(String module, String oldVersion, ApiCompatibilityTest annotation) {
         this.module = module;
         this.oldVersion = oldVersion;
-        this.newVersion = annotation.newVersion();
+        currentVersion = nullOrEmpty(annotation.newVersion());
+        this.newVersion = currentVersion ? IgniteProperties.get(IgniteProperties.VERSION) : annotation.newVersion();
         this.exclude = annotation.exclude();
         this.errorOnIncompatibility = annotation.errorOnIncompatibility();
     }
@@ -44,11 +50,23 @@ class CompatibilityInput {
         return newVersion;
     }
 
+    String oldVersionNotation() {
+        return "org.apache.ignite:" + module + ":" + oldVersion;
+    }
+
+    String newVersionNotation() {
+        return "org.apache.ignite:" + module + ":" + newVersion;
+    }
+
     String exclude() {
         return exclude;
     }
 
     boolean errorOnIncompatibility() {
         return errorOnIncompatibility;
+    }
+
+    boolean currentVersion() {
+        return currentVersion;
     }
 }

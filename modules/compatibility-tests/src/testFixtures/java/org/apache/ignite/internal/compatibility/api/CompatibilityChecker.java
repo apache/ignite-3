@@ -51,8 +51,8 @@ class CompatibilityChecker {
      */
     static CompatibilityOutput check(CompatibilityInput input) {
         String[] args = {
-                "--old", Dependencies.path(input.module(), input.oldVersion(), false),
-                "--new", Dependencies.path(input.module(), input.newVersion(), false),
+                "--old", Dependencies.path(input.oldVersionNotation(), false, input.currentVersion()),
+                "--new", Dependencies.path(input.newVersionNotation(), false, input.currentVersion()),
                 "--exclude", input.exclude(),
                 "--markdown",
                 "--only-incompatible",
