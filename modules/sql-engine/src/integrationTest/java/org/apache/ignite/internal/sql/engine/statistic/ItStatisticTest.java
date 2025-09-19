@@ -50,7 +50,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void statisticUpdatesChangeQueryPlans() {
+    public void statisticUpdatesChangeQueryPlans() throws Exception {
         try {
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
 
@@ -61,6 +61,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sql("INSERT INTO j1 SELECT x, x FROM system_range(?, ?)", 0, 10);
 
             sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
             String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
                     + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
@@ -74,6 +75,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 100);
 
             sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
             Awaitility.await().timeout(Math.max(10_000, 2 * PLAN_UPDATER_INITIAL_DELAY), TimeUnit.MILLISECONDS).untilAsserted(() ->
                     assertQuery(query)
