@@ -326,7 +326,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 .contentType(MediaType.MULTIPART_FORM_DATA);
 
         if (unzip) {
-            post = post.header("X-Unzip-Units", "true");
+            post.uri(builder -> builder.queryParam("unzipUnits", true));
         }
 
         return client.toBlocking().exchange(post);

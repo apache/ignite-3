@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.api.deployment;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.NOT_REQUIRED;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.apache.ignite.internal.rest.constants.MediaType.FORM_DATA;
@@ -26,13 +27,10 @@ import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Header;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -81,13 +79,12 @@ public interface DeploymentCodeApi {
             @QueryValue
             @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
             Optional<List<String>> initialNodes,
-            @Parameter(
-                    name = "X-Unzip-Units",
-                    in = ParameterIn.HEADER,
+            @QueryValue
+            @Schema(name = "unzipUnits",
+                    requiredMode = NOT_REQUIRED,
                     description = "Unzip all uploaded archives with saving directory structure."
             )
-            @Header("X-Unzip-Units")
-            Optional<Boolean> unzip
+            Optional<Boolean> unzipUnits
     );
 
     /**
