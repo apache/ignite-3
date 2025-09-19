@@ -728,6 +728,14 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     void testHashIndexBounds() throws Exception {
         publicSchema = createSchemaFrom(tableWithHashIndex("TEST"));
 
+        // Ensure that attempting to use range bounds on a hash index doesn't produce any exceptions.
+        assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM TEST WHERE (c1<1 OR c1>10) AND c2='2' AND c3=3",
+                publicSchema, isTableScan("TEST"));
+        assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM TEST WHERE (c1<1 OR c1=10) AND c2='2' AND c3=3",
+                publicSchema, isTableScan("TEST"));
+        assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM TEST WHERE c1<1 AND c2='2' AND c3=3",
+                publicSchema, isTableScan("TEST"));
+
         // Index is not used when predicate covers only prefix of search key. 
         assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM test WHERE c1=1", publicSchema, isTableScan("TEST"));
         assertPlan("SELECT /*+ FORCE_INDEX(c1c2c3)*/ * FROM test WHERE c1=1 AND c2='2'", publicSchema, isTableScan("TEST"));
@@ -870,7 +878,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     private static UnaryOperator<TableBuilder> tableA(String tableName) {
         return tableBuilder -> tableBuilder
                 .name(tableName)
-                .name("TEST")
                 .addColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.STRING)
                 .addColumn("C3", NativeTypes.INT32)
