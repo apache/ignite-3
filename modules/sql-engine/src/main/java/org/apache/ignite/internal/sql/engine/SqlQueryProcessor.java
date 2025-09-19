@@ -301,7 +301,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 commonScheduler
         ));
 
-        sqlStatisticManager.planUpdater(prepareSvc::statisticsChanged);
+        sqlStatisticManager.setListener(prepareSvc::statisticsChanged);
 
         var msgSrvc = registerService(new MessageServiceImpl(
                 localNode,

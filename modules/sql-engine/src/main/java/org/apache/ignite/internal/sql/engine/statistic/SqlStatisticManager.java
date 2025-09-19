@@ -30,7 +30,7 @@ public interface SqlStatisticManager extends LifecycleAware {
     long tableSize(int tableId);
 
     /** Plan updater callback. */
-    void planUpdater(IntConsumer updater);
+    void setListener(IntConsumer updater);
 
     @Override
     default void start(){}

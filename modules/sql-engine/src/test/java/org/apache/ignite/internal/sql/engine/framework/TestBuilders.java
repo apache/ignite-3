@@ -955,7 +955,7 @@ public class TestBuilders {
             }
 
             @Override
-            public void planUpdater(IntConsumer updater) {
+            public void setListener(IntConsumer updater) {
                 throw new UnsupportedOperationException();
             }
         };

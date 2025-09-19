@@ -81,7 +81,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
     }
 
     @Override
-    public void planUpdater(IntConsumer updater) {
+    public void setListener(IntConsumer updater) {
         this.planUpdater = updater;
     }
 

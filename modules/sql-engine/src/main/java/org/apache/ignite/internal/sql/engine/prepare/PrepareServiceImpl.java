@@ -305,24 +305,26 @@ public class PrepareServiceImpl implements PrepareService {
                         if (currentCatalogVersion == key.catalogVersion()) {
                             SqlQueryType queryType = info.statement.parsedResult().queryType();
 
-                            if (queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML) {
-                                PlanningContext planningContext = PlanningContext.builder()
-                                        .frameworkConfig(info.context.config())
-                                        .query(info.statement.parsedResult().originalQuery())
-                                        .plannerTimeout(plannerTimeout)
-                                        .catalogVersion(info.context.catalogVersion())
-                                        .defaultSchemaName(info.context.schemaName())
-                                        .parameters(info.context.parameters())
-                                        .explicitTx(info.context.explicitTx())
-                                        .build();
-
-                                CompletableFuture<PlanInfo> newPlanFut =
-                                        preparePlan(queryType, info.statement.parsedResult, planningContext, key);
-
-                                rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
-                            } else {
-                                throw new AssertionError("Unexpected queryType=" + queryType);
+                            if (queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML) {
+                                assert false : "Unexpected type: " + queryType;
+                                continue;
                             }
+
+                            PlanningContext planningContext = PlanningContext.builder()
+                                    .frameworkConfig(info.context.config())
+                                    .query(info.statement.parsedResult().originalQuery())
+                                    .plannerTimeout(plannerTimeout)
+                                    .catalogVersion(info.context.catalogVersion())
+                                    .defaultSchemaName(info.context.schemaName())
+                                    .parameters(info.context.parameters())
+                                    .explicitTx(info.context.explicitTx())
+                                    .build();
+
+                            CompletableFuture<PlanInfo> newPlanFut =
+                                    preparePlan(queryType, info.statement.parsedResult, planningContext, key);
+
+                            rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
+
                         } else {
                             key.invalidated();
                         }
