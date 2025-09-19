@@ -137,21 +137,39 @@ public class IgniteDbCommandTests : IgniteTestsBase
     [Test]
     public async Task TestTimeout()
     {
-        // TODO: FakeServer.
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT_FOO";
+        cmd.CommandTimeout = 123;
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        Assert.AreEqual(123_000, server.LastSqlTimeoutMs);
     }
 
     [Test]
     public async Task TestTimeoutExecuteScalarException()
     {
+        // TODO
+        await Task.Delay(1);
     }
 
     [Test]
     public async Task TestTimeoutExecuteNonQueryException()
     {
+        // TODO
+        await Task.Delay(1);
     }
 
     [Test]
     public async Task TestTimeoutExecuteReaderException()
     {
+        // TODO
+        await Task.Delay(1);
     }
 }
