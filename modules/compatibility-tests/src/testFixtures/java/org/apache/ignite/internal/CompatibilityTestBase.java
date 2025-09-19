@@ -77,7 +77,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     // Force per class template work directory so that non-static field doesn't get overwritten by the BeforeEach callback.
     @WorkDirectory(forcePerClassTemplate = true)
-    private Path workDir;
+    protected Path workDir;
 
     protected IgniteCluster cluster;
 
