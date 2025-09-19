@@ -74,8 +74,6 @@ import org.mockito.internal.stubbing.answers.ThrowsException;
  */
 public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
 
-    // getXXX are not implemented yet
-    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
     // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
@@ -85,8 +83,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
         super.wasNullPositional(columnType);
     }
 
-    // getXXX are not implemented yet
-    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
     // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Override
@@ -97,7 +93,6 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     }
 
     // getXXX are not implemented yet
-    // TODO https://issues.apache.org/jira/browse/IGNITE-26369: numerics
     // TODO https://issues.apache.org/jira/browse/IGNITE-26379: datetime
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-26140")
     @Test
@@ -135,12 +130,18 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     @Test
     @Override
     public void getMetadata() throws SQLException {
-        try (ResultSet rs = createResultSet(null, 
-                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)), 
+        try (ResultSet rs = createResultSet(null,
+                List.of(new ColumnDefinition("C", ColumnType.BOOLEAN, 0, 0, false)),
                 List.of(List.of(true)))
         ) {
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(1, metaData.getColumnCount());
+        }
+
+        // Empty metadata
+        try (ResultSet rs = createResultSet(null, List.of(), List.of())) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            assertEquals(0, metaData.getColumnCount());
         }
     }
 
@@ -286,7 +287,7 @@ public class JdbcResultSet2SelfTest extends JdbcResultSetBaseSelfTest {
     private static class ResultSetStub implements org.apache.ignite.sql.ResultSet<SqlRow> {
         private final ResultSetMetadata meta;
         private final Iterator<List<Object>> it;
-        private List<Object> current;
+        private @Nullable List<Object> current;
 
         ResultSetStub(ResultSetMetadata meta, List<List<Object>> rows) {
             this.meta = Objects.requireNonNull(meta, "meta");
