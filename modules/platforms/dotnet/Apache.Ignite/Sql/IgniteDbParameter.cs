@@ -27,9 +27,6 @@ using System.Diagnostics.CodeAnalysis;
 /// </summary>
 public sealed class IgniteDbParameter : DbParameter
 {
-    private string _parameterName = string.Empty;
-    private string _sourceColumn = string.Empty;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbParameter"/> class.
     /// </summary>
@@ -39,12 +36,7 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <inheritdoc />
-    [SuppressMessage("ReSharper", "PatternIsRedundant", Justification = "For clarity.")]
-    public override DbType DbType
-    {
-        get => throw new NotSupportedException("DbParameter.DbType is not supported by Ignite. Parameter value determines the type.");
-        set => throw new NotSupportedException("DbParameter.DbType is not supported by Ignite. Parameter value determines the type.");
-    }
+    public override DbType DbType { get; set; }
 
     /// <summary>
     /// Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
@@ -63,36 +55,24 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <inheritdoc />
-    public override bool IsNullable
-    {
-        get => true;
-        set => throw new NotSupportedException("DbParameter.IsNullable is not supported by Ignite.");
-    }
+    public override bool IsNullable { get; set; }
 
     /// <inheritdoc />
     [AllowNull]
-    public override string ParameterName
-    {
-        get => throw new NotSupportedException("DbParameter.ParameterName is not supported by Ignite. Use positional parameters only.");
-        set => throw new NotSupportedException("DbParameter.ParameterName is not supported by Ignite. Use positional parameters only.");
-    }
+    public override string ParameterName { get; set; }
 
     /// <inheritdoc />
     [AllowNull]
-    public override string SourceColumn
-    {
-        get => throw new NotSupportedException("DbParameter.SourceColumn is not supported by Ignite.");
-        set => throw new NotSupportedException("DbParameter.SourceColumn is not supported by Ignite.");
-    }
+    public override string SourceColumn { get; set; }
 
     /// <inheritdoc />
     public override object? Value { get; set; }
 
     /// <inheritdoc />
-    public override bool SourceColumnNullMapping { get; set; } // TODO: Not used in Ignite - remove?
+    public override bool SourceColumnNullMapping { get; set; }
 
     /// <inheritdoc />
-    public override int Size { get; set; } // TODO: Not used in Ignite - remove?
+    public override int Size { get; set; }
 
     /// <inheritdoc />
     public override void ResetDbType()
