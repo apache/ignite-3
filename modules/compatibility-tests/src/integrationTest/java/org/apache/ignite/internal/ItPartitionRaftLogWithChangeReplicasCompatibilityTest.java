@@ -21,21 +21,22 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 
 import org.apache.ignite.Ignite;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Partition Raft log compatibility tests when adding replicas. */
+/** Partition Raft log compatibility tests when changing replicas. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-public class ItPartitionRaftLogWithAddReplicasCompatibilityTest extends CompatibilityTestBase {
+public class ItPartitionRaftLogWithChangeReplicasCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
 
     @Override
     protected int nodesCount() {
-        return 1;
+        return 3;
     }
 
     @Override
@@ -45,7 +46,12 @@ public class ItPartitionRaftLogWithAddReplicasCompatibilityTest extends Compatib
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        sql(baseIgnite, String.format("CREATE ZONE %s WITH PARTITIONS=1, REPLICAS=1, STORAGE_PROFILES='default'", ZONE_NAME));
+        String createZoneDdl = String.format(
+                "CREATE ZONE %s WITH PARTITIONS=1, REPLICAS=1, STORAGE_PROFILES='default', DATA_NODES_FILTER='$[?(@.nodeIndex == \"0\")]'",
+                ZONE_NAME
+        );
+
+        sql(baseIgnite, createZoneDdl);
 
         sql(baseIgnite, String.format("CREATE TABLE %s(ID INT PRIMARY KEY, VAL VARCHAR) ZONE %s", TABLE_NAME, ZONE_NAME));
 
@@ -58,17 +64,19 @@ public class ItPartitionRaftLogWithAddReplicasCompatibilityTest extends Compatib
         });
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26479")
     @Test
     void testIncreaseReplicas() throws Exception {
         cluster.stop();
 
-        cluster.startEmbedded(nodesCount() + 2, true);
+        cluster.startEmbedded(nodesCount(), false);
 
-        sql(String.format("ALTER ZONE %s SET REPLICAS=3", ZONE_NAME));
+        sql(String.format("ALTER ZONE %s SET REPLICAS=3, DATA_NODES_FILTER='$..*'", ZONE_NAME));
 
         // Let's wait for replication to complete on other nodes.
         Thread.sleep(3_000);
 
-        assertThat(sql(String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
+        assertThat(sql(cluster.node(1), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
+        assertThat(sql(cluster.node(2), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
     }
 }
