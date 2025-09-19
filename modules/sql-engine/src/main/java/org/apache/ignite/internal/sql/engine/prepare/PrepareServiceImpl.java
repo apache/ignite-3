@@ -559,7 +559,11 @@ public class PrepareServiceImpl implements PrepareService {
             if (key != null) {
                 CompletableFuture<PlanInfo> fut = CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx, () -> {}), planningPool);
 
-                return fut.whenComplete((info, ex) -> {
+                return fut.exceptionally(ex -> {
+                    LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+
+                    return null;
+                }).whenComplete((info, ex) -> {
                     if (ex == null) {
                         if (LOG.isDebugEnabled()) {
                             LOG.debug("Query re-planned into: " + info.queryPlan);
@@ -790,7 +794,11 @@ public class PrepareServiceImpl implements PrepareService {
             if (key != null) {
                 CompletableFuture<PlanInfo> fut = CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool);
 
-                return fut.whenComplete((info, ex) -> {
+                return fut.exceptionally(ex -> {
+                    LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+
+                    return null;
+                }).whenComplete((info, ex) -> {
                     if (ex == null) {
                         if (LOG.isDebugEnabled()) {
                             LOG.debug("Query re-planned into: " + info.queryPlan);
