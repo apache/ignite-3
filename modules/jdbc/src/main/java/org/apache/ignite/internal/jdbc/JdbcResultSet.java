@@ -41,9 +41,6 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.ParseException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -84,24 +81,6 @@ import org.jetbrains.annotations.TestOnly;
  * Jdbc result set implementation.
  */
 public class JdbcResultSet implements ResultSet {
-    /** Decimal format to convert string to decimal. */
-    private static final ThreadLocal<DecimalFormat> decimalFormat = new ThreadLocal<>() {
-        /** {@inheritDoc} */
-        @Override
-        protected DecimalFormat initialValue() {
-            DecimalFormatSymbols symbols = new DecimalFormatSymbols();
-
-            symbols.setGroupingSeparator(',');
-            symbols.setDecimalSeparator('.');
-
-            DecimalFormat decimalFormat = new DecimalFormat("", symbols);
-
-            decimalFormat.setParseBigDecimal(true);
-
-            return decimalFormat;
-        }
-    };
-
     private final JdbcStatement stmt;
     private final @Nullable Long cursorId;
     private final boolean hasResultSet;
@@ -455,21 +434,19 @@ public class JdbcResultSet implements ResultSet {
             return false;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == Boolean.class) {
+        if ("0".equals(val)) {
+            return false;
+        } else if ("1".equals(val)) {
+            return true;
+        } else if (val instanceof Boolean) {
             return ((Boolean) val);
-        } else if (val instanceof Number) {
-            return ((Number) val).intValue() != 0;
-        } else if (cls == String.class || cls == Character.class) {
-            try {
-                return Integer.parseInt(val.toString()) != 0;
-            } catch (NumberFormatException e) {
-                throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED, e);
-            }
-        } else {
-            throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
+        } else if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
+            long num = ((Number) val).longValue();
+            // 0 - false, anything else is true.
+            return num != 0;
         }
+
+        throw new SQLException("Cannot convert to boolean: " + val, SqlStateCode.CONVERSION_FAILED);
     }
 
     /** {@inheritDoc} */
@@ -629,8 +606,6 @@ public class JdbcResultSet implements ResultSet {
 
         if (val instanceof Number) {
             return ((Number) val).floatValue();
-        } else if (cls == Boolean.class) {
-            return ((Boolean) val ? 1 : 0);
         } else if (cls == String.class || cls == Character.class) {
             try {
                 return Float.parseFloat(val.toString());
@@ -663,8 +638,6 @@ public class JdbcResultSet implements ResultSet {
 
         if (val instanceof Number) {
             return ((Number) val).doubleValue();
-        } else if (cls == Boolean.class) {
-            return ((Boolean) val ? 1d : 0d);
         } else if (cls == String.class || cls == Character.class) {
             try {
                 return Double.parseDouble(val.toString());
@@ -701,18 +674,18 @@ public class JdbcResultSet implements ResultSet {
             return null;
         }
 
-        Class<?> cls = val.getClass();
-
-        if (cls == BigDecimal.class) {
+        if (val instanceof BigDecimal) {
             return (BigDecimal) val;
-        } else if (val instanceof Number) {
+        } else if (val instanceof Float || val instanceof Double) {
+            // Perform conversion from double for floating point numbers
             return new BigDecimal(((Number) val).doubleValue());
-        } else if (cls == Boolean.class) {
-            return new BigDecimal((Boolean) val ? 1 : 0);
-        } else if (cls == String.class || cls == Character.class) {
+        } else if (val instanceof Number) {
+            // Perform exact conversion from integer types
+            return new BigDecimal(((Number) val).longValue());
+        } else if (val instanceof String) {
             try {
-                return (BigDecimal) decimalFormat.get().parse(val.toString());
-            } catch (ParseException e) {
+                return new BigDecimal(val.toString());
+            } catch (Exception e) {
                 throw new SQLException("Cannot convert to BigDecimal: " + val, SqlStateCode.CONVERSION_FAILED, e);
             }
         } else {
