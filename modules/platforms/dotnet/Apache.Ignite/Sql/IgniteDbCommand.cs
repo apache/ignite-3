@@ -128,30 +128,33 @@ public sealed class IgniteDbCommand : DbCommand
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, _cancellationTokenSource.Token);
 
-        // TODO: Wrap exceptions.
-        await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
-            transaction: GetIgniteTx(),
-            statement,
-            linkedCts.Token,
-            args).ConfigureAwait(false);
-
-        await foreach (var row in resultSet)
+        try
         {
-            // Return the first result.
-            return row[0];
+            await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
+                transaction: GetIgniteTx(),
+                statement,
+                linkedCts.Token,
+                args).ConfigureAwait(false);
+
+            await foreach (var row in resultSet)
+            {
+                // Return the first result.
+                return row[0];
+            }
+        }
+        catch (SqlException sqlEx)
+        {
+            throw new IgniteDbException(sqlEx.Message, sqlEx);
         }
 
-        throw new InvalidOperationException("Query returned no results: " + statement);
+        throw new IgniteDbException("Query returned no results: " + statement);
     }
 
     /// <inheritdoc />
     public override object? ExecuteScalar() => ExecuteScalarAsync().GetAwaiter().GetResult();
 
     /// <inheritdoc />
-    public override void Prepare()
-    {
-        throw new NotSupportedException("Prepare is not supported.");
-    }
+    public override void Prepare() => throw new NotSupportedException("Prepare is not supported.");
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
