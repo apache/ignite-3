@@ -71,18 +71,18 @@ public sealed class IgniteDbParameter : DbParameter
 
     /// <inheritdoc />
     [AllowNull]
-    public override string ParameterName // TODO: Ignite does not support named parameters - throw?
+    public override string ParameterName
     {
-        get => _parameterName;
-        set => _parameterName = value ?? string.Empty;
+        get => throw new NotSupportedException("DbParameter.ParameterName is not supported by Ignite. Use positional parameters only.");
+        set => throw new NotSupportedException("DbParameter.ParameterName is not supported by Ignite. Use positional parameters only.");
     }
 
     /// <inheritdoc />
     [AllowNull]
-    public override string SourceColumn // TODO: Not used in Ignite - remove?
+    public override string SourceColumn
     {
-        get => _sourceColumn;
-        set => _sourceColumn = value ?? string.Empty;
+        get => throw new NotSupportedException("DbParameter.SourceColumn is not supported by Ignite.");
+        set => throw new NotSupportedException("DbParameter.SourceColumn is not supported by Ignite.");
     }
 
     /// <inheritdoc />
@@ -95,5 +95,8 @@ public sealed class IgniteDbParameter : DbParameter
     public override int Size { get; set; } // TODO: Not used in Ignite - remove?
 
     /// <inheritdoc />
-    public override void ResetDbType() => IgniteColumnType = ColumnType.String;
+    public override void ResetDbType()
+    {
+        // No-op.
+    }
 }
