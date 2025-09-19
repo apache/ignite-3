@@ -139,4 +139,19 @@ public class IgniteDbCommandTests : IgniteTestsBase
     {
         // TODO: FakeServer.
     }
+
+    [Test]
+    public async Task TestTimeoutExecuteScalarException()
+    {
+    }
+
+    [Test]
+    public async Task TestTimeoutExecuteNonQueryException()
+    {
+    }
+
+    [Test]
+    public async Task TestTimeoutExecuteReaderException()
+    {
+    }
 }
