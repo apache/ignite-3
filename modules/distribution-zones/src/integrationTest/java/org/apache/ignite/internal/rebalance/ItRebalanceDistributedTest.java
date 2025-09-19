@@ -64,7 +64,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -1648,7 +1647,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionReplicaLifecycleManager,
                     nodeProperties,
                     minTimeCollectorService,
-                    systemDistributedConfiguration
+                    systemDistributedConfiguration,
+                    metricManager,
+                    TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
             ) {
                 @Override
                 protected TxStateStorage createTxStateTableStorage(
@@ -1876,12 +1877,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return ((TableViewInternal) table).internalTable();
     }
 
-    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
+    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) throws Exception {
         InternalTable internalTable = getInternalTable(node, tableName);
 
         if (colocationEnabled()) {
-            // Assert that zone tx state storage was removed.
-            assertNull(node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId));
+            // Assert that zone tx state storage was removed. Wait for the async destroy operation to complete.
+            assertTrue(waitForCondition(
+                    () -> node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId) == null,
+                    AWAIT_TIMEOUT_MILLIS
+            ), "Zone tx state storage was not destroyed within timeout");
         } else {
             verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                     .destroyPartition(partitionId);

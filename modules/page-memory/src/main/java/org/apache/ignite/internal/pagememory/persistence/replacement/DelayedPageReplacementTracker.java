@@ -120,6 +120,8 @@ public class DelayedPageReplacementTracker {
      * @param id Full page ID to lock from read.
      */
     public void lock(FullPageId id) {
+        assert FullPageId.class == id.getClass() : id;
+
         stripe(id).lock(id);
     }
 
@@ -129,6 +131,8 @@ public class DelayedPageReplacementTracker {
      * @param id full page ID to be loaded from store.
      */
     public void waitUnlock(FullPageId id) {
+        assert FullPageId.class == id.getClass() : id;
+
         stripe(id).waitUnlock(id);
     }
 
@@ -138,6 +142,8 @@ public class DelayedPageReplacementTracker {
      * @param id Full page ID, which write has been finished, it is available for reading.
      */
     public void unlock(FullPageId id) {
+        assert FullPageId.class == id.getClass() : id;
+
         stripe(id).unlock(id);
     }
 

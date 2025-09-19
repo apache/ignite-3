@@ -48,8 +48,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
@@ -80,7 +80,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     private static final String TARGET_CONSISTENT_ID = "target";
 
-    private static final InternalClusterNode TARGET_NODE = new InternalClusterNodeImpl(
+    private static final InternalClusterNode TARGET_NODE = new ClusterNodeImpl(
             randomUUID(),
             TARGET_CONSISTENT_ID,
             new NetworkAddress("target", 1234)
@@ -136,7 +136,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void fileTransfersCanceledWhenSenderLeft() {
-        topologyService.fireDisappearedEvent(new InternalClusterNodeImpl(randomUUID(), "sender", new NetworkAddress("localhost", 1234)));
+        topologyService.fireDisappearedEvent(new ClusterNodeImpl(randomUUID(), "sender", new NetworkAddress("localhost", 1234)));
 
         verify(fileReceiver).cancelTransfersFromSender("sender");
     }

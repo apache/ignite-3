@@ -87,8 +87,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -98,7 +98,6 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -245,7 +244,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null));
+        DdlSqlToCommandConverter converter =
+                new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null));
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -1182,8 +1182,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return executionService;
     }
 
-    private static InternalClusterNodeImpl clusterNode(String nodeName) {
-        return new InternalClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+    private static ClusterNodeImpl clusterNode(String nodeName) {
+        return new ClusterNodeImpl(randomUUID(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
     }
 
     private MappingServiceImpl createMappingService(
@@ -1212,7 +1212,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .cancel(new QueryCancel())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0), false)));
     }
 

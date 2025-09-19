@@ -443,18 +443,6 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
                             .appendText(" has missing enum values ").appendValue(missingValues);
                     return false;
                 }
-            } else {
-                Set<String> baseEnum = new HashSet<>(ofNullable(((StringSchema) baseSchema).getEnum()).orElse(List.of()));
-
-                Set<String> newValues = ofNullable(((StringSchema) currentSchema).getEnum()).orElse(List.of()).stream()
-                        .filter(Predicate.not(baseEnum::contains))
-                        .collect(toSet());
-
-                if (!newValues.isEmpty()) {
-                    mismatchDescription.appendText("Schema ").appendValue(path)
-                            .appendText(" has new enum values ").appendValue(newValues);
-                    return false;
-                }
             }
             return true;
         }

@@ -48,12 +48,12 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
@@ -141,7 +141,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
-        InternalClusterNode node = new InternalClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
+        InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -155,7 +155,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                SqlCommon.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
                 Clock.systemUTC(),
                 null

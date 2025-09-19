@@ -68,9 +68,9 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
@@ -379,7 +379,7 @@ public class TestServer implements AutoCloseable {
     }
 
     private InternalClusterNode getClusterNode(String name) {
-        return new InternalClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClusterNodeImpl(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static UUID getNodeId(String name) {

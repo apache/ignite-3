@@ -19,6 +19,8 @@ package org.apache.ignite.internal;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.Dependencies.constructArgFile;
+import static org.apache.ignite.internal.Dependencies.getProjectRoot;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
@@ -29,7 +31,6 @@ import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.gradle.tooling.GradleConnectionException;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
@@ -324,49 +324,6 @@ public class IgniteCluster {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static File getProjectRoot() {
-        var absPath = new File("").getAbsolutePath();
-
-        // Find root by looking for "gradlew" file.
-        while (!new File(absPath, "gradlew").exists()) {
-            var parent = new File(absPath).getParentFile();
-            if (parent == null) {
-                throw new IllegalStateException("Could not find project root with 'gradlew' file");
-            }
-            absPath = parent.getAbsolutePath();
-        }
-
-        return new File(absPath);
-    }
-
-    static File constructArgFile(
-            ProjectConnection connection,
-            String dependencyNotation,
-            boolean classPathOnly) throws IOException {
-        File argFilePath = File.createTempFile("argFilePath", "");
-        argFilePath.deleteOnExit();
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try {
-            connection.newBuild()
-                    .forTasks(":ignite-compatibility-tests:constructArgFile")
-                    .withArguments(
-                            "-PdependencyNotation=" + dependencyNotation,
-                            "-PargFilePath=" + argFilePath,
-                            "-PclassPathOnly=" + classPathOnly
-                    )
-                    .setStandardOutput(baos)
-                    .setStandardError(baos)
-                    .run();
-        } catch (GradleConnectionException | IllegalStateException e) {
-            LOG.error("Failed to run constructArgFile task", e);
-            LOG.error("Gradle task output:" + System.lineSeparator() + baos);
-            throw new RuntimeException(e);
-        }
-
-        return argFilePath;
     }
 
     private HttpRequest post(String path, String body) {

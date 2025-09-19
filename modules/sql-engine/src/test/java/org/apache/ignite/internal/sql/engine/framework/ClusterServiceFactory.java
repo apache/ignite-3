@@ -33,9 +33,9 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -70,7 +70,7 @@ public class ClusterServiceFactory {
     private InternalClusterNode nodeByName(String name) {
         return nodeByName.computeIfAbsent(
                 name,
-                key -> new InternalClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
+                key -> new ClusterNodeImpl(randomUUID(), name, new NetworkAddress(name + "-host", 1000))
         );
     }
 
@@ -173,7 +173,7 @@ public class ClusterServiceFactory {
         }
 
         private static InternalClusterNode nodeFromName(String name) {
-            return new InternalClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+            return new ClusterNodeImpl(randomUUID(), name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
         }
 
         @Override

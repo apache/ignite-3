@@ -115,9 +115,9 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -181,6 +181,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
@@ -192,6 +193,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -226,6 +228,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -347,10 +350,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     private final TestTxStatePartitionStorage txStateStorage = spy(new TestTxStatePartitionStorage());
 
     /** Local cluster node. */
-    private final InternalClusterNode localNode = new InternalClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
+    private final InternalClusterNode localNode = new ClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));
 
     /** Another (not local) cluster node. */
-    private final InternalClusterNode anotherNode = new InternalClusterNodeImpl(nodeId(2), "node2", NetworkAddress.from("127.0.0.2:127"));
+    private final InternalClusterNode anotherNode = new ClusterNodeImpl(nodeId(2), "node2", NetworkAddress.from("127.0.0.2:127"));
 
     private TransactionStateResolver transactionStateResolver;
 
@@ -648,7 +651,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        replicationConfiguration
+                        replicationConfiguration,
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 ),
                 validationSchemasSource,
                 localNode,
@@ -661,7 +665,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 lowWatermark,
                 failureManager,
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

@@ -66,7 +66,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -2108,7 +2108,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     0,
                     internalTx.id(),
                     internalTx.readTimestamp(),
-                    new InternalClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     internalTx.coordinatorId()
             );
 
@@ -2126,7 +2126,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     0,
                     internalTx.id(),
                     internalTx.readTimestamp(),
-                    new InternalClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     0,
                     // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
                     null,

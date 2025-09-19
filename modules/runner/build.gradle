@@ -233,7 +233,7 @@ dependencies {
     testFixturesImplementation libs.typesafe.config
 }
 
-tasks.register('generateCompatibilitySnapshot', JavaExec) {
+tasks.register('postRelease', JavaExec) {
     def testResourcePath = sourceSets.test.resources.srcDirs.iterator().next().absolutePath
     def snapshotFilePath = java.nio.file.Path.of(testResourcePath, "compatibility/configuration", "ignite-${projectVersion}.bin").toString()
 

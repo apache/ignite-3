@@ -86,9 +86,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
@@ -1103,7 +1103,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .thenCompose(topology -> {
                     // TODO https://issues.apache.org/jira/browse/IGNITE-24769
                     Set<InternalClusterNode> logicalTopology = topology.nodes().stream()
-                            .map(node -> new InternalClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
+                            .map(node -> new ClusterNodeImpl(node.id(), node.name(), node.address(), node.nodeMetadata()))
                             .collect(toSet());
                     // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
                     Set<InternalClusterNode> recipients = nodes.stream()

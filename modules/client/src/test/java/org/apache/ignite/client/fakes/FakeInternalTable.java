@@ -45,8 +45,8 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -530,7 +531,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
         //noinspection DataFlowIssue
         return completedFuture(
-                new InternalClusterNodeImpl(
+                new ClusterNodeImpl(
                         replica.getLeaseholderId(),
                         replica.getLeaseholder(),
                         new NetworkAddress("localhost", 10800)));
@@ -581,5 +582,10 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                         .build(),
                 payload)
                 .thenApply(resBytes -> new IgniteBiTuple<>(resBytes, FakeCompute.observableTimestamp.longValue()));
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return null;
     }
 }

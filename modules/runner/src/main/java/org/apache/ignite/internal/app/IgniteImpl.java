@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
+import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -259,6 +261,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -1110,6 +1113,9 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
+        PartitionModificationCounterFactory partitionModificationCounterFactory =
+                new PartitionModificationCounterFactory(clockService::current);
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -1148,7 +1154,9 @@ public class IgniteImpl implements Ignite {
                 partitionReplicaLifecycleManager,
                 nodeProperties,
                 minTimeCollectorService,
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                metricManager,
+                partitionModificationCounterFactory
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1693,8 +1701,13 @@ public class IgniteImpl implements Ignite {
 
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
-        // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
-        LOG.error(errMsg, igniteException);
+        Throwable rootEx = unwrapRootCause(e);
+        if (rootEx instanceof InvalidNodeConfigurationException) {
+            LOG.error("{}. Reason: {}", errMsg,  rootEx.getMessage());
+        } else {
+            // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
+            LOG.error(errMsg, igniteException);
+        }
 
         ExecutorService lifecycleExecutor = stopExecutor();
 

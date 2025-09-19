@@ -26,8 +26,8 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.InternalClusterNodeImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -90,7 +90,7 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.enlistmentNode = new InternalClusterNodeImpl(randomUUID(), name, networkAddress);
+        this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress);
         this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
         this.implicit = implicit;
         this.readOnly = readOnly;
