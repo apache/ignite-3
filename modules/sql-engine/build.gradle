@@ -116,6 +116,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-cluster-management'))
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5

@@ -338,11 +338,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 CACHE_FACTORY,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 partitionPruner,
-                () -> logicalTopologyService.localLogicalTopology().version(),
                 new ExecutionDistributionProviderImpl(placementDriver, systemViewManager, nodeProperties),
-                nodeProperties
+                nodeProperties,
+                taskExecutor
         );
 
+        logicalTopologyService.addEventListener(mappingService);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, mappingService::onPrimaryReplicaExpired);
         // Need to be implemented after https://issues.apache.org/jira/browse/IGNITE-23519 Add an event for lease Assignments
         // placementDriver.listen(PrimaryReplicaEvent.ASSIGNMENTS_CHANGED, mappingService::onPrimaryReplicaAssignment);

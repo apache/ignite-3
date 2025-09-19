@@ -69,8 +69,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -174,7 +176,21 @@ public class TestBuilders {
 
     /** Factory method to create a cluster service factory for cluster consisting of provided nodes. */
     public static ClusterServiceFactory clusterServiceFactory(List<String> nodes) {
-        return new ClusterServiceFactory(nodes);
+        var logicalTopology = logicalTopology(nodes);
+
+        return new ClusterServiceFactory(logicalTopology);
+    }
+
+    /** Factory method to create a logical topology from provided nodes. */
+    public static LogicalTopology logicalTopology(Collection<String> nodes) {
+        var logicalTopology = new LogicalTopologyImpl(
+                TestClusterStateStorage.initializedClusterStateStorage(),
+                ctx -> false
+        );
+
+        createLogicalNodes(nodes, Map.of()).forEach(logicalTopology::putNode);
+
+        return logicalTopology;
     }
 
     /**
@@ -649,8 +665,6 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
-            var clusterService = new ClusterServiceFactory(nodeNames);
-
             var clusterName = "test_cluster";
 
             HybridClock clock = new HybridClockImpl();
@@ -698,23 +712,15 @@ public class TestBuilders {
 
             RunnableX stopClosure = () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-            List<LogicalNode> logicalNodes = nodeNames.stream()
-                    .map(name -> {
-                        List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
-                        NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
+            List<LogicalNode> logicalNodes = createLogicalNodes(nodeNames, systemViewsByNode);
 
-                        if (systemViewForNode.isEmpty()) {
-                            return logicalNode;
-                        } else {
-                            String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
-                            String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
-                            String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
+            var logicalTopology = new LogicalTopologyImpl(
+                    TestClusterStateStorage.initializedClusterStateStorage(),
+                    ctx -> false
+            );
+            var clusterService = new ClusterServiceFactory(logicalTopology);
 
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
-                        }
-                    })
-                    .collect(Collectors.toList());
+            logicalNodes.forEach(logicalTopology::putNode);
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
@@ -747,20 +753,20 @@ public class TestBuilders {
                                 EmptyCacheFactory.INSTANCE,
                                 0,
                                 partitionPruner,
-                                () -> 1L,
                                 executionProvider,
-                                new SystemPropertiesNodeProperties()
+                                new SystemPropertiesNodeProperties(),
+                                Runnable::run
                         );
 
                         systemViewManager.register(() -> systemViews);
 
-                        LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
-                        systemViewManager.onTopologyLeap(newTopology);
+                        logicalTopology.addEventListener(mappingService);
+                        logicalTopology.addEventListener(systemViewManager);
 
                         return new TestNode(
                                 name,
                                 catalogManager,
-                                clusterService.forNode(name),
+                                (TestClusterService) clusterService.forNode(name),
                                 parserService,
                                 prepareService,
                                 schemaManager,
@@ -781,6 +787,8 @@ public class TestBuilders {
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
+            logicalTopology.fireTopologyLeap();
+
             return new TestCluster(
                     tablesSize,
                     dataProvidersByTableName,
@@ -794,6 +802,26 @@ public class TestBuilders {
                     stopClosure
             );
         }
+    }
+
+    private static List<LogicalNode> createLogicalNodes(Collection<String> nodeNames, Map<String, List<String>> systemViewsByNode) {
+        return nodeNames.stream()
+                .map(name -> {
+                    List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
+                    NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
+                    LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
+
+                    if (systemViewForNode.isEmpty()) {
+                        return logicalNode;
+                    } else {
+                        String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
+                        String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
+                        String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
+
+                        return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     private static void initAction(CatalogManager catalogManager) {

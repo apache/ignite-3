@@ -230,10 +230,12 @@ final class MappingTestRunner {
                 EmptyCacheFactory.INSTANCE,
                 0,
                 partitionPruner,
-                snapshot::version,
                 executionDistributionProvider,
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                Runnable::run
         );
+
+        mappingService.onTopologyLeap(snapshot);
 
         List<MappedFragment> mappedFragments;
 
