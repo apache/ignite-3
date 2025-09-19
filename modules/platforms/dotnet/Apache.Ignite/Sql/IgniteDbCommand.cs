@@ -48,7 +48,7 @@ public sealed class IgniteDbCommand : DbCommand
     }
 
     /// <inheritdoc />
-    public override int CommandTimeout { get; set; } // TODO: Support timeouts.
+    public override int CommandTimeout { get; set; }
 
     /// <inheritdoc />
     public override CommandType CommandType { get; set; }
@@ -209,7 +209,10 @@ public sealed class IgniteDbCommand : DbCommand
         return client.Sql;
     }
 
-    private SqlStatement GetStatement() => new(CommandText);
+    private SqlStatement GetStatement() => new(CommandText)
+    {
+        Timeout = TimeSpan.FromSeconds(CommandTimeout) // 0 means no timeout, both in ADO.NET and Ignite.
+    };
 
     private ITransaction? GetIgniteTx() => IgniteDbTransaction?.IgniteTransaction;
 
