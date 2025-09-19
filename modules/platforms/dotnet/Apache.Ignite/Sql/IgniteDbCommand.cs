@@ -175,12 +175,18 @@ public sealed class IgniteDbCommand : DbCommand
         var args = GetArgs();
         var statement = GetStatement();
 
-        // TODO: Wrap exceptions.
-        return await GetSql().ExecuteReaderAsync(
-            transaction: GetIgniteTx(),
-            statement,
-            cancellationToken,
-            args).ConfigureAwait(false);
+        try
+        {
+            return await GetSql().ExecuteReaderAsync(
+                transaction: GetIgniteTx(),
+                statement,
+                cancellationToken,
+                args).ConfigureAwait(false);
+        }
+        catch (SqlException sqlEx)
+        {
+            throw new IgniteDbException(sqlEx.Message, sqlEx);
+        }
     }
 
     /// <inheritdoc />
