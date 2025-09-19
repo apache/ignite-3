@@ -29,10 +29,12 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -221,6 +223,31 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         )));
 
         assertThat(successJob, willCompleteSuccessfully());
+    }
+
+    @Test
+    void jobContextProvidesDeploymentUnitInfo() {
+        var units0 = List.of(
+                new DeploymentUnit(unit.name(), Version.LATEST),
+                unit);
+
+        JobDescriptor<Void, String> job = JobDescriptor.builder(DeploymentUnitInfoJob.class).units(units0).build();
+
+        String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
+
+        assertThat(jobRes, containsString("name='jobs'"));
+        assertThat(jobRes, containsString("version=1.0.0"));
+        assertThat(jobRes, containsString("path="));
+        assertThat(jobRes.split(";").length, equalTo(2));
+    }
+
+    @Test
+    void jobContextProvidesDeploymentUnitPath() {
+        JobDescriptor<Void, String> job = JobDescriptor.builder(DeploymentUnitContentJob.class).units(units).build();
+
+        String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
+
+        assertEquals("ignite-integration-test-jobs-1.0-SNAPSHOT.jar", jobRes);
     }
 
     private static void deployJar(String unitId, Version unitVersion, String jarName) throws IOException {

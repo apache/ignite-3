@@ -15,15 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.framework;
+package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ClusterBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders.NestedBuilder;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-/**
- * A builder interface for creating a test zone as a nested object within a test cluster.
- */
-public interface ClusterZoneBuilder extends ZoneBuilderBase<ClusterZoneBuilder>, NestedBuilder<ClusterBuilder> {
-    CatalogCommand build();
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** Compute job. */
+public class DeploymentUnitInfoJob implements ComputeJob<Void, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        String paths = context.deploymentUnits().stream()
+                .map(Object::toString)
+                .reduce((x, y) -> x + ";" + y)
+                .orElse("");
+
+        return completedFuture(paths);
+    }
 }
