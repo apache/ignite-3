@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -277,32 +276,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     msgSendFut.complete(false);
                 }
             } else if (recoverable(invokeThrowable)) {
-                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
-                    if (topologyGetThrowable != null) {
-                        if (!(unwrapCause(topologyGetThrowable) instanceof NodeStoppingException)) {
-                            LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
-                        }
+                sendWithRetry(node, msg, msgSendFut);
+            } else if (invokeThrowable instanceof RecipientLeftException) {
+                LOG.info("Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}]", node);
 
-                        msgSendFut.completeExceptionally(topologyGetThrowable);
-
-                        return;
-                    }
-
-                    // We need this because ClusterNodeImpl doesn't include 'id' in the equals/hashCode. So we have to find the node that
-                    // is 'equals' in the topology snapshot and take it from the set, not from the current node, since it can have an old id
-                    // in case the exception is RecipientLeftException
-                    Optional<LogicalNode> newNode = logicalTopologySnapshot.nodes().stream()
-                            .filter(logicalNode -> logicalNode.equals(node))
-                            .findFirst();
-                    if (newNode.isPresent()) {
-                        sendWithRetry(newNode.get(), msg, msgSendFut);
-                    } else {
-                        LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                + " cluster: [node={}]", node);
-
-                        msgSendFut.complete(false);
-                    }
-                }, executor);
+                msgSendFut.complete(false);
             } else {
                 if (!(unwrapCause(invokeThrowable) instanceof NodeStoppingException)) {
                     LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
@@ -324,7 +302,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             t = t.getCause();
         }
 
-        return t instanceof TimeoutException || t instanceof IOException || t instanceof RecipientLeftException;
+        return t instanceof TimeoutException || t instanceof IOException;
     }
 
     /**
