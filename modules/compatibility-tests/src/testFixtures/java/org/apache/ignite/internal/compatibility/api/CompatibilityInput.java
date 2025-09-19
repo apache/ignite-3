@@ -44,14 +44,6 @@ class CompatibilityInput {
         return newVersion;
     }
 
-    String oldVersionNotation() {
-        return "org.apache.ignite:" + module + ":" + oldVersion;
-    }
-
-    String newVersionNotation() {
-        return "org.apache.ignite:" + module + ":" + newVersion;
-    }
-
     String exclude() {
         return exclude;
     }
