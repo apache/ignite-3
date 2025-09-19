@@ -38,59 +38,12 @@ public sealed class IgniteDbParameter : DbParameter
         // No-op.
     }
 
-    /// <summary>
-    /// Gets or sets the Ignite column type.
-    /// </summary>
-    public ColumnType IgniteColumnType { get; set; } = ColumnType.String; // TODO: This does not do anything - remove?
-
     /// <inheritdoc />
     [SuppressMessage("ReSharper", "PatternIsRedundant", Justification = "For clarity.")]
-    public override DbType DbType // TODO: This does not do anything - throw?
+    public override DbType DbType
     {
-        get => IgniteColumnType switch
-        {
-            ColumnType.Boolean => DbType.Boolean,
-            ColumnType.Int8 => DbType.Byte,
-            ColumnType.Int16 => DbType.Int16,
-            ColumnType.Int32 => DbType.Int32,
-            ColumnType.Int64 => DbType.Int64,
-            ColumnType.Float => DbType.Single,
-            ColumnType.Double => DbType.Double,
-            ColumnType.Decimal => DbType.Decimal,
-            ColumnType.String => DbType.String,
-            ColumnType.Time => DbType.Time,
-            ColumnType.Uuid => DbType.Guid,
-            ColumnType.Datetime => DbType.DateTime,
-            ColumnType.Date => DbType.Date,
-            ColumnType.ByteArray => DbType.Binary,
-            ColumnType.Timestamp => DbType.DateTime2,
-            ColumnType.Period or ColumnType.Duration
-                => throw new NotSupportedException($"Unsupported Ignite column type: {IgniteColumnType}"),
-            _ => throw new InvalidOperationException($"Unexpected Ignite column type: {IgniteColumnType}")
-        };
-        set => IgniteColumnType = value switch
-        {
-            DbType.Boolean => ColumnType.Boolean,
-            DbType.Byte => ColumnType.Int8,
-            DbType.Int16 => ColumnType.Int16,
-            DbType.Int32 => ColumnType.Int32,
-            DbType.Int64 => ColumnType.Int64,
-            DbType.Single => ColumnType.Float,
-            DbType.Double => ColumnType.Double,
-            DbType.Decimal => ColumnType.Decimal,
-            DbType.String => ColumnType.String,
-            DbType.Time => ColumnType.Time,
-            DbType.Guid => ColumnType.Uuid,
-            DbType.DateTime => ColumnType.Datetime,
-            DbType.Date => ColumnType.Date,
-            DbType.Binary => ColumnType.ByteArray,
-            DbType.DateTime2 => ColumnType.Timestamp,
-            DbType.AnsiString or DbType.Currency or DbType.Object or DbType.SByte or DbType.UInt16 or DbType.UInt32 or DbType.UInt64
-                or DbType.VarNumeric or DbType.AnsiStringFixedLength or DbType.StringFixedLength or DbType.Xml
-                or DbType.DateTimeOffset
-                => throw new NotSupportedException($"Unsupported Db type: {value}"),
-            _ => throw new InvalidOperationException($"Unexpected Db type: {value}")
-        };
+        get => throw new NotSupportedException("DbParameter.DbType is not supported by Ignite. Parameter value determines the type.");
+        set => throw new NotSupportedException("DbParameter.DbType is not supported by Ignite. Parameter value determines the type.");
     }
 
     /// <summary>
