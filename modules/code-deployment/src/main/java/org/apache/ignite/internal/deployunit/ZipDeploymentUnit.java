@@ -55,17 +55,15 @@ public class ZipDeploymentUnit implements DeploymentUnit {
      * handling for ZIP content.
      *
      * @param <T> the type of argument passed to the processor.
-     * @param <R> the type of result returned by the processor.
      * @param processor the processor that will handle both regular and ZIP content;
      *                 must implement both {@code processContent} and {@code processContentWithUnzip} methods.
      * @param arg the argument to be passed to the processor during both processing phases.
-     * @return the result of the ZIP content processing phase.
      * @throws IOException if an I/O error occurs during either processing phase.
      */
     @Override
-    public <T, R> R process(DeploymentUnitProcessor<T, R> processor, T arg) throws IOException {
+    public <T> void process(DeploymentUnitProcessor<T> processor, T arg) throws IOException {
         notZippedContent.process(processor, arg);
-        return processor.processContentWithUnzip(this, arg);
+        processor.processContentWithUnzip(this, arg);
     }
 
     /**

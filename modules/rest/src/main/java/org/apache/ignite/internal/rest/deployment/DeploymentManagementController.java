@@ -66,9 +66,9 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             Publisher<CompletedFileUpload> unitContent,
             Optional<InitialDeployMode> deployMode,
             Optional<List<String>> initialNodes,
-            boolean unzip
+            Optional<Boolean> unzip
     ) {
-        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(unzip);
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber(unzip.orElse(false));
         unitContent.subscribe(subscriber);
 
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)

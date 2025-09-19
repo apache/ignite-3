@@ -45,12 +45,10 @@ public interface DeploymentUnit extends AutoCloseable {
      *
      *
      * @param <T> the type of argument passed to the processor
-     * @param <R> the type of result returned by the processor
      * @param processor the processor that will handle the deployment unit content
      * @param unitFolder the argument to be passed to the processor during processing
-     * @return the result of the processing operation as determined by the processor
      * @throws IOException if an I/O error occurs during processing, such as issues reading
      *                     deployment unit content or writing processed results.
      */
-    <T, R> R process(DeploymentUnitProcessor<T, R> processor, T unitFolder) throws IOException;
+    <T> void process(DeploymentUnitProcessor<T> processor, T unitFolder) throws IOException;
 }

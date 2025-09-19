@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -30,6 +32,8 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
@@ -43,17 +47,19 @@ import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.http.client.multipart.MultipartBody.Builder;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.apache.ignite.internal.ClusterConfiguration;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -61,16 +67,20 @@ import org.junit.jupiter.api.Test;
  * Integration test for REST controller {@link DeploymentManagementController}.
  */
 @MicronautTest(rebuildContext = true)
-public class DeploymentManagementControllerTest extends ClusterPerTestIntegrationTest {
+public class DeploymentManagementControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private Path smallFile;
 
     private Path bigFile;
 
+    private Path zipFile;
+
     private static final long SIZE_IN_BYTES = 1024L;
 
     private static final long BIG_IN_BYTES = 100 * 1024L * 1024L;  // 100 MiB
+
+    private static final String UNIT_ID = "unitId";
 
     @Inject
     @Client(NODE_URL + "/management/v1/deployment")
@@ -78,20 +88,45 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @BeforeEach
     public void setup() throws IOException {
-        smallFile = workDir.resolve("small.txt");
-        bigFile = workDir.resolve("big.txt");
+        smallFile = WORK_DIR.resolve("small.txt");
+        bigFile = WORK_DIR.resolve("big.txt");
+        zipFile = WORK_DIR.resolve("zip.zip");
 
         if (!Files.exists(smallFile)) {
-            IgniteTestUtils.fillDummyFile(smallFile, SIZE_IN_BYTES);
+            fillDummyFile(smallFile, SIZE_IN_BYTES);
         }
         if (!Files.exists(bigFile)) {
-            IgniteTestUtils.fillDummyFile(bigFile, BIG_IN_BYTES);
+            fillDummyFile(bigFile, BIG_IN_BYTES);
         }
+        if (!Files.exists(zipFile)) {
+            createZipFile(Map.of(
+                    "a1/a2", SIZE_IN_BYTES,
+                    "b1", SIZE_IN_BYTES,
+                    "c1/c2/c3/c4", BIG_IN_BYTES,
+                    "d1/d2", SIZE_IN_BYTES,
+                    "d1/a2", SIZE_IN_BYTES
+            ), zipFile);
+        }
+    }
+
+    @AfterEach
+    public void cleanup() {
+        List<UnitStatus> list = list(UNIT_ID);
+
+        for (UnitStatus unitStatus : list) {
+            for (UnitVersionStatus versionToStatus : unitStatus.versionToStatus()) {
+                if (versionToStatus.getStatus() == DEPLOYED) {
+                    HttpResponse<Object> response = undeploy(UNIT_ID, versionToStatus.getVersion());
+                    assertThat(response.code(), is(OK.code()));
+                }
+            }
+        }
+
     }
 
     @Test
     public void testDeploySuccessful() {
-        String id = "testId";
+        String id = UNIT_ID;
         String version = "1.1.1";
         HttpResponse<Object> response = deploy(id, version);
 
@@ -108,9 +143,9 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @Test
     public void testDeployBig() {
-        String id = "testId";
+        String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version, bigFile.toFile());
+        HttpResponse<Object> response = deploy(id, version, false, bigFile);
 
         assertThat(response.code(), is(OK.code()));
     }
@@ -121,13 +156,13 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
         String version = "1.1.1";
         HttpClientResponseException e = assertThrows(
                 HttpClientResponseException.class,
-                () -> deploy(id, version, null));
+                () -> deploy(id, version, false, null));
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
     }
 
     @Test
     public void testDeployExisted() {
-        String id = "testId";
+        String id = UNIT_ID;
         String version = "1.1.1";
         HttpResponse<Object> response = deploy(id, version);
 
@@ -141,7 +176,7 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @Test
     public void testDeployUndeploy() {
-        String id = "testId";
+        String id = UNIT_ID;
         String version = "1.1.1";
 
         HttpResponse<Object> response = deploy(id, version);
@@ -156,7 +191,7 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
     public void testUndeployFailed() {
         HttpClientResponseException e = assertThrows(
                 HttpClientResponseException.class,
-                () -> undeploy("testId", "1.1.1"));
+                () -> undeploy(UNIT_ID, "1.1.1"));
         assertThat(e.getResponse().code(), is(NOT_FOUND.code()));
     }
 
@@ -169,7 +204,7 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @Test
     public void testList() {
-        String id = "unitId";
+        String id = UNIT_ID;
         deploy(id, "1.1.1");
         deploy(id, "1.1.2");
         deploy(id, "1.2.1");
@@ -187,25 +222,112 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
 
     @Test
     public void testZipDeploy() {
+        String id = UNIT_ID;
+        String version = "1.1.1";
+        HttpResponse<Object> response = deployZip(id, version);
 
+        assertThat(response.code(), is(OK.code()));
+
+        await().timeout(10, SECONDS).untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+
+            assertThat(status.id(), is(id));
+            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
+        });
+
+        Path workDir0 = CLUSTER.nodeWorkDir(0);
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
+
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+            ZipEntry ze;
+            while ((ze = zis.getNextEntry()) != null) {
+                assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())), "File " + ze.getName() + " does not exist");
+            }
+        } catch (IOException e) {
+            fail(e);
+        }
+    }
+
+    @Test
+    public void testZipDeployAsFile() {
+        String id = UNIT_ID;
+        String version = "1.1.1";
+        HttpResponse<Object> response = deploy(id, version, false, zipFile);
+
+        assertThat(response.code(), is(OK.code()));
+
+        await().timeout(10, SECONDS).untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+
+            assertThat(status.id(), is(id));
+            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
+        });
+
+        Path workDir0 = CLUSTER.nodeWorkDir(0);
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
+
+        assertTrue(Files.exists(nodeUnitDirectory.resolve(zipFile.getFileName())));
+    }
+
+    @Test
+    public void deployZipWithCommonFiles() {
+        String id = UNIT_ID;
+        String version = "1.1.1";
+        HttpResponse<Object> response = deploy(id, version, true, zipFile, smallFile);
+
+        assertThat(response.code(), is(OK.code()));
+
+        await().timeout(10, SECONDS).untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+
+            assertThat(status.id(), is(id));
+            assertThat(status.versionToStatus(), equalTo(List.of(new UnitVersionStatus(version, DEPLOYED))));
+        });
+
+        Path workDir0 = CLUSTER.nodeWorkDir(0);
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
+
+        assertTrue(Files.exists(nodeUnitDirectory.resolve(smallFile.getFileName())));
+
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+            ZipEntry ze;
+            while ((ze = zis.getNextEntry()) != null) {
+                assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())), "File " + ze.getName() + " does not exist");
+            }
+        } catch (IOException e) {
+            fail(e);
+        }
+    }
+
+    private HttpResponse<Object> deployZip(String id, String version) {
+        return deploy(id, version, true, zipFile);
     }
 
     private HttpResponse<Object> deploy(String id, String version) {
-        return deploy(id, version, smallFile.toFile());
+        return deploy(id, version, false, smallFile);
     }
 
-    private HttpResponse<Object> deploy(String id, String version, File file) {
+    private HttpResponse<Object> deploy(String id, String version, boolean unzip, Path... files) {
         MultipartBody body = null;
 
-        if (file != null) {
+        if (files != null) {
             Builder builder = MultipartBody.builder();
-            builder.addPart("unitContent", file);
+            for (Path file : files) {
+                builder.addPart("unitContent", file.toFile());
+            }
             body = builder.build();
         }
 
         MutableHttpRequest<MultipartBody> post = HttpRequest
                 .POST("units/" + id + "/" + version, body)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
+
+        if (unzip) {
+            post = post.header("X-Unzip-Units", "true");
+        }
 
         return client.toBlocking().exchange(post);
     }

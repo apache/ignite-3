@@ -27,19 +27,9 @@ import java.io.IOException;
  * can perform various operations on deployment unit content such as deployment, validation, 
  * transformation, or extraction.
  *
- * <p>The processor uses a generic approach with two type parameters:
- * <ul>
- *     <li>{@code T} - the type of argument passed to processing methods</li>
- *     <li>{@code R} - the type of result returned by processing methods</li>
- * </ul>
- *
- * <p>This design allows for flexible implementations that can process deployment units with
- * different argument types and return different result types based on the specific use case.
- *
  * @param <T> the type of argument passed to the processing methods
- * @param <R> the type of result returned by the processing methods
  */
-public interface DeploymentUnitProcessor<T, R> {
+public interface DeploymentUnitProcessor<T> {
     /**
      * Processes the content of a regular deployment unit.
      *
@@ -49,10 +39,9 @@ public interface DeploymentUnitProcessor<T, R> {
      *
      * @param unit the deployment unit containing the content to be processed
      * @param arg the argument to be used during processing
-     * @return the result of the processing operation
      * @throws IOException if an I/O error occurs during processing
      */
-    R processContent(DeploymentUnitImpl unit, T arg) throws IOException;
+    void processContent(DeploymentUnitImpl unit, T arg) throws IOException;
 
     /**
      * Processes the content of a ZIP-based deployment unit with automatic extraction.
@@ -64,8 +53,7 @@ public interface DeploymentUnitProcessor<T, R> {
      *
      * @param unit the ZIP deployment unit containing the compressed content to be processed
      * @param arg the argument to be used during processing
-     * @return the result of the processing operation
      * @throws IOException if an I/O error occurs during processing or extraction
      */
-    R processContentWithUnzip(ZipDeploymentUnit unit, T arg) throws IOException;
+    void processContentWithUnzip(ZipDeploymentUnit unit, T arg) throws IOException;
 }

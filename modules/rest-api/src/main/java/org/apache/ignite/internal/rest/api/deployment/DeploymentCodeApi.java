@@ -26,6 +26,7 @@ import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Header;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
@@ -85,7 +86,8 @@ public interface DeploymentCodeApi {
                     in = ParameterIn.HEADER,
                     description = "Unzip all uploaded archives with saving directory structure."
             )
-            boolean unzip
+            @Header("X-Unzip-Units")
+            Optional<Boolean> unzip
     );
 
     /**

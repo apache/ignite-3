@@ -51,20 +51,19 @@ import java.util.zip.ZipInputStream;
  *     <li>{@code Void} - the return type (no meaningful return value)</li>
  * </ul>
  */
-public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Path, Void> {
+public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Path> {
     /** Suffix used for temporary files during the deployment process. */
     private static final String TMP_SUFFIX = ".tmp";
 
     @Override
-    public Void processContent(DeploymentUnitImpl unit, Path unitFolder) throws IOException {
+    public void processContent(DeploymentUnitImpl unit, Path unitFolder) throws IOException {
         for (Entry<String, InputStream> e : unit.content().entrySet()) {
             doDeploy(unitFolder, e.getKey(), e.getValue());
         }
-        return null;
     }
 
     @Override
-    public Void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
+    public void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
         for (ZipInputStream zis : unit.zipContent()) {
             ZipEntry ze;
             while ((ze = zis.getNextEntry()) != null) {
@@ -79,7 +78,6 @@ public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Pa
                 }
             }
         }
-        return null;
     }
 
     private static void doDeploy(Path unitFolder, String entryName, InputStream is) throws IOException {

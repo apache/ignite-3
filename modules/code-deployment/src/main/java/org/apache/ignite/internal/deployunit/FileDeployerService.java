@@ -50,7 +50,7 @@ public class FileDeployerService {
 
     private final ExecutorService executor;
 
-    private final DeploymentUnitProcessor<Path, Void> deployProcessor = new DeployDeploymentUnitProcessor();
+    private final DeploymentUnitProcessor<Path> deployProcessor = new DeployDeploymentUnitProcessor();
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {

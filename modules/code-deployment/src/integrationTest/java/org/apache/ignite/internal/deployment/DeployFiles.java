@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.deployment;
 
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
-import static org.apache.ignite.internal.testframework.WorkDirectoryExtension.zipDirectory;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -34,7 +32,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -83,22 +80,8 @@ class DeployFiles {
 
     private DeployFile createZip(Path path, Map<String, Long> content, int replicaTimeout) {
         try {
-            Path zipTempFolder = workDir.resolve("tempDir");
-            Files.createDirectories(zipTempFolder);
-            long size = 0;
-            for (Entry<String, Long> e : content.entrySet()) {
-                String zipEntryPath = e.getKey();
-                Long entrySize = e.getValue();
-                Path entry = zipTempFolder.resolve(zipEntryPath);
-                if (entrySize > 0) {
-                    Files.createDirectories(entry.getParent());
-                    fillDummyFile(entry, entrySize);
-                }
-                size += entrySize;
-            }
-            zipDirectory(zipTempFolder, path);
-            deleteIfExists(zipTempFolder);
-            return new DeployFile(path, true, size, replicaTimeout);
+            createZipFile(content, path);
+            return new DeployFile(path, true, content.values().stream().mapToLong(l -> l).sum(), replicaTimeout);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

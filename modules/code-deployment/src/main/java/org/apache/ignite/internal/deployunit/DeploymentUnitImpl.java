@@ -55,15 +55,13 @@ public class DeploymentUnitImpl implements DeploymentUnit {
         return content;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         closeAll(content.values());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T, R> R process(DeploymentUnitProcessor<T, R> processor, T arg) throws IOException {
-        return processor.processContent(this, arg);
+    public <T> void process(DeploymentUnitProcessor<T> processor, T arg) throws IOException {
+        processor.processContent(this, arg);
     }
 }
