@@ -99,7 +99,8 @@ class CompatibilityChecker {
             try {
                 Files.createDirectories(Paths.get(options.getXmlOutputFile().get()).getParent());
             } catch (IOException e) {
-                throw new JApiCmpException(JApiCmpException.Reason.IoException, "Could not create directories for XML file: " + e.getMessage(), e);
+                throw new JApiCmpException(JApiCmpException.Reason.IoException, "Could not create directories for XML file: "
+                        + e.getMessage(), e);
             }
             try (XmlOutput xmlOutput = xmlGenerator.generate()) {
                 XmlOutputGenerator.writeToFiles(options, xmlOutput);
