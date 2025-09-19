@@ -36,7 +36,7 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <inheritdoc />
-    public override DbType DbType { get; set; }
+    public override DbType DbType { get; set; } = DbType.String;
 
     /// <summary>
     /// Gets or sets the direction of the parameter. Only <see cref="ParameterDirection.Input" /> is supported.
@@ -59,11 +59,11 @@ public sealed class IgniteDbParameter : DbParameter
 
     /// <inheritdoc />
     [AllowNull]
-    public override string ParameterName { get; set; }
+    public override string ParameterName { get; set; } = string.Empty;
 
     /// <inheritdoc />
     [AllowNull]
-    public override string SourceColumn { get; set; }
+    public override string SourceColumn { get; set; } = string.Empty;
 
     /// <inheritdoc />
     public override object? Value { get; set; }
@@ -75,8 +75,5 @@ public sealed class IgniteDbParameter : DbParameter
     public override int Size { get; set; }
 
     /// <inheritdoc />
-    public override void ResetDbType()
-    {
-        // No-op.
-    }
+    public override void ResetDbType() => DbType = DbType.String;
 }

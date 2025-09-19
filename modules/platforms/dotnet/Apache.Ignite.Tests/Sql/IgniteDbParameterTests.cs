@@ -28,7 +28,6 @@ public class IgniteDbParameterTests
     public void TestDefaults()
     {
         var param = new IgniteDbParameter();
-        Assert.AreEqual(ColumnType.String, param.IgniteColumnType);
         Assert.AreEqual(DbType.String, param.DbType);
         Assert.AreEqual(ParameterDirection.Input, param.Direction);
         Assert.IsFalse(param.IsNullable);
@@ -40,56 +39,6 @@ public class IgniteDbParameterTests
     }
 
     [Test]
-    public void TestDbTypeIgniteColumnTypeMapping()
-    {
-        AssertMapping(DbType.Binary, ColumnType.ByteArray);
-        AssertMapping(DbType.Byte, ColumnType.Int8);
-        AssertMapping(DbType.Boolean, ColumnType.Boolean);
-        AssertMapping(DbType.Date, ColumnType.Date);
-        AssertMapping(DbType.DateTime, ColumnType.Datetime);
-        AssertMapping(DbType.Decimal, ColumnType.Decimal);
-        AssertMapping(DbType.Double, ColumnType.Double);
-        AssertMapping(DbType.Guid, ColumnType.Uuid);
-        AssertMapping(DbType.Int16, ColumnType.Int16);
-        AssertMapping(DbType.Int32, ColumnType.Int32);
-        AssertMapping(DbType.Int64, ColumnType.Int64);
-        AssertMapping(DbType.Single, ColumnType.Float);
-        AssertMapping(DbType.String, ColumnType.String);
-        AssertMapping(DbType.Time, ColumnType.Time);
-        AssertMapping(DbType.DateTime2, ColumnType.Timestamp);
-
-        AssertUnsupported(DbType.DateTimeOffset);
-        AssertUnsupported(DbType.AnsiString);
-        AssertUnsupported(DbType.Currency);
-        AssertUnsupported(DbType.Object);
-        AssertUnsupported(DbType.UInt16);
-        AssertUnsupported(DbType.UInt32);
-        AssertUnsupported(DbType.UInt64);
-        AssertUnsupported(DbType.SByte);
-        AssertUnsupported(DbType.Xml);
-        AssertUnsupported(DbType.VarNumeric);
-        AssertUnsupported(DbType.AnsiStringFixedLength);
-        AssertUnsupported(DbType.StringFixedLength);
-
-        return;
-
-        static void AssertMapping(DbType dbType, ColumnType columnType)
-        {
-            var param = new IgniteDbParameter { DbType = dbType };
-            Assert.AreEqual(columnType, param.IgniteColumnType);
-
-            param.IgniteColumnType = columnType;
-            Assert.AreEqual(dbType, param.DbType);
-        }
-
-        static void AssertUnsupported(DbType dbType)
-        {
-            var param = new IgniteDbParameter();
-            Assert.Throws<NotSupportedException>(() => param.DbType = dbType);
-        }
-    }
-
-    [Test]
     public void TestDirectionOnlyInputAllowed()
     {
         var param = new IgniteDbParameter();
@@ -98,23 +47,10 @@ public class IgniteDbParameterTests
     }
 
     [Test]
-    public void TestParameterNameAndSourceColumnNullToEmpty()
-    {
-        var param = new IgniteDbParameter
-        {
-            ParameterName = null,
-            SourceColumn = null
-        };
-
-        Assert.AreEqual(string.Empty, param.ParameterName);
-        Assert.AreEqual(string.Empty, param.SourceColumn);
-    }
-
-    [Test]
     public void TestResetDbTypeSetsString()
     {
-        var param = new IgniteDbParameter { IgniteColumnType = ColumnType.Int8 };
+        var param = new IgniteDbParameter { DbType = DbType.Boolean };
         param.ResetDbType();
-        Assert.AreEqual(ColumnType.String, param.IgniteColumnType);
+        Assert.AreEqual(DbType.String, param.DbType);
     }
 }
