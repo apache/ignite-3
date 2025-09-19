@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql;
 
 using System;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
@@ -26,6 +27,7 @@ using NUnit.Framework;
 /// <summary>
 /// Tests for <see cref="IgniteDbCommand"/>.
 /// </summary>
+[SuppressMessage("ReSharper", "MethodHasAsyncOverload", Justification = "Tests.")]
 public class IgniteDbCommandTests : IgniteTestsBase
 {
     private const string TestTable = nameof(IgniteDbCommandTests);
@@ -43,7 +45,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1";
 
-        await using var reader = await cmd.ExecuteReaderAsync();
+        await using var reader = cmd.ExecuteReader();
         Assert.IsTrue(await reader.ReadAsync());
         Assert.AreEqual(1, reader.GetInt32(0));
         Assert.IsFalse(await reader.ReadAsync());
@@ -62,10 +64,23 @@ public class IgniteDbCommandTests : IgniteTestsBase
         param.Value = 42;
         cmd.Parameters.Add(param);
 
-        await using var reader = await cmd.ExecuteReaderAsync();
+        await using var reader = cmd.ExecuteReader();
         Assert.IsTrue(await reader.ReadAsync());
         Assert.AreEqual(42, reader.GetInt32(0));
         Assert.IsFalse(await reader.ReadAsync());
+    }
+
+    [Test]
+    public async Task TestExecuteScalar()
+    {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+
+        var result = cmd.ExecuteScalar();
+        Assert.AreEqual(1, result);
     }
 
     [Test]
@@ -89,7 +104,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = $"CREATE TABLE {TestTable} (id INT PRIMARY KEY, val VARCHAR)";
 
-        var result = await cmd.ExecuteNonQueryAsync();
+        var result = cmd.ExecuteNonQuery();
         Assert.AreEqual(1, result);
     }
 
@@ -126,7 +141,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var transaction = tx ? await conn.BeginTransactionAsync() : null;
         cmd.Transaction = transaction;
 
-        var result = await cmd.ExecuteNonQueryAsync();
+        var result = cmd.ExecuteNonQuery();
         Assert.AreEqual(1, result); // One row inserted
 
         transaction?.Commit();
@@ -161,7 +176,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT * FROM NON_EXISTENT_TABLE";
 
-        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteScalarAsync());
+        var ex = Assert.Catch<DbException>(() => cmd.ExecuteScalar());
         StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
 
@@ -174,7 +189,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "INSERT INTO NON_EXISTENT_TABLE (id) VALUES (1)";
 
-        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteNonQueryAsync());
+        var ex = Assert.Catch<DbException>(() => cmd.ExecuteNonQuery());
         StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
 
@@ -187,7 +202,7 @@ public class IgniteDbCommandTests : IgniteTestsBase
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT * FROM NON_EXISTENT_TABLE";
 
-        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteReaderAsync());
+        var ex = Assert.Catch<DbException>(() => cmd.ExecuteReader());
         StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
 }
