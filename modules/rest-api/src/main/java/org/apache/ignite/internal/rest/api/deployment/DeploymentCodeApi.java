@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.api.deployment;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.NOT_REQUIRED;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.apache.ignite.internal.rest.constants.MediaType.FORM_DATA;
@@ -77,7 +78,13 @@ public interface DeploymentCodeApi {
             Optional<InitialDeployMode> deployMode,
             @QueryValue
             @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
-            Optional<List<String>> initialNodes
+            Optional<List<String>> initialNodes,
+            @QueryValue
+            @Schema(name = "unzipUnits",
+                    requiredMode = NOT_REQUIRED,
+                    description = "Unzip all uploaded archives with saving directory structure."
+            )
+            Optional<Boolean> unzipUnits
     );
 
     /**
