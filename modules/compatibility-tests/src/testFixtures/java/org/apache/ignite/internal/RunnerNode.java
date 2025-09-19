@@ -81,7 +81,7 @@ public class RunnerNode {
     ) throws IOException {
         String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
         Path workDir = clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
-        String configStr = formatConfig(clusterConfiguration, nodeIndex, nodesCount);
+        String configStr = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
 
         Files.createDirectories(workDir);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
@@ -179,14 +179,15 @@ public class RunnerNode {
                 .collect(joining(", "));
     }
 
-    private static String formatConfig(ClusterConfiguration clusterConfiguration, int nodeIndex, int nodesCount) {
+    private static String formatConfig(ClusterConfiguration clusterConfiguration, String nodeName, int nodeIndex, int nodesCount) {
         return IgniteStringFormatter.format(
                 clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
                 clusterConfiguration.basePort() + nodeIndex,
                 seedAddressesString(clusterConfiguration, nodesCount),
                 clusterConfiguration.baseClientPort() + nodeIndex,
                 clusterConfiguration.baseHttpPort() + nodeIndex,
-                clusterConfiguration.baseHttpsPort() + nodeIndex
+                nodeName,
+                nodeIndex
         );
     }
 

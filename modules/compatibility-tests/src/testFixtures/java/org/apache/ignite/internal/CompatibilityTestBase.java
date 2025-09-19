@@ -75,7 +75,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "  failureHandler.dumpThreadsOnFailure: false,\n"
+            + "  nodeAttributes: {\n"
+            + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"
+            + "  }\n"
             + "}";
 
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
@@ -86,7 +89,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     // Force per class template work directory so that non-static field doesn't get overwritten by the BeforeEach callback.
     @WorkDirectory(forcePerClassTemplate = true)
-    private Path workDir;
+    protected Path workDir;
 
     protected IgniteCluster cluster;
 
