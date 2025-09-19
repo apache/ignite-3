@@ -29,7 +29,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Partition Raft log compatibility tests when changing replicas. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-public class ItPartitionRaftLogWithChangeReplicasCompatibilityTest extends CompatibilityTestBase {
+public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends CompatibilityTestBase {
     private static final String ZONE_NAME = "TEST_ZONE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
