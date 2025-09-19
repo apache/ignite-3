@@ -506,6 +506,40 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void cachePlanEntriesInvalidatesForCurrentCatalogVersion() {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addColumn("C1", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = new IgniteSchema("TEST", 0, List.of(table1));
+
+        AtomicInteger ver = new AtomicInteger();
+        PrepareServiceImpl service = createPlannerServiceWithMockedExecutor(schema, CaffeineCacheFactory.INSTANCE, 10000,
+                Integer.MAX_VALUE, 1000, ver);
+
+        String selectQuery = "SELECT * FROM test.t1 WHERE c1 = 1";
+        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        // catalog version 1
+        ver.incrementAndGet();
+
+        await(service.prepareAsync(parse(selectQuery), operationContext().build()));
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(10000))
+                .until(
+                        () -> service.cache.size() == 2
+                );
+
+        assertThat(service.cache.size(), is(2));
+        service.statisticsChanged(table1.id());
+
+        assertThat(service.cache.entrySet().stream().filter(e -> e.getKey().needInvalidate()).count(), is(1L));
+    }
+
+    @Test
     public void planCacheExpiry() {
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -734,19 +768,44 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
             int cacheSize,
             AtomicInteger ver
     ) {
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, planExpireSeconds, cacheSize, ver, commonExecutor);
+    }
+
+    private static PrepareServiceImpl createPlannerService(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds,
+            int cacheSize,
+            AtomicInteger ver,
+            ScheduledExecutorService executor
+    ) {
         ClockServiceImpl clockService = mock(ClockServiceImpl.class);
 
         when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
 
         PrepareServiceImpl service = new PrepareServiceImpl("test", cacheSize, cacheFactory,
                 mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, planExpireSeconds, mock(MetricManagerImpl.class),
-                new VersionedSchemaManager(schemas, ver), clockService, commonExecutor);
+                new VersionedSchemaManager(schemas, ver), clockService, executor);
 
         createdServices.add(service);
 
         service.start();
 
         return service;
+    }
+
+    private static PrepareServiceImpl createPlannerServiceWithMockedExecutor(
+            IgniteSchema schemas,
+            CacheFactory cacheFactory,
+            int timeoutMillis,
+            int planExpireSeconds,
+            int cacheSize,
+            AtomicInteger ver
+    ) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+
+        return createPlannerService(schemas, cacheFactory, timeoutMillis, planExpireSeconds, cacheSize, ver, executor);
     }
 
     private static class DummyCacheFactory implements CacheFactory {
