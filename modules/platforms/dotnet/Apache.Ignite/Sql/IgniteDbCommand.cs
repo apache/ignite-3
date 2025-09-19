@@ -50,6 +50,11 @@ public sealed class IgniteDbCommand : DbCommand
     /// <inheritdoc />
     public override int CommandTimeout { get; set; }
 
+    /// <summary>
+    /// Gets or sets the page size (number of rows fetched at a time by the underlying Ignite data reader).
+    /// </summary>
+    public int PageSize { get; set; } = SqlStatement.DefaultPageSize;
+
     /// <inheritdoc />
     public override CommandType CommandType { get; set; }
 
@@ -211,6 +216,7 @@ public sealed class IgniteDbCommand : DbCommand
 
     private SqlStatement GetStatement() => new(CommandText)
     {
+        PageSize = PageSize,
         Timeout = TimeSpan.FromSeconds(CommandTimeout) // 0 means no timeout, both in ADO.NET and Ignite.
     };
 
