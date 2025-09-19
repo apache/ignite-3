@@ -205,4 +205,23 @@ public class IgniteDbCommandTests : IgniteTestsBase
         var ex = Assert.Catch<DbException>(() => cmd.ExecuteReader());
         StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
+
+    [Test]
+    public async Task TestCancel()
+    {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1";
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        cmd.Cancel();
+
+        // TODO: Page size so it fails.
+        while (reader.Read())
+        {
+            Console.WriteLine(reader.GetValue(0));
+        }
+    }
 }
