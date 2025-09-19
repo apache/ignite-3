@@ -41,11 +41,11 @@ public class Dependencies {
     /**
      * Provides the path to the dependency(s). Uses ; to separate jar files.
      */
-    public static String path(String dependencyNotation, boolean transitive) {
+    public static String path(String dependencyNotation, boolean transitive, boolean currentVersion) {
         LOG.info("Resolving path for dependency: " + dependencyNotation);
         File projectRoot = getProjectRoot();
 
-        if (dependencyNotation.contains("SNAPSHOT")) {
+        if (currentVersion) {
             String local = path(projectRoot, dependencyNotation);
             if (!local.isEmpty()) {
                 return local;

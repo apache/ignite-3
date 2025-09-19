@@ -51,8 +51,8 @@ class CompatibilityChecker {
      */
     static CompatibilityOutput check(CompatibilityInput input) {
         String[] args = {
-                "--old", Dependencies.path(input.oldVersionNotation(), false),
-                "--new", Dependencies.path(input.newVersionNotation(), false),
+                "--old", Dependencies.path(input.oldVersionNotation(), false, false),
+                "--new", Dependencies.path(input.newVersionNotation(), false, input.currentVersion()),
                 "--exclude", input.exclude(),
                 "--markdown",
                 "--only-incompatible",
@@ -96,6 +96,12 @@ class CompatibilityChecker {
             xmlOutputGeneratorOptions.setCreateSchemaFile(true);
             xmlOutputGeneratorOptions.setSemanticVersioningInformation(semverOut.generate());
             XmlOutputGenerator xmlGenerator = new XmlOutputGenerator(javaApiClasses, options, xmlOutputGeneratorOptions);
+            try {
+                Files.createDirectories(Paths.get(options.getXmlOutputFile().get()).getParent());
+            } catch (IOException e) {
+                throw new JApiCmpException(JApiCmpException.Reason.IoException, "Could not create directories for XML file: "
+                        + e.getMessage(), e);
+            }
             try (XmlOutput xmlOutput = xmlGenerator.generate()) {
                 XmlOutputGenerator.writeToFiles(options, xmlOutput);
             } catch (Exception e) {

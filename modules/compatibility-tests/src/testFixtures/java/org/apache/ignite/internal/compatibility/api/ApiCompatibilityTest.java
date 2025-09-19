@@ -52,9 +52,9 @@ public @interface ApiCompatibilityTest {
     String[] oldVersions() default {};
 
     /**
-     * Module new version to check compatibility for.
+     * Module new version to check compatibility for. If empty, current version is used.
      */
-    String newVersion();
+    String newVersion() default "";
 
     /**
      * List of modules to check. If empty, all modules are checked.
