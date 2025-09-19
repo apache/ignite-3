@@ -156,14 +156,9 @@ public class PrepareServiceImpl implements PrepareService {
 
     private volatile ThreadPoolExecutor planningPool;
 
-    /** Clock. */
+    private final PlanUpdater planUpdater;
+
     private final ClockService clockService;
-
-    private final ScheduledExecutorService planUpdater;
-
-    private final AtomicReference<CompletableFuture<PlanInfo>> rePlanningFut = new AtomicReference<>(nullCompletedFuture());
-
-    private volatile boolean recalculatePlans;
 
     /**
      * Factory method.
@@ -238,12 +233,13 @@ public class PrepareServiceImpl implements PrepareService {
         this.metricManager = metricManager;
         this.plannerThreadCount = plannerThreadCount;
         this.schemaManager = schemaManager;
+
         this.clockService = clockService;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
 
-        planUpdater = scheduler;
+        planUpdater = new PlanUpdater(clockService, scheduler, cache, schemaManager, plannerTimeout, this::preparePlan);
     }
 
     /** {@inheritDoc} */
@@ -268,71 +264,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         IgnitePlanner.warmup();
 
-        planUpdater.scheduleAtFixedRate(() -> {
-            if (!recalculatePlans) {
-                return;
-            }
-
-            CompletableFuture<PlanInfo> planFut = rePlanningFut.get();
-            if (planFut != null && !planFut.isDone()) {
-                // some work still in progress
-                return;
-            } else {
-                rePlanningFut.set(null);
-            }
-
-            while (recalculatePlans) {
-                recalculatePlans = false;
-
-                for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
-                    if (!ent.getKey().needInvalidate()) {
-                        continue;
-                    }
-
-                    CacheKey key = ent.getKey();
-                    CompletableFuture<PlanInfo> fut = cache.get(key);
-
-                    // can be evicted
-                    if (fut != null) {
-                        assert isCompletedSuccessfully(fut);
-
-                        PlanInfo info = fut.join();
-
-                        assert info.context != null && info.statement != null;
-
-                        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
-
-                        if (currentCatalogVersion == key.catalogVersion()) {
-                            SqlQueryType queryType = info.statement.parsedResult().queryType();
-
-                            if (queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML) {
-                                assert false : "Unexpected type: " + queryType;
-                                continue;
-                            }
-
-                            PlanningContext planningContext = PlanningContext.builder()
-                                    .frameworkConfig(info.context.config())
-                                    .query(info.statement.parsedResult().originalQuery())
-                                    .plannerTimeout(plannerTimeout)
-                                    .catalogVersion(info.context.catalogVersion())
-                                    .defaultSchemaName(info.context.schemaName())
-                                    .parameters(info.context.parameters())
-                                    .explicitTx(info.context.explicitTx())
-                                    .build();
-
-                            CompletableFuture<PlanInfo> newPlanFut =
-                                    preparePlan(queryType, info.statement.parsedResult, planningContext, key);
-
-                            rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
-
-                        } else {
-                            key.invalidated();
-                        }
-                    }
-                }
-            }
-
-        }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
+        planUpdater.start();
     }
 
     /** {@inheritDoc} */
@@ -652,40 +584,6 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return new PlanInfo(plan);
-    }
-
-    /**
-     * Reacts to the changed statistic.
-     *
-     * @param tableId Table Id statistic changed for.
-     */
-    public void statisticsChanged(int tableId) {
-        Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
-
-        int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
-
-        boolean statChanged = false;
-
-        for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
-            CacheKey key = ent.getKey();
-            CompletableFuture<PlanInfo> fut = ent.getValue();
-
-            if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
-                // no wait, already completed
-                PlanInfo info = fut.join();
-
-                if (info.sources.contains(tableId)) {
-                    ent.getKey().invalidate();
-                    statChanged = true;
-                    // Object as value is need for correct invalidation
-                    cache.computeIfPresent(ent.getKey(), (k, v) -> ent.getValue());
-                }
-            }
-        }
-
-        if (statChanged) {
-            recalculatePlans = true;
-        }
     }
 
     private CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
@@ -1115,6 +1013,151 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return new ParameterMetadata(parameterTypes);
+    }
+
+    public void statisticsChanged(int tableId) {
+        planUpdater.statisticsChanged(tableId);
+    }
+
+    private static class PlanUpdater {
+        private final ClockService clockService;
+
+        private final ScheduledExecutorService planUpdater;
+
+        private final AtomicReference<CompletableFuture<PlanInfo>> rePlanningFut = new AtomicReference<>(nullCompletedFuture());
+
+        private volatile boolean recalculatePlans;
+
+        private final Cache<CacheKey, CompletableFuture<PlanInfo>> cache;
+
+        private final SqlSchemaManager schemaManager;
+
+        private final long plannerTimeout;
+
+        private final PlanPrepare prepare;
+
+        PlanUpdater(
+                ClockService clockService,
+                ScheduledExecutorService planUpdater,
+                Cache<CacheKey, CompletableFuture<PlanInfo>> cache,
+                SqlSchemaManager schemaManager,
+                long plannerTimeout,
+                PlanPrepare prepare
+        ) {
+            this.clockService = clockService;
+            this.planUpdater = planUpdater;
+            this.cache = cache;
+            this.schemaManager = schemaManager;
+            this.plannerTimeout = plannerTimeout;
+            this.prepare = prepare;
+        }
+
+        /**
+         * Reacts to the changed statistic.
+         *
+         * @param tableId Table Id statistic changed for.
+         */
+        void statisticsChanged(int tableId) {
+            Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
+
+            int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+            boolean statChanged = false;
+
+            for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
+                CacheKey key = ent.getKey();
+                CompletableFuture<PlanInfo> fut = ent.getValue();
+
+                if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
+                    // no wait, already completed
+                    PlanInfo info = fut.join();
+
+                    if (info.sources.contains(tableId)) {
+                        ent.getKey().invalidate();
+                        statChanged = true;
+                        // Object as value is need for correct invalidation
+                        cache.computeIfPresent(ent.getKey(), (k, v) -> ent.getValue());
+                    }
+                }
+            }
+
+            if (statChanged) {
+                recalculatePlans = true;
+            }
+        }
+
+        void start() {
+            planUpdater.scheduleAtFixedRate(() -> {
+                if (!recalculatePlans) {
+                    return;
+                }
+
+                CompletableFuture<PlanInfo> planFut = rePlanningFut.get();
+                if (planFut != null && !planFut.isDone()) {
+                    // some work still in progress
+                    return;
+                } else {
+                    rePlanningFut.set(null);
+                }
+
+                while (recalculatePlans) {
+                    recalculatePlans = false;
+
+                    for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
+                        if (!ent.getKey().needInvalidate()) {
+                            continue;
+                        }
+
+                        CacheKey key = ent.getKey();
+                        CompletableFuture<PlanInfo> fut = cache.get(key);
+
+                        // can be evicted
+                        if (fut != null) {
+                            assert isCompletedSuccessfully(fut);
+
+                            PlanInfo info = fut.join();
+
+                            assert info.context != null && info.statement != null;
+
+                            int currentCatalogVersion = schemaManager.catalogVersion(clockService.now().longValue());
+
+                            if (currentCatalogVersion == key.catalogVersion()) {
+                                SqlQueryType queryType = info.statement.parsedResult().queryType();
+
+                                if (queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML) {
+                                    assert false : "Unexpected type: " + queryType;
+                                    continue;
+                                }
+
+                                PlanningContext planningContext = PlanningContext.builder()
+                                        .frameworkConfig(info.context.config())
+                                        .query(info.statement.parsedResult().originalQuery())
+                                        .plannerTimeout(plannerTimeout)
+                                        .catalogVersion(info.context.catalogVersion())
+                                        .defaultSchemaName(info.context.schemaName())
+                                        .parameters(info.context.parameters())
+                                        .explicitTx(info.context.explicitTx())
+                                        .build();
+
+                                CompletableFuture<PlanInfo> newPlanFut =
+                                        prepare.preparePlan(queryType, info.statement.parsedResult, planningContext, key);
+
+                                rePlanningFut.updateAndGet(prev -> prev == null ? newPlanFut : prev.thenCompose(none -> newPlanFut));
+
+                            } else {
+                                key.invalidated();
+                            }
+                        }
+                    }
+                }
+
+            }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    @FunctionalInterface
+    private interface PlanPrepare {
+        CompletableFuture<PlanInfo> preparePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
