@@ -63,7 +63,11 @@ public sealed class IgniteDbParameter : DbParameter
     }
 
     /// <inheritdoc />
-    public override bool IsNullable { get; set; } // TODO: Not used in Ignite - remove?
+    public override bool IsNullable
+    {
+        get => true;
+        set => throw new NotSupportedException("DbParameter.IsNullable is not supported by Ignite.");
+    }
 
     /// <inheritdoc />
     [AllowNull]
