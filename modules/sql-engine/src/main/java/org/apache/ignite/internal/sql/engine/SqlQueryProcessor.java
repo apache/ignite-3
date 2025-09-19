@@ -296,8 +296,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 clusterCfg,
                 nodeCfg,
                 sqlSchemaManager,
-                ddlSqlToCommandConverter
+                ddlSqlToCommandConverter,
+                clockService,
+                commonScheduler
         ));
+
+        sqlStatisticManager.setListener(prepareSvc::statisticsChanged);
 
         var msgSrvc = registerService(new MessageServiceImpl(
                 localNode,
