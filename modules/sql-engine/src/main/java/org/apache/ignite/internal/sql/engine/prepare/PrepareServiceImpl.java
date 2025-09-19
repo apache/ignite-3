@@ -28,10 +28,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -888,7 +889,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private static Set<Integer> resolveSources(IgniteRel rel) {
-        Set<Integer> tables = new HashSet<>();
+        IntSet tables = new IntOpenHashSet();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
             @Override
@@ -1075,8 +1076,6 @@ public class PrepareServiceImpl implements PrepareService {
                     if (info.sources.contains(tableId)) {
                         ent.getKey().invalidate();
                         statChanged = true;
-                        // Object as value is need for correct invalidation
-                        cache.computeIfPresent(ent.getKey(), (k, v) -> ent.getValue());
                     }
                 }
             }
