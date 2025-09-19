@@ -153,21 +153,27 @@ public class IgniteDbCommandTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestTimeoutExecuteScalarException()
+    public async Task TestExecuteScalarException()
+    {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM NON_EXISTENT_TABLE";
+
+        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteScalarAsync());
+        StringAssert.StartsWith("Failed to validate query", ex.Message);
+    }
+
+    [Test]
+    public async Task TestExecuteNonQueryException()
     {
         // TODO
         await Task.Delay(1);
     }
 
     [Test]
-    public async Task TestTimeoutExecuteNonQueryException()
-    {
-        // TODO
-        await Task.Delay(1);
-    }
-
-    [Test]
-    public async Task TestTimeoutExecuteReaderException()
+    public async Task TestExecuteReaderException()
     {
         // TODO
         await Task.Delay(1);
