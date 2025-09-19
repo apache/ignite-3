@@ -418,8 +418,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       Expression roundingMode = Expressions.constant(typeFactory.getTypeSystem().roundingMode());
       return Expressions.call(BuiltInMethod.VARIANT_CREATE.method, roundingMode, operand, rtti);
     case ANY:
-      var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, targetType);
-      return (toCustomType != null) ? toCustomType: operand;
+      return operand;
 
     case VARBINARY:
     case BINARY:

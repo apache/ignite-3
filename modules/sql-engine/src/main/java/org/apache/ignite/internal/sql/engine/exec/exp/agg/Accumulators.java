@@ -42,7 +42,6 @@ import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
@@ -191,9 +190,7 @@ public class Accumulators {
             case VARBINARY:
                 return min ? VarBinaryMinMax.MIN_FACTORY : VarBinaryMinMax.MAX_FACTORY;
             default:
-                if (type instanceof IgniteCustomType) {
-                    return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
-                } else if (type.getSqlTypeName() == ANY) {
+                if (type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 } else {
                     return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
@@ -204,7 +201,7 @@ public class Accumulators {
     private Supplier<Accumulator> singleValueFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
-        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+        if (type.getSqlTypeName() == ANY) {
             throw unsupportedAggregateFunction(call);
         }
 
@@ -214,7 +211,7 @@ public class Accumulators {
     private Supplier<Accumulator> anyValueFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
-        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+        if (type.getSqlTypeName() == ANY) {
             throw unsupportedAggregateFunction(call);
         }
 
@@ -224,7 +221,7 @@ public class Accumulators {
     private Supplier<Accumulator> groupingFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
-        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+        if (type.getSqlTypeName() == ANY) {
             throw unsupportedAggregateFunction(call);
         }
 

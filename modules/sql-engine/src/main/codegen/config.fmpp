@@ -59,7 +59,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillObjectType",

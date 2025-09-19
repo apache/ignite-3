@@ -331,8 +331,7 @@ public class ConverterUtils {
             return Expressions.call(UUID.class, "fromString", operand);
         }
 
-        var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
-        return toCustomType != null ? toCustomType : EnumUtils.convert(operand, toType);
+        return EnumUtils.convert(operand, toType);
     }
 
     private static boolean isA(Type fromType, Primitive primitive) {

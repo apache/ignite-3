@@ -68,7 +68,6 @@ import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlIntervalLiteral;
@@ -78,7 +77,6 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlTypeNameSpec;
@@ -110,9 +108,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
@@ -345,13 +340,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType targetType = targetFields.get(i).getType();
 
             boolean canAssign = SqlTypeUtil.canAssignFrom(targetType, sourceType);
-
-            if (canAssign && ((targetType instanceof IgniteCustomType) || (sourceType instanceof IgniteCustomType))) {
-                // SqlTypeUtil.canAssignFrom doesn't account for custom types, therefore need to check
-                // this explicitly. Since at the moment there are no custom types which can be assigned from
-                // each other, let's just check for equality.
-                canAssign = SqlTypeUtil.equalSansNullability(typeFactory, targetType, sourceType);
-            }
 
             if (!canAssign) {
                 // Throws proper exception if assignment is not possible due to
@@ -841,26 +829,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return dataType;
         }
 
-        // Comparison and arithmetic operators are SqlCalls.
-        SqlCall sqlCall = (SqlCall) expr;
-        var lhs = getValidatedNodeType(sqlCall.operand(0));
-        var rhs = getValidatedNodeType(sqlCall.operand(1));
-
-        // IgniteCustomType:
-        // Check compatibility for operands of binary comparison operation between custom data types vs built-in SQL types.
-        // We get here because in calcite ANY type can be assigned/casted to all other types.
-        // This check can be a part of some SqlOperandTypeChecker?
-
-        if (lhs instanceof IgniteCustomType || rhs instanceof IgniteCustomType) {
-            boolean lhsRhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, lhs, rhs);
-            boolean rhsLhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, rhs, lhs);
-
-            if (!lhsRhsCompatible && !rhsLhsCompatible) {
-                SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
-                throw callBinding.newValidationSignatureError();
-            }
-        }
-
         return dataType;
     }
 
@@ -992,24 +960,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return;
         }
 
-        RelDataType returnCustomType = returnType instanceof IgniteCustomType ? returnType : null;
-        RelDataType operandCustomType = operandType instanceof IgniteCustomType ? operandType : null;
-
-        IgniteCustomTypeCoercionRules coercionRules = typeFactory().getCustomTypeCoercionRules();
-
-        boolean check;
-        if (operandCustomType != null && returnCustomType != null) {
-            // it`s not allowed to convert between different custom types for now.
-            check = SqlTypeUtil.equalSansNullability(typeFactory, operandType, returnType);
-        } else if (operandCustomType != null) {
-            check = coercionRules.needToCast(returnType, (IgniteCustomType) operandCustomType);
-        } else if (returnCustomType != null) {
-            check = coercionRules.needToCast(operandType, (IgniteCustomType) returnCustomType);
-        } else {
-            check = IgniteCustomAssignmentsRules.instance().canApplyFrom(
-                    returnType.getSqlTypeName(), operandType.getSqlTypeName()
-            );
-        }
+        boolean check = IgniteCustomAssignmentsRules.instance().canApplyFrom(
+                returnType.getSqlTypeName(), operandType.getSqlTypeName()
+        );
 
         if (!check) {
             throw newValidationError(expr,
@@ -1437,51 +1390,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 throw newValidationError(call, IgniteResource.INSTANCE.unsupportedExpression("String literal expected"));
             }
             super.validateCall(call, scope);
-
-            checkCallsWithCustomTypes(call, scope);
         } finally {
             callScopes.pop();
-        }
-    }
-
-    private void checkCallsWithCustomTypes(SqlCall call, SqlValidatorScope scope) {
-        SqlOperator operator = call.getOperator();
-
-        // IgniteCustomType:
-        // Since custom data types use ANY that is a catch all type for type checkers,
-        // if a function is called with custom data type argument does not belong to CUSTOM_TYPE_FUNCTIONS,
-        // then this should be considered a validation error.
-
-        if (call.getOperandList().isEmpty()
-                || !(operator instanceof SqlFunction)
-                || IgniteSqlOperatorTable.CUSTOM_TYPE_FUNCTIONS.contains(operator)) {
-            return;
-        }
-
-        for (SqlNode node : call.getOperandList()) {
-            RelDataType type = getValidatedNodeTypeIfKnown(node);
-            // Argument type is not known yet (alias) or it is not a custom data type.
-            if ((!(type instanceof IgniteCustomType))) {
-                continue;
-            }
-
-            String name = call.getOperator().getName();
-
-            // Call to getAllowedSignatures throws NPE, if operandTypeChecker is null.
-            if (operator.getOperandTypeChecker() != null) {
-                // If signatures are available, then return:
-                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'. Supported form(s): 'F(<TYPE>)'
-                String allowedSignatures = operator.getAllowedSignatures();
-                throw newValidationError(call,
-                        RESOURCE.canNotApplyOp2Type(name,
-                                call.getCallSignature(this, scope),
-                                allowedSignatures));
-            } else {
-                // Otherwise return an error w/o supported forms:
-                // Cannot apply 'F' to arguments of type 'F(<ARG_TYPE>)'
-                throw newValidationError(call, IgniteResource.INSTANCE.canNotApplyOp2Type(name,
-                        call.getCallSignature(this, scope)));
-            }
         }
     }
 

@@ -30,12 +30,11 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.NlsString;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link RexBuilder} that provides support for {@link IgniteCustomType custom data types}.
+ * Extension of {@link RexBuilder}.
  */
 public class IgniteRexBuilder extends RexBuilder {
     public static final IgniteRexBuilder INSTANCE = new IgniteRexBuilder(IgniteTypeFactory.INSTANCE);
@@ -52,18 +51,6 @@ public class IgniteRexBuilder extends RexBuilder {
     /** {@inheritDoc} **/
     @Override
     public RexNode makeLiteral(@Nullable Object value, RelDataType type, boolean allowCast, boolean trim) {
-        // We need to override this method because otherwise
-        // default implementation will call RexBuilder::guessType(@Nullable Object value)
-        // for a custom data type which will then raise the following assertion:
-        //
-        //  throw new AssertionError("unknown type " + value.getClass());
-        //
-        if (value != null && type instanceof IgniteCustomType) {
-            // IgniteCustomType: Not comparable types are not supported.
-            assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;
-            return makeLiteral((Comparable<?>) value, type, type.getSqlTypeName());
-        }
-
         if (value != null) {
             if (type.getSqlTypeName() == SqlTypeName.CHAR) {
                 if (type.isNullable()) {
@@ -123,6 +110,7 @@ public class IgniteRexBuilder extends RexBuilder {
     }
 
     // Copy-pasted from RexBuilder.
+    @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
     private RexNode makeCastIntervalToExact(SqlParserPos pos, RelDataType toType, RexNode exp) {
         TimeUnit endUnit = exp.getType().getSqlTypeName().getEndUnit();
         TimeUnit baseUnit = baseUnit(exp.getType().getSqlTypeName());
