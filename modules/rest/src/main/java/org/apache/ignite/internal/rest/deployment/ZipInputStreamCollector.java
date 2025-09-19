@@ -57,7 +57,6 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         this.delegate = delegate;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void addInputStream(String filename, InputStream is) {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
@@ -70,7 +69,6 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         }
     }
 
-    /** {@inheritDoc} */
     @Nullable
     private static ZipInputStream tryZip(InputStream is) {
         try {
@@ -87,14 +85,14 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void clear() throws Exception {
-        delegate.clear();
-        closeAll(zipContent);
+    public void close() throws Exception {
+        List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
+        toClose.add(delegate);
+        toClose.addAll(zipContent);
+        closeAll(toClose);
     }
 
-    /** {@inheritDoc} */
     @Override
     public DeploymentUnit toDeploymentUnit() {
         return new ZipDeploymentUnit(delegate.toDeploymentUnit(), zipContent);

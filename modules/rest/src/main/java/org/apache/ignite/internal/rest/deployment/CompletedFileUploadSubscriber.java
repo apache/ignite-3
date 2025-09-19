@@ -62,7 +62,7 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
     @Override
     public void onError(Throwable throwable) {
         try {
-            collector.clear();
+            collector.close();
         } catch (Exception e) {
             suppressException(e);
         }

@@ -54,7 +54,7 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
 
     /** {@inheritDoc} */
     @Override
-    public void clear() throws Exception {
+    public void close() throws Exception {
         closeAll(content.values());
     }
 }

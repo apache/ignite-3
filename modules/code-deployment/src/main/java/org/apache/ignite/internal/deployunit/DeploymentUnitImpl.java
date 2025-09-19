@@ -35,7 +35,6 @@ import java.util.Map;
  * files, resources, and other deployment assets to Ignite cluster nodes.
  */
 public class DeploymentUnitImpl implements DeploymentUnit {
-
     /**
      * The deployment unit content represented as a mapping from file names to their input streams. Each entry represents a file within the
      * deployment unit.

@@ -55,7 +55,6 @@ public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Pa
     /** Suffix used for temporary files during the deployment process. */
     private static final String TMP_SUFFIX = ".tmp";
 
-    /** {@inheritDoc} */
     @Override
     public Void processContent(DeploymentUnitImpl unit, Path unitFolder) throws IOException {
         for (Entry<String, InputStream> e : unit.content().entrySet()) {
@@ -64,7 +63,6 @@ public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Pa
         return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Void processContentWithUnzip(ZipDeploymentUnit unit, Path unitFolder) throws IOException {
         for (ZipInputStream zis : unit.zipContent()) {
@@ -91,5 +89,4 @@ public class DeployDeploymentUnitProcessor implements DeploymentUnitProcessor<Pa
         Files.copy(is, unitPathTmp, REPLACE_EXISTING);
         Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
     }
-
 }

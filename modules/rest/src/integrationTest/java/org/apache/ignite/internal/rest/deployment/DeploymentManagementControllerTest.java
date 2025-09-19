@@ -185,6 +185,11 @@ public class DeploymentManagementControllerTest extends ClusterPerTestIntegratio
         assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }
 
+    @Test
+    public void testZipDeploy() {
+
+    }
+
     private HttpResponse<Object> deploy(String id, String version) {
         return deploy(id, version, smallFile.toFile());
     }

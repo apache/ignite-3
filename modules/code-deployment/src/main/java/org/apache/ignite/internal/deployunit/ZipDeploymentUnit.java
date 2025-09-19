@@ -20,7 +20,9 @@ package org.apache.ignite.internal.deployunit;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -78,7 +80,9 @@ public class ZipDeploymentUnit implements DeploymentUnit {
      */
     @Override
     public void close() throws Exception {
-        notZippedContent.close();
-        closeAll(zipContent);
+        List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
+        toClose.add(notZippedContent);
+        toClose.addAll(zipContent);
+        closeAll(toClose);
     }
 }
