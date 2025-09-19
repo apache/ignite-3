@@ -375,7 +375,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getFloat("floatVal"));
 
-                assertTrue(rs.getBoolean(7));
                 assertEquals(1, rs.getByte(7));
                 assertEquals(1, rs.getShort(7));
                 assertEquals(1, rs.getInt(7));
@@ -385,7 +384,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal(1), rs.getBigDecimal(7));
                 assertEquals(rs.getString(7), "1.0");
 
-                assertTrue(rs.getObject(7, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(7, Byte.class));
                 assertEquals((short) 1, rs.getObject(7, Short.class));
                 assertEquals(1, rs.getObject(7, Integer.class));
@@ -413,7 +411,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1.0, rs.getDouble("doubleVal"));
 
-                assertTrue(rs.getBoolean(8));
                 assertEquals(1, rs.getByte(8));
                 assertEquals(1, rs.getShort(8));
                 assertEquals(1, rs.getInt(8));
@@ -423,7 +420,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal(1), rs.getBigDecimal(8));
                 assertEquals(rs.getString(8), "1.0");
 
-                assertTrue(rs.getObject(8, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(8, Byte.class));
                 assertEquals((short) 1, rs.getObject(8, Short.class));
                 assertEquals(1, rs.getObject(8, Integer.class));
@@ -451,7 +447,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             if (cnt == 0) {
                 assertEquals(1, rs.getBigDecimal("bigVal").intValue());
 
-                assertTrue(rs.getBoolean(9));
                 assertEquals(1, rs.getByte(9));
                 assertEquals(1, rs.getShort(9));
                 assertEquals(1, rs.getInt(9));
@@ -461,7 +456,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(new BigDecimal("1.000"), rs.getBigDecimal(9));
                 assertEquals(rs.getString(9), "1.000");
 
-                assertTrue(rs.getObject(9, Boolean.class));
                 assertEquals((byte) 1, rs.getObject(9, Byte.class));
                 assertEquals((short) 1, rs.getObject(9, Short.class));
                 assertEquals(1, rs.getObject(9, Integer.class));
