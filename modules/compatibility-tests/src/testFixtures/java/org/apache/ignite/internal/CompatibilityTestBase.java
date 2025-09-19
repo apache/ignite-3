@@ -210,11 +210,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @return A list of base versions for a test.
      */
     public static List<String> baseVersions(int numLatest, String... skipVersions) {
-        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
-        List<String> versions = IgniteVersions.INSTANCE.versions().stream()
-                .map(Version::version)
-                .filter(Predicate.not(skipSet::contains))
-                .collect(Collectors.toList());
+        List<String> versions = baseVersions(skipVersions);
         if (shouldTestAllVersions()) {
             return versions;
         } else {
@@ -222,6 +218,20 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             int fromIndex = Math.max(versions.size() - numLatest, 0);
             return versions.subList(fromIndex, versions.size());
         }
+    }
+
+    /**
+     * Returns a list of base versions.
+     *
+     * @param skipVersions Array of strings to skip.
+     * @return A list of base versions for a test.
+     */
+    public static List<String> baseVersions(String... skipVersions) {
+        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
+        return IgniteVersions.INSTANCE.versions().stream()
+                .map(Version::version)
+                .filter(Predicate.not(skipSet::contains))
+                .collect(Collectors.toList());
     }
 
     private static boolean shouldTestAllVersions() {
