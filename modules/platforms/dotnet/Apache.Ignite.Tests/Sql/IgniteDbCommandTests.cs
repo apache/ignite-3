@@ -133,4 +133,10 @@ public class IgniteDbCommandTests : IgniteTestsBase
 
         Assert.AreEqual("dml1", (await TupleView.GetAsync(null, GetTuple(1))).Value["val"]);
     }
+
+    [Test]
+    public async Task TestTimeout()
+    {
+        // TODO: FakeServer.
+    }
 }
