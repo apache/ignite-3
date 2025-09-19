@@ -48,6 +48,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.DeploymentUnitImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -229,7 +230,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
             CompletableFuture<Boolean> deployed = deployment.deployAsync(
                     unitId,
                     unitVersion,
-                    new org.apache.ignite.internal.deployunit.DeploymentUnit(Map.of(jarName, jarStream)),
+                    new DeploymentUnitImpl(Map.of(jarName, jarStream)),
                     new NodesToDeploy(MAJORITY)
             );
 

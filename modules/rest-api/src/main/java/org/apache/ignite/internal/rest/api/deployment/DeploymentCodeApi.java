@@ -30,6 +30,8 @@ import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -77,7 +79,13 @@ public interface DeploymentCodeApi {
             Optional<InitialDeployMode> deployMode,
             @QueryValue
             @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
-            Optional<List<String>> initialNodes
+            Optional<List<String>> initialNodes,
+            @Parameter(
+                    name = "X-Unzip-Units",
+                    in = ParameterIn.HEADER,
+                    description = "Unzip all uploaded archives with saving directory structure."
+            )
+            boolean unzip
     );
 
     /**
