@@ -168,14 +168,26 @@ public class IgniteDbCommandTests : IgniteTestsBase
     [Test]
     public async Task TestExecuteNonQueryException()
     {
-        // TODO
-        await Task.Delay(1);
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO NON_EXISTENT_TABLE (id) VALUES (1)";
+
+        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteNonQueryAsync());
+        StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
 
     [Test]
     public async Task TestExecuteReaderException()
     {
-        // TODO
-        await Task.Delay(1);
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM NON_EXISTENT_TABLE";
+
+        var ex = Assert.CatchAsync<DbException>(async () => await cmd.ExecuteReaderAsync());
+        StringAssert.StartsWith("Failed to validate query", ex.Message);
     }
 }
