@@ -86,8 +86,27 @@ public class IgniteDbConnectionTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestCommand()
+    public async Task TestCommand([Values(true, false)] bool withTx)
     {
+        await using var conn = new IgniteDbConnection(null);
+        Assert.AreEqual(ConnectionState.Closed, conn.State);
 
+        conn.Open(Client, ownsClient: false);
+        Assert.AreEqual(ConnectionState.Open, conn.State);
+
+        await using var cmd = conn.CreateCommand();
+        Assert.IsNotNull(cmd);
+        Assert.AreEqual(conn, cmd.Connection);
+        Assert.AreEqual(CommandType.Text, cmd.CommandType);
+        Assert.AreEqual(0, cmd.CommandTimeout);
+        Assert.IsNull(cmd.Transaction);
+
+        await using var tx = withTx ? await conn.BeginTransactionAsync(IsolationLevel.Serializable) : null;
+        cmd.Transaction = tx;
+        Assert.AreEqual(tx, cmd.Transaction);
+
+        cmd.CommandText = "SELECT 1";
+        var scalar = await cmd.ExecuteScalarAsync();
+        Assert.AreEqual(1, scalar);
     }
 }
