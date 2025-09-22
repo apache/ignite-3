@@ -27,8 +27,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -36,20 +34,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 class ItAllTypesSqlAndTxTest extends CompatibilityTestBase {
-    @Override
-    protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.eventlog.sinks {"
-                + "  logSink {"
-                + "    channel: testChannel,"
-                + "    type: log"
-                + "  },"
-                + "  webhookSink {"
-                + "    channel: testChannel,"
-                + "    type: webhook,"
-                + "    endpoint: \"http://localhost\","
-                + "  }"
-                + "}");
-    }
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
@@ -66,11 +50,11 @@ class ItAllTypesSqlAndTxTest extends CompatibilityTestBase {
                 + "VAL_TIME TIME, "
                 + "VAL_TIMESTAMP TIMESTAMP)");
 
-        Transaction tx = baseIgnite.transactions().begin();
-        baseIgnite.sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
-                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56));
-        tx.commit();
+        baseIgnite.transactions().runInTransaction(tx -> {
+            baseIgnite.sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
+                    "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56));
+        });
 
         List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST_ALL_TYPES");
         assertThat(result, contains(contains(
@@ -89,11 +73,11 @@ class ItAllTypesSqlAndTxTest extends CompatibilityTestBase {
         )));
 
         // Insert new data using transaction
-        Transaction tx = node(0).transactions().begin();
-        node(0).sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
-                "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0));
-        tx.commit();
+        node(0).transactions().runInTransaction(tx -> {
+            node(0).sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
+                    "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0));
+        });
 
         // Verify all data
         result = sql("SELECT * FROM TEST_ALL_TYPES");
