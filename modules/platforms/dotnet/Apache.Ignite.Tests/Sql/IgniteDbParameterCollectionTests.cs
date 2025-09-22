@@ -18,10 +18,75 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using Ignite.Sql;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="IgniteDbParameterCollection"/>.
 /// </summary>
 public class IgniteDbParameterCollectionTests
 {
+    [Test]
+    public void TestAddAndRetrieve()
+    {
+        var collection = new IgniteDbParameterCollection();
+        var param = new IgniteDbParameter { ParameterName = "p1" };
+
+        collection.Add(param);
+
+        Assert.AreEqual(1, collection.Count);
+        Assert.AreSame(param, collection[0]);
+        Assert.AreSame(param, collection["p1"]);
+    }
+
+    [Test]
+    public void TestRemove()
+    {
+        var collection = new IgniteDbParameterCollection();
+        var param = new IgniteDbParameter();
+
+        collection.Add(param);
+        collection.Remove(param);
+
+        Assert.AreEqual(0, collection.Count);
+    }
+
+    [Test]
+    public void TestContains()
+    {
+        var collection = new IgniteDbParameterCollection();
+        var param = new IgniteDbParameter { ParameterName = "p1" };
+
+        collection.Add(param);
+
+        Assert.IsTrue(collection.Contains(param));
+        Assert.IsTrue(collection.Contains("p1"));
+    }
+
+    [Test]
+    public void TestClear()
+    {
+        var collection = new IgniteDbParameterCollection
+        {
+            new IgniteDbParameter(),
+            new IgniteDbParameter()
+        };
+
+        collection.Clear();
+
+        Assert.AreEqual(0, collection.Count);
+    }
+
+    [Test]
+    public void TestIndexOf()
+    {
+        var collection = new IgniteDbParameterCollection();
+        var param1 = new IgniteDbParameter { ParameterName = "p1" };
+        var param2 = new IgniteDbParameter { ParameterName = "p2" };
+
+        collection.Add(param1);
+        collection.Add(param2);
+
+        Assert.AreEqual(0, collection.IndexOf(param1));
+        Assert.AreEqual(1, collection.IndexOf("p2"));
+    }
 }
