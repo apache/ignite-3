@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using Internal.Common;
 using NodaTime;
 using Table;
 using Transactions;
@@ -160,6 +161,16 @@ public sealed class IgniteDbCommand : DbCommand
 
     /// <inheritdoc />
     public override void Prepare() => throw new NotSupportedException("Prepare is not supported.");
+
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(CommandText)
+            .Append(CommandTimeout)
+            .Append(PageSize)
+            .Append(Transaction)
+            .Append(Connection)
+            .Build();
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
