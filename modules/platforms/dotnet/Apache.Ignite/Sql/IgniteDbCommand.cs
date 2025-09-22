@@ -170,8 +170,6 @@ public sealed class IgniteDbCommand : DbCommand
         {
             _cancellationTokenSource.Dispose();
         }
-
-        base.Dispose(disposing);
     }
 
     /// <inheritdoc />
