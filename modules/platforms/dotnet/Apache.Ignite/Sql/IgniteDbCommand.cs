@@ -180,12 +180,15 @@ public sealed class IgniteDbCommand : DbCommand
         var args = GetArgs();
         var statement = GetStatement();
 
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _cancellationTokenSource.Token);
+
         try
         {
             return await GetSql().ExecuteReaderAsync(
                 transaction: GetIgniteTx(),
                 statement,
-                cancellationToken,
+                linkedCts.Token,
                 args).ConfigureAwait(false);
         }
         catch (SqlException sqlEx)

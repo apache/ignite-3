@@ -213,16 +213,9 @@ public class IgniteDbCommandTests : IgniteTestsBase
         conn.Open(Client);
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1";
-        ((IgniteDbCommand)cmd).PageSize = 1;
+        cmd.CommandText = "SELECT 1 UNION ALL SELECT 1";
 
-        await using var reader = await cmd.ExecuteReaderAsync();
         cmd.Cancel();
-
-        // TODO: Page size so it fails.
-        while (reader.Read())
-        {
-            Console.WriteLine(reader.GetValue(0));
-        }
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await cmd.ExecuteReaderAsync());
     }
 }
