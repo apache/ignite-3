@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Sql;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Transactions;
+using Internal.Common;
 using NUnit.Framework;
 
 /// <summary>
@@ -93,6 +94,14 @@ public class IgniteDbTransactionTests
         Assert.IsTrue(tx.IsDisposed);
     }
 
+    [Test]
+    public void TestToString()
+    {
+        var dbTx = new IgniteDbTransaction(new TestIgniteTx(), System.Data.IsolationLevel.ReadCommitted, null!);
+
+        Assert.AreEqual("IgniteDbTransaction { IgniteTransaction = TestIgniteTx { }, Connection = }", dbTx.ToString());
+    }
+
     private class TestIgniteTx : ITransaction
     {
         public bool IsDisposed { get; set; }
@@ -122,5 +131,7 @@ public class IgniteDbTransactionTests
             IsRolledback = true;
             return Task.CompletedTask;
         }
+
+        public override string ToString() => IgniteToStringBuilder.Build(GetType());
     }
 }
