@@ -80,6 +80,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -103,7 +104,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
@@ -125,9 +125,11 @@ import org.mockito.verification.VerificationMode;
 @ExtendWith(ExecutorServiceExtension.class)
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TxManagerTest extends IgniteAbstractTest {
-    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null);
+    private static final InternalClusterNode LOCAL_NODE = new ClusterNodeImpl(
+            randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null
+    );
 
-    private static final ClusterNode REMOTE_NODE =
+    private static final InternalClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     private HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
@@ -170,7 +172,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
+        when(replicaService.invoke(any(InternalClusterNode.class), any())).thenReturn(nullCompletedFuture());
 
         when(replicaService.invoke(anyString(), any())).thenReturn(nullCompletedFuture());
 

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,10 +73,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class OrphanDetectorTest extends BaseIgniteAbstractTest {
-    private static final ClusterNode LOCAL_NODE =
+    private static final InternalClusterNode LOCAL_NODE =
             new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
-    private static final ClusterNode REMOTE_NODE =
+    private static final InternalClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
     @Mock(answer = RETURNS_DEEP_STUBS)
@@ -280,7 +280,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage.updateMeta(orphanTxId, stateMeta -> pendingState);
 
-        when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(mock(ClusterNode.class));
+        when(topologyService.getById(eq(LOCAL_NODE.id()))).thenReturn(mock(InternalClusterNode.class));
 
         // Should trigger lock conflict listener in OrphanDetector.
         lockManager.acquire(concurrentTxId, new LockKey(1, rowId), LockMode.X);
@@ -326,7 +326,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         assertEquals(TxState.ABANDONED, orphanState.txState());
 
         // Send tx recovery message.
-        verify(replicaService).invoke(any(ClusterNode.class), any());
+        verify(replicaService).invoke(any(InternalClusterNode.class), any());
 
         assertThat(acquire, willThrow(LockException.class, "Failed to acquire an abandoned lock due to a possible deadlock"));
 

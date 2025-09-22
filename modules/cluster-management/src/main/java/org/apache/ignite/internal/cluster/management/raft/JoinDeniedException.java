@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
@@ -25,5 +27,9 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 public class JoinDeniedException extends IgniteInternalException {
     public JoinDeniedException(String msg) {
         super(msg);
+    }
+
+    public JoinDeniedException(String msg, Throwable cause) {
+        super(INTERNAL_ERR, msg, cause);
     }
 }

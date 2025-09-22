@@ -34,6 +34,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -295,12 +296,20 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
     }
 
-    protected ClusterNode clusterNode(int index) {
+    protected InternalClusterNode clusterNode(int index) {
         return clusterNode(node(index));
     }
 
-    protected static ClusterNode clusterNode(Ignite node) {
+    protected static InternalClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    protected ClusterNode publicClusterNode(int index) {
+        return publicClusterNode(node(index));
+    }
+
+    protected static ClusterNode publicClusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
 
     protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {

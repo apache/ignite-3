@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -36,7 +37,9 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -81,6 +84,8 @@ public class CheckpointManager {
 
     /** Delta file compactor. */
     private final Compactor compactor;
+
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
 
     /**
      * Constructor.
@@ -131,11 +136,14 @@ public class CheckpointManager {
                 checkpointConfig.checkpointThreads()
         );
 
+        partitionDestructionLockManager = new PartitionDestructionLockManager();
+
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                this::writePageToDeltaFilePageStore,
+                this::writePageToFilePageStore,
                 ioRegistry,
                 partitionMetaManager,
-                pageSize
+                pageSize,
+                partitionDestructionLockManager
         );
 
         compactor = new Compactor(
@@ -144,7 +152,8 @@ public class CheckpointManager {
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
                 pageSize,
-                failureManager
+                failureManager,
+                partitionDestructionLockManager
         );
 
         checkpointer = new Checkpointer(
@@ -154,10 +163,12 @@ public class CheckpointManager {
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
+                partitionMetaManager,
                 compactor,
                 pageSize,
                 checkpointConfig,
-                logSyncer
+                logSyncer,
+                partitionDestructionLockManager
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
@@ -259,8 +270,8 @@ public class CheckpointManager {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
     }
 
     /**
@@ -298,7 +309,7 @@ public class CheckpointManager {
      * @param pageBuf Page buffer to write from.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    public void writePageToDeltaFilePageStore(
+    public void writePageToFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer pageBuf
@@ -307,6 +318,12 @@ public class CheckpointManager {
 
         // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
         if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
+
+        if (pageId.pageIdx() >= filePageStore.checkpointedPageCount()) {
+            filePageStore.write(pageId.pageId(), pageBuf);
+
             return;
         }
 
@@ -331,7 +348,12 @@ public class CheckpointManager {
                     assert partitionView != null : String.format("Unable to find view for dirty pages: [partitionId=%s, pageMemory=%s]",
                             GroupPartitionId.convert(pageId), pageMemory);
 
-                    return pageIndexesForDeltaFilePageStore(partitionView);
+                    return pageIndexesForDeltaFilePageStore(
+                            partitionView,
+                            pageId.groupId(),
+                            pageId.partitionId(),
+                            filePageStore.checkpointedPageCount()
+                    );
                 }
         );
 
@@ -342,15 +364,33 @@ public class CheckpointManager {
      * Returns the indexes of the dirty pages to be written to the delta file page store.
      *
      * @param partitionDirtyPages Dirty pages of the partition.
+     * @param checkpointedPages Number of pages of the partition that were stored on the disk at the beginning of the checkpoint.
      */
-    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+    static int[] pageIndexesForDeltaFilePageStore(
+            CheckpointDirtyPagesView partitionDirtyPages,
+            int groupId,
+            int partitionId,
+            int checkpointedPages
+    ) {
         // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
         int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
 
-        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
+        int partGen = partitionDirtyPages.pageMemory().partGeneration(groupId, partitionId);
 
-        for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
+        int[] pageIndexes = new int[partitionDirtyPages.modifiedPages(groupId, partitionId, checkpointedPages) + offset];
+
+        int size = offset;
+
+        for (int i = 0; i < pageIndexes.length - offset; i++) {
+            DirtyFullPageId dirtyFullPageId = partitionDirtyPages.get(i);
+
+            if (dirtyFullPageId.partitionGeneration() == partGen) {
+                pageIndexes[size++] = dirtyFullPageId.pageIdx();
+            }
+        }
+
+        if (size < pageIndexes.length) {
+            pageIndexes = Arrays.copyOf(pageIndexes, size);
         }
 
         return pageIndexes;
@@ -363,18 +403,8 @@ public class CheckpointManager {
         compactor.triggerCompaction();
     }
 
-    /**
-     * Callback on destruction of the partition of the corresponding group.
-     *
-     * <p>Prepares the checkpointer and compactor for partition destruction.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will complete when the callback completes.
-     */
-    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
-        return CompletableFuture.allOf(
-                checkpointer.prepareToDestroyPartition(groupPartitionId),
-                compactor.prepareToDestroyPartition(groupPartitionId)
-        );
+    /** Partition Destruction Lock Manager. */
+    public PartitionDestructionLockManager partitionDestructionLockManager() {
+        return partitionDestructionLockManager;
     }
 }

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
@@ -500,7 +501,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx2.commit();
     }
 
-    static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
+    static List<Tuple> generateKeysForNode(
+            int start,
+            int count,
+            Map<Partition, ClusterNode> map,
+            InternalClusterNode clusterNode,
+            Table table
+    ) {
         String clusterNodeName = clusterNode.name();
         if (map.values().stream().noneMatch(x -> Objects.equals(x.name(), clusterNodeName))) {
             return emptyList();

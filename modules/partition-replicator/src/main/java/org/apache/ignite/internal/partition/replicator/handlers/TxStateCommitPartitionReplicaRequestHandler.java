@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +45,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
     private final TxManager txManager;
     private final ClusterNodeResolver clusterNodeResolver;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final TxRecoveryEngine txRecoveryEngine;
 
@@ -54,7 +54,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             ClusterNodeResolver clusterNodeResolver,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             TxRecoveryEngine txRecoveryEngine
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;

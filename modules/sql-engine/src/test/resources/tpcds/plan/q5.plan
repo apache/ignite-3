@@ -6,9 +6,9 @@ Sort
       group: [CHANNEL, ID]
       groupSets: [[CHANNEL, ID], [CHANNEL], []]
       aggregation: [SUM(SALES), SUM(RETURNS), SUM(PROFIT)]
-      est: (rows=2770902750067)
+      est: (rows=1529126614865)
     UnionAll
-        est: (rows=4395725844132)
+        est: (rows=1532000739400)
       Project
           projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
           est: (rows=3124078767)
@@ -128,59 +128,56 @@ Sort
                       est: (rows=11718)
       Project
           projection: [CAST(CHANNEL):CHAR(15) CHARACTER SET "UTF-8" NOT NULL, CAST(ID):VARCHAR(28) CHARACTER SET "UTF-8", SALES, RETURNS, PROFIT]
-          est: (rows=2865675601513)
+          est: (rows=1950496781)
         Project
             fieldNames: [CHANNEL, ID, SALES, RETURNS, PROFIT]
             projection: [_UTF-8'web channel', ||(_UTF-8'web_site', WEB_SITE_ID), SALES, RETURNS, -(PROFIT, PROFIT_LOSS)]
-            est: (rows=2865675601513)
+            est: (rows=1950496781)
           ColocatedHashAggregate
               fieldNames: [WEB_SITE_ID, SALES, PROFIT, RETURNS, PROFIT_LOSS]
               group: [WEB_SITE_ID]
               aggregation: [SUM(SALES_PRICE), SUM(PROFIT), SUM(RETURN_AMT), SUM(NET_LOSS)]
-              est: (rows=2865675601513)
+              est: (rows=1950496781)
             Project
                 fieldNames: [WEB_SITE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
                 projection: [WEB_SITE_ID, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
-                est: (rows=14328378007564)
+                est: (rows=9752483903)
               MergeJoin
                   predicate: =(WSR_WEB_SITE_SK, WEB_SITE_SK)
                   type: inner
-                  est: (rows=14328378007564)
+                  est: (rows=9752483903)
                 HashJoin
                     predicate: =(DATE_SK, D_DATE_SK)
                     type: inner
-                    est: (rows=3184084001681)
-                  Sort
-                      collation: [WSR_WEB_SITE_SK ASC]
-                      est: (rows=1162355497)
-                    UnionAll
-                        est: (rows=1162355497)
-                      Exchange
-                          distribution: single
-                          est: (rows=719384)
+                    est: (rows=2167218645)
+                  Exchange
+                      distribution: single
+                      est: (rows=791147)
+                    Sort
+                        collation: [WSR_WEB_SITE_SK ASC]
+                        est: (rows=791147)
+                      UnionAll
+                          est: (rows=791147)
                         TableScan
                             table: PUBLIC.WEB_SALES
                             fieldNames: [WSR_WEB_SITE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
                             projection: [WS_WEB_SITE_SK, WS_SOLD_DATE_SK, WS_EXT_SALES_PRICE, WS_NET_PROFIT, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2)]
                             est: (rows=719384)
-                      Project
-                          fieldNames: [WSR_WEB_SITE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
-                          projection: [WS_WEB_SITE_SK, WR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), WR_RETURN_AMT, WR_NET_LOSS]
-                          est: (rows=1161636113)
-                        HashJoin
-                            predicate: AND(=(WR_ITEM_SK, WS_ITEM_SK), =(WR_ORDER_NUMBER, WS_ORDER_NUMBER))
-                            type: left
-                            est: (rows=1161636113)
-                          Exchange
-                              distribution: single
+                        Project
+                            fieldNames: [WSR_WEB_SITE_SK, DATE_SK, SALES_PRICE, PROFIT, RETURN_AMT, NET_LOSS]
+                            projection: [WS_WEB_SITE_SK, WR_RETURNED_DATE_SK, 0.00:DECIMAL(7, 2), 0.00:DECIMAL(7, 2), WR_RETURN_AMT, WR_NET_LOSS]
+                            est: (rows=71763)
+                          HashJoin
+                              predicate: AND(=(WR_ITEM_SK, WS_ITEM_SK), =(WR_ORDER_NUMBER, WS_ORDER_NUMBER))
+                              type: left
                               est: (rows=71763)
-                            TableScan
-                                table: PUBLIC.WEB_RETURNS
-                                fieldNames: [WR_RETURNED_DATE_SK, WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_AMT, WR_NET_LOSS]
+                            Exchange
+                                distribution: table PUBLIC.WEB_SALES in zone "Default" by [WR_ITEM_SK, WR_ORDER_NUMBER]
                                 est: (rows=71763)
-                          Exchange
-                              distribution: single
-                              est: (rows=719384)
+                              TableScan
+                                  table: PUBLIC.WEB_RETURNS
+                                  fieldNames: [WR_RETURNED_DATE_SK, WR_ITEM_SK, WR_ORDER_NUMBER, WR_RETURN_AMT, WR_NET_LOSS]
+                                  est: (rows=71763)
                             TableScan
                                 table: PUBLIC.WEB_SALES
                                 fieldNames: [WS_ITEM_SK, WS_WEB_SITE_SK, WS_ORDER_NUMBER]

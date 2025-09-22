@@ -36,6 +36,7 @@ import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,7 +63,7 @@ public class PlacementDriverMessageProcessor {
 
     private final ReplicationGroupId groupId;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final PlacementDriver placementDriver;
 
@@ -85,7 +85,7 @@ public class PlacementDriverMessageProcessor {
     private final CompletableFuture<Void> leaderReadyFuture = new CompletableFuture<>();
 
     /** Container of the elected leader. */
-    private volatile @Nullable ClusterNode leaderRef = null;
+    private volatile @Nullable InternalClusterNode leaderRef = null;
 
     private final TopologyAwareRaftGroupService raftClient;
 
@@ -104,7 +104,7 @@ public class PlacementDriverMessageProcessor {
      */
     PlacementDriverMessageProcessor(
             ReplicationGroupId groupId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             PlacementDriver placementDriver,
             ClockService clockService,
             BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure,
@@ -238,7 +238,7 @@ public class PlacementDriverMessageProcessor {
         return completedFuture(resp);
     }
 
-    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(ClusterNode groupLeader) {
+    private CompletableFuture<LeaseGrantedMessageResponse> proposeLeaseRedirect(InternalClusterNode groupLeader) {
         LOG.info("Proposing lease redirection [groupId={}, proposed node={}].", groupId, groupLeader);
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
@@ -273,12 +273,12 @@ public class PlacementDriverMessageProcessor {
                 .thenCompose(storageIndexTracker::waitFor);
     }
 
-    private void onLeaderElected(ClusterNode clusterNode, long term) {
+    private void onLeaderElected(InternalClusterNode clusterNode, long term) {
         leaderRef = clusterNode;
         leaderReadyFuture.complete(null);
     }
 
-    private CompletableFuture<ClusterNode> leaderFuture() {
+    private CompletableFuture<InternalClusterNode> leaderFuture() {
         return leaderReadyFuture.thenApply(ignored -> leaderRef);
     }
 }

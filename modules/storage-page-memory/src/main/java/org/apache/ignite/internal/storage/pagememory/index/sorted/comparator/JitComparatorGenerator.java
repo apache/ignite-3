@@ -26,6 +26,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.greaterThan;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
@@ -416,6 +417,14 @@ public class JitComparatorGenerator {
         body.append(outerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + outerEntrySize * columnsSize)));
         body.append(innerEntryBaseStart.set(constantInt(BinaryTupleCommon.HEADER_SIZE + innerEntrySize * columnsSize)));
 
+        if (options.supportPartialComparison()) {
+            // Return 0 immediately if inner tuple is only partially available and we have no column values to compare.
+            body.append(new IfStatement()
+                    .condition(greaterThan(innerEntryBaseStart, innerSize))
+                    .ifTrue(constantInt(0).ret())
+            );
+        }
+
         Variable cmp = scope.declareVariable(int.class, "cmp");
 
         Variable outerEntryBaseEnd = scope.declareVariable(int.class, "outerEntryBaseEnd");
@@ -427,7 +436,7 @@ public class JitComparatorGenerator {
             boolean lastIteration = i == columnsSize - 1;
             LabelNode endOfBlockLabel = new LabelNode();
 
-            if (lastIteration) {
+            if (lastIteration && !options.supportPartialComparison()) {
                 body.append(outerEntryBaseEnd.set(outerSize));
                 body.append(innerEntryBaseEnd.set(innerSize));
             } else {
@@ -443,6 +452,19 @@ public class JitComparatorGenerator {
 
             CatalogColumnCollation collation = options.columnCollations().get(i);
             NativeType columnType = options.columnTypes().get(i);
+
+            if (options.supportPartialComparison()) {
+                body.append(new IfStatement()
+                        .condition(greaterThan(innerEntryBaseEnd, innerSize))
+                        .ifTrue(comparePartialTupleElement(
+                                collation, columnType,
+                                new ComparisonVariables(
+                                        outerAccessor, outerEntryBaseStart, outerEntryBaseEnd,
+                                        innerAccessor, innerEntryBaseStart, innerEntryBaseEnd
+                                )
+                        ).ret())
+                );
+            }
 
             // Nullability check.
             if (options.nullableFlags().get(i)) {
@@ -601,6 +623,28 @@ public class JitComparatorGenerator {
                 return staticCompare(collation, vars, UTILS_BYTES_COMPARE, true);
             default:
                 throw new IllegalArgumentException(format("Unsupported column type in binary tuple comparator. [type={}]", nativeType));
+        }
+    }
+
+    /**
+     * Generates an expression that compares a specific element of two binary tuples, assuming that inner element is partial.
+     */
+    private static BytecodeExpression comparePartialTupleElement(
+            CatalogColumnCollation collation,
+            NativeType nativeType,
+            ComparisonVariables vars
+    ) {
+        switch (nativeType.spec()) {
+            case TIMESTAMP:
+                return staticCompare(collation, vars, UTILS_TIMESTAMP_COMPARE, true);
+            case UUID:
+                return staticCompare(collation, vars, UTILS_UUID_COMPARE, false);
+            case STRING:
+                return staticCompare(collation, vars, UTILS_STRING_COMPARE, true);
+            case BYTE_ARRAY:
+                return staticCompare(collation, vars, UTILS_BYTES_COMPARE, true);
+            default:
+                return constantInt(0);
         }
     }
 

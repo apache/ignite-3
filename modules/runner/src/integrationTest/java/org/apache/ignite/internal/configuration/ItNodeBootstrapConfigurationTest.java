@@ -128,31 +128,34 @@ public class ItNodeBootstrapConfigurationTest {
                 + "}";
 
         IgniteServer igniteServer = TestIgnitionManager.startWithProductionDefaults(testNodeName(testInfo, 0), config, workDir);
-        igniteServer.initCluster(InitParameters.builder().clusterName("name").build());
-        Ignite ignite = igniteServer.api();
 
-        Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
-        String storedConfig = Files.readString(configFile);
-        Config hoconConfig = ConfigFactory.parseString(config);
-        assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig));
+        try {
+            igniteServer.initCluster(InitParameters.builder().clusterName("name").build());
+            Ignite ignite = igniteServer.api();
 
-        IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(ignite);
-        ConfigurationRegistry nodeCfgRegistry = igniteImpl.nodeConfiguration();
-        HoconPresentation hoconPresentation = new HoconPresentation(nodeCfgRegistry);
+            Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
+            String storedConfig = Files.readString(configFile);
+            Config hoconConfig = ConfigFactory.parseString(config);
+            assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig));
 
-        String configUpdate = "ignite {\n"
-                + "  rest: {\n"
-                + "    httpToHttpsRedirection: true\n"
-                + "  }\n"
-                + "}\n";
+            IgniteImpl igniteImpl = TestWrappers.unwrapIgniteImpl(ignite);
+            ConfigurationRegistry nodeCfgRegistry = igniteImpl.nodeConfiguration();
+            HoconPresentation hoconPresentation = new HoconPresentation(nodeCfgRegistry);
 
-        CompletableFuture<Void> update = hoconPresentation.update(configUpdate);
+            String configUpdate = "ignite {\n"
+                    + "  rest: {\n"
+                    + "    httpToHttpsRedirection: true\n"
+                    + "  }\n"
+                    + "}\n";
 
-        assertThat(update, willCompleteSuccessfully());
-        storedConfig = Files.readString(configFile);
+            CompletableFuture<Void> update = hoconPresentation.update(configUpdate);
 
-        assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig.withFallback(ConfigFactory.parseString(configUpdate))));
+            assertThat(update, willCompleteSuccessfully());
+            storedConfig = Files.readString(configFile);
 
-        igniteServer.shutdown();
+            assertThat(ConfigFactory.parseString(storedConfig), is(hoconConfig.withFallback(ConfigFactory.parseString(configUpdate))));
+        } finally {
+            igniteServer.shutdown();
+        }
     }
 }

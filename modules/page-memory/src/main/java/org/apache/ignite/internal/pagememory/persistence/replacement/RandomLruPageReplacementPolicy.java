@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirtyFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
@@ -105,7 +106,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 assert fullId.equals(nearest.fullId()) : "Invalid page mapping [tableId=" + nearest.fullId()
                         + ", actual=" + fullId + ", nearest=" + nearest;
 
-                boolean outdated = partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()));
+                boolean outdated = partGen < seg.partGeneration(fullId.groupId(), fullId.partitionId());
 
                 if (outdated) {
                     return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
@@ -117,15 +118,19 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 boolean dirty = PageHeader.dirty(absPageAddr);
 
+                DirtyFullPageId dirtyFullId = dirtyFullPageId(absPageAddr);
+
                 CheckpointPages checkpointPages = seg.checkpointPages();
 
-                if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !checkpointPages.contains(fullId)))) {
+                if (relRmvAddr == rndAddr || pinned || skip
+                        || (dirty && (checkpointPages == null || !checkpointPages.contains(dirtyFullId)))
+                ) {
                     i--;
 
                     continue;
                 }
 
-                long pageTs = PageHeader.readTimestamp(absPageAddr);
+                long pageTs = PageHeader.timestamp(absPageAddr);
 
                 boolean storMeta = isStoreMetadataPage(absPageAddr);
 
@@ -222,7 +227,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             FullPageId fullId = fullPageId(absPageAddr);
 
-            if (partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()))) {
+            if (partGen < seg.partGeneration(fullId.groupId(), fullId.partitionId())) {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
             }
 

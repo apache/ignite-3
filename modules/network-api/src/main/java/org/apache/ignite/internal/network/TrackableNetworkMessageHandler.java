@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,7 +46,7 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
     }
 
     @Override
-    public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+    public void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId) {
         long startTimeNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
 
         targetHandler.onReceived(message, sender, correlationId);

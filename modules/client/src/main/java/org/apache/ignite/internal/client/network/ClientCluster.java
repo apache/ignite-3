@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.ViewUtils.sync;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -38,6 +39,11 @@ public class ClientCluster implements IgniteCluster {
 
     public ClientCluster(ReliableChannel ch) {
         this.ch = ch;
+    }
+
+    @Override
+    public UUID id() {
+        return ch.clusterId();
     }
 
     /** {@inheritDoc} */

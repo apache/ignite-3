@@ -1259,4 +1259,21 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
         sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
     }
+
+    @Test
+    void testHashIndexMultiBounds() {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("CREATE TABLE tt_{} (id INT PRIMARY KEY, val1 INT, val2 INT)", id));
+        sql(format("CREATE INDEX tt_val_id_idx_hash ON tt_{} USING HASH(val1, val2)", id));
+        sql(format("INSERT INTO tt_{} values (1, 1, 1), (2, 2, 2), (3, 3, 3), (7, 4, 7)," 
+                + " (17, 3, 17), (27, 6, 27), (-38, 7, -38)", id));
+
+        assertQuery(format("SELECT /*+ FORCE_INDEX(tt_val_id_idx_hash) */ id, val1 " 
+                + " FROM tt_{} WHERE val1 IN (2, 3, 6) AND val2 IN (3, 17, -38)", id))
+                .matches(containsIndexScan("PUBLIC", "T", "TT_VAL_ID_IDX_HASH"))
+                .returns(3, 3)
+                .returns(17, 3)
+                .check();
+    }
 }

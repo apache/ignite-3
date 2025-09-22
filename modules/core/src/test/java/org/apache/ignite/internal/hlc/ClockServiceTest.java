@@ -51,7 +51,12 @@ public class ClockServiceTest extends BaseIgniteAbstractTest {
     @Test
     public void testMaximumAllowedClockDriftExceededIsPrinted() {
         HybridClock clock = new HybridClockImpl();
-        ClockServiceImpl clockService = new ClockServiceImpl(clock, clockWaiter, () -> MAX_CLOCK_SKEW_MILLIS);
+        ClockServiceImpl clockService = new ClockServiceImpl(
+                clock,
+                clockWaiter,
+                () -> MAX_CLOCK_SKEW_MILLIS,
+                skew -> {}
+        );
 
         // Check that request time less than max clock skew won't trigger log warning.
         clockService.updateClock(clock.current().addPhysicalTime(MAX_CLOCK_SKEW_MILLIS / 2));

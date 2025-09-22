@@ -61,6 +61,8 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -793,8 +795,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
-            ClusterNode recipientNode = ignite.cluster().nodes().stream()
+            InternalClusterNode recipientNode = ignite.cluster().nodes().stream()
                     .filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .map(ClusterNodeImpl::fromPublicClusterNode)
                     .findFirst()
                     .get();
 
@@ -846,14 +849,21 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             if (readOnly) {
                 // Any node from assignments will do it.
-                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().cluster().nodes().stream().map(
-                        ClusterNode::name).collect(Collectors.toList()), 0, 1, 1, 1);
+                Set<Assignment> assignments = calculateAssignmentForPartition(
+                        CLUSTER.aliveNode().cluster().nodes().stream()
+                                .map(ClusterNode::name)
+                                .collect(Collectors.toList()),
+                        0,
+                        1,
+                        1,
+                        1);
 
                 assertFalse(assignments.isEmpty());
 
                 String consId = assignments.iterator().next().consistentId();
 
-                ClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                InternalClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                        .map(ClusterNodeImpl::fromPublicClusterNode)
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
@@ -897,8 +907,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        ClusterNode primaryNode = ignite.cluster().nodes().stream()
+        InternalClusterNode primaryNode = ignite.cluster().nodes().stream()
                 .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
+                .map(ClusterNodeImpl::fromPublicClusterNode)
                 .findAny()
                 .orElseThrow();
 

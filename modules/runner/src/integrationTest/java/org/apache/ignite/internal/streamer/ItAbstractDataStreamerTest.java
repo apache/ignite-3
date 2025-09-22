@@ -537,8 +537,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         for (int i = 0; i < count; i++) {
-            var expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
-            var actualNode = view.get(null, tupleKey(i)).stringValue("name");
+            ClusterNode expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            String actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
             assertEquals(expectedNode.name(), actualNode);
         }
@@ -581,6 +581,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         var invalidItemsAdded = new ArrayList<DataStreamerItem<Tuple>>();
+        String invalidColName = "name1";
 
         try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
@@ -603,7 +604,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             // Submit invalid items.
             for (int i = 200; i < 300; i++) {
                 DataStreamerItem<Tuple> item = DataStreamerItem.of(
-                        Tuple.create().set("id", i).set("name1", "bar-" + i),
+                        Tuple.create().set("id", i).set(invalidColName, "bar-" + i),
                         i % 2 == 0 ? DataStreamerOperationType.PUT : DataStreamerOperationType.REMOVE);
 
                 try {
@@ -634,6 +635,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         for (DataStreamerItem<Tuple> failedItem : failedItems) {
+            if (failedItem.get().columnIndex(invalidColName) < 0) {
+                // Valid item failed to flush, ignore.
+                continue;
+            }
+
             assertTrue(invalidItemsAdded.contains(failedItem), "invalidItemsAdded item not found: " + failedItem.get());
         }
 

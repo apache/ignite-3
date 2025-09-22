@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -28,8 +29,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -46,8 +49,10 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -58,7 +63,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.TestInfo;
 
@@ -86,7 +90,8 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributes,
-            StorageConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
@@ -128,6 +133,10 @@ public class MockNode {
 
         boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
 
+        var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
+
+        collector.register(() -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled)));
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
@@ -141,12 +150,13 @@ public class MockNode {
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
-                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
+                collector,
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
-                () -> colocationEnabled
+                () -> colocationEnabled,
+                onConfigurationCommittedListener
         );
 
         components = List.of(
@@ -197,7 +207,7 @@ public class MockNode {
         assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
-    public ClusterNode localMember() {
+    public InternalClusterNode localMember() {
         return clusterService.topologyService().localMember();
     }
 
@@ -225,7 +235,7 @@ public class MockNode {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 
-    CompletableFuture<Set<ClusterNode>> validatedNodes() {
+    CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
         return clusterManager().validatedNodes();
     }
 }

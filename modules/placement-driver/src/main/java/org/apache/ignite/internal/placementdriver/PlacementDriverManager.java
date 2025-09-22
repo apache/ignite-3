@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -57,7 +59,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -204,7 +205,9 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
-                            failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
+                            if (!hasCause(ex, NodeStoppingException.class)) {
+                                failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
+                            }
 
                             raftClientFuture.completeExceptionally(ex);
                         }
@@ -259,7 +262,7 @@ public class PlacementDriverManager implements IgniteComponent {
         });
     }
 
-    private void onLeaderChange(ClusterNode leader, long term) {
+    private void onLeaderChange(InternalClusterNode leader, long term) {
         inBusyLock(busyLock, () -> {
             if (leader.equals(clusterService.topologyService().localMember())) {
                 takeOverActiveActorBusy();

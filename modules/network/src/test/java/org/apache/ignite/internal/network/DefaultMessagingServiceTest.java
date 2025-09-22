@@ -62,6 +62,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -88,7 +89,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -127,19 +127,22 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private final ChannelTypeRegistry channelTypeRegistry = defaultChannelTypeRegistry();
 
-    private final ClusterNode senderNode = new ClusterNodeImpl(
+    private final InternalClusterNode senderNode = new ClusterNodeImpl(
             randomUUID(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
-    private final ClusterNode receiverNode = new ClusterNodeImpl(
+    private final InternalClusterNode receiverNode = new ClusterNodeImpl(
             randomUUID(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );
 
     private final UUID clusterId = randomUUID();
+
+    @InjectConfiguration
+    private AckConfiguration ackConfiguration;
 
     @BeforeEach
     void setUp() {
@@ -477,12 +480,12 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(ClusterNodeChanger.class)
     void testResolveRecipientAddressToSelf(ClusterNodeChanger clusterNodeChanger) throws Exception {
-        ClusterNode node = senderNode;
+        InternalClusterNode node = senderNode;
         NetworkConfiguration senderNetworkConfig = this.senderNetworkConfig;
 
         try (Services services = createMessagingService(node, senderNetworkConfig)) {
-            ClusterNode nodeToCheck = clusterNodeChanger.changer.apply(node, services);
-            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+            InternalClusterNode nodeToCheck = clusterNodeChanger.changer.apply(node, services);
+            InternalClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
 
             DefaultMessagingService messagingService = services.messagingService;
 
@@ -494,8 +497,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @Test
     void testResolveRecipientAddressToOther() throws Exception {
         try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
-            ClusterNode nodeToCheck = receiverNode;
-            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+            InternalClusterNode nodeToCheck = receiverNode;
+            InternalClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
 
             DefaultMessagingService messagingService = services.messagingService;
 
@@ -511,7 +514,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
                 Services unused = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
-            ClusterNode receiverWithAnotherId = copyWithDifferentId();
+            InternalClusterNode receiverWithAnotherId = copyWithDifferentId();
 
             assertThat(
                     operation.sendAction.send(senderServices.messagingService, testMessage("test"), receiverWithAnotherId),
@@ -532,7 +535,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(SendByConsistentCoordinateOperation.class)
     void sendByConsistentCoordinateSucceedsIfActualNodeIdIsDifferent(SendByConsistentCoordinateOperation operation) throws Exception {
-        ClusterNode receiverWithAnotherId = copyWithDifferentId();
+        InternalClusterNode receiverWithAnotherId = copyWithDifferentId();
 
         lenient().when(topologyService.getByConsistentId(receiverWithAnotherId.name())).thenReturn(receiverWithAnotherId);
         lenient().when(topologyService.getByAddress(receiverWithAnotherId.address())).thenReturn(receiverWithAnotherId);
@@ -566,7 +569,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static ClusterNode copyWithoutName(ClusterNode node) {
+    private static InternalClusterNode copyWithoutName(InternalClusterNode node) {
         return new ClusterNodeImpl(node.id(), null, node.address());
     }
 
@@ -582,16 +585,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return testMessagesFactory.testMessage().msg(message).build();
     }
 
-    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig) {
+    private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig) {
         return createMessagingService(node, networkConfig, () -> {});
     }
 
-    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
+    private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
         return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry);
     }
 
     private Services createMessagingService(
-            ClusterNode node,
+            InternalClusterNode node,
             NetworkConfiguration networkConfig,
             Runnable beforeHandshake,
             MessageSerializationRegistry registry
@@ -656,7 +659,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new RecoveryInitiatorHandshakeManagerFactory() {
             @Override
             public RecoveryInitiatorHandshakeManager create(
-                    ClusterNode localNode,
+                    InternalClusterNode localNode,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider
             ) {
@@ -669,7 +672,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         clusterIdSupplier,
                         channel -> {},
                         () -> false,
-                        new DefaultIgniteProductVersionSource()
+                        new DefaultIgniteProductVersionSource(),
+                        ackConfiguration
                 ) {
                     @Override
                     protected void finishHandshake() {
@@ -718,7 +722,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @FunctionalInterface
     private interface SendAction {
-        void send(MessagingService service, TestMessage message, ClusterNode recipient);
+        void send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
     private enum SendOperation {
@@ -743,7 +747,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @FunctionalInterface
     private interface RespondAction {
-        void respond(MessagingService service, NetworkMessage message, ClusterNode recipient, long correlationId);
+        void respond(MessagingService service, NetworkMessage message, InternalClusterNode recipient, long correlationId);
     }
 
     private enum RespondOperation {
@@ -794,16 +798,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 new NetworkAddress(localHostName(), node.address().port())
         ));
 
-        private final BiFunction<ClusterNode, Services, ClusterNode> changer;
+        private final BiFunction<InternalClusterNode, Services, InternalClusterNode> changer;
 
-        ClusterNodeChanger(BiFunction<ClusterNode, Services, ClusterNode> changer) {
+        ClusterNodeChanger(BiFunction<InternalClusterNode, Services, InternalClusterNode> changer) {
             this.changer = changer;
         }
     }
 
     @FunctionalInterface
     private interface AsyncSendAction {
-        CompletableFuture<?> send(MessagingService service, TestMessage message, ClusterNode recipient);
+        CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
     private enum SendByClusterNodeOperation {

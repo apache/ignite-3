@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
+import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -60,17 +62,8 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
-import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
-import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
-import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -91,11 +84,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -141,11 +134,8 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.TemporalNativeType;
-import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -153,9 +143,7 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -362,20 +350,6 @@ public class TestBuilders {
         ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
 
         /**
-         * Creates a new builder for defining and adding a zone to the cluster.
-         *
-         * @return An instance of the {@link ClusterZoneBuilder}, enabling the construction of a new zone.
-         */
-        ClusterZoneBuilder addZone();
-
-        /**
-         * Creates a table builder to add to the cluster.
-         *
-         * @return An instance of table builder.
-         */
-        ClusterTableBuilder addTable();
-
-        /**
          * Adds the given system view to the cluster.
          *
          * @param systemView System view.
@@ -479,49 +453,6 @@ public class TestBuilders {
     }
 
     /**
-     * A builder to create a test table as nested object of the cluster.
-     *
-     * @see TestCluster
-     */
-    public interface ClusterTableBuilder extends TableBuilderBase<ClusterTableBuilder>,
-            NestedBuilder<ClusterBuilder> {
-
-        /**
-         * Creates a sorted-index builder to add to the cluster.
-         *
-         * @return An instance of sorted-index builder.
-         */
-        ClusterSortedIndexBuilder addSortedIndex();
-
-        /**
-         * Creates a hash-index builder to add to the cluster.
-         *
-         * @return An instance of hash builder.
-         */
-        ClusterHashIndexBuilder addHashIndex();
-    }
-
-    /**
-     * A builder to create a test object, which represents sorted index, as nested object of the cluster.
-     *
-     * @see TestIndex
-     * @see TestCluster
-     */
-    public interface ClusterSortedIndexBuilder extends SortedIndexBuilderBase<ClusterSortedIndexBuilder>,
-            NestedBuilder<ClusterTableBuilder> {
-    }
-
-    /**
-     * A builder to create a test object, which represents hash index, as nested object of the cluster.
-     *
-     * @see TestIndex
-     * @see TestCluster
-     */
-    public interface ClusterHashIndexBuilder extends HashIndexBuilderBase<ClusterHashIndexBuilder>,
-            NestedBuilder<ClusterTableBuilder> {
-    }
-
-    /**
      * A builder to create an execution context.
      *
      * @see ExecutionContext
@@ -537,7 +468,7 @@ public class TestBuilders {
         ExecutionContextBuilder executor(QueryTaskExecutor executor);
 
         /** Sets the node this fragment will be executed on. */
-        ExecutionContextBuilder localNode(ClusterNode node);
+        ExecutionContextBuilder localNode(InternalClusterNode node);
 
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
@@ -561,9 +492,9 @@ public class TestBuilders {
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
-        private ClusterNode node = null;
+        private InternalClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        private ZoneId zoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+        private ZoneId zoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
         private Clock clock = Clock.systemUTC();
 
         /** {@inheritDoc} */
@@ -592,7 +523,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ExecutionContextBuilder localNode(ClusterNode node) {
+        public ExecutionContextBuilder localNode(InternalClusterNode node) {
             this.node = Objects.requireNonNull(node, "node");
 
             return this;
@@ -643,8 +574,6 @@ public class TestBuilders {
     }
 
     static class ClusterBuilderImpl implements ClusterBuilder {
-        private final List<ClusterZoneBuilder> zoneBuilders = new ArrayList<>();
-        private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
@@ -681,17 +610,6 @@ public class TestBuilders {
             this.killHandlers = handlers;
 
             return this;
-        }
-
-        @Override
-        public ClusterZoneBuilder addZone() {
-            return new ClusterZoneBuilderImpl(this);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder addTable() {
-            return new ClusterTableBuilderImpl(this);
         }
 
         @Override
@@ -744,9 +662,17 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT,
-                    new NoOpMetricManager(), schemaManager);
+            var prepareService = new PrepareServiceImpl(
+                    clusterName,
+                    0,
+                    CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null)),
+                    planningTimeout,
+                    PLANNING_THREAD_COUNT,
+                    PLAN_EXPIRATION_SECONDS,
+                    new NoOpMetricManager(),
+                    schemaManager
+            );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -868,57 +794,34 @@ public class TestBuilders {
                     stopClosure
             );
         }
+    }
 
-        private void initAction(CatalogManager catalogManager) {
-            List<CatalogCommand> initialZones = zoneBuilders.stream()
-                    .map(ClusterZoneBuilder::build)
-                    .collect(Collectors.toList());
+    private static void initAction(CatalogManager catalogManager) {
+        // Every time an index is created add `start building `and `make available` commands
+        // to make that index accessible to the SQL engine.
+        Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
+            CatalogIndexDescriptor index = params.indexDescriptor();
 
-            List<CatalogCommand> initialSchema = tableBuilders.stream()
-                    .flatMap(builder -> builder.build().stream())
-                    .collect(Collectors.toList());
+            if (index.status() == CatalogIndexStatus.AVAILABLE) {
+                return;
+            }
 
-            // Every time an index is created add `start building `and `make available` commands
-            // to make that index accessible to the SQL engine.
-            Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
-                CatalogIndexDescriptor index = params.indexDescriptor();
+            int indexId = index.id();
 
-                if (index.status() == CatalogIndexStatus.AVAILABLE) {
-                    return;
-                }
+            CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
+            CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
 
-                int indexId = index.id();
+            LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
+                    indexId, index.name(), index.status());
 
-                CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
-                CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
-
-                LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
-                        indexId, index.name(), index.status());
-
-                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand))
-                        .whenComplete((v, e) -> {
-                            if (e != null) {
-                                LOG.error("Catalog command execution error", e);
-                            }
-                        });
-            };
-            catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
-
-            // Init zones
-            await(catalogManager.execute(initialZones));
-
-            // Init schema.
-            await(catalogManager.execute(initialSchema));
-        }
-
-        /**
-         * Retrieves a list of {@link ClusterZoneBuilder} instances already defined for the test cluster.
-         *
-         * @return A list of {@link ClusterZoneBuilder} instances representing the predefined zones for the test cluster.
-         */
-        List<ClusterZoneBuilder> zoneBuilders() {
-            return zoneBuilders;
-        }
+            catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand))
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Catalog command execution error", e);
+                        }
+                    });
+        };
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
     }
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
@@ -1129,114 +1032,6 @@ public class TestBuilders {
         return ImmutableIntList.copyOf(list);
     }
 
-    private static class ClusterTableBuilderImpl implements ClusterTableBuilder {
-        private final List<AbstractClusterTableIndexBuilderImpl<?>> indexBuilders = new ArrayList<>();
-
-        private final List<ColumnParams> columns = new ArrayList<>();
-        private final List<String> keyColumns = new ArrayList<>();
-
-        private final ClusterBuilderImpl parent;
-
-        private final String schemaName = SqlCommon.DEFAULT_SCHEMA_NAME;
-
-        private String name;
-
-        private String zoneName;
-
-        private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
-            this.parent = parent;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder name(String name) {
-            this.name = name;
-
-            return this;
-        }
-
-        @Override
-        public ClusterTableBuilder zoneName(String zoneName) {
-            this.zoneName = zoneName;
-
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterSortedIndexBuilder addSortedIndex() {
-            return new ClusterSortedIndexBuilderImpl(this);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterHashIndexBuilder addHashIndex() {
-            return new ClusterHashIndexBuilderImpl(this);
-        }
-
-        @Override
-        public ClusterTableBuilder addColumn(String name, NativeType type, boolean nullable) {
-            columns.add(columnParams(name, type, nullable, null));
-
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder addColumn(String name, NativeType type) {
-            return addColumn(name, type, true);
-        }
-
-        @Override
-        public ClusterTableBuilder addColumn(String name, NativeType type, @Nullable Object defaultValue) {
-            columns.add(columnParams(name, type, true, defaultValue));
-
-            return this;
-        }
-
-        @Override
-        public ClusterTableBuilder addKeyColumn(String name, NativeType type) {
-            keyColumns.add(name);
-
-            return addColumn(name, type, false);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterBuilder end() {
-            parent.tableBuilders.add(this);
-
-            return parent;
-        }
-
-        private List<CatalogCommand> build() {
-            List<CatalogCommand> commands = new ArrayList<>(1 + indexBuilders.size());
-
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21715 Update after TestFramework provides API
-            //  to specify type of a primary key index.
-            // Use sorted index by default.
-            TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
-                    .columns(keyColumns)
-                    .build();
-
-            commands.add(
-                    CreateTableCommand.builder()
-                            .schemaName(schemaName)
-                            .tableName(name)
-                            .zone(zoneName)
-                            .columns(columns)
-                            .primaryKey(primaryKey)
-                            .build()
-            );
-
-            for (AbstractClusterTableIndexBuilderImpl<?> builder : indexBuilders) {
-                commands.add(builder.build(schemaName, name));
-            }
-
-            return commands;
-        }
-    }
-
     private static class SortedIndexBuilderImpl extends AbstractTableIndexBuilderImpl<SortedIndexBuilder>
             implements SortedIndexBuilder {
         private final TableBuilderImpl parent;
@@ -1334,79 +1129,6 @@ public class TestBuilders {
         }
     }
 
-    private static class ClusterSortedIndexBuilderImpl extends AbstractClusterTableIndexBuilderImpl<ClusterSortedIndexBuilder>
-            implements ClusterSortedIndexBuilder {
-        private final ClusterTableBuilderImpl parent;
-
-        ClusterSortedIndexBuilderImpl(ClusterTableBuilderImpl parent) {
-            this.parent = parent;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        ClusterSortedIndexBuilder self() {
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder end() {
-            parent.indexBuilders.add(this);
-
-            return parent;
-        }
-
-        @Override
-        CatalogCommand build(String schemaName, String tableName) {
-            assert collations.size() == columns.size();
-
-            List<CatalogColumnCollation> catalogCollations = collations.stream()
-                    .map(c -> CatalogColumnCollation.get(c.asc, c.nullsFirst))
-                    .collect(Collectors.toList());
-
-            return CreateSortedIndexCommand.builder()
-                    .schemaName(schemaName)
-                    .tableName(tableName)
-                    .indexName(name)
-                    .columns(columns)
-                    .collations(catalogCollations)
-                    .build();
-        }
-    }
-
-    private static class ClusterHashIndexBuilderImpl extends AbstractClusterTableIndexBuilderImpl<ClusterHashIndexBuilder>
-            implements ClusterHashIndexBuilder {
-        private final ClusterTableBuilderImpl parent;
-
-        ClusterHashIndexBuilderImpl(ClusterTableBuilderImpl parent) {
-            this.parent = parent;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        ClusterHashIndexBuilder self() {
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterTableBuilder end() {
-            parent.indexBuilders.add(this);
-
-            return parent;
-        }
-
-        @Override
-        CatalogCommand build(String schemaName, String tableName) {
-            return CreateHashIndexCommand.builder()
-                    .schemaName(schemaName)
-                    .tableName(tableName)
-                    .indexName(name)
-                    .columns(columns)
-                    .build();
-        }
-    }
-
     private abstract static class AbstractIndexBuilderImpl<ChildT> implements SortedIndexBuilderBase<ChildT>, HashIndexBuilderBase<ChildT> {
         String name;
         final List<String> columns = new ArrayList<>();
@@ -1448,17 +1170,12 @@ public class TestBuilders {
         abstract TestIndex build(TableDescriptor desc);
     }
 
-    private abstract static class AbstractClusterTableIndexBuilderImpl<ChildT> extends AbstractIndexBuilderImpl<ChildT> {
-        abstract CatalogCommand build(String schemaName, String tableName);
-    }
-
     /**
      * Base interface describing the complete set of table-related fields.
      *
      * <p>The sole purpose of this interface is to keep in sync both variants of table's builders.
      *
      * @param <ChildT> An actual type of builder that should be exposed to the user.
-     * @see ClusterTableBuilder
      * @see TableBuilder
      */
     private interface TableBuilderBase<ChildT> {
@@ -1487,8 +1204,6 @@ public class TestBuilders {
      * <p>The sole purpose of this interface is to keep in sync both variants of index's builders.
      *
      * @param <ChildT> An actual type of builder that should be exposed to the user.
-     * @see ClusterHashIndexBuilder
-     * @see ClusterSortedIndexBuilder
      * @see HashIndexBuilder
      * @see SortedIndexBuilder
      */
@@ -1616,52 +1331,6 @@ public class TestBuilders {
                 }
             };
         }
-    }
-
-    private static ColumnParams columnParams(String name, NativeType type, boolean nullable, @Nullable Object defaultValue) {
-        ColumnType typeSpec = type.spec();
-
-        Builder builder = ColumnParams.builder()
-                .name(name)
-                .type(typeSpec)
-                .nullable(nullable)
-                .defaultValue(DefaultValue.constant(defaultValue));
-
-        switch (typeSpec) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case FLOAT:
-            case DOUBLE:
-            case DATE:
-            case UUID:
-            case BOOLEAN:
-                break;
-            case DECIMAL:
-                assert type instanceof DecimalNativeType : type.getClass().getCanonicalName();
-
-                builder.precision(((DecimalNativeType) type).precision());
-                builder.scale(((DecimalNativeType) type).scale());
-                break;
-            case STRING:
-            case BYTE_ARRAY:
-                assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
-
-                builder.length(((VarlenNativeType) type).length());
-                break;
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                assert type instanceof TemporalNativeType : type.getClass().getCanonicalName();
-
-                builder.precision(((TemporalNativeType) type).precision());
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported native type: " + typeSpec);
-        }
-
-        return builder.build();
     }
 
     private static Object[] project(Object[] row, int @Nullable [] requiredColumns) {
@@ -1810,7 +1479,7 @@ public class TestBuilders {
                         .collect(Collectors.toList());
             }
 
-            return CompletableFuture.completedFuture(assignments);
+            return completedFuture(assignments);
         }
 
         @Override
@@ -1959,7 +1628,7 @@ public class TestBuilders {
 
         @Override
         public <RowT> CompletableFuture<Boolean> delete(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT key) {
-            return CompletableFuture.completedFuture(false);
+            return completedFuture(false);
         }
 
         @Override

@@ -100,7 +100,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final PlacementDriver placementDriver;
 
     /** Netty channel. */
-    private volatile Channel channel;
+    private volatile @Nullable Channel channel;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
@@ -181,9 +181,11 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (channel != null) {
+        Channel ch = channel;
+
+        if (ch != null) {
             try {
-                channel.close().await();
+                ch.close().await();
             } catch (InterruptedException e) {
                 return failedFuture(e);
             }
@@ -200,8 +202,10 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @return the local address of this module, or {@code null} if this module is not started.
      */
     @Nullable
-    public SocketAddress localAddress() {
-        return channel == null ? null : channel.localAddress();
+    SocketAddress localAddress() {
+        Channel ch = channel;
+
+        return ch == null ? null : ch.localAddress();
     }
 
     /**
@@ -354,10 +358,21 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            var delayMs = delay == null ? 0 : delay.apply(cnt.incrementAndGet());
+            var delayMs = delay == null
+                    ? 0
+                    : delay.apply(cnt.incrementAndGet());
 
             if (delayMs > 0) {
-                Thread.sleep(delayMs);
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException e) {
+                    if (msg instanceof ReferenceCounted) {
+                        ((ReferenceCounted) msg).release();
+                    }
+
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
             }
 
             super.channelRead(ctx, msg);

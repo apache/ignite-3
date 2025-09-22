@@ -62,6 +62,7 @@ import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -83,7 +84,7 @@ import org.jetbrains.annotations.TestOnly;
  * Embedded implementation of the Ignite SQL query facade.
  */
 @SuppressWarnings("rawtypes")
-public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
+public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
 
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
@@ -688,6 +689,15 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private static <T> T sync(CompletableFuture<T> future) {
         return IgniteUtils.getInterruptibly(future);
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        if (classToUnwrap.isAssignableFrom(QueryProcessor.class)) {
+            return classToUnwrap.cast(queryProcessor);
+        }
+
+        return classToUnwrap.cast(this);
     }
 
     private static class ScriptHandler {

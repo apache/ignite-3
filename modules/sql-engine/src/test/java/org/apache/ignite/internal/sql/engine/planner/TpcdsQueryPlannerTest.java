@@ -45,10 +45,8 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     private static final IntSet UNSUPPORTED_TESTS = IntSet.of(
             // TODO https://issues.apache.org/jira/browse/IGNITE-14642 Support STDDEV_SAMP function and unmute tests.
             17, 29, 35, 39,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25872 Support GROUPING function and unmute tests.
-            27, 36, 86,
             // TODO https://issues.apache.org/jira/browse/IGNITE-25873 Support aggregate window function RANK and unmute tests.
-            44, 47, 49, 57, 67, 70
+            44, 47, 49, 57, 67, 70, 36, 86
     );
 
     @ParameterizedTest

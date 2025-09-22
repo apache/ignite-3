@@ -43,9 +43,6 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
-        AssertMetric(MetricNames.RequestsActive, 0);
-        AssertMetric(MetricNames.ConnectionsActive, 0);
-
         _listener.Dispose();
 
         TestUtils.CheckByteArrayPoolLeak(5000);

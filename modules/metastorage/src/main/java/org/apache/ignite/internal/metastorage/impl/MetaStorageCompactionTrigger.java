@@ -51,10 +51,10 @@ import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -322,11 +322,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     }
 
     /** Invoked when a new leader is elected. */
-    private void onLeaderElected(ClusterNode newLeader) {
+    private void onLeaderElected(InternalClusterNode newLeader) {
         inBusyLockSafe(busyLock, () -> onLeaderElectedBusy(newLeader));
     }
 
-    private void onLeaderElectedBusy(ClusterNode newLeader) {
+    private void onLeaderElectedBusy(InternalClusterNode newLeader) {
         lock.lock();
 
         try {
