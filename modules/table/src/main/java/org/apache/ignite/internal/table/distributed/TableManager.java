@@ -2319,9 +2319,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
-
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
                     if (!busyLock.enterBusy()) {
@@ -2341,6 +2338,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
 
+                        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+
                         if (LOG.isInfoEnabled()) {
                             var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
@@ -2355,6 +2354,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     revision
                             );
                         }
+
+                        Assignments pendingAssignments =
+                                pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
                         return handleChangePendingAssignmentEvent(
                                 replicaGrpId,
@@ -2840,7 +2842,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
             AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
-            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
@@ -2855,6 +2856,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         revision
                 );
             }
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             return stopAndDestroyTablePartitionAndUpdateClients(
                     tablePartitionId,
