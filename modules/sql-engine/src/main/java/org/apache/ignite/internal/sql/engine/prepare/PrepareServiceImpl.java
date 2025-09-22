@@ -377,13 +377,13 @@ public class PrepareServiceImpl implements PrepareService {
     ) {
         switch (parsedResult.queryType()) {
             case QUERY:
-                return prepareQuery(parsedResult, planningContext, null).thenApply(f -> f.queryPlan);
+                return prepareQuery(parsedResult, planningContext).thenApply(f -> f.queryPlan);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
             case KILL:
                 return prepareKill(parsedResult);
             case DML:
-                return prepareDml(parsedResult, planningContext, null).thenApply(f -> f.queryPlan);
+                return prepareDml(parsedResult, planningContext).thenApply(f -> f.queryPlan);
             case EXPLAIN:
                 return prepareExplain(parsedResult, planningContext);
             default:
@@ -440,10 +440,10 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<PlanInfo> result;
         switch (queryType) {
             case QUERY:
-                result = prepareQuery(newParsedResult, ctx, null);
+                result = prepareQuery(newParsedResult, ctx);
                 break;
             case DML:
-                result = prepareDml(newParsedResult, ctx, null);
+                result = prepareDml(newParsedResult, ctx);
                 break;
             default:
                 throw new AssertionError("should not get here");
@@ -467,10 +467,43 @@ public class PrepareServiceImpl implements PrepareService {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<PlanInfo> prepareQuery(
+    private CompletableFuture<PlanInfo> prepareCachedQuery(
             ParsedResult parsedResult,
             PlanningContext ctx,
-            @Nullable CacheKey key
+            CacheKey key
+    ) {
+        CompletableFuture<PlanInfo> fut = prepareQueryCacheAware(parsedResult, ctx, false);
+
+        return fut.exceptionally(ex -> {
+            LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+
+            return null;
+        }).whenComplete((info, ex) -> {
+            if (ex == null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Query re-planned into: " + info.queryPlan);
+                }
+
+                key.invalidated();
+
+                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
+            } else {
+                LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
+            }
+        });
+    }
+
+    private CompletableFuture<PlanInfo> prepareQuery(
+            ParsedResult parsedResult,
+            PlanningContext ctx
+    ) {
+        return prepareQueryCacheAware(parsedResult, ctx, true);
+    }
+
+    private CompletableFuture<PlanInfo> prepareQueryCacheAware(
+            ParsedResult parsedResult,
+            PlanningContext ctx,
+            boolean prepareWithCache
     ) {
         // First validate statement
         CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
@@ -499,32 +532,14 @@ public class PrepareServiceImpl implements PrepareService {
                 }
             }
 
-            if (key != null) {
-                CompletableFuture<PlanInfo> fut = CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx, () -> {}), planningPool);
-
-                return fut.exceptionally(ex -> {
-                    LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
-
-                    return null;
-                }).whenComplete((info, ex) -> {
-                    if (ex == null) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Query re-planned into: " + info.queryPlan);
-                        }
-
-                        key.invalidated();
-
-                        cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
-                    } else {
-                        LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
-                    }
-                });
-            } else {
+            if (prepareWithCache) {
                 // Use parameter metadata to compute a cache key.
                 CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
                 return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
                         () -> cache.invalidate(cacheKey)), planningPool));
+            } else {
+                return CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx, () -> {}), planningPool);
             }
         });
     }
@@ -596,9 +611,9 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         if (queryType == SqlQueryType.QUERY) {
-            return prepareQuery(parsedRes, ctx, key);
+            return prepareCachedQuery(parsedRes, ctx, key);
         } else if (queryType == SqlQueryType.DML) {
-            return prepareDml(parsedRes, ctx, key);
+            return prepareCachedDml(parsedRes, ctx, key);
         } else {
             throw new AssertionError("should not get here");
         }
@@ -682,10 +697,43 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(new PlanInfo(plan));
     }
 
-    private CompletableFuture<PlanInfo> prepareDml(
+    private CompletableFuture<PlanInfo> prepareCachedDml(
             ParsedResult parsedResult,
             PlanningContext ctx,
-            @Nullable CacheKey key
+            CacheKey key
+    ) {
+        CompletableFuture<PlanInfo> fut = prepareDmlCacheAware(parsedResult, ctx, false);
+
+        return fut.exceptionally(ex -> {
+            LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
+
+            return null;
+        }).whenComplete((info, ex) -> {
+            if (ex == null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Query re-planned into: " + info.queryPlan);
+                }
+
+                key.invalidated();
+
+                cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
+            } else {
+                LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
+            }
+        });
+    }
+
+    private CompletableFuture<PlanInfo> prepareDml(
+            ParsedResult parsedResult,
+            PlanningContext ctx
+    ) {
+        return prepareDmlCacheAware(parsedResult, ctx, true);
+    }
+
+    private CompletableFuture<PlanInfo> prepareDmlCacheAware(
+            ParsedResult parsedResult,
+            PlanningContext ctx,
+            boolean prepareWithCache
     ) {
         SqlNode sqlNode = parsedResult.parsedTree();
 
@@ -713,32 +761,14 @@ public class PrepareServiceImpl implements PrepareService {
 
         // Optimize
         return validFut.thenCompose(stmt -> {
-            if (key != null) {
-                CompletableFuture<PlanInfo> fut = CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool);
-
-                return fut.exceptionally(ex -> {
-                    LOG.warn("Failed to re-planning query: " + parsedResult.originalQuery(), ex);
-
-                    return null;
-                }).whenComplete((info, ex) -> {
-                    if (ex == null) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Query re-planned into: " + info.queryPlan);
-                        }
-
-                        key.invalidated();
-
-                        cache.computeIfPresent(key, (k, v) -> CompletableFuture.completedFuture(info));
-                    } else {
-                        LOG.warn("Failed to re-planning query: " + info.statement.parsedResult().originalQuery(), ex);
-                    }
-                });
-            } else {
+            if (prepareWithCache) {
                 // Use parameter metadata to compute a cache key.
                 CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
                 return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
                         () -> cache.invalidate(cacheKey)), planningPool));
+            } else {
+                return CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx, () -> {}), planningPool);
             }
         });
     }
