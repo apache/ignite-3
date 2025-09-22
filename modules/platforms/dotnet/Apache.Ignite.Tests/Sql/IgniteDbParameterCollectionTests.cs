@@ -31,136 +31,147 @@ public class IgniteDbParameterCollectionTests
     [Test]
     public void TestAddAndRetrieve()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param = new IgniteDbParameter { ParameterName = "p1" };
 
-        collection.Add(param);
+        col.Add(param);
 
-        Assert.AreEqual(1, collection.Count);
-        Assert.AreSame(param, collection[0]);
-        Assert.AreSame(param, collection["p1"]);
+        Assert.AreEqual(1, col.Count);
+        Assert.AreSame(param, col[0]);
+        Assert.AreSame(param, col["p1"]);
     }
 
     [Test]
     public void TestRemove()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param = new IgniteDbParameter();
 
-        collection.Add((object)param);
-        collection.Remove((object)param);
+        col.Add((object)param);
+        col.Remove((object)param);
 
-        Assert.AreEqual(0, collection.Count);
+        Assert.AreEqual(0, col.Count);
     }
 
     [Test]
     public void TestContains()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param = new IgniteDbParameter { ParameterName = "p1" };
 
-        collection.Add(param);
+        col.Add(param);
 
-        Assert.IsTrue(collection.Contains(param));
-        Assert.IsTrue(collection.Contains((object)param));
-        Assert.IsTrue(collection.Contains("p1"));
+        Assert.IsTrue(col.Contains(param));
+        Assert.IsTrue(col.Contains((object)param));
+        Assert.IsTrue(col.Contains("p1"));
     }
 
     [Test]
     public void TestClear()
     {
-        var collection = new IgniteDbParameterCollection
+        var col = new IgniteDbParameterCollection
         {
             new IgniteDbParameter(),
             new IgniteDbParameter()
         };
 
-        collection.Clear();
+        col.Clear();
 
-        Assert.AreEqual(0, collection.Count);
+        Assert.AreEqual(0, col.Count);
     }
 
     [Test]
     public void TestIndexOf()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param1 = new IgniteDbParameter { ParameterName = "p1" };
         var param2 = new IgniteDbParameter { ParameterName = "p2" };
 
-        collection.Add(param1);
-        collection.Add(param2);
+        col.Add(param1);
+        col.Add(param2);
 
-        Assert.AreEqual(0, collection.IndexOf(param1));
-        Assert.AreEqual(0, collection.IndexOf((object)param1));
-        Assert.AreEqual(1, collection.IndexOf("p2"));
+        Assert.AreEqual(0, col.IndexOf(param1));
+        Assert.AreEqual(0, col.IndexOf((object)param1));
+        Assert.AreEqual(1, col.IndexOf("p2"));
     }
 
     [Test]
     public void TestAddRange()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param1 = new IgniteDbParameter { ParameterName = "p1" };
         var param2 = new IgniteDbParameter { ParameterName = "p2" };
-        collection.AddRange(new[] { param1, param2 });
-        Assert.AreEqual(2, collection.Count);
-        Assert.AreSame(param1, collection[0]);
-        Assert.AreSame(param2, collection[1]);
+
+        col.AddRange(new[] { param1, param2 });
+
+        Assert.AreEqual(2, col.Count);
+        Assert.AreSame(param1, col[0]);
+        Assert.AreSame(param2, col[1]);
     }
 
     [Test]
     public void TestInsertAndRemoveAt()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param1 = new IgniteDbParameter { ParameterName = "p1" };
         var param2 = new IgniteDbParameter { ParameterName = "p2" };
-        collection.Add(param1);
-        collection.Insert(0, param2);
-        Assert.AreSame(param2, collection[0]);
-        Assert.AreSame(param1, collection[1]);
-        collection.RemoveAt(0);
-        Assert.AreSame(param1, collection[0]);
-        collection.RemoveAt("p1");
-        Assert.AreEqual(0, collection.Count);
+
+        col.Add(param1);
+        col.Insert(0, param2);
+
+        Assert.AreSame(param2, col[0]);
+        Assert.AreSame(param1, col[1]);
+
+        col.RemoveAt(0);
+        Assert.AreSame(param1, col[0]);
+
+        col.RemoveAt("p1");
+        Assert.AreEqual(0, col.Count);
     }
 
     [Test]
     public void TestSetAndGetParameter()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param1 = new IgniteDbParameter { ParameterName = "p1" };
         var param2 = new IgniteDbParameter { ParameterName = "p2" };
-        collection.Add(param1);
+        col.Add(param1);
 
         // Set by index
-        collection[0] = param2;
-        Assert.AreSame(param2, collection[0]);
+        col[0] = param2;
+        Assert.AreSame(param2, col[0]);
 
-        // Set by name (simulate by finding index and setting)
-        collection.Add(param1);
+        // Set by name
+        col.Add(param1);
         var dbParam = new IgniteDbParameter { ParameterName = "p3" };
-        int idx = collection.IndexOf("p2");
-        collection[idx] = dbParam;
-        Assert.AreSame(dbParam, collection[0]);
+        int idx = col.IndexOf("p2");
+        col[idx] = dbParam;
+        Assert.AreSame(dbParam, col[0]);
 
         // Get by index and name
-        Assert.AreSame(dbParam, collection[0]);
-        Assert.AreSame(dbParam, collection[collection.IndexOf("p3")]);
+        Assert.AreSame(dbParam, col[0]);
+        Assert.AreSame(dbParam, col[col.IndexOf("p3")]);
     }
 
     [Test]
     public void TestCopyTo()
     {
-        var collection = new IgniteDbParameterCollection();
+        var col = new IgniteDbParameterCollection();
         var param1 = new IgniteDbParameter { ParameterName = "p1" };
         var param2 = new IgniteDbParameter { ParameterName = "p2" };
-        collection.Add(param1);
-        collection.Add(param2);
+
+        col.Add(param1);
+        col.Add(param2);
+
         var arr = new IgniteDbParameter[2];
-        collection.CopyTo(arr, 0);
+        col.CopyTo(arr, 0);
+
         Assert.AreSame(param1, arr[0]);
         Assert.AreSame(param2, arr[1]);
+
         var arr2 = new IgniteDbParameter[2];
-        ((ICollection)collection).CopyTo(arr2, 0);
+        ((ICollection)col).CopyTo(arr2, 0);
+
         Assert.AreSame(param1, arr2[0]);
         Assert.AreSame(param2, arr2[1]);
     }
