@@ -73,7 +73,7 @@ public sealed class IgniteDbConnection : DbConnection
     public override string DataSource => string.Empty;
 
     /// <inheritdoc />
-    public override string ServerVersion => "3.0.0"; // TODO IGNITE-25936
+    public override string ServerVersion => "3.x"; // TODO IGNITE-25936
 
     /// <summary>
     /// Gets the underlying Ignite client instance, or null if the connection is not open.

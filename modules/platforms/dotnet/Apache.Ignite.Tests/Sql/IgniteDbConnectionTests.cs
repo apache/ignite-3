@@ -28,11 +28,17 @@ public class IgniteDbConnectionTests : IgniteTestsBase
     [Test]
     public async Task TestOpenClose()
     {
-        await using var conn = new IgniteDbConnection($"Endpoints={GetConfig().Endpoints.First()}");
+        var connectionString = $"Endpoints={GetConfig().Endpoints.First()}";
+        await using var conn = new IgniteDbConnection(connectionString);
         Assert.AreEqual(ConnectionState.Closed, conn.State);
 
         await conn.OpenAsync();
         Assert.AreEqual(ConnectionState.Open, conn.State);
+        Assert.AreEqual("3.x", conn.ServerVersion);
+        Assert.AreEqual(string.Empty, conn.DataSource);
+        Assert.AreEqual(string.Empty, conn.Database);
+        Assert.AreEqual(connectionString, conn.ConnectionString);
+        Assert.IsNotNull(conn.Client);
 
         await conn.CloseAsync();
         Assert.AreEqual(ConnectionState.Closed, conn.State);
