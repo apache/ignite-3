@@ -223,4 +223,23 @@ public class IgniteDbCommandTests : IgniteTestsBase
         cmd.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () => await cmd.ExecuteReaderAsync());
     }
+
+    [Test]
+    public async Task TestToString()
+    {
+        await using var conn = new IgniteDbConnection(null);
+        conn.Open(Client);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+        cmd.CommandTimeout = 123;
+        cmd.Transaction = await conn.BeginTransactionAsync();
+        ((IgniteDbCommand)cmd).PageSize = 321;
+
+        var str = cmd.ToString();
+        StringAssert.StartsWith(
+            "IgniteDbCommand { CommandText = SELECT 1, CommandTimeout = 123, PageSize = 321, " +
+            "Transaction = IgniteDbTransaction { IgniteTransaction = Transaction { Id =",
+            str);
+    }
 }
