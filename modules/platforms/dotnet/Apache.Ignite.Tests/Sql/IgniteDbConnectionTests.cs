@@ -67,4 +67,27 @@ public class IgniteDbConnectionTests : IgniteTestsBase
             Assert.That(client.GetConnections(), Is.Not.Empty, "Client should be open after connection is closed with ownsClient: false");
         }
     }
+
+    [Test]
+    public async Task TestConnectionStringProperty()
+    {
+        var connectionString = $"Endpoints={GetConfig().Endpoints.First()}";
+        await using var conn = new IgniteDbConnection(null);
+        Assert.AreEqual(string.Empty, conn.ConnectionString);
+        conn.ConnectionString = connectionString;
+        Assert.AreEqual(ConnectionState.Closed, conn.State);
+
+        await conn.OpenAsync();
+        Assert.AreEqual(connectionString, conn.ConnectionString);
+        Assert.IsNotNull(conn.Client);
+
+        await conn.CloseAsync();
+        Assert.AreEqual(ConnectionState.Closed, conn.State);
+    }
+
+    [Test]
+    public async Task TestCommand()
+    {
+
+    }
 }
