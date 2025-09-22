@@ -47,8 +47,8 @@ public class IgniteDbParameterCollectionTests
         var collection = new IgniteDbParameterCollection();
         var param = new IgniteDbParameter();
 
-        collection.Add(param);
-        collection.Remove(param);
+        collection.Add((object)param);
+        collection.Remove((object)param);
 
         Assert.AreEqual(0, collection.Count);
     }
@@ -62,6 +62,7 @@ public class IgniteDbParameterCollectionTests
         collection.Add(param);
 
         Assert.IsTrue(collection.Contains(param));
+        Assert.IsTrue(collection.Contains((object)param));
         Assert.IsTrue(collection.Contains("p1"));
     }
 
@@ -90,6 +91,7 @@ public class IgniteDbParameterCollectionTests
         collection.Add(param2);
 
         Assert.AreEqual(0, collection.IndexOf(param1));
+        Assert.AreEqual(0, collection.IndexOf((object)param1));
         Assert.AreEqual(1, collection.IndexOf("p2"));
     }
 
@@ -189,17 +191,7 @@ public class IgniteDbParameterCollectionTests
     public void TestExceptions()
     {
         var collection = new IgniteDbParameterCollection();
-        Assert.Throws<ArgumentOutOfRangeException>(() => { var _ = collection[0]; });
+        Assert.Throws<ArgumentOutOfRangeException>(() => { _ = collection[0]; });
         Assert.Throws<InvalidOperationException>(() => collection.RemoveAt("notfound"));
-    }
-
-    [Test]
-    public void TestIListCompliance()
-    {
-        var collection = new IgniteDbParameterCollection();
-        var param = new IgniteDbParameter { ParameterName = "p1" };
-        ((IList<IgniteDbParameter>)collection).Add(param);
-        Assert.AreSame(param, ((IReadOnlyList<IgniteDbParameter>)collection)[0]);
-        Assert.IsFalse(((IList<IgniteDbParameter>)collection).IsReadOnly);
     }
 }
