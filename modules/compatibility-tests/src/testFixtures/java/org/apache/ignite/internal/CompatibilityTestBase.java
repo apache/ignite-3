@@ -20,18 +20,27 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.IgniteVersions.Version;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -66,7 +75,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "  failureHandler.dumpThreadsOnFailure: false,\n"
+            + "  nodeAttributes: {\n"
+            + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"
+            + "  }\n"
             + "}";
 
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
@@ -77,7 +89,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     // Force per class template work directory so that non-static field doesn't get overwritten by the BeforeEach callback.
     @WorkDirectory(forcePerClassTemplate = true)
-    private Path workDir;
+    protected Path workDir;
 
     protected IgniteCluster cluster;
 
@@ -105,6 +117,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             cluster.stop();
 
             cluster.startEmbedded(nodesCount, false);
+            await().until(this::noActiveRebalance, willBe(true));
         }
     }
 
@@ -218,5 +231,26 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             return value.isEmpty() || "true".equals(value);
         }
         return false;
+    }
+
+    /**
+     * Checks if there is an active rebalance happening. Does this by checking for pending assignments.
+     *
+     * @return {@code true} if there are no pending assignments in the metastorage.
+     */
+    private CompletableFuture<Boolean> noActiveRebalance() {
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+
+        ByteArray prefix = pendingAssignmentsQueuePrefix(node.nodeProperties().colocationEnabled());
+
+        return subscribeToList(node.metaStorageManager().prefix(prefix))
+                .thenApply(List::isEmpty);
+    }
+
+    private static ByteArray pendingAssignmentsQueuePrefix(boolean colocationEnabled) {
+        byte[] prefix = colocationEnabled
+                ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
+                : RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+        return new ByteArray(prefix);
     }
 }
