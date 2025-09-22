@@ -50,6 +50,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -121,6 +122,13 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 }
             }
         }
+
+        await().timeout(10, SECONDS).untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            Collection<UnitStatus> statuses = client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
+
+            assertThat(statuses, is(empty()));
+        });
 
     }
 
@@ -237,7 +245,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         });
 
         Path workDir0 = CLUSTER.nodeWorkDir(0);
-        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version);
+        Path nodeUnitDirectory = workDir0.resolve("deployment").resolve(id).resolve(version).resolve(zipFile.getFileName());
 
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry ze;
@@ -295,7 +303,10 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry ze;
             while ((ze = zis.getNextEntry()) != null) {
-                assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())), "File " + ze.getName() + " does not exist");
+                assertTrue(
+                        Files.exists(nodeUnitDirectory.resolve(zipFile.getFileName()).resolve(ze.getName())),
+                        "File " + ze.getName() + " does not exist"
+                );
             }
         } catch (IOException e) {
             fail(e);

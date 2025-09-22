@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -183,7 +182,7 @@ class DeployFiles {
                 try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file.file()))) {
                     ZipEntry ze;
                     while ((ze = zis.getNextEntry()) != null) {
-                        assertTrue(Files.exists(nodeUnitDirectory.resolve(ze.getName())));
+                        assertTrue(Files.exists(nodeUnitDirectory.resolve(file.file().getFileName()).resolve(ze.getName())));
                     }
                 } catch (IOException e) {
                     fail(e);
@@ -235,11 +234,11 @@ class DeployFiles {
 
     private static DeploymentUnit fromFiles(List<DeployFile> files) {
         Map<String, InputStream> map = new HashMap<>();
-        List<ZipInputStream> zips = new ArrayList<>();
+        Map<String, ZipInputStream> zips = new HashMap<>();
         try {
             for (DeployFile file : files) {
                 if (file.zip()) {
-                    zips.add(new ZipInputStream(Files.newInputStream(file.file())));
+                    zips.put(file.file().getFileName().toString(), new ZipInputStream(Files.newInputStream(file.file())));
                 } else {
                     map.put(file.file().getFileName().toString(), Files.newInputStream(file.file()));
                 }

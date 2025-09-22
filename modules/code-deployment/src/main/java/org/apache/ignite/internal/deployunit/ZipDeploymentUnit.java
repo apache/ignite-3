@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -38,12 +38,12 @@ public class ZipDeploymentUnit implements DeploymentUnit {
     private final DeploymentUnit notZippedContent;
 
     /** Collection of ZIP input streams that require extraction during processing. */
-    private final Collection<ZipInputStream> zipContent;
+    private final Map<String, ZipInputStream> zipContent;
 
     /**
      * Constructor.
      */
-    public ZipDeploymentUnit(DeploymentUnit notZippedContent, Collection<ZipInputStream> zipContent) {
+    public ZipDeploymentUnit(DeploymentUnit notZippedContent, Map<String, ZipInputStream> zipContent) {
         this.notZippedContent = notZippedContent;
         this.zipContent = zipContent;
     }
@@ -69,7 +69,7 @@ public class ZipDeploymentUnit implements DeploymentUnit {
     /**
      * Returns the collection of ZIP input streams that require extraction during processing.
      */
-    public Collection<ZipInputStream> zipContent() {
+    public Map<String, ZipInputStream> zipContent() {
         return zipContent;
     }
 
@@ -80,7 +80,7 @@ public class ZipDeploymentUnit implements DeploymentUnit {
     public void close() throws Exception {
         List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
         toClose.add(notZippedContent);
-        toClose.addAll(zipContent);
+        toClose.addAll(zipContent.values());
         closeAll(toClose);
     }
 }

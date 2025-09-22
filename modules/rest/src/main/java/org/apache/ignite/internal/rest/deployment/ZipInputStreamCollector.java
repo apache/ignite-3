@@ -23,7 +23,9 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.zip.ZipInputStream;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
@@ -50,7 +52,7 @@ public class ZipInputStreamCollector implements InputStreamCollector {
      * Collection of detected ZIP input streams that require special processing.
      * These streams will be handled by the ZipDeploymentUnit for automatic extraction.
      */
-    private final List<ZipInputStream> zipContent = new ArrayList<>();
+    private final Map<String, ZipInputStream> zipContent = new HashMap<>();
 
     /**
      * Constructor.
@@ -64,7 +66,7 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         InputStream result = is.markSupported() ? is : new BufferedInputStream(is);
 
         if (isZip(result)) {
-            zipContent.add(new ZipInputStream(result));
+            zipContent.put(filename, new ZipInputStream(result));
         } else {
             delegate.addInputStream(filename, result);
         }
@@ -84,7 +86,7 @@ public class ZipInputStreamCollector implements InputStreamCollector {
     public void close() throws Exception {
         List<AutoCloseable> toClose = new ArrayList<>(zipContent.size() + 1);
         toClose.add(delegate);
-        toClose.addAll(zipContent);
+        toClose.addAll(zipContent.values());
         closeAll(toClose);
     }
 
