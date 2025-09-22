@@ -180,15 +180,18 @@ public sealed class IgniteDbCommand : DbCommand
         var args = GetArgs();
         var statement = GetStatement();
 
-        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken, _cancellationTokenSource.Token);
+        // Can't create linked CTS here because the returned reader outlasts this method.
+        if (cancellationToken == CancellationToken.None)
+        {
+            cancellationToken = _cancellationTokenSource.Token;
+        }
 
         try
         {
             return await GetSql().ExecuteReaderAsync(
                 transaction: GetIgniteTx(),
                 statement,
-                linkedCts.Token,
+                cancellationToken,
                 args).ConfigureAwait(false);
         }
         catch (SqlException sqlEx)
