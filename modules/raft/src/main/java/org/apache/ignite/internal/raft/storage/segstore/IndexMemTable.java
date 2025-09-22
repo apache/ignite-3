@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -64,9 +67,65 @@ class IndexMemTable {
         return segmentInfo == null ? 0 : segmentInfo.getOffset(logIndex);
     }
 
+    /**
+     * Returns the number of Raft Group IDs stored in this memtable.
+     */
+    int numGroups() {
+        int result = 0;
+
+        for (Stripe stripe : stripes) {
+            result += stripe.memTable.size();
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns an iterator over all {@code Group ID -> SegmentInfo} entries in this memtable.
+     */
+    Iterator<Entry<Long, SegmentInfo>> iterator() {
+        return new SegmentInfoIterator();
+    }
+
     private Stripe stripe(long groupId) {
         int stripeIndex = Long.hashCode(groupId) % stripes.length;
 
         return stripes[stripeIndex];
+    }
+
+    private class SegmentInfoIterator implements Iterator<Entry<Long, SegmentInfo>> {
+        private int stripeIndex = 0;
+
+        private Iterator<Entry<Long, SegmentInfo>> mapIterator = refreshIterator();
+
+        @Override
+        public boolean hasNext() {
+            if (mapIterator.hasNext()) {
+                return true;
+            }
+
+            if (stripeIndex < stripes.length) {
+                mapIterator = refreshIterator();
+
+                return hasNext();
+            }
+
+            return false;
+        }
+
+        @Override
+        public Entry<Long, SegmentInfo> next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            return mapIterator.next();
+        }
+
+        private Iterator<Entry<Long, SegmentInfo>> refreshIterator() {
+            Stripe nextStripe = stripes[stripeIndex++];
+
+            return nextStripe.memTable.entrySet().iterator();
+        }
     }
 }
