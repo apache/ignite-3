@@ -69,19 +69,19 @@ public class IgniteDbConnectionTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestConnectionStringProperty()
+    public void TestConnectionStringProperty()
     {
         var connectionString = $"Endpoints={GetConfig().Endpoints.First()}";
-        await using var conn = new IgniteDbConnection(null);
+        using var conn = new IgniteDbConnection(null);
         Assert.AreEqual(string.Empty, conn.ConnectionString);
         conn.ConnectionString = connectionString;
         Assert.AreEqual(ConnectionState.Closed, conn.State);
 
-        await conn.OpenAsync();
+        conn.Open();
         Assert.AreEqual(connectionString, conn.ConnectionString);
         Assert.IsNotNull(conn.Client);
 
-        await conn.CloseAsync();
+        conn.Close();
         Assert.AreEqual(ConnectionState.Closed, conn.State);
     }
 

@@ -56,7 +56,7 @@ public sealed class IgniteDbCommand : DbCommand
     public int PageSize { get; set; } = SqlStatement.DefaultPageSize;
 
     /// <inheritdoc />
-    public override CommandType CommandType { get; set; }
+    public override CommandType CommandType { get; set; } = CommandType.Text;
 
     /// <inheritdoc />
     public override UpdateRowSource UpdatedRowSource { get; set; }
