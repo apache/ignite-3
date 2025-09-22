@@ -267,19 +267,22 @@ namespace Apache.Ignite.Internal.Table
 
         private Task<Schema> GetCachedSchemaAsync(int version)
         {
-            var task = GetOrAdd();
-
-            if (!task.IsFaulted)
+            if (_schemas.TryGetValue(version, out var task))
             {
-                return task;
-            }
+                if (!task.IsFaulted)
+                {
+                    return task;
+                }
 
-            // Do not return failed task. Remove it from the cache and try again.
-            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+                // Do not return old failed task. Remove it from the cache and try again.
+                _schemas.TryRemove(KeyValuePair.Create(version, task));
+            }
 
             return GetOrAdd();
 
-            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            // Note: GetOrAdd does not guarantee that the factory is called only once.
+            Task<Schema> GetOrAdd() =>
+                _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>

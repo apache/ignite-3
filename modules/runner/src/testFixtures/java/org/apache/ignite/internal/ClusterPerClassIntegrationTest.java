@@ -192,8 +192,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     void stopCluster() {
         CLUSTER.shutdown();
 
-        MicronautCleanup.removeShutdownHooks();
-
         TestMvTableStorage.resetPartitionStorageFactory();
     }
 
