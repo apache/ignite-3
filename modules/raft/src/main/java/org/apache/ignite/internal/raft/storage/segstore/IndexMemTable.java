@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
-import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -36,84 +33,6 @@ class IndexMemTable {
     private static class Stripe {
         /** Map from group ID to SegmentInfo. */
         private final ConcurrentMap<Long, SegmentInfo> memTable = new ConcurrentHashMap<>();
-    }
-
-    private static class SegmentInfo {
-        private static final VarHandle SEGMENT_FILE_OFFSETS_VH;
-
-        private static final int INITIAL_SEGMENT_FILE_OFFSETS_CAPACITY = 10;
-
-        static {
-            try {
-                SEGMENT_FILE_OFFSETS_VH = MethodHandles.lookup()
-                        .findVarHandle(SegmentInfo.class, "segmentFileOffsets", int[].class);
-            } catch (ReflectiveOperationException e) {
-                throw new ExceptionInInitializerError(e);
-            }
-        }
-
-        /**
-         * Base log index. All log indexes in this memtable lie in the
-         * {@code [logIndexBase, logIndexBase + segmentFileOffsets.length]} range.
-         */
-        private final long logIndexBase;
-
-        /**
-         * Offsets in a segment file.
-         */
-        @SuppressWarnings("FieldMayBeFinal") // Updated through a VarHandle.
-        private volatile int[] segmentFileOffsets = new int[INITIAL_SEGMENT_FILE_OFFSETS_CAPACITY];
-
-        /**
-         * Number of entries in the {@link #segmentFileOffsets} array.
-         *
-         * <p>Multi-threaded visibility is guaranteed by volatile reads or writes to the {@link #segmentFileOffsets} field.
-         */
-        private int segmentFileOffsetSize = 0;
-
-        SegmentInfo(long logIndexBase) {
-            this.logIndexBase = logIndexBase;
-        }
-
-        void addOffset(long logIndex, int segmentFileOffset) {
-            int[] originalSegmentFileOffsets = this.segmentFileOffsets;
-
-            int[] segmentFileOffsets = originalSegmentFileOffsets;
-
-            // Check that log indexes are monotonically increasing.
-            assert segmentFileOffsetSize == logIndex - logIndexBase :
-                    String.format("Log indexes are not monotonically increasing [logIndex=%d, expectedLogIndex=%d].",
-                            logIndex, logIndexBase + segmentFileOffsetSize);
-
-            if (segmentFileOffsets.length == segmentFileOffsetSize) {
-                segmentFileOffsets = Arrays.copyOf(segmentFileOffsets, segmentFileOffsets.length * 2);
-            }
-
-            segmentFileOffsets[segmentFileOffsetSize++] = segmentFileOffset;
-
-            // Simple assignment would suffice, since we only have one thread writing to this field, but we use compareAndSet to verify
-            // this invariant, just in case.
-            boolean updated = SEGMENT_FILE_OFFSETS_VH.compareAndSet(this, originalSegmentFileOffsets, segmentFileOffsets);
-
-            assert updated : "Concurrent writes detected";
-        }
-
-        int getOffset(long logIndex) {
-            long offsetIndex = logIndex - logIndexBase;
-
-            if (offsetIndex < 0) {
-                return 0;
-            }
-
-            // Read segmentFileOffsets first to acquire segmentFileOffsetSize.
-            int[] segmentFileOffsets = this.segmentFileOffsets;
-
-            if (offsetIndex >= segmentFileOffsetSize) {
-                return 0;
-            }
-
-            return segmentFileOffsets[(int) offsetIndex];
-        }
     }
 
     private final Stripe[] stripes;

@@ -266,11 +266,6 @@
     <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
     <Class name="org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff"/>
   </Match>
-  <Match>
-    <!-- This is written as intended. -->
-    <Bug pattern="VO_VOLATILE_REFERENCE_TO_ARRAY"/>
-    <Class name="org.apache.ignite.internal.raft.storage.segstore.IndexMemTable$SegmentInfo"/>
-  </Match>
   <!-- end of false-positive exclusions -->
 
 

@@ -1275,5 +1275,14 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .returns(3, 3)
                 .returns(17, 3)
                 .check();
+
+        // Ensure that attempting to use range multi-bounds on a hash index doesn't produce errors.
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TT_{}_PK) */ id, val1 "
+                + " FROM tt_{} WHERE id < 2 OR id = 3", id, id))
+                .matches(containsTableScan("PUBLIC", "T"))
+                .returns(-38, 7)
+                .returns(1, 1)
+                .returns(3, 3)
+                .check();
     }
 }
