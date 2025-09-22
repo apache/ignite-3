@@ -144,7 +144,12 @@ public class IgniteDbCommandTests : IgniteTestsBase
         var result = cmd.ExecuteNonQuery();
         Assert.AreEqual(1, result); // One row inserted
 
-        transaction?.Commit();
+        if (tx)
+        {
+            // Not visible outside the transaction.
+            Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(1)));
+            transaction?.Commit();
+        }
 
         Assert.AreEqual("dml1", (await TupleView.GetAsync(null, GetTuple(1))).Value["val"]);
     }
