@@ -53,4 +53,12 @@ public class IgniteDbParameterTests
         param.ResetDbType();
         Assert.AreEqual(DbType.String, param.DbType);
     }
+
+    [Test]
+    public void TestToString()
+    {
+        var param = new IgniteDbParameter { Value = 12.3 };
+
+        Assert.AreEqual("IgniteDbParameter { Value = 12.3 }", param.ToString());
+    }
 }
