@@ -25,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A blocking queue implementation tailored to be used by the {@link Checkpointer}.
+ * A blocking queue implementation tailored to be used by the {@link RaftLogCheckpointer}.
  *
  * <p>This queue only supports the following access scenario:
  *

@@ -109,7 +109,7 @@ class SegmentFileManager implements ManuallyCloseable {
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     private IndexMemTable memTable;
 
-    private final Checkpointer checkpointer;
+    private final RaftLogCheckpointer checkpointer;
 
     /** Lock used to block threads while a rollover is in progress. */
     private final Object rolloverLock = new Object();
@@ -138,7 +138,7 @@ class SegmentFileManager implements ManuallyCloseable {
         this.stripes = stripes;
 
         memTable = new IndexMemTable(stripes);
-        checkpointer = new Checkpointer(nodeName);
+        checkpointer = new RaftLogCheckpointer(nodeName);
     }
 
     void start() throws IOException {

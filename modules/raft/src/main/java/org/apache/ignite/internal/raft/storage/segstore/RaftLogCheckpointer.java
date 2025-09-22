@@ -42,7 +42,7 @@ import org.apache.ignite.internal.thread.IgniteThread;
  *     </li>
  * </ol>
  */
-class Checkpointer {
+class RaftLogCheckpointer {
     // TODO: Move to configuration, see https://issues.apache.org/jira/browse/IGNITE-26476.
     static final int MEM_TABLE_QUEUE_SIZE = 10;
 
@@ -50,7 +50,7 @@ class Checkpointer {
 
     private final Thread checkpointThread;
 
-    Checkpointer(String nodeName) {
+    RaftLogCheckpointer(String nodeName) {
         checkpointThread = new IgniteThread(nodeName, "segstore-checkpoint", new CheckpointTask(queue));
     }
 
