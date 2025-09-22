@@ -109,4 +109,15 @@ public class IgniteDbConnectionTests : IgniteTestsBase
         var scalar = await cmd.ExecuteScalarAsync();
         Assert.AreEqual(1, scalar);
     }
+
+    [Test]
+    public void TestToString()
+    {
+        using var conn = new IgniteDbConnection(null);
+        conn.ConnectionString = "foo_bar";
+
+        Assert.AreEqual(
+            "IgniteDbConnection { ConnectionString = foo_bar, State = Closed, ServerVersion = 3.x, Client = }",
+            conn.ToString());
+    }
 }
