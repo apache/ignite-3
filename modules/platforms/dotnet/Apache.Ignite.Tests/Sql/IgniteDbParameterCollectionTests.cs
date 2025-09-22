@@ -205,4 +205,16 @@ public class IgniteDbParameterCollectionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => { _ = collection[0]; });
         Assert.Throws<InvalidOperationException>(() => collection.RemoveAt("notfound"));
     }
+
+    [Test]
+    public void TestToString()
+    {
+        var col = new IgniteDbParameterCollection
+        {
+            new IgniteDbParameter { Value = 1 },
+            new IgniteDbParameter { Value = "x" }
+        };
+
+        Assert.AreEqual("IgniteDbParameterCollection { Count = 2 }", col.ToString());
+    }
 }

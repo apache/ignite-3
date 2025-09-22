@@ -160,7 +160,6 @@ public sealed class IgniteDbParameterCollection : DbParameterCollection, IReadOn
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(Count)
-            .Append(_parameters.StringJoin(), "Parameters")
             .Build();
 
     /// <inheritdoc/>
