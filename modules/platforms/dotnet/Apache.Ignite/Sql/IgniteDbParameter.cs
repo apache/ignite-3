@@ -21,6 +21,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Internal.Common;
 
 /// <summary>
 /// Ignite database parameter.
@@ -76,4 +77,10 @@ public sealed class IgniteDbParameter : DbParameter
 
     /// <inheritdoc />
     public override void ResetDbType() => DbType = DbType.String;
+
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(Value) // Only value is important for an Ignite parameter.
+            .Build();
 }

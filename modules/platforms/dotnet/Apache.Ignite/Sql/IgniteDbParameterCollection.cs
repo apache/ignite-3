@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Internal.Common;
 
 /// <summary>
 /// Ignite database parameter collection.
@@ -154,6 +155,13 @@ public sealed class IgniteDbParameterCollection : DbParameterCollection, IReadOn
     /// <inheritdoc/>
     public override void RemoveAt(string parameterName)
         => RemoveAt(IndexOfChecked(parameterName));
+
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(Count)
+            .Append(_parameters.StringJoin(), "Parameters")
+            .Build();
 
     /// <inheritdoc/>
     protected override void SetParameter(int index, DbParameter value)
