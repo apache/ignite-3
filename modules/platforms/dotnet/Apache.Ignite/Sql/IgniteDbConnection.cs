@@ -130,6 +130,15 @@ public sealed class IgniteDbConnection : DbConnection
         _ownsClient = ownsClient;
     }
 
+    /// <inheritdoc/>
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(ConnectionString)
+            .Append(State)
+            .Append(ServerVersion)
+            .Append(Client)
+            .Build();
+
     /// <inheritdoc />
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
         BeginDbTransactionAsync(isolationLevel, CancellationToken.None).AsTask().GetAwaiter().GetResult();
