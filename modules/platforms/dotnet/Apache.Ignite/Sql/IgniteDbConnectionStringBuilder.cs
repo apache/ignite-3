@@ -140,7 +140,7 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     /// <summary>
-    /// Gets or sets the username for authentication.
+    /// Gets or sets the password for authentication.
     /// </summary>
     public string? Password
     {
