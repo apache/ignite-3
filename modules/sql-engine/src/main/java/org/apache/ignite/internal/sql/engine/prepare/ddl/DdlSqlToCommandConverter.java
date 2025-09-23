@@ -365,6 +365,11 @@ public class DdlSqlToCommandConverter {
         }
 
         IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
+        String pkName = null;
+        SqlIdentifier pkIdentifier = pkConstraint.getName();
+        if (pkIdentifier != null) {
+            pkName = deriveObjectName(pkIdentifier, ctx, "name of pk constraint");
+        }
         SqlNodeList columnNodes = pkConstraint.getColumnList();
 
         List<String> pkColumns = new ArrayList<>(columnNodes.size());
@@ -380,6 +385,7 @@ public class DdlSqlToCommandConverter {
         switch (pkIndexType) {
             case SORTED:
                 primaryKey = TableSortedPrimaryKey.builder()
+                        .name(pkName)
                         .columns(pkColumns)
                         .collations(pkCollations)
                         .build();
@@ -388,6 +394,7 @@ public class DdlSqlToCommandConverter {
             case HASH:
             case IMPLICIT_HASH:
                 primaryKey = TableHashPrimaryKey.builder()
+                        .name(pkName)
                         .columns(pkColumns)
                         .build();
                 break;
