@@ -250,7 +250,6 @@ public class RebalanceUtil {
         byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
 
-
         //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
@@ -426,7 +425,7 @@ public class RebalanceUtil {
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+            // TODO https://issues.apache.org/jira/browse/IGNITE-26395 We should distinguish empty stable assignments on
             // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
             futures[partId] = updatePendingAssignmentsKeys(
                     tableDescriptor,

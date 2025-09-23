@@ -476,6 +476,32 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestManyDeploymentUnits([Values(true, false)] bool lazyCollection)
+        {
+            var units = lazyCollection
+                ? GetUnits()
+                : GetUnits().ToList();
+
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var res = await client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
+
+            StringAssert.StartsWith("{ NodeName = fake-server, Units = unit1|1.0.0", await res.GetResultAsync());
+
+            static IEnumerable<DeploymentUnit> GetUnits()
+            {
+                for (var i = 1; i <= 10_000; i++)
+                {
+                    yield return new DeploymentUnit($"unit{i}", $"{i}.0.0");
+                }
+            }
+        }
+
+        [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
             var job = NodeNameJob with
@@ -718,8 +744,7 @@ namespace Apache.Ignite.Tests.Compute
 
             TaskState? state = await taskExec.GetStateAsync();
 
-            // TODO IGNITE-25640: must be TaskStatus.Canceled.
-            Assert.AreEqual(TaskStatus.Failed, state?.Status);
+            Assert.AreEqual(TaskStatus.Canceled, state?.Status);
         }
 
         [Test]
@@ -1054,6 +1079,16 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(jobExecution.Id, state!.Id);
             Assert.AreEqual(status, state.Status);
             Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+
+            if (state.StartTime == null)
+            {
+                // Not started yet.
+                Assert.That(status, Is.AnyOf(JobStatus.Queued, JobStatus.Canceling, JobStatus.Canceled));
+                Assert.IsNull(state.FinishTime);
+
+                return;
+            }
+
             Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
 
             if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)
@@ -1077,9 +1112,9 @@ namespace Apache.Ignite.Tests.Compute
         {
             var instant = SystemClock.Instance.GetCurrentInstant();
 
-            // Subtract 1 milli to account for OS-specific time resolution differences in .NET and Java.
+            // Subtract 1 second to account for OS-specific time resolution differences in .NET and Java.
             return OperatingSystem.IsWindows()
-                ? instant.Minus(Duration.FromMilliseconds(1))
+                ? instant.Minus(Duration.FromSeconds(1))
                 : instant;
         }
 
@@ -1087,14 +1122,14 @@ namespace Apache.Ignite.Tests.Compute
             JobTarget.Node(
                 (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
 
-        private record Nested(Guid Id, decimal Price);
+        internal record Nested(Guid Id, decimal Price);
 
         [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
-        private record MyArg(int Id, string Name, Nested Nested);
+        internal record MyArg(int Id, string Name, Nested Nested);
 
-        private record MyResult(string Data, Nested Nested);
+        internal record MyResult(string Data, Nested Nested);
 
-        private class ToStringMarshaller : IMarshaller<Nested>
+        internal class ToStringMarshaller : IMarshaller<Nested>
         {
             public void Marshal(Nested obj, IBufferWriter<byte> writer)
             {

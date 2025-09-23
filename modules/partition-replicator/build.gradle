@@ -99,6 +99,8 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-sql-engine-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-sql-engine') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view') // TODO: IGNITE-22522 - remove.

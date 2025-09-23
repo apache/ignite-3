@@ -77,13 +77,13 @@ public class DefaultCallOutput<T> implements CallOutput<T> {
     @Override
     public String toString() {
         return "DefaultCallOutput{"
-            + "status="
-            + status
-            + ", body='"
-            + body + '\''
-            + ", cause="
-            + cause
-            + '}';
+                + "status="
+                + status
+                + ", body='"
+                + body + '\''
+                + ", cause="
+                + cause
+                + '}';
     }
 
     /**

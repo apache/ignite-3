@@ -43,7 +43,9 @@ import org.apache.ignite.internal.logger.Loggers;
  */
 public class RunnerNode {
     private static final Map<String, String> DEFAULTS = IgniteVersions.INSTANCE.configOverrides();
+    private static final Map<String, String> STORAGE_PROFILES = IgniteVersions.INSTANCE.storageProfilesOverrides();
     private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
+    private static final Map<String, Map<String, String>> STORAGE_PROFILES_PER_VERSION = getStorageProfilesPerVersion();
 
     private final Process process;
 
@@ -79,7 +81,7 @@ public class RunnerNode {
     ) throws IOException {
         String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
         Path workDir = clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
-        String configStr = formatConfig(clusterConfiguration, nodeIndex, nodesCount);
+        String configStr = formatConfig(clusterConfiguration, nodeName, nodeIndex, nodesCount);
 
         Files.createDirectories(workDir);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
@@ -87,10 +89,12 @@ public class RunnerNode {
         boolean useTestDefaults = true;
         if (useTestDefaults) {
             Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
+            Map<String, String> storageProfilesPerVersion = STORAGE_PROFILES_PER_VERSION.get(igniteVersion);
             writeConfigurationFileApplyingTestDefaults(
                     configStr,
                     configPath,
-                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS
+                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS,
+                    storageProfilesPerVersion != null ? storageProfilesPerVersion : STORAGE_PROFILES
             );
         } else {
             writeConfigurationFile(configStr, configPath);
@@ -159,6 +163,15 @@ public class RunnerNode {
                 ));
     }
 
+    private static Map<String, Map<String, String>> getStorageProfilesPerVersion() {
+        return IgniteVersions.INSTANCE.versions().stream()
+                .filter(version -> version.storageProfilesOverrides() != null)
+                .collect(Collectors.toMap(
+                        Version::version,
+                        Version::storageProfilesOverrides
+                ));
+    }
+
     private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {
         return IntStream.range(0, seedsCount)
                 .map(nodeIndex -> clusterConfiguration.basePort() + nodeIndex)
@@ -166,14 +179,15 @@ public class RunnerNode {
                 .collect(joining(", "));
     }
 
-    private static String formatConfig(ClusterConfiguration clusterConfiguration, int nodeIndex, int nodesCount) {
+    private static String formatConfig(ClusterConfiguration clusterConfiguration, String nodeName, int nodeIndex, int nodesCount) {
         return IgniteStringFormatter.format(
                 clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
                 clusterConfiguration.basePort() + nodeIndex,
                 seedAddressesString(clusterConfiguration, nodesCount),
                 clusterConfiguration.baseClientPort() + nodeIndex,
                 clusterConfiguration.baseHttpPort() + nodeIndex,
-                clusterConfiguration.baseHttpsPort() + nodeIndex
+                nodeName,
+                nodeIndex
         );
     }
 

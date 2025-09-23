@@ -31,11 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -57,7 +55,6 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -240,17 +237,7 @@ public class TestNode implements LifecycleAware {
                 executionService,
                 NoOpTransactionalOperationTracker.INSTANCE,
                 new QueryIdGenerator(nodeName.hashCode()),
-                new EventLog() {
-                    @Override
-                    public void log(Event event) {
-                        // No-op.
-                    }
-
-                    @Override
-                    public void log(String type, Supplier<Event> eventProvider) {
-                        // No-op.
-                    }
-                },
+                EventLog.NOOP,
                 new SqlQueryMetricSource()
         ));
     }
@@ -340,6 +327,26 @@ public class TestNode implements LifecycleAware {
         return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
+    /**
+     * Prepares (aka parses, validates, and optimizes) the given (possible multiple) query string
+     * and returns the plan(s) to execute.
+     *
+     * @param query A query string to prepare.
+     * @return A plan(s) to execute.
+     */
+    public List<QueryPlan> prepareScript(String query) {
+        List<ParsedResult> parsedResult = parserService.parseScript(query);
+        SqlOperationContext ctx = createContext().build();
+
+        List<QueryPlan> plans = new ArrayList<>();
+
+        for (ParsedResult res : parsedResult) {
+            plans.add(awaitPlan(prepareService.prepareAsync(res, ctx)));
+        }
+
+        return plans;
+    }
+
     /** Executes the given script. */
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
@@ -414,7 +421,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .timeZoneId(SqlCommon.DEFAULT_TIME_ZONE_ID)
                 .txContext(ImplicitTxContext.create())
                 .parameters();
     }

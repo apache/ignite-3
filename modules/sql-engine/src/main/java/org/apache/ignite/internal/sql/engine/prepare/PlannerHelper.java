@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
@@ -47,6 +48,7 @@ import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.MultiJoin;
@@ -157,11 +159,19 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
+            RelOptCluster cluster = rel.getCluster();
+            rel = rel.accept(new RelHomogeneousShuttle() {
+                @Override public RelNode visit(RelNode other) {
+                    RelNode next = super.visit(other);
+                    return next.accept(new OutOfRangeLiteralComparisonReductionShuttle(cluster.getRexBuilder()));
+                }
+            });
+
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            {
+            if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
@@ -200,14 +210,9 @@ public final class PlannerHelper {
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
+                LogicalProject project = (LogicalProject) root.project();
 
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(result, field));
-                }
-
-                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, project.getProjects(), project.getRowType());
             }
 
             return result;
@@ -337,7 +342,7 @@ public final class PlannerHelper {
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
-                Operation.PUT,
+                Operation.INSERT,
                 expressions
         );
     }

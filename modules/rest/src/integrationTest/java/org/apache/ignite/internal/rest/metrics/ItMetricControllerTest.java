@@ -62,7 +62,12 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("topology.local", true),
             new MetricSource("thread.pools.partitions-executor", true),
             new MetricSource("thread.pools.sql-executor", true),
-            new MetricSource("thread.pools.sql-planning-executor", true)
+            new MetricSource("thread.pools.sql-planning-executor", true),
+            new MetricSource("transactions", true),
+            new MetricSource("resource.vacuum", true),
+            new MetricSource("placement-driver", true),
+            new MetricSource("zones.Default", true),
+            new MetricSource("clock.service", true)
     };
 
     @Inject

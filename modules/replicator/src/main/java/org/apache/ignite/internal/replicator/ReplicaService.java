@@ -35,11 +35,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -50,7 +52,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -59,8 +60,8 @@ public class ReplicaService {
     /** Message service. */
     private final MessagingService messagingService;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    /** A hybrid logical clock service. */
+    private final ClockService clockService;
 
     private final Executor partitionOperationsExecutor;
 
@@ -78,18 +79,18 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param replicationConfiguration Replication configuration.
      */
     @TestOnly
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             ReplicationConfiguration replicationConfiguration
     ) {
         this(
                 messagingService,
-                clock,
+                clockService,
                 ForkJoinPool.commonPool(),
                 replicationConfiguration,
                 null
@@ -100,20 +101,20 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param partitionOperationsExecutor Partition operation executor.
      * @param replicationConfiguration Replication configuration.
      * @param retryExecutor Retry executor.
      */
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             Executor partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             @Nullable ScheduledExecutorService retryExecutor
     ) {
         this.messagingService = messagingService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicationConfiguration = replicationConfiguration;
         this.retryExecutor = retryExecutor;
@@ -160,7 +161,7 @@ public class ReplicaService {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
                 if (response instanceof TimestampAware) {
-                    clock.update(((TimestampAware) response).timestamp());
+                    clockService.updateClock(((TimestampAware) response).timestamp());
                 }
 
                 if (response instanceof ErrorReplicaResponse) {
@@ -203,7 +204,7 @@ public class ReplicaService {
 
                                 if (throwable0 instanceof TimeoutException) {
                                     res.completeExceptionally(withCause(
-                                            ReplicationTimeoutException::new,
+                                            AwaitReplicaTimeoutException::new,
                                             REPLICA_TIMEOUT_ERR,
                                             format(
                                                     "Could not wait for the replica readiness due to timeout [replicaGroupId={}, req={}]",
@@ -275,7 +276,7 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
+    public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request) {
         return invokeRaw(node, request).thenApply(r -> (R) r.result());
     }
 
@@ -304,7 +305,7 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
+    public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);
     }
 
@@ -316,7 +317,7 @@ public class ReplicaService {
      * @param request The request.
      * @return Response future with either evaluation raw response or completed exceptionally.
      */
-    public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
+    public CompletableFuture<ReplicaResponse> invokeRaw(InternalClusterNode node, ReplicaRequest request) {
         return invokeRaw(node.name(), request);
     }
 

@@ -1,0 +1,151 @@
+Sort
+    collation: [order count ASC]
+    fetch: 100
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [order count, total shipping cost, total net profit]
+      group: []
+      aggregation: [COUNT(DISTINCT WS_ORDER_NUMBER), SUM(WS_EXT_SHIP_COST), SUM(WS_NET_PROFIT)]
+      est: (rows=1)
+    Project
+        fieldNames: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+        projection: [WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+        est: (rows=291064492602986630000000000)
+      HashJoin
+          predicate: =(WS_WEB_SITE_SK, WEB_SITE_SK)
+          type: inner
+          est: (rows=291064492602986630000000000)
+        HashJoin
+            predicate: =(WS_SHIP_ADDR_SK, CA_ADDRESS_SK)
+            type: inner
+            est: (rows=874067545354314200000000000)
+          Exchange
+              distribution: single
+              est: (rows=16650)
+            TableScan
+                table: PUBLIC.CUSTOMER_ADDRESS
+                predicate: =(CA_STATE, _UTF-8'AL')
+                fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                est: (rows=16650)
+          MergeJoin
+              predicate: =(WS_SHIP_DATE_SK, D_DATE_SK)
+              type: inner
+              est: (rows=2624827463526469000000000000)
+            Exchange
+                distribution: single
+                est: (rows=18262)
+              Sort
+                  collation: [D_DATE_SK ASC]
+                  est: (rows=18262)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: SEARCH(D_DATE, Sarg[[2002-04-01..2002-05-31]])
+                    fieldNames: [D_DATE_SK, D_DATE]
+                    est: (rows=18262)
+            HashJoin
+                predicate: =(WS_ORDER_NUMBER, WS_ORDER_NUMBER$0)
+                fieldNames: [WS_SHIP_DATE_SK, WS_SHIP_ADDR_SK, WS_WEB_SITE_SK, WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT, WR_ORDER_NUMBER, WS_ORDER_NUMBER$0]
+                type: inner
+                est: (rows=10499309854105876000000000000)
+              HashJoin
+                  predicate: =(WS_ORDER_NUMBER, WR_ORDER_NUMBER)
+                  type: inner
+                  est: (rows=9016888221786429400)
+                Exchange
+                    distribution: single
+                    est: (rows=719384)
+                  Sort
+                      collation: [WS_SHIP_DATE_SK ASC]
+                      est: (rows=719384)
+                    TableScan
+                        table: PUBLIC.WEB_SALES
+                        fieldNames: [WS_SHIP_DATE_SK, WS_SHIP_ADDR_SK, WS_WEB_SITE_SK, WS_ORDER_NUMBER, WS_EXT_SHIP_COST, WS_NET_PROFIT]
+                        est: (rows=719384)
+                ColocatedSortAggregate
+                    collation: [WR_ORDER_NUMBER ASC]
+                    group: [WR_ORDER_NUMBER]
+                    aggregation: []
+                    est: (rows=83561197003607)
+                  Project
+                      fieldNames: [WR_ORDER_NUMBER]
+                      projection: [WR_ORDER_NUMBER]
+                      est: (rows=417805985018035)
+                    MergeJoin
+                        predicate: =(WR_ORDER_NUMBER, WS_ORDER_NUMBER)
+                        type: inner
+                        est: (rows=417805985018035)
+                      Exchange
+                          distribution: single
+                          est: (rows=71763)
+                        Sort
+                            collation: [WR_ORDER_NUMBER ASC]
+                            est: (rows=71763)
+                          TableScan
+                              table: PUBLIC.WEB_RETURNS
+                              fieldNames: [WR_ORDER_NUMBER]
+                              est: (rows=71763)
+                      Project
+                          fieldNames: [WS_ORDER_NUMBER]
+                          projection: [WS_ORDER_NUMBER]
+                          est: (rows=38813500459)
+                        HashJoin
+                            predicate: AND(=(WS_ORDER_NUMBER, WS_ORDER_NUMBER$0), <>(WS_WAREHOUSE_SK, WS_WAREHOUSE_SK$0))
+                            fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER, WS_WAREHOUSE_SK$0, WS_ORDER_NUMBER$0]
+                            type: inner
+                            est: (rows=38813500459)
+                          Exchange
+                              distribution: single
+                              est: (rows=719384)
+                            Sort
+                                collation: [WS_ORDER_NUMBER ASC]
+                                est: (rows=719384)
+                              TableScan
+                                  table: PUBLIC.WEB_SALES
+                                  fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER]
+                                  est: (rows=719384)
+                          Exchange
+                              distribution: single
+                              est: (rows=719384)
+                            TableScan
+                                table: PUBLIC.WEB_SALES
+                                fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER]
+                                est: (rows=719384)
+              ColocatedSortAggregate
+                  collation: [WS_ORDER_NUMBER ASC]
+                  group: [WS_ORDER_NUMBER]
+                  aggregation: []
+                  est: (rows=7762700092)
+                Project
+                    fieldNames: [WS_ORDER_NUMBER]
+                    projection: [WS_ORDER_NUMBER]
+                    est: (rows=38813500459)
+                  HashJoin
+                      predicate: AND(=(WS_ORDER_NUMBER, WS_ORDER_NUMBER$0), <>(WS_WAREHOUSE_SK, WS_WAREHOUSE_SK$0))
+                      fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER, WS_WAREHOUSE_SK$0, WS_ORDER_NUMBER$0]
+                      type: inner
+                      est: (rows=38813500459)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      Sort
+                          collation: [WS_ORDER_NUMBER ASC]
+                          est: (rows=719384)
+                        TableScan
+                            table: PUBLIC.WEB_SALES
+                            fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER]
+                            est: (rows=719384)
+                    Exchange
+                        distribution: single
+                        est: (rows=719384)
+                      TableScan
+                          table: PUBLIC.WEB_SALES
+                          fieldNames: [WS_WAREHOUSE_SK, WS_ORDER_NUMBER]
+                          est: (rows=719384)
+        Exchange
+            distribution: single
+            est: (rows=10)
+          TableScan
+              table: PUBLIC.WEB_SITE
+              predicate: =(WEB_COMPANY_NAME, _UTF-8'pri')
+              fieldNames: [WEB_SITE_SK, WEB_COMPANY_NAME]
+              est: (rows=10)

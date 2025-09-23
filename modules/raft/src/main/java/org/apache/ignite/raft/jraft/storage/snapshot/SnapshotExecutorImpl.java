@@ -206,7 +206,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     @Override
     public boolean init(final SnapshotExecutorOptions opts) {
         if (StringUtils.isBlank(opts.getUri())) {
-            LOG.error("Snapshot uri is empty.");
+            LOG.error("Snapshot uri is empty [node={}].", this.node.getNodeId());
             return false;
         }
         this.logManager = opts.getLogManager();
@@ -223,7 +223,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             this.snapshotStorage.setSnapshotThrottle(opts.getSnapshotThrottle());
         }
         if (!this.snapshotStorage.init(null)) {
-            LOG.error("Fail to init snapshot storage.");
+            LOG.error("Fail to init snapshot storage [node={}].",  this.node.getNodeId());
             return false;
         }
         if (snapshotStorage instanceof LocalSnapshotStorage) {
@@ -238,11 +238,11 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         this.loadingSnapshotMeta = reader.load();
         if (this.loadingSnapshotMeta == null) {
-            LOG.error("Fail to load meta from {}.", opts.getUri());
+            LOG.error("Fail to load meta [node={}, metaProviderUri={}].", this.node.getNodeId(), opts.getUri());
             Utils.closeQuietly(reader);
             return false;
         }
-        LOG.info("Loading snapshot, meta={}.", this.loadingSnapshotMeta);
+        LOG.info("Loading snapshot, [node={}, meta={}].", this.node.getNodeId(), this.loadingSnapshotMeta);
         this.loadingSnapshot = true;
         this.runningJobs.incrementAndGet(SnapshotCountDownEvent.INIT_SNAPSHOT_OP);
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
@@ -251,7 +251,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             done.waitForRun();
         }
         catch (final InterruptedException e) {
-            LOG.warn("Wait for FirstSnapshotLoadDone run is interrupted.");
+            LOG.warn("Wait for FirstSnapshotLoadDone run is interrupted [node={}].", this.node.getNodeId());
             Thread.currentThread().interrupt();
             return false;
         }
@@ -259,7 +259,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             Utils.closeQuietly(reader);
         }
         if (!done.status.isOk()) {
-            LOG.error("Fail to load snapshot from {}, FirstSnapshotLoadDone status is {}.", opts.getUri(), done.status);
+            LOG.error("Fail to load snapshot [node={}, snapshotProviderUri={}, firstSnapshotLoadDoneStatus={}].",
+                this.node.getNodeId(), opts.getUri(), done.status);
             return false;
         }
         return true;
@@ -377,7 +378,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                     writer.setError(RaftError.ESTALE, "Installing snapshot is older than local snapshot");
                 }
             } else {
-                LOG.error("Fail to save snapshot: {}.", st);
+                LOG.error("Fail to save snapshot [node={}, status={}].",  this.node.getNodeId(), st);
             }
         }
         finally {
@@ -386,7 +387,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
         if (ret == 0) {
             if (!writer.saveMeta(meta)) {
-                LOG.error("Fail to save snapshot {}: {}.", writer.getPath(), writer.getErrorMsg());
+                LOG.error("Fail to save snapshot [node={}, writerPath={}, writerErrorMessage={}].", this.node.getNodeId(),
+                    writer.getPath(), writer.getErrorMsg());
                 ret = RaftError.EIO.getNumber();
             }
         }
@@ -399,7 +401,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             writer.close();
         }
         catch (final IOException e) {
-            LOG.error("Fail to close writer", e);
+            LOG.error("Fail to close writer [node={}].", this.node.getNodeId(), e);
             ret = RaftError.EIO.getNumber();
         }
         boolean doUnlock = true;
@@ -488,7 +490,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         // DON'T access request, response, and done after this point
         // as the retry snapshot will replace this one.
         if (!registerDownloadingSnapshot(ds)) {
-            LOG.warn("Fail to register downloading snapshot.");
+            LOG.warn("Fail to register downloading snapshot [node={}].", this.node.getNodeId());
             // This RPC will be responded by the previous session
             return;
         }
@@ -498,7 +500,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.warn("Install snapshot copy job was canceled.");
+            LOG.warn("Install snapshot copy job was canceled [node={}].", this.node.getNodeId());
         }
 
         loadDownloadingSnapshot(ds, meta);
@@ -545,7 +547,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         final InstallSnapshotDone installSnapshotDone = new InstallSnapshotDone(reader);
         if (!this.fsmCaller.onSnapshotLoad(installSnapshotDone)) {
-            LOG.warn("Fail to call fsm onSnapshotLoad.");
+            LOG.warn("Fail to call fsm onSnapshotLoad [node={}].", this.node.getNodeId());
             installSnapshotDone.run(new Status(RaftError.EHOSTDOWN, "This raft node is down"));
         }
     }
@@ -558,14 +560,14 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         this.lock.lock();
         try {
             if (this.stopped) {
-                LOG.warn("Register DownloadingSnapshot failed: node is stopped.");
+                LOG.warn("Register DownloadingSnapshot failed: node is stopped [node={}].", this.node.getNodeId());
                 ds.done
                     .sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(msgFactory, RaftError.EHOSTDOWN, "Node is stopped."));
                 return false;
             }
             if (this.savingSnapshot) {
-                LOG.warn("Register DownloadingSnapshot failed: is saving snapshot.");
+                LOG.warn("Register DownloadingSnapshot failed: is saving snapshot [node={}].", this.node.getNodeId());
                 ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(msgFactory, RaftError.EBUSY, "Node is saving snapshot."));
                 return false;
@@ -573,16 +575,16 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
 
             ds.responseBuilder.term(this.term);
             if (ds.request.term() != this.term) {
-                LOG.warn("Register DownloadingSnapshot failed: term mismatch, expect {} but {}.", this.term,
-                    ds.request.term());
+                LOG.warn("Register DownloadingSnapshot failed: term mismatch [node={}, expectTerm={}, gotTerm={}].",
+                    this.node.getNodeId(), this.term, ds.request.term());
                 ds.responseBuilder.success(false);
                 ds.done.sendResponse(ds.responseBuilder.build());
                 return false;
             }
             if (ds.request.meta().lastIncludedIndex() <= this.lastSnapshotIndex) {
                 LOG.warn(
-                    "Register DownloadingSnapshot failed: snapshot is not newer, request lastIncludedIndex={}, lastSnapshotIndex={}.",
-                    ds.request.meta().lastIncludedIndex(), this.lastSnapshotIndex);
+                    "Register DownloadingSnapshot failed: snapshot is not newer, request [node={}, lastIncludedIndex={},"
+                    + " lastSnapshotIndex={}].", this.node.getNodeId(), ds.request.meta().lastIncludedIndex(), this.lastSnapshotIndex);
                 ds.responseBuilder.success(true);
                 ds.done.sendResponse(ds.responseBuilder.build());
                 return false;
@@ -594,7 +596,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 this.curCopier = this.snapshotStorage.startToCopyFrom(ds.request.uri(), newCopierOpts());
                 if (this.curCopier == null) {
                     this.downloadingSnapshot.set(null);
-                    LOG.warn("Register DownloadingSnapshot failed: fail to copy file from {}.", ds.request.uri());
+                    LOG.warn("Register DownloadingSnapshot failed: fail to copy file [node={}. from={}].", this.node.getNodeId(),
+                        ds.request.uri());
                     ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(msgFactory, RaftError.EINVAL, "Fail to copy from: %s", ds.request.uri()));
                     return false;
@@ -617,8 +620,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             }
             else if (m.request.meta().lastIncludedIndex() > ds.request.meta().lastIncludedIndex()) {
                 // |is| is older
-                LOG.warn("Register DownloadingSnapshot failed: is installing a newer one, lastIncludeIndex={}.",
-                    m.request.meta().lastIncludedIndex());
+                LOG.warn("Register DownloadingSnapshot failed: is installing a newer one [node={}. lastIncludeIndex={}].",
+                    this.node.getNodeId(), m.request.meta().lastIncludedIndex());
                 ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(msgFactory, RaftError.EINVAL,
                         "A newer snapshot is under installing"));
@@ -627,8 +630,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             else {
                 // |is| is newer
                 if (this.loadingSnapshot) {
-                    LOG.warn("Register DownloadingSnapshot failed: is loading an older snapshot, lastIncludeIndex={}.",
-                        m.request.meta().lastIncludedIndex());
+                    LOG.warn("Register DownloadingSnapshot failed: is loading an older snapshot [node={}, lastIncludeIndex={}].",
+                        this.node.getNodeId(), m.request.meta().lastIncludedIndex());
                     ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                         .newResponse(msgFactory, RaftError.EBUSY,
                             "A former snapshot is under loading"));
@@ -637,8 +640,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 Requires.requireNonNull(this.curCopier, "curCopier");
                 this.curCopier.cancel();
                 LOG.warn(
-                    "Register DownloadingSnapshot failed: an older snapshot is under installing, cancel downloading, lastIncludeIndex={}.",
-                    m.request.meta().lastIncludedIndex());
+                    "Register DownloadingSnapshot failed: an older snapshot is under installing, cancel downloading,"
+                    + "[node={}, lastIncludeIndex={}].", this.node.getNodeId(), m.request.meta().lastIncludedIndex());
                 ds.done.sendResponse(RaftRpcFactory.DEFAULT //
                     .newResponse(msgFactory, RaftError.EBUSY,
                         "A former snapshot is under installing, trying to cancel"));
@@ -650,7 +653,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (saved != null) {
             // Respond replaced session
-            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installing request.");
+            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installing request [node={}].",
+                this.node.getNodeId());
             saved.done.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, RaftError.EINTR,
                     "Interrupted by the retry InstallSnapshotRequest"));
@@ -682,7 +686,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             }
             Requires.requireNonNull(this.curCopier, "curCopier");
             this.curCopier.cancel();
-            LOG.info("Trying to cancel downloading snapshot: {}.", this.downloadingSnapshot.get().request);
+            LOG.info("Trying to cancel downloading snapshot [node={}, installSnapshotRequest={}].", this.node.getNodeId(),
+                this.downloadingSnapshot.get().request);
         }
         finally {
             this.lock.unlock();

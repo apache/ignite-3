@@ -378,6 +378,9 @@ EVERY(<boolean>)
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
 
+GROUPING(...)
+#c19a178a82716bcc5f313ca5259637dd60c8ba0e
+
 [internal]
 LITERAL_AGG()
 #6d021f1dd7329dc18c22767552769bc90f27b7ac
@@ -445,6 +448,9 @@ EXISTS <any>
 [internal]
 <any> DESC
 #cd2aa6863ed54bd03d844b08664115655e7ae2e4
+
+CURRENT_USER
+#3cfbde57fbba1435023dc75472eedaec6555d525
 
 TYPEOF(<any>)
 #85771dfef877b07351286b9f792f2ae2cd4a234d

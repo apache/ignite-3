@@ -38,7 +38,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetrics;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -206,7 +206,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
         private final SystemDistributedConfiguration configuration;
 
         private final ScheduledExecutorService executorService =
-                Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "meta-storage-safe-time", LOG));
+                Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "meta-storage-safe-time", LOG));
 
         /**
          * Current scheduled task.

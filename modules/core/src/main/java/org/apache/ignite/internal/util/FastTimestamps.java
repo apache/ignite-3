@@ -42,7 +42,11 @@ public class FastTimestamps {
         });
 
         Runnable updaterTask = () -> {
-            coarseCurrentTimeMillis = System.currentTimeMillis();
+            long now = System.currentTimeMillis();
+
+            if (now > coarseCurrentTimeMillis) {
+                coarseCurrentTimeMillis = now;
+            }
 
             // Safe-point-friendly hint.
             Thread.onSpinWait();

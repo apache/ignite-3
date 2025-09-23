@@ -20,6 +20,7 @@ package org.apache.ignite.internal.streamer;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
@@ -56,6 +57,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
@@ -535,8 +537,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         for (int i = 0; i < count; i++) {
-            var expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
-            var actualNode = view.get(null, tupleKey(i)).stringValue("name");
+            ClusterNode expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            String actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
             assertEquals(expectedNode.name(), actualNode);
         }
@@ -579,6 +581,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         var invalidItemsAdded = new ArrayList<DataStreamerItem<Tuple>>();
+        String invalidColName = "name1";
 
         try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder()
@@ -601,28 +604,46 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             // Submit invalid items.
             for (int i = 200; i < 300; i++) {
                 DataStreamerItem<Tuple> item = DataStreamerItem.of(
-                        Tuple.create().set("id", i).set("name1", "bar-" + i),
+                        Tuple.create().set("id", i).set(invalidColName, "bar-" + i),
                         i % 2 == 0 ? DataStreamerOperationType.PUT : DataStreamerOperationType.REMOVE);
 
                 try {
                     publisher.submit(item);
                     invalidItemsAdded.add(item);
-                } catch (Exception e) {
+                } catch (IllegalStateException e) {
+                    assertEquals("Streamer is closed, can't add items.", e.getMessage());
                     break;
+                } catch (RuntimeException e) {
+                    if (unwrapCause(e) instanceof MarshallerException) {
+                        // Item was added but failed on flush.
+                        invalidItemsAdded.add(item);
+                        break;
+                    } else {
+                        // Unexpected exception.
+                        throw e;
+                    }
                 }
             }
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
-        Set<?> failedItems = cause.failedItems();
+        Set<DataStreamerItem<Tuple>> failedItems = (Set<DataStreamerItem<Tuple>>) cause.failedItems();
+
+        for (DataStreamerItem<Tuple> invalidAddedItem : invalidItemsAdded) {
+            assertTrue(failedItems.contains(invalidAddedItem), "failedItems item not found: " + invalidAddedItem.get());
+        }
+
+        for (DataStreamerItem<Tuple> failedItem : failedItems) {
+            if (failedItem.get().columnIndex(invalidColName) < 0) {
+                // Valid item failed to flush, ignore.
+                continue;
+            }
+
+            assertTrue(invalidItemsAdded.contains(failedItem), "invalidItemsAdded item not found: " + failedItem.get());
+        }
 
         assertThat(invalidItemsAdded.size(), is(greaterThan(10)));
-        assertEquals(invalidItemsAdded.size(), failedItems.size());
-
-        for (DataStreamerItem<Tuple> item : invalidItemsAdded) {
-            assertTrue(failedItems.contains(item), "Failed item not found: " + item.get());
-        }
     }
 
     @Test

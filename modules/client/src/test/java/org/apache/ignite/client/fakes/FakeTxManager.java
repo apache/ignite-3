@@ -40,6 +40,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -219,7 +220,7 @@ public class FakeTxManager implements TxManager {
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             ReplicationGroupId commitPartition,
-            boolean commit,
+            boolean commitIntent,
             boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
@@ -255,7 +256,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> vacuum() {
+    public CompletableFuture<Void> vacuum(ResourceVacuumMetrics resourceVacuumMetrics) {
         return nullCompletedFuture();
     }
 

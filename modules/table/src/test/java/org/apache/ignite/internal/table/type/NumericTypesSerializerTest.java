@@ -67,7 +67,7 @@ public class NumericTypesSerializerTest {
      */
     private static List<Pair<BigDecimal, BigDecimal>> sameDecimals() {
         return Arrays.asList(
-                new Pair<>(new BigDecimal("10"), BigDecimal.valueOf(10)),
+                new Pair<>(BigDecimal.TEN, BigDecimal.valueOf(10)),
                 new Pair<>(new BigDecimal("10.00"), BigDecimal.valueOf(10)),
                 new Pair<>(new BigDecimal("999999999"), BigDecimal.valueOf(999999999L)),
                 new Pair<>(new BigDecimal("-999999999"), BigDecimal.valueOf(-999999999L)),

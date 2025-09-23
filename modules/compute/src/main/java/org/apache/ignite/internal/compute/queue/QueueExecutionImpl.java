@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCanceledEvent;
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCancelingEvent;
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobCompletedEvent;
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobExecutingEvent;
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobFailedEvent;
 import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
@@ -29,8 +34,10 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.state.IllegalJobStatusTransition;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -47,6 +54,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private final Callable<CompletableFuture<R>> job;
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
+    private final EventLog eventLog;
+    private final @Nullable ComputeEventMetadata eventMetadata;
 
     private final CompletableFuture<R> result = new CompletableFuture<>();
 
@@ -66,18 +75,25 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      * @param priority Job priority.
      * @param executor Executor on which the queue entry is running.
      * @param stateMachine State machine.
+     * @param eventLog Event log.
+     * @param eventMetadata Event metadata.
      */
     QueueExecutionImpl(
             UUID jobId,
             Callable<CompletableFuture<R>> job,
             int priority,
             ComputeThreadPoolExecutor executor,
-            ComputeStateMachine stateMachine) {
+            ComputeStateMachine stateMachine,
+            EventLog eventLog,
+            @Nullable ComputeEventMetadata eventMetadata
+    ) {
         this.jobId = jobId;
         this.job = job;
         this.priority = priority;
         this.executor = executor;
         this.stateMachine = stateMachine;
+        this.eventLog = eventLog;
+        this.eventMetadata = eventMetadata;
     }
 
     @Override
@@ -94,7 +110,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     public boolean cancel() {
         executionLock.lock();
         try {
-            stateMachine.cancelingJob(jobId);
+            JobState state = stateMachine.cancelingJob(jobId);
+
+            if (state.status() == JobStatus.CANCELING) {
+                logJobCancelingEvent(eventLog, eventMetadata);
+            }
 
             QueueEntry<R> queueEntry = this.queueEntry;
             if (queueEntry != null) {
@@ -111,6 +131,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private void cancel(QueueEntry<R> queueEntry) {
         if (executor.remove(queueEntry)) {
+            logJobCanceledEvent(eventLog, eventMetadata);
             result.cancel(true);
         } else {
             queueEntry.interrupt();
@@ -161,6 +182,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     throw new QueueEntryCanceledException();
                 }
                 stateMachine.executeJob(jobId);
+                logJobExecutingEvent(eventLog, eventMetadata);
             } finally {
                 executionLock.unlock();
             }
@@ -185,23 +207,28 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof QueueEntryCanceledException) {
+                    logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(new CancellationException());
                 } else if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
+                    logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(throwable);
                 } else if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
                     stateMachine.failJob(jobId);
+                    logJobFailedEvent(eventLog, eventMetadata);
                     result.completeExceptionally(throwable);
                 }
             } else {
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
+                    logJobCanceledEvent(eventLog, eventMetadata);
                     result.completeExceptionally(new CancellationException());
                 } else {
                     stateMachine.completeJob(jobId);
+                    logJobCompletedEvent(eventLog, eventMetadata);
                     result.complete(r);
                 }
             }

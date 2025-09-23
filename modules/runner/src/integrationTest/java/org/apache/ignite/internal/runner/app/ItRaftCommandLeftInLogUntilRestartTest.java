@@ -41,6 +41,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
@@ -51,8 +52,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
@@ -169,14 +169,14 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
         IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
 
-        AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef = new AtomicReference<>();
+        AtomicReference<IgniteBiTuple<InternalClusterNode, String>> leaderAndGroupRef = new AtomicReference<>();
 
         var appliedIndexNode0 = partitionUpdateInhibitor(node0, leaderAndGroupRef);
         var appliedIndexNode1 = partitionUpdateInhibitor(node1, leaderAndGroupRef);
 
         TableViewInternal table = unwrapTableViewInternal(createTable(DEFAULT_TABLE_NAME, 2, 1));
 
-        ClusterNode leader = ReplicaTestUtils.leaderAssignment(
+        InternalClusterNode leader = ReplicaTestUtils.leaderAssignment(
                 node0,
                 colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
                 0
@@ -248,7 +248,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      */
     private AtomicLong partitionUpdateInhibitor(
             IgniteImpl node,
-            AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef
+            AtomicReference<IgniteBiTuple<InternalClusterNode, String>> leaderAndGroupRef
     ) {
         AtomicLong appliedIndex = new AtomicLong();
 
@@ -259,7 +259,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 node.name() + "-test",
                 "JRaft-FSMCaller-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create(node.name() + "-test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create(node.name() + "-test", stripeName, true, logger),
                 64,
                 () -> new ApplyTask(),
                 1,

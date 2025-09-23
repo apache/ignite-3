@@ -195,6 +195,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     void testAlterReplicaTriggerDefaultZone() throws Exception {
         startCluster(3);
 
+        assertEquals(3, cluster.size());
+
         Node node = getNode(0);
 
         CatalogManager catalogManager = node.catalogManager;
@@ -820,7 +822,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         verify(internalTable.storage(), never())
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     private static void checkDestroyPartitionStoragesInvokes(Node node, String tableName, int partitionId) {
@@ -829,7 +831,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                 .destroyPartition(partitionId);
         verify(internalTable.txStateStorage(), never())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     @Test

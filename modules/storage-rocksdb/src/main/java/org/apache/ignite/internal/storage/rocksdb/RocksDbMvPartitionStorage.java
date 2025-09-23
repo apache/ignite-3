@@ -985,7 +985,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 && rowId.leastSignificantBits() == normalize(dataIdKey.getLong());
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
             assert rowIsLocked(rowId);
@@ -1180,6 +1182,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, leaseKey);
+        writeBatch.delete(meta, estimatedSizeKey);
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
         writeBatch.deleteRange(helper.dataCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());

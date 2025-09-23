@@ -25,10 +25,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +46,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
      * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
      * metric sets that are included into the snapshot, are changed dynamically.
      */
-    private volatile IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = new IgniteBiTuple<>(emptyMap(), 0L);
+    private volatile MetricSnapshot metricSnapshot = new MetricSnapshot(emptyMap(), 0L);
 
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
@@ -247,7 +247,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private void addMetricSet(String srcName, MetricSet metricSet) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.put(srcName, metricSet);
 
@@ -263,7 +263,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private void removeMetricSet(String srcName) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.remove(srcName);
 
@@ -275,16 +275,16 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
      *
      * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
      */
-    private void updateMetricSnapshot(Map<String, MetricSet> metricSets) {
+    private void updateMetricSnapshot(SortedMap<String, MetricSet> metricSets) {
         assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        IgniteBiTuple<Map<String, MetricSet>, Long> old = metricSnapshot;
+        MetricSnapshot old = metricSnapshot;
 
-        metricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), old.get2() + 1);
+        metricSnapshot = new MetricSnapshot(unmodifiableMap(metricSets), old.version() + 1);
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
+    public MetricSnapshot snapshot() {
         return metricSnapshot;
     }
 

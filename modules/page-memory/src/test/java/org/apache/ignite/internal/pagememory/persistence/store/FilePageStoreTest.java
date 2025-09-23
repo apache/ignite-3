@@ -169,7 +169,7 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
         try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
             int[] pageIndexes = arr(0, 1, 2);
 
-            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<int[]>() {
+            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<>() {
                 /** {@inheritDoc} */
                 @Override
                 public int[] get() {
@@ -177,7 +177,7 @@ public class FilePageStoreTest extends BaseIgniteAbstractTest {
                 }
             });
 
-            IntFunction<Path> deltaFilePathFunction = spy(new IntFunction<Path>() {
+            IntFunction<Path> deltaFilePathFunction = spy(new IntFunction<>() {
                 /** {@inheritDoc} */
                 @Override
                 public Path apply(int index) {

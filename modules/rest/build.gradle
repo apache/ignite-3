@@ -46,6 +46,7 @@ dependencies {
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-system-disaster-recovery')
+    implementation project(':ignite-configuration-storage')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -73,6 +74,7 @@ dependencies {
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-core')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-compute')

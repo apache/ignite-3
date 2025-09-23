@@ -95,6 +95,7 @@ dependencies {
     implementation project(':ignite-catalog-compaction')
     implementation project(':ignite-system-disaster-recovery')
     implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-configuration-storage')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -171,6 +172,8 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation project(':ignite-eventlog')
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-configuration-presentation')
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -219,6 +222,8 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation project(':ignite-configuration-storage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
@@ -228,7 +233,25 @@ dependencies {
     testFixturesImplementation libs.typesafe.config
 }
 
+tasks.register('postRelease', JavaExec) {
+    def testResourcePath = sourceSets.test.resources.srcDirs.iterator().next().absolutePath
+    def snapshotFilePath = java.nio.file.Path.of(testResourcePath, "compatibility/configuration", "ignite-${projectVersion}.bin").toString()
+
+    description = 'Generates compatibility snapshot for the project.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot'
+    args = [snapshotFilePath]
+    jvmArgs += defaultJvmArgs
+
+    doFirst {
+        if (version.toString().endsWith('-SNAPSHOT')) {
+            throw new GradleException("The task can be executed only on release version: ${version}")
+        }
+    }
+}
+
 tasks.register('runnerPlatformTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
     mainClass = 'org.apache.ignite.internal.runner.app.PlatformTestNodeRunner'
 
     jvmArgs += defaultJvmArgs
@@ -258,8 +281,8 @@ tasks.register('runUpsertBenchmark', JavaExec) {
     enableAssertions = true
 }
 
-tasks.register('runClientBenchmark', JavaExec) {
-    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvBenchmark'
+tasks.register('runClientPutBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvPutBenchmark'
 
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
@@ -268,12 +291,14 @@ tasks.register('runClientBenchmark', JavaExec) {
     enableAssertions = true
 }
 
-tasks.register('runRemoteBenchmark', JavaExec) {
-    mainClass = 'org.apache.ignite.internal.benchmark.RemoteKvBenchmark'
+tasks.register('runClientGetBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetBenchmark'
 
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }
 
 jar {

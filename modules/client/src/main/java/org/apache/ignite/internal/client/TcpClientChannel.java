@@ -88,10 +88,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
+            ProtocolBitmaskFeature.COMPUTE_TASK_ID,
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
-            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -410,14 +412,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             }
 
-            // Handle the response in the async continuation pool.
-            return fut.handleAsync((unpacker, err) -> {
-                if (err != null) {
-                    throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                }
-
-                return complete(payloadReader, notificationFut, unpacker);
-            }, asyncContinuationExecutor);
+            // Handle the response in the async continuation pool with completeAsync.
+            return fut
+                    .thenCompose(unpacker -> completeAsync(payloadReader, notificationFut, unpacker))
+                    .exceptionally(err -> {
+                        throw sneakyThrow(ViewUtils.ensurePublicException(err));
+                    });
         } catch (Throwable t) {
             log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
@@ -429,6 +429,31 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             metrics.requestsActiveDecrement();
 
             throw sneakyThrow(ViewUtils.ensurePublicException(t));
+        }
+    }
+
+    private <T> CompletableFuture<T> completeAsync(
+            @Nullable PayloadReader<T> payloadReader,
+            @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
+            ClientMessageUnpacker unpacker
+    ) {
+        try {
+            CompletableFuture<T> resFut = new CompletableFuture<>();
+
+            // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
+            // With handleAsync et al we can't close the unpacker in that case.
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    resFut.complete(complete(payloadReader, notificationFut, unpacker));
+                } catch (Throwable t) {
+                    resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
+                }
+            });
+
+            return resFut;
+        } catch (Throwable t) {
+            unpacker.close();
+            return failedFuture(ViewUtils.ensurePublicException(t));
         }
     }
 
@@ -634,24 +659,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         });
 
         return fut
-                .handleAsync((unpacker, err) -> {
-                    if (err != null) {
-                        if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
-                            metrics.handshakesFailedTimeoutIncrement();
-                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
-                        }
-
-                        metrics.handshakesFailedIncrement();
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+                .thenCompose(unpacker -> completeAsync(r -> handshakeRes(r.in()), null, unpacker))
+                .exceptionally(err -> {
+                    if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
+                        metrics.handshakesFailedTimeoutIncrement();
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
                     }
 
-                    try {
-                        return complete(r -> handshakeRes(r.in()), null, unpacker);
-                    } catch (Throwable th) {
-                        metrics.handshakesFailedIncrement();
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), th);
-                    }
-                }, asyncContinuationExecutor);
+                    metrics.handshakesFailedIncrement();
+                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+                });
     }
 
     /**
@@ -821,17 +838,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         // Add reference count before jumping onto another thread.
         unpacker.retain();
 
-        asyncContinuationExecutor.execute(() -> {
-            try {
-                if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+        try {
+            asyncContinuationExecutor.execute(() -> {
+                try {
+                    if (!fut.complete(new PayloadInputChannel(this, unpacker, null))) {
+                        unpacker.close();
+                    }
+                } catch (Throwable e) {
                     unpacker.close();
-                }
-            } catch (Throwable e) {
-                unpacker.close();
 
-                log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
-            }
-        });
+                    log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
+                }
+            });
+        } catch (Throwable t) {
+            unpacker.close();
+            throw t;
+        }
     }
 
     void checkTimeouts(long now) {

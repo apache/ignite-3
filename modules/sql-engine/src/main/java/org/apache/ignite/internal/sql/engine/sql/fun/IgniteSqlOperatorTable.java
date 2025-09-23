@@ -58,9 +58,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker SAME_SAME =
             new SameFamilyOperandTypeChecker(2);
 
-    private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
-            new NotCustomTypeOperandTypeChecker();
-
     private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
             new SqlDateTimeIntervalTypeChecker(true);
 
@@ -70,22 +67,22 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(DATETIME_MATCHING_INTERVAL.and(NOT_CUSTOM_TYPE))
-                    .or(MATCHING_INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+                    .or(DATETIME_MATCHING_INTERVAL)
+                    .or(MATCHING_INTERVAL_DATETIME);
 
     private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL).and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL));
 
     private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC);
 
     public static final SqlSingleOperandTypeChecker MULTIPLY_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.NUMERIC_INTERVAL.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC)
+                    .or(OperandTypes.NUMERIC_INTERVAL);
 
     public static final SqlFunction LENGTH =
             new SqlFunction(
@@ -458,13 +455,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * {@code EVERY} aggregate function.
      */
     public static final SqlAggFunction EVERY =
-            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN);
 
     /**
      * {@code SOME} aggregate function.
      */
     public static final SqlAggFunction SOME =
-            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN);
 
     /**
      * The <code>CURRENT_TIMESTAMP [(<i>precision</i>)]</code> function.
@@ -544,6 +541,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.ANY_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.SINGLE_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.FILTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.GROUPING);
 
         definedOperatorsBuilder.add(EVERY);
         definedOperatorsBuilder.add(SOME);
@@ -760,6 +758,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_DATE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);
+
+        // Context variable functions
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_USER);
 
         // Ignite specific operators
         definedOperatorsBuilder.add(LENGTH);

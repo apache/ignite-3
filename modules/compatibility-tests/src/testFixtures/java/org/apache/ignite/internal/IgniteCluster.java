@@ -19,7 +19,10 @@ package org.apache.ignite.internal;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.Dependencies.constructArgFile;
+import static org.apache.ignite.internal.Dependencies.getProjectRoot;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,7 +31,6 @@ import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -38,16 +40,18 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -58,7 +62,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.gradle.tooling.GradleConnectionException;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
@@ -69,6 +72,8 @@ import org.gradle.tooling.model.build.BuildEnvironment;
  */
 public class IgniteCluster {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteCluster.class);
+
+    private static final String IGNITE_RUNNER_DEPENDENCY_ID = "org.apache.ignite:ignite-runner";
 
     // Embedded nodes
     private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
@@ -92,13 +97,15 @@ public class IgniteCluster {
      *
      * @param igniteVersion Ignite version to run the nodes with.
      * @param nodesCount Number of nodes in the cluster.
+     * @param extraIgniteModuleIds Gradle dependency id notation of the extra dependencies
+     *                             that should be loaded together with requested ignite version.
      */
-    public void start(String igniteVersion, int nodesCount) {
+    public void start(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
 
-        runnerNodes = startRunnerNodes(igniteVersion, nodesCount);
+        runnerNodes = startRunnerNodes(igniteVersion, nodesCount, extraIgniteModuleIds);
     }
 
     /**
@@ -140,6 +147,7 @@ public class IgniteCluster {
                 .filter(Objects::nonNull)
                 .map(IgniteServer::name)
                 .collect(toList());
+
         LOG.info("Shutting the embedded cluster down [nodes={}]", serverNames);
 
         Collections.fill(igniteServers, null);
@@ -156,7 +164,7 @@ public class IgniteCluster {
 
             LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
-            runnerNodes.forEach(RunnerNode::stop);
+            runnerNodes.parallelStream().forEach(RunnerNode::stop);
             runnerNodes.clear();
 
             LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
@@ -229,7 +237,7 @@ public class IgniteCluster {
             throw new RuntimeException(e);
         }
 
-        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
+        assertThat(send(post("/management/v1/cluster/init", requestBody)), hasStatusCode(200));
     }
 
     /**
@@ -288,16 +296,24 @@ public class IgniteCluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount) {
+    private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount, List<String> extraIgniteModuleIds) {
         try (ProjectConnection connection = GradleConnector.newConnector()
-                // Current directory is modules/compatibility-tests so get two parents
-                .forProjectDirectory(Path.of("..", "..").normalize().toFile())
+                .forProjectDirectory(getProjectRoot())
                 .connect()
         ) {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
 
             File javaHome = environment.getJava().getJavaHome();
-            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion, false);
+
+            Set<String> dependencyIds = new HashSet<>();
+            dependencyIds.add(IGNITE_RUNNER_DEPENDENCY_ID);
+            dependencyIds.addAll(extraIgniteModuleIds);
+
+            String dependenciesListNotation = dependencyIds.stream()
+                    .map(dependency -> dependency + ":" + igniteVersion)
+                    .collect(Collectors.joining(","));
+
+            File argFile = constructArgFile(connection, dependenciesListNotation, false);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
@@ -308,34 +324,6 @@ public class IgniteCluster {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    static File constructArgFile(
-            ProjectConnection connection,
-            String dependencyNotation,
-            boolean classPathOnly) throws IOException {
-        File argFilePath = File.createTempFile("argFilePath", "");
-        argFilePath.deleteOnExit();
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try {
-            connection.newBuild()
-                    .forTasks(":ignite-compatibility-tests:constructArgFile")
-                    .withArguments(
-                            "-PdependencyNotation=" + dependencyNotation,
-                            "-PargFilePath=" + argFilePath,
-                            "-PclassPathOnly=" + classPathOnly
-                    )
-                    .setStandardOutput(baos)
-                    .setStandardError(baos)
-                    .run();
-        } catch (GradleConnectionException | IllegalStateException e) {
-            LOG.error("Failed to run constructArgFile task", e);
-            LOG.error("Gradle task output:" + System.lineSeparator() + baos);
-            throw new RuntimeException(e);
-        }
-
-        return argFilePath;
     }
 
     private HttpRequest post(String path, String body) {
@@ -359,5 +347,10 @@ public class IgniteCluster {
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Returns cluster name. */
+    public String clusterName() {
+        return clusterConfiguration.clusterName();
     }
 }

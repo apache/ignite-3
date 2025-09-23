@@ -128,7 +128,7 @@ public:
     }
 
     /**
-     * Get a path to a SSL file.
+     * Get a path to an SSL file.
      * @param file
      * @return
      */
@@ -143,7 +143,7 @@ public:
     }
 
     /**
-     * Try connect to ssl server successfully.
+     * Try to connect to ssl server successfully.
      * @param timeout Timeout.
      * @return Client.
      */

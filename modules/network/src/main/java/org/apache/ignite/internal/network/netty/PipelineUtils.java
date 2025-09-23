@@ -22,9 +22,12 @@ import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.NaiveMessageFormat;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.AckView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
+import org.apache.ignite.internal.network.serialization.MessageFormat;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 
 /** Pipeline utils. */
@@ -58,13 +61,15 @@ public class PipelineUtils {
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+        MessageFormat messageFormat = new NaiveMessageFormat();
+
         // Consolidate flushes to bigger ones (improves throughput with smaller messages at the price of the latency).
         pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
 
-        pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
+        pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(messageFormat, serializationService));
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());
-        pipeline.addLast(OutboundEncoder.NAME, new OutboundEncoder(serializationService));
+        pipeline.addLast(OutboundEncoder.NAME, new OutboundEncoder(messageFormat, serializationService));
         pipeline.addLast(IoExceptionSuppressingHandler.NAME, new IoExceptionSuppressingHandler());
     }
 
@@ -75,15 +80,19 @@ public class PipelineUtils {
      * @param descriptor Recovery descriptor.
      * @param messageHandler Message handler.
      * @param factory Message factory.
+     * @param ackCfg Acknowledgement configuration.
      */
     public static void afterHandshake(
             ChannelPipeline pipeline,
             RecoveryDescriptor descriptor,
             MessageHandler messageHandler,
-            NetworkMessagesFactory factory
+            NetworkMessagesFactory factory,
+            AckView ackCfg
     ) {
         pipeline.addAfter(OutboundEncoder.NAME, OutboundRecoveryHandler.NAME, new OutboundRecoveryHandler(descriptor));
-        pipeline.addBefore(HandshakeHandler.NAME, InboundRecoveryHandler.NAME, new InboundRecoveryHandler(descriptor, factory));
+        pipeline.addBefore(
+                HandshakeHandler.NAME, InboundRecoveryHandler.NAME, new InboundRecoveryHandler(descriptor, factory, ackCfg)
+        );
         pipeline.addAfter(HandshakeHandler.NAME, MessageHandler.NAME, messageHandler);
     }
 }

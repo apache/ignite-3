@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network;
 
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,5 +32,5 @@ public interface NetworkMessageHandler {
      * @param correlationId Correlation id. Used to track correspondence between requests and responses. Can be {@code null} if the received
      *     message is not a request from a {@link MessagingService#invoke} method from another node.
      */
-    void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onReceived(NetworkMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 }

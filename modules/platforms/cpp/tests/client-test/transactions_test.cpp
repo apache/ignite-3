@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <thread>
 
 using namespace ignite;
 
@@ -433,4 +434,56 @@ TEST_F(transactions_test, record_view_remove_all_exact) {
 
     auto values2 = record_view.remove_all(nullptr, {value0});
     ASSERT_TRUE(values2.empty());
+}
+
+TEST_F(transactions_test, tx_successful_when_timeout_does_not_exceed) {
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
+
+    int64_t key = 42;
+    std::string val = "Lorem ipsum";
+
+    auto tx_opts = transaction_options().set_timeout_millis(10'000L).set_read_only(false);
+    auto tx = m_client.get_transactions().begin(tx_opts);
+
+    record_view.insert(&tx, get_tuple(key, val));
+
+    tx.commit();
+
+    auto value = record_view.get(nullptr, get_tuple(42));
+
+    ASSERT_TRUE(value.has_value());
+    EXPECT_EQ(key, value->get<int64_t>(KEY_COLUMN));
+    EXPECT_EQ(val, value->get<std::string>(VAL_COLUMN));
+}
+
+
+TEST_F(transactions_test, tx_failed_when_timeout_exceeds) {
+    auto record_view = m_client.get_tables().get_table(TABLE_1)->get_record_binary_view();
+
+    auto timeout_ms = 1'000L;
+
+    int64_t key = 42;
+    std::string val = "Lorem ipsum";
+    auto tx_opts = transaction_options()
+        .set_timeout_millis(timeout_ms)
+        .set_read_only(false);
+
+    auto tx = m_client.get_transactions().begin(tx_opts);
+
+    record_view.insert(&tx, get_tuple(key, val));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{timeout_ms * 2});
+
+    EXPECT_THROW(
+        {
+            try {
+                // TODO change to check tx.commit when IGNITE-24233 is implemented
+                // tx.commit();
+                auto rec = record_view.get(&tx, get_tuple(key));
+            } catch (const ignite_error& e) {
+                EXPECT_EQ(e.get_status_code(), error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT);
+                throw;
+            }
+        },
+        ignite_error);
 }

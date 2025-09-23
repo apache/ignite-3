@@ -90,7 +90,6 @@ public enum TxState {
         return TRANSITION_MATRIX[beforeOrd][afterOrd];
     }
 
-
     private final int id;
 
     TxState(int id) {

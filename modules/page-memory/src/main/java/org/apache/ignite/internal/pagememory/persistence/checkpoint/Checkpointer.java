@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMI
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -46,6 +45,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -60,6 +60,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
@@ -67,7 +70,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
@@ -146,6 +148,9 @@ public class Checkpointer extends IgniteWorker {
     /** Checkpoint runner thread pool. If {@code null} tasks are to be run in single thread. */
     private final @Nullable ThreadPoolExecutor checkpointWritePagesPool;
 
+    /** Partition meta manager. */
+    private final PartitionMetaManager partitionMetaManager;
+
     /** Next scheduled checkpoint progress. */
     private volatile CheckpointProgressImpl scheduledCheckpointProgress;
 
@@ -179,6 +184,8 @@ public class Checkpointer extends IgniteWorker {
 
     private final LogSyncer logSyncer;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /**
      * Constructor.
      *
@@ -192,6 +199,7 @@ public class Checkpointer extends IgniteWorker {
      * @param pageSize Page size.
      * @param checkpointConfig Checkpoint configuration.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     Checkpointer(
             String igniteInstanceName,
@@ -200,10 +208,12 @@ public class Checkpointer extends IgniteWorker {
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             Compactor compactor,
             int pageSize,
             CheckpointConfiguration checkpointConfig,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 
@@ -216,6 +226,8 @@ public class Checkpointer extends IgniteWorker {
         this.compactor = compactor;
         this.failureManager = failureManager;
         this.logSyncer = logSyncer;
+        this.partitionMetaManager = partitionMetaManager;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
@@ -228,8 +240,7 @@ public class Checkpointer extends IgniteWorker {
                     0L,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    // TODO IGNITE-25590 Add node name.
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
+                    IgniteCheckpointThreadFactory.create(igniteInstanceName, CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", false, log)
             );
         } else {
             checkpointWritePagesPool = null;
@@ -316,8 +327,8 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
      */
-    void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
-        checkpointWorkflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId, int partitionGeneration) {
+        checkpointWorkflow.markPartitionAsDirty(dataRegion, groupId, partitionId, partitionGeneration);
     }
 
     /**
@@ -407,8 +418,8 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    float totalDurationInSeconds = tracker.checkpointDuration(MILLISECONDS) / 1000.0f;
-                    float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
+                    long totalWriteBytes = (long) pageSize * chp.dirtyPagesSize;
+                    long totalDurationInNanos = tracker.checkpointDuration(NANOSECONDS);
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
@@ -419,7 +430,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
                             tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
-                            WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                     );
                 }
             }
@@ -549,7 +560,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -574,7 +585,7 @@ public class Checkpointer extends IgniteWorker {
                                 break;
                             }
 
-                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                            fsyncPartitionFiles(currentCheckpointProgress, entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -596,7 +607,7 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
-    private void fsyncDeltaFile(
+    private void fsyncPartitionFiles(
             CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
             LongAdder pagesWritten
@@ -607,14 +618,39 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        currentCheckpointProgress.blockPartitionDestruction(partitionId);
+        Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(partitionId).readLock();
+
+        partitionDestructionLock.lock();
 
         try {
-            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+            PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
+
+            // If this happens, then the partition is destroyed.
+            if (meta == null) {
+                return;
+            }
+
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore);
+
+            fsyncFilePageStoreOnCheckpointThread(filePageStore);
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+
+            filePageStore.checkpointedPageCount(meta.metaSnapshot(currentCheckpointProgress.id()).pageCount());
+
+            currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
         } finally {
-            currentCheckpointProgress.unblockPartitionDestruction(partitionId);
+            partitionDestructionLock.unlock();
+        }
+    }
+
+    private void fsyncFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
+        blockingSectionBegin();
+
+        try {
+            filePageStore.sync();
+        } finally {
+            blockingSectionEnd();
         }
     }
 
@@ -845,23 +881,20 @@ public class Checkpointer extends IgniteWorker {
         return safeAbs(interval + startDelay);
     }
 
-    private void fsyncDeltaFilePageStoreOnCheckpointThread(
-            FilePageStore filePageStore,
-            LongAdder pagesWritten
-    ) throws IgniteInternalCheckedException {
+    private void fsyncDeltaFilePageStoreOnCheckpointThread(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         blockingSectionBegin();
 
         try {
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
-            assert deltaFilePageStoreFuture != null;
+            if (deltaFilePageStoreFuture == null) {
+                return;
+            }
 
             deltaFilePageStoreFuture.join().sync();
         } finally {
             blockingSectionEnd();
         }
-
-        currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
     }
 
     private void renameDeltaFileOnCheckpointThread(
@@ -873,7 +906,9 @@ public class Checkpointer extends IgniteWorker {
         try {
             CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
 
-            assert deltaFilePageStoreFuture != null;
+            if (deltaFilePageStoreFuture == null) {
+                return;
+            }
 
             DeltaFilePageStoreIo deltaFilePageStoreIo = deltaFilePageStoreFuture.join();
 
@@ -900,30 +935,6 @@ public class Checkpointer extends IgniteWorker {
      */
     void updateLastProgressAfterReleaseWriteLock() {
         afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
-    }
-
-    /**
-     * Prepares the checkpointer to destroy a partition.
-     *
-     * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
-     * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
-     * I/O operations on them.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will end when the checkpoint is ready to destroy the partition.
-     */
-    CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
-        CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
-
-        // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
-        // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
-        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
-            return nullCompletedFuture();
-        }
-
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
-
-        return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 
     private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {

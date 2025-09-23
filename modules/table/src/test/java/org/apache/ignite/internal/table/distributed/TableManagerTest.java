@@ -106,8 +106,10 @@ import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -153,7 +155,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.QualifiedName;
@@ -247,7 +248,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DistributionZoneManager distributionZoneManager;
 
     /** Test node. */
-    private final ClusterNode node = new ClusterNodeImpl(
+    private final InternalClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
@@ -873,6 +874,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         var failureProcessor = new NoOpFailureManager();
 
         var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                NODE_NAME,
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
@@ -922,7 +924,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 partitionReplicaLifecycleManager,
                 new SystemPropertiesNodeProperties(),
                 new MinimumRequiredTimeCollectorServiceImpl(),
-                systemDistributedConfiguration
+                systemDistributedConfiguration,
+                new NoOpMetricManager(),
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
         ) {
 
             @Override

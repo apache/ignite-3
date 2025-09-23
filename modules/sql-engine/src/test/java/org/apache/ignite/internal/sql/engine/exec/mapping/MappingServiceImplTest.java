@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -82,15 +83,15 @@ import org.mockito.Mockito;
  */
 @SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
-    private static final String ZONE_NAME_1 = "zone1";
-    private static final String ZONE_NAME_2 = "zone2";
+    private static final String ZONE_NAME_1 = "ZONE1";
+    private static final String ZONE_NAME_2 = "ZONE2";
 
     private static final MultiStepPlan PLAN;
     private static final MultiStepPlan PLAN_WITH_SYSTEM_VIEW;
     private static final TestCluster cluster;
     private static final ClockService CLOCK_SERVICE = new TestClockService(new TestHybridClock(System::currentTimeMillis));
     private static final MappingParameters PARAMS = MappingParameters.EMPTY;
-    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams) -> fragments;
+    private static final PartitionPruner PARTITION_PRUNER = (fragments, dynParams, ppMetadata) -> fragments;
     private long topologyVer;
     private boolean topologyChange;
 
@@ -98,24 +99,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // @formatter:off
         cluster = TestBuilders.cluster()
                 .nodes("N1")
-                .addZone()
-                        .name(ZONE_NAME_1)
-                        .end()
-                .addZone()
-                        .name(ZONE_NAME_2)
-                        .end()
-                .addTable()
-                        .name("T1")
-                        .zoneName(ZONE_NAME_1)
-                        .addKeyColumn("ID", NativeTypes.INT32)
-                        .addColumn("VAL", NativeTypes.INT32)
-                        .end()
-                .addTable()
-                        .name("T2")
-                        .zoneName(ZONE_NAME_2)
-                        .addKeyColumn("ID", NativeTypes.INT32)
-                        .addColumn("VAL", NativeTypes.INT32)
-                        .end()
                 .addSystemView(SystemViews.<Object[]>clusterViewBuilder()
                         .name("TEST_VIEW")
                         .addColumn("ID", NativeTypes.INT64, v -> v[0])
@@ -126,6 +109,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         // @formatter:on
 
         cluster.start();
+
+        //noinspection ConcatenationWithEmptyString
+        cluster.node("N1").initSchema("" 
+                + format("CREATE ZONE {} STORAGE PROFILES ['default'];", ZONE_NAME_1)
+                + format("CREATE ZONE {} STORAGE PROFILES ['default'];", ZONE_NAME_2)
+                + format("CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE {};", ZONE_NAME_1)
+                + format("CREATE TABLE t2 (id INT PRIMARY KEY, val INT) ZONE {};", ZONE_NAME_2)
+        );
 
         try {
             PLAN = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM t1");

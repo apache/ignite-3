@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION_DESC;
 
@@ -44,6 +46,9 @@ public class RestartPartitionsMixin {
     @Option(names = RECOVERY_TABLE_NAME_OPTION, description = RECOVERY_TABLE_NAME_OPTION_DESC, required = true)
     private String tableName;
 
+    @Option(names = RECOVERY_WITH_CLEANUP_OPTION, description = RECOVERY_WITH_CLEANUP_OPTION_DESC)
+    private boolean withCleanup;
+
     /** Returns name of the zone to restart partitions of. */
     public String zoneName() {
         return zoneName;
@@ -64,5 +69,10 @@ public class RestartPartitionsMixin {
     @Nullable
     public List<String> nodeNames() {
         return nodeNames;
+    }
+
+    /** Returns whether to restart partitions with cleanup. */
+    public boolean withCleanup() {
+        return withCleanup;
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
@@ -191,7 +190,7 @@ public class DistributionZoneRebalanceEngineV2 {
                     }
                 }
 
-                if (!filteredOutNodes.isEmpty()) {
+                if (!filteredOutNodes.isEmpty() && !filteredDataNodes.isEmpty()) {
                     LOG.info(
                             "Some data nodes were filtered out because they don't match zone's attributes:"
                                     + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
@@ -205,6 +204,12 @@ public class DistributionZoneRebalanceEngineV2 {
             }
 
             if (filteredDataNodes.isEmpty()) {
+                LOG.info("Rebalance is not triggered because data nodes are empty [zoneId={}, filter={}, storageProfiles={}]",
+                        zoneDescriptor.id(),
+                        zoneDescriptor.filter(),
+                        zoneDescriptor.storageProfiles().profiles()
+                );
+
                 return nullCompletedFuture();
             }
 
@@ -302,7 +307,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
         } else {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

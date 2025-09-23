@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -45,8 +49,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,9 +60,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class DmlPlannerTest extends AbstractPlannerTest {
-    @BeforeAll
-    @AfterAll
-    public static void resetFlag() {
+    @BeforeEach
+    @AfterEach
+    public void resetFlag() {
         Commons.resetFastQueryOptimizationFlag();
     }
 
@@ -263,13 +267,14 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(test);
 
         IgniteTestUtils.assertThrowsWithCause(
-                () ->  physicalPlan(query, schema),
+                () -> physicalPlan(query, schema),
                 SqlValidatorException.class,
                 "Primary key columns are not modifiable"
         );
     }
 
     @Test
+    @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "true")
     public void testValuesNodeTypeDerivationForDefaultOperator() throws Exception {
         IgniteTable test = TestBuilders.table()
                 .name("TEST")
@@ -313,6 +318,94 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                                 .and(input(1, projectNodeWithProjectionsOfExpectedTypes))
                 )
         );
+    }
+
+    @Test
+    public void testMergeWithSubquery() throws Exception {
+        IgniteTable test1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL1", NativeTypes.INT32)
+                .addColumn("VAL2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteTable test2 = TestBuilders.table()
+                .name("T2")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL1", NativeTypes.INT32)
+                .addColumn("VAL2", NativeTypes.INT32)
+                .addColumn("VAL3", NativeTypes.INT32)
+                .addColumn("VAL4", NativeTypes.INT32)
+                .addColumn("VAL5", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(test1, test2);
+
+        assertPlan(
+                "MERGE INTO t1 dst\n"
+                        + " USING (\n"
+                        + "    SELECT t1.id, t2.val5\n"
+                        + "      FROM t1 LEFT JOIN t2 ON t1.id = t2.id\n"
+                        + " ) src\n"
+                        + "   ON src.id = dst.id\n"
+                        + " WHEN MATCHED THEN UPDATE SET val1 = src.val5\n"
+                        + " WHEN NOT MATCHED THEN INSERT (id, val1) VALUES (src.id, src.val5)",
+                schema,
+                isInstanceOf(IgniteTableModify.class)
+                        .and(hasChildThat(isInstanceOf(IgniteProject.class).and(
+                                expectedProject(
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 3,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4,
+                                        p -> p instanceof RexLiteral && ((RexLiteral) p).isNull(),
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 0,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 1,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
+                                ))))
+                        .and(hasChildThat(isInstanceOf(IgniteHashJoin.class)
+                                .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
+                        )));
+
+        assertPlan(
+                "MERGE INTO t1 dst\n"
+                        + " USING (\n"
+                        + "    SELECT t1.id, t2.val5\n"
+                        + "      FROM t1 LEFT JOIN t2 ON t1.id = t2.id\n"
+                        + " ) src\n"
+                        + "   ON src.id = dst.id\n"
+                        + " WHEN MATCHED THEN UPDATE SET val1 = src.val5\n"
+                        + " WHEN NOT MATCHED THEN INSERT (id, val2) VALUES (src.id, src.val5)",
+                schema,
+                isInstanceOf(IgniteTableModify.class)
+                        .and(hasChildThat(isInstanceOf(IgniteProject.class).and(
+                                expectedProject(
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 3,
+                                        p -> p instanceof RexLiteral && ((RexLiteral) p).isNull(),
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 0,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 1,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 2,
+                                        p -> p instanceof RexInputRef && ((RexInputRef) p).getIndex() == 4
+                                ))))
+                        .and(hasChildThat(isInstanceOf(IgniteHashJoin.class)
+                                .and(m -> m.getRowType().getFieldNames().equals(List.of("ID", "VAL1", "VAL2", "ID$0", "VAL5")))
+                        )));
+    }
+
+    @SafeVarargs
+    private static Predicate<IgniteProject> expectedProject(Predicate<RexNode>... predicates) {
+        return p -> {
+            int i = 0;
+            assertEquals(p.getProjects().size(), predicates.length);
+            for (RexNode project : p.getProjects()) {
+                if (!predicates[i++].test(project)) {
+                    return false;
+                }
+            }
+            return true;
+        };
     }
 
     private static Stream<String> updatePrimaryKey() {

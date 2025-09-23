@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -32,11 +33,26 @@ import org.junit.jupiter.params.provider.MethodSource;
 @MethodSource("baseVersions")
 class ItCompatibilityTest extends CompatibilityTestBase {
     @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.eventlog.sinks {"
+                + "  logSink {"
+                + "    channel: testChannel,"
+                + "    type: log"
+                + "  },"
+                + "  webhookSink {"
+                + "    channel: testChannel,"
+                + "    type: webhook,"
+                + "    endpoint: \"http://localhost\","
+                + "  }"
+                + "}");
+    }
+
+    @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         sql(baseIgnite, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         Transaction tx = baseIgnite.transactions().begin();
-        baseIgnite.sql().execute(tx, "INSERT INTO TEST VALUES (1, 'str')");
+        sql(baseIgnite, tx, "INSERT INTO TEST VALUES (1, 'str')");
         tx.commit();
 
         List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST");
@@ -51,15 +67,11 @@ class ItCompatibilityTest extends CompatibilityTestBase {
 
         // Insert new data
         Transaction tx = node(0).transactions().begin();
-        node(0).sql().execute(tx, "INSERT INTO TEST VALUES (2, 'str2')");
+        sql(node(0), tx, "INSERT INTO TEST VALUES (2, 'str2')");
         tx.commit();
 
         // Verify all data
         result = sql("SELECT * FROM TEST");
         assertThat(result, containsInAnyOrder(contains(1, "str"), contains(2, "str2")));
-    }
-
-    private static List<String> baseVersions() {
-        return baseVersions(2);
     }
 }

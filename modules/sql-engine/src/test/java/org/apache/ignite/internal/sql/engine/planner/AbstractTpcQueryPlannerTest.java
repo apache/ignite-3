@@ -33,13 +33,16 @@ import java.lang.annotation.Target;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
@@ -54,6 +57,7 @@ import org.junit.jupiter.api.TestInfo;
  * <p>Any derived class must be annotated with {@link TpcSuiteInfo}.
  */
 abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
+    private static final Pattern COSTS_PATTERN = Pattern.compile("\\s+est: \\(rows=\\d+\\)");
     private static TestCluster CLUSTER;
 
     private static Function<String, String> queryLoader;
@@ -106,19 +110,36 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
     static void validateQueryPlan(String queryId) {
         TestNode node = CLUSTER.node("N1");
 
-        MultiStepPlan plan = (MultiStepPlan) node.prepare(queryLoader.apply(queryId));
+        List<QueryPlan> plans = node.prepareScript(queryLoader.apply(queryId));
 
-        String actualPlan = plan.explain();
+        String[] expectedPlans = planLoader.apply(queryId).split("----(\\r\\n|\\n|\\r)");
 
-        if (planUpdater != null) {
-            planUpdater.accept(queryId, actualPlan);
+        assert expectedPlans.length == plans.size() : "Unexpected number of plans, got: " + plans.size()
+                + ", expected: " + expectedPlans.length;
 
-            return;
+        int pos = 0;
+
+        for (QueryPlan plan : plans) {
+            ExplainablePlan plan0 = (ExplainablePlan) plan;
+            String actualPlan = plan0.explain();
+
+            if (planUpdater != null) {
+                planUpdater.accept(queryId, actualPlan);
+
+                return;
+            }
+
+            String expectedPlan = expectedPlans[pos++];
+
+            // Internally, costs are represented by double values and conversion to exact numeric representation
+            // may differs from JVM to JVM.
+            // https://www.oracle.com/java/technologies/javase/19-relnote-issues.html
+            // Cut-off costs, which may differ between runs, before comparing plans.
+            expectedPlan = COSTS_PATTERN.matcher(expectedPlan).replaceAll("");
+            actualPlan = COSTS_PATTERN.matcher(actualPlan).replaceAll("");
+
+            assertEquals(expectedPlan, actualPlan);
         }
-
-        String expectedPlan = planLoader.apply(queryId);
-
-        assertEquals(expectedPlan, actualPlan);
     }
 
     static String loadFromResource(String resource) {
@@ -145,15 +166,14 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
     @Target(TYPE)
     @Retention(RUNTIME)
     public @interface TpcSuiteInfo {
-        /** Returns enum representing set of tables to initialize for test. */ 
+        /** Returns enum representing set of tables to initialize for test. */
         Class<? extends Enum<? extends TpcTable>> tables();
 
         /**
          * Returns name of the method to use as query loader.
          *
          * <p>Specified method must be static method within class this annotation is specified upon.
-         * Specified method must accept a single parameter of a string type which is query id, and return
-         * string representing a query text.
+         * Specified method must accept a single parameter of a string type which is query id, and return string representing a query text.
          */
         String queryLoader();
 
@@ -161,22 +181,20 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
          * Returns name of the method to use as plan loader.
          *
          * <p>Specified method must be static method within class this annotation is specified upon.
-         * Specified method must accept a single parameter of a string type which is query id, and return
-         * string representing a query plan.
+         * Specified method must accept a single parameter of a string type which is query id, and return string representing a query plan.
          */
         String planLoader();
 
         /**
-         * Returns name of the method to use as plan updater. That is, the method to use to update stored plan
-         * with value returned by query engine.
+         * Returns name of the method to use as plan updater. That is, the method to use to update stored plan with value returned by query
+         * engine.
          *
          * <p>If this method is specified, then provided method will be invoked with plan value provided byt the
-         * query engine. Worth to mention that no validation will be done in this case. Provide this method with
-         * caution, always validate results of the plan generation.
-         * 
+         * query engine. Worth to mention that no validation will be done in this case. Provide this method with caution, always validate
+         * results of the plan generation.
+         *
          * <p>Specified method must be static method within class this annotation is specified upon.
-         * Specified method must accept two parameters of a string type which is query id and a new plan, and return
-         * nothing.
+         * Specified method must accept two parameters of a string type which is query id and a new plan, and return nothing.
          */
         String planUpdater() default "";
     }

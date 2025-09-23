@@ -19,6 +19,9 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
@@ -26,8 +29,6 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.Transaction;
-import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -37,11 +38,10 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
@@ -49,42 +49,51 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(4)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
-    private final Tuple tuple = Tuple.create();
+public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
+    protected static final int DEFAULT_THREADS_COUNT = 1;
+
+    protected final Tuple tuple = Tuple.create();
 
     protected IgniteClient client;
 
-    private KeyValueView<Tuple, Tuple> kvView;
+    protected KeyValueView<Tuple, Tuple> kvView;
 
     @Param({"0"})
-    private int offset; // 1073741824 for second client to ensure unique keys
-
-    @Param({"5"})
-    private int batch;
-
-    @Param({"false"})
-    private boolean fsync;
+    protected int offset; // 1073741824 for second client to ensure unique keys
 
     @Param({"32"})
     private int partitionCount;
+
+    @Param({"" + DEFAULT_THREADS_COUNT})
+    protected int threads;
 
     private final AtomicInteger counter = new AtomicInteger();
 
     private final ThreadLocal<Integer> gen = ThreadLocal.withInitial(() -> offset + counter.getAndIncrement() * 20_000_000);
 
     protected String[] addresses() {
-        return new String[]{"127.0.0.1:10800", "127.0.0.1:10801"};
+        String[] nodes = new String[nodes()];
+
+        for (int i = 0; i < nodes.length; i++) {
+            nodes[i] = "127.0.0.1:1080" + i;
+        }
+
+        return nodes;
     }
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+        if (remote) {
+            client = IgniteClient.builder().addresses(addresses()).build();
+            publicIgnite = client;
+        } else {
+            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
+            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+        }
         super.nodeSetUp();
     }
 
@@ -108,46 +117,47 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
         super.nodeTearDown();
     }
 
-    /**
-     * Benchmark for KV upsert via embedded client.
-     */
-    @Benchmark
-    public void upsert() {
-        Transaction tx = client.transactions().begin();
-        for (int i = 0; i < batch; i++) {
-            Tuple key = Tuple.create().set("ycsb_key", nextId());
-            kvView.put(tx, key, tuple);
-        }
-        tx.commit();
-    }
-
-    private int nextId() {
+    protected int nextId() {
         int cur = gen.get() + 1;
         gen.set(cur);
         return cur;
     }
 
-    /**
-     * Benchmark's entry point.
-     */
-    public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-                .include(".*" + ClientKvBenchmark.class.getSimpleName() + ".*")
-                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
-                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
-                .build();
-
-        new Runner(opt).run();
+    protected int nextId(ThreadLocal<Integer> base, ThreadLocal<Long> gen) {
+        long cur = gen.get();
+        gen.set(cur + 1);
+        return (int) (base.get() + cur);
     }
 
-    @Override
-    protected boolean fsync() {
-        return fsync;
+    static void runBenchmark(Class<?> cls, String[] args) throws RunnerException {
+        Map<String, String> params = new HashMap<>(args.length);
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.startsWith("jmh.")) {
+                String[] av = arg.substring(4).split("=");
+                params.put(av[0], av[1]);
+            }
+        }
+
+        final String threadsParamName = "threads";
+        int threadsCount = params.containsKey(threadsParamName) ? Integer.parseInt(params.get(threadsParamName)) : DEFAULT_THREADS_COUNT;
+        ChainedOptionsBuilder builder = new OptionsBuilder()
+                .include(".*" + cls.getSimpleName() + ".*")
+                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc");
+                .threads(threadsCount);
+
+        for (Entry<String, String> entry : params.entrySet()) {
+            builder.param(entry.getKey(), entry.getValue());
+        }
+
+        new Runner(builder.build()).run();
     }
 
     @Override
     protected int nodes() {
-        return 2;
+        return 1;
     }
 
     @Override

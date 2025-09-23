@@ -1,0 +1,129 @@
+Sort
+    collation: [order count ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [order count, total shipping cost, total net profit]
+      collation: []
+      group: []
+      aggregation: [COUNT(CS_ORDER_NUMBER), SUM(total shipping cost), SUM(total net profit)]
+      est: (rows=2763728885610)
+    ColocatedSortAggregate
+        fieldNames: [CS_ORDER_NUMBER, total shipping cost, total net profit]
+        collation: [CS_ORDER_NUMBER ASC]
+        group: [CS_ORDER_NUMBER]
+        aggregation: [SUM(CS_EXT_SHIP_COST), SUM(CS_NET_PROFIT)]
+        est: (rows=2763728885610)
+      Project
+          fieldNames: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+          projection: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+          est: (rows=13818644428048)
+        Filter
+            predicate: IS NULL(i)
+            est: (rows=13818644428048)
+          CorrelatedNestedLoopJoin
+              predicate: true
+              type: left
+              correlates: [$cor4]
+              est: (rows=55274577712193)
+            Project
+                fieldNames: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+                projection: [CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+                est: (rows=5760851647)
+              CorrelatedNestedLoopJoin
+                  predicate: true
+                  type: inner
+                  correlates: [$cor5]
+                  est: (rows=5760851647)
+                Sort
+                    collation: [CS_ORDER_NUMBER ASC]
+                    est: (rows=120009)
+                  Project
+                      fieldNames: [CS_WAREHOUSE_SK, CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+                      projection: [CS_WAREHOUSE_SK, CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+                      est: (rows=120009)
+                    HashJoin
+                        predicate: =(CS_CALL_CENTER_SK, CC_CALL_CENTER_SK)
+                        type: inner
+                        est: (rows=120009)
+                      HashJoin
+                          predicate: =(CS_SHIP_ADDR_SK, CA_ADDRESS_SK)
+                          type: inner
+                          est: (rows=120009)
+                        HashJoin
+                            predicate: =(CS_SHIP_DATE_SK, D_DATE_SK)
+                            type: inner
+                            est: (rows=360387)
+                          Exchange
+                              distribution: single
+                              est: (rows=1441548)
+                            TableScan
+                                table: PUBLIC.CATALOG_SALES
+                                fieldNames: [CS_SHIP_DATE_SK, CS_SHIP_ADDR_SK, CS_CALL_CENTER_SK, CS_WAREHOUSE_SK, CS_ORDER_NUMBER, CS_EXT_SHIP_COST, CS_NET_PROFIT]
+                                est: (rows=1441548)
+                          Exchange
+                              distribution: single
+                              est: (rows=18262)
+                            TableScan
+                                table: PUBLIC.DATE_DIM
+                                predicate: SEARCH(D_DATE, Sarg[[1999-04-01..1999-05-31]])
+                                fieldNames: [D_DATE_SK, D_DATE]
+                                est: (rows=18262)
+                        Exchange
+                            distribution: single
+                            est: (rows=16650)
+                          TableScan
+                              table: PUBLIC.CUSTOMER_ADDRESS
+                              predicate: =(CA_STATE, _UTF-8'IL')
+                              fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                              est: (rows=16650)
+                      Exchange
+                          distribution: single
+                          est: (rows=6)
+                        TableScan
+                            table: PUBLIC.CALL_CENTER
+                            predicate: SEARCH(CC_COUNTY, Sarg[_UTF-8'Bronx County':VARCHAR(30) CHARACTER SET "UTF-8", _UTF-8'Maverick County':VARCHAR(30) CHARACTER SET "UTF-8", _UTF-8'Mesa County':VARCHAR(30) CHARACTER SET "UTF-8", _UTF-8'Raleigh County':VARCHAR(30) CHARACTER SET "UTF-8", _UTF-8'Richland County':VARCHAR(30) CHARACTER SET "UTF-8"]:VARCHAR(30) CHARACTER SET "UTF-8")
+                            fieldNames: [CC_CALL_CENTER_SK, CC_COUNTY]
+                            est: (rows=6)
+                Project
+                    fieldNames: []
+                    projection: []
+                    est: (rows=48004)
+                  ReduceHashAggregate
+                      fieldNames: [i]
+                      group: [i]
+                      aggregation: []
+                      est: (rows=48004)
+                    Exchange
+                        distribution: single
+                        est: (rows=48004)
+                      MapHashAggregate
+                          fieldNames: [i, _GROUP_ID]
+                          group: [i]
+                          aggregation: []
+                          est: (rows=48004)
+                        TableScan
+                            table: PUBLIC.CATALOG_SALES
+                            predicate: AND(=($cor5.CS_ORDER_NUMBER, CS_ORDER_NUMBER), <>($cor5.CS_WAREHOUSE_SK, CS_WAREHOUSE_SK))
+                            fieldNames: [i]
+                            projection: [true]
+                            est: (rows=240018)
+            ReduceHashAggregate
+                fieldNames: [i]
+                group: [i]
+                aggregation: []
+                est: (rows=9595)
+              Exchange
+                  distribution: single
+                  est: (rows=9595)
+                MapHashAggregate
+                    fieldNames: [i, _GROUP_ID]
+                    group: [i]
+                    aggregation: []
+                    est: (rows=9595)
+                  TableScan
+                      table: PUBLIC.CATALOG_RETURNS
+                      predicate: =($cor4.CS_ORDER_NUMBER, CR_ORDER_NUMBER)
+                      fieldNames: [i]
+                      projection: [true]
+                      est: (rows=47974)

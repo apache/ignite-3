@@ -57,6 +57,7 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
@@ -500,7 +501,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx2.commit();
     }
 
-    static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
+    static List<Tuple> generateKeysForNode(
+            int start,
+            int count,
+            Map<Partition, ClusterNode> map,
+            InternalClusterNode clusterNode,
+            Table table
+    ) {
         String clusterNodeName = clusterNode.name();
         if (map.values().stream().noneMatch(x -> Objects.equals(x.name(), clusterNodeName))) {
             return emptyList();
@@ -948,12 +955,18 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(null, k1, v1);
         kvView.put(null, k2, v2);
 
-        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        // Create pending locks before RO gets.
+        Transaction tx0 = client().transactions().begin();
+        kvView.put(tx0, k1, v1);
+        kvView.put(tx0, k2, v2);
 
-        assertTrue(Tuple.equals(v1, kvView.get(tx, k1)));
-        assertTrue(Tuple.equals(v2, kvView.get(tx, k2)));
+        Transaction tx1 = client().transactions().begin(new TransactionOptions().readOnly(true));
 
-        tx.commit();
+        assertTrue(Tuple.equals(v1, kvView.get(tx1, k1)));
+        assertTrue(Tuple.equals(v2, kvView.get(tx1, k2)));
+
+        tx1.commit();
+        tx0.commit();
     }
 
     @AfterEach

@@ -62,10 +62,21 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
     }
 
     @Override
-    public void onLeaderElected(long term) {
+    public void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            Collection<PeerId> peers,
+            Collection<PeerId> learners
+    ) {
         serviceEventInterceptor.onLeaderElected(grpId, term);
 
-        delegate.onLeaderElected(term);
+        delegate.onLeaderElected(
+                term,
+                configurationTerm,
+                configurationIndex,
+                configuration(peers, learners)
+        );
     }
 
     @Override

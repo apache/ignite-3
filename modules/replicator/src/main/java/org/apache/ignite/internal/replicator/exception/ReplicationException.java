@@ -22,11 +22,12 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * The exception is thrown when some issue happened during a replication.
  */
-public class ReplicationException extends IgniteInternalException {
+public class ReplicationException extends IgniteInternalException implements RetriableTransactionException {
     /**
      * Constructor.
      *
@@ -68,7 +69,7 @@ public class ReplicationException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for creating an exception instance that is thrown from a remote server.
+     * The constructor is used for creating an exception instance that is thrown from a server processing the replica request.
      *
      * @param traceId Trace id.
      * @param code    Error code.

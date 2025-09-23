@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -87,8 +89,10 @@ public class ZonePartitionReplicaImpl implements Replica {
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
 
-        return raftClient.unsubscribeLeader()
-                .thenAccept(v -> raftClient.shutdown());
+        raftClient.unsubscribeLeader();
+        raftClient.shutdown();
+
+        return nullCompletedFuture();
     }
 
     @Override

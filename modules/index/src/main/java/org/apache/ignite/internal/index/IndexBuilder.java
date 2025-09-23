@@ -33,6 +33,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Component that is responsible for building an index for a specific partition.
@@ -116,7 +116,7 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            ClusterNode node,
+            InternalClusterNode node,
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
     ) {
@@ -183,7 +183,7 @@ class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            ClusterNode node,
+            InternalClusterNode node,
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
     ) {

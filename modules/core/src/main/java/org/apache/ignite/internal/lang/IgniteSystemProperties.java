@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,45 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * the behavior of Ignite.
  */
 public final class IgniteSystemProperties {
-    /**
-     * Setting to {@code PLAIN} enables writing sensitive information in {@code toString()} output. Setting to {@code HASH"} enables writing
-     * hash of sensitive information in {@code toString()} output. Setting to {@code NONE} disables writing sensitive information in {@code
-     * toString()} output.
-     *
-     * <p>Default: {@code HASH}.
-     *
-     * @see IgniteToStringBuilder
-     */
-    public static final String IGNITE_SENSITIVE_DATA_LOGGING = "IGNITE_SENSITIVE_DATA_LOGGING";
-
-    /**
-     * Limit collection (map, array) elements number to output.
-     *
-     * <p>Default: 100
-     *
-     * @see IgniteToStringBuilder
-     */
-    public static final String IGNITE_TO_STRING_COLLECTION_LIMIT = "IGNITE_TO_STRING_COLLECTION_LIMIT";
-
-    /**
-     * Boolean flag indicating whether {@link IgniteToStringBuilder} should ignore {@link RuntimeException} when building string
-     * representation of an object and just print information about exception into the log or rethrow.
-     *
-     * <p>Default: {@code True}.
-     *
-     * @see IgniteToStringBuilder
-     */
-    public static final String IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION = "IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION";
-
-    /**
-     * Maximum length for {@code IgniteToStringBuilder.toString(...)} methods result.
-     *
-     * <p>Default: 10_000.
-     *
-     * @see IgniteToStringBuilder
-     */
-    public static final String IGNITE_TO_STRING_MAX_LENGTH = "IGNITE_TO_STRING_MAX_LENGTH";
-
     /** Name of the property controlling whether thread assertions are enabled. */
     public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
 
@@ -86,10 +46,6 @@ public final class IgniteSystemProperties {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this feature flag.
     /** Enables zone based replication (aka colocation) feature. */
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this.
-    /** Name of the property controlling whether JMX MBean creation failure due to existing bean should be ignored. */
-    public static final String IGNORE_DUPLICATE_JMX_MBEANS_ERROR = "IGNITE_IGNORE_DUPLICATE_JMX_MBEANS_ERROR";
 
     /**
      * Enforces singleton.

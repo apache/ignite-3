@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -122,6 +121,8 @@ public final class Commons {
     public static final String PART_COL_NAME = "__PART";
     // Old name for partition column. Kept for backward compatibility.
     public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String SYSTEM_USER_NAME = "SYSTEM";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -543,7 +544,6 @@ public final class Commons {
         return res;
     }
 
-
     /**
      * Quietly closes given object ignoring possible checked exception.
      *
@@ -777,9 +777,7 @@ public final class Commons {
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
     public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
-
-        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+        return properties.allowMultiStatement();
     }
 
     /**
@@ -828,5 +826,20 @@ public final class Commons {
 
         // Create a non-strict equijoin condition that treats IS NOT DISTINCT_FROM as an equi join condition.
         return JoinInfo.of(join.getLeft(), join.getRight(), join.getCondition());
+    }
+
+    /**
+     * Checks whether the given mapping is an identity mapping.
+     */
+    public static boolean isIdentityMapping(int[] mapping, int length) {
+        if (mapping.length != length) {
+            return false;
+        }
+        for (int i = 0; i < mapping.length; i++) {
+            if (mapping[i] != i) {
+                return false;
+            }
+        }
+        return true;
     }
 }

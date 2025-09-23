@@ -419,19 +419,16 @@ class RelTreeToTextWriter {
         if (call.distinctKeys != null) {
             buf.append(" WITHIN DISTINCT (");
             for (Ord<Integer> key : Ord.zip(call.distinctKeys)) {
-                buf.append(key.i > 0 ? ", " : "");
-                buf.append(rowType.getFieldNames().get(key.e));
+                buf.append(key.i > 0 ? ", " : "")
+                        .append(rowType.getFieldNames().get(key.e));
             }
             buf.append(')');
         }
         if (call.hasCollation()) {
-            buf.append(" WITHIN GROUP (");
-            buf.append(beautifyCollation(call.collation, rowType));
-            buf.append(')');
+            buf.append(" WITHIN GROUP (").append(beautifyCollation(call.collation, rowType)).append(')');
         }
         if (call.hasFilter()) {
-            buf.append(" FILTER ");
-            buf.append(rowType.getFieldNames().get(call.filterArg));
+            buf.append(" FILTER ").append(rowType.getFieldNames().get(call.filterArg));
         }
         return buf.toString();
     }

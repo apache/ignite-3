@@ -49,7 +49,6 @@ import org.junit.jupiter.api.Test;
 public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     private DeployFiles files;
 
-
     @BeforeEach
     public void generateDummy() {
         files = new DeployFiles(workDir);

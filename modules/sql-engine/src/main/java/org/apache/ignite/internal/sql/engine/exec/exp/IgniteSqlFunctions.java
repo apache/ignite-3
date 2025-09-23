@@ -43,8 +43,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeParser;
+import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeFormatter;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +62,7 @@ public class IgniteSqlFunctions {
 
     private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, ColumnType.DATE);
     private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, ColumnType.DATE);
-    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01 */
+    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01. */
     private static final LocalDate JAVA_SQL_TIME_DATE = LocalDate.of(1970, 1, 1);
 
     /**
@@ -100,7 +101,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to byte values. */
     public static byte sround(byte b0) {
-        return (byte) sround(b0, 0);
+        return sround(b0, 0);
     }
 
     /** SQL {@code ROUND} operator applied to byte values. */
@@ -193,7 +194,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */
     public static byte struncate(byte b0) {
-        return (byte) struncate(b0, 0);
+        return struncate(b0, 0);
     }
 
     /** SQL {@code TRUNCATE} operator applied to byte values. */
@@ -362,8 +363,26 @@ public class IgniteSqlFunctions {
         }
     }
 
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static @Nullable Integer toTimeExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer : object.getClass();
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis((Integer) object, precision);
+    }
+
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(long val, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(Math.toIntExact(val), precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static Integer toDateExact(Object object) {
+    public static @Nullable Integer toDateExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -387,8 +406,28 @@ public class IgniteSqlFunctions {
         return intDate;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long toTimestampExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static long toTimestampExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static Long toTimestampExact(Object object) {
+    public static @Nullable Long toTimestampExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -407,8 +446,28 @@ public class IgniteSqlFunctions {
         return ts;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static long toTimestampLtzExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampLtzExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static Long toTimestampLtzExact(Object object) {
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -566,7 +625,7 @@ public class IgniteSqlFunctions {
         Objects.requireNonNull(timeZone, "timeZone");
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDateTime dateTime = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        LocalDateTime dateTime = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
         Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
         // Adjust instant millis
@@ -583,7 +642,7 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDate date = SqlDateTimeParser.dateFormatter(format).parseDate(v);
+        LocalDate date = SqlDateTimeFormatter.dateFormatter(format).parseDate(v);
         return SqlFunctions.toInt(Date.valueOf(date));
     }
 
@@ -594,7 +653,7 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalTime time = SqlDateTimeParser.timeFormatter(format).parseTime(v);
+        LocalTime time = SqlDateTimeFormatter.timeFormatter(format).parseTime(v);
         Instant instant = time.atDate(JAVA_SQL_TIME_DATE).toInstant(ZoneOffset.UTC);
         return (int) instant.toEpochMilli();
     }
@@ -606,9 +665,56 @@ public class IgniteSqlFunctions {
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        LocalDateTime ts = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        LocalDateTime ts = SqlDateTimeFormatter.timestampFormatter(format).parseTimestamp(v);
         Instant instant = ts.toInstant(ZoneOffset.UTC);
         return instant.toEpochMilli();
+    }
+
+    /** Converts a date value into a date string. */
+    public static @Nullable String formatDate(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDate date = LocalDate.ofEpochDay(v.longValue());
+        return SqlDateTimeFormatter.dateFormatter(format).formatDate(date);
+    }
+
+    /** Converts a time value into a time string. */
+    public static @Nullable String formatTime(String format, @Nullable Integer v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalTime time = LocalTime.ofInstant(Instant.ofEpochMilli(v.longValue()), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timeFormatter(format).formatTime(time);
+    }
+
+    /** Converts a timestamp value into a timestamp string. */
+    public static @Nullable String formatTimestamp(String format, @Nullable Long v) {
+        if (v == null) {
+            return null;
+        }
+
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(v), ZoneOffset.UTC);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(dateTime, ZoneOffset.UTC);
+    }
+
+    /** Converts a timestamp value with local time zone into a timestamp string. */
+    public static @Nullable String formatTimestampWithLocalTimeZone(String format, @Nullable Long v, TimeZone timeZone) {
+        if (v == null) {
+            return null;
+        }
+
+        Instant instant = Instant.ofEpochMilli(v);
+        ZoneRules rules = timeZone.toZoneId().getRules();
+        ZoneOffset offset = rules.getOffset(instant);
+        LocalDateTime value = LocalDateTime.ofEpochSecond(instant.getEpochSecond(), instant.getNano(), offset);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        return SqlDateTimeFormatter.timestampFormatter(format).formatTimestamp(value, offset);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

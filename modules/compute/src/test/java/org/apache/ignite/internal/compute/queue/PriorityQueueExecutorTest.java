@@ -44,10 +44,11 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -611,8 +612,9 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         String nodeName = "testNode";
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
-                NamedThreadFactory.create(nodeName, "compute", LOG),
-                new InMemoryComputeStateMachine(configuration, nodeName)
+                IgniteThreadFactory.create(nodeName, "compute", LOG),
+                new InMemoryComputeStateMachine(configuration, nodeName),
+                EventLog.NOOP
         );
     }
 

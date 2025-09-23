@@ -45,6 +45,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.sql.IgniteSql;
@@ -230,15 +231,15 @@ public class TableImpl implements TableViewInternal {
         return tbl.partitionId(keyRow);
     }
 
-    /** Returns a supplier of index storage wrapper factories for given partition. */
+    @Override
     public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
             var factories = new ArrayList<>(indexWrapperById.values());
 
             var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (int i = 0; i < factories.size(); i++) {
-                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+            for (IndexWrapper factory : factories) {
+                TableSchemaAwareIndexStorage storage = factory.getStorage(partitionId);
 
                 if (storage != null) {
                     adapters.put(storage.id(), storage);
@@ -249,7 +250,7 @@ public class TableImpl implements TableViewInternal {
         };
     }
 
-    /** Returns a supplier of index locker factories for given partition. */
+    @Override
     public Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId) {
         return () -> {
             List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
@@ -309,5 +310,10 @@ public class TableImpl implements TableViewInternal {
                         failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
                     }
                 });
+    }
+
+    @Override
+    public TableMetricSource metrics() {
+        return tbl.metrics();
     }
 }

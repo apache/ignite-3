@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute.queue;
 
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logJobQueuedEvent;
+
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -25,7 +27,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job executor with priority mechanism.
@@ -35,18 +41,24 @@ public class PriorityQueueExecutor {
 
     private final ComputeStateMachine stateMachine;
 
+    private final EventLog eventLog;
+
     /**
      * Constructor.
      *
      * @param configuration Compute configuration.
      * @param threadFactory Thread factory.
+     * @param eventLog Event log.
      */
     public PriorityQueueExecutor(
             ComputeConfiguration configuration,
             ThreadFactory threadFactory,
-            ComputeStateMachine stateMachine
+            ComputeStateMachine stateMachine,
+            EventLog eventLog
     ) {
         this.stateMachine = stateMachine;
+        this.eventLog = eventLog;
+
         BlockingQueue<Runnable> workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
         executor = new ComputeThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
@@ -68,10 +80,38 @@ public class PriorityQueueExecutor {
      * @return Completable future which will be finished when compute job finished.
      */
     public <R> QueueExecution<R> submit(Callable<CompletableFuture<R>> job, int priority, int maxRetries) {
+        return submit(job, priority, maxRetries, null);
+    }
+
+    /**
+     * Submit job for execution. Job can be started immediately if queue is empty or will be added to queue with provided priority.
+     *
+     * @param <R> Job result type.
+     * @param job Execute job callable.
+     * @param priority Job priority.
+     * @param maxRetries Number of retries of the execution after failure, {@code 0} means the execution will not be retried.
+     * @param metadataBuilder Event metadata builder. No events will be logged if it's {@code null}.
+     * @return Completable future which will be finished when compute job finished.
+     */
+    public <R> QueueExecution<R> submit(
+            Callable<CompletableFuture<R>> job,
+            int priority,
+            int maxRetries,
+            @Nullable ComputeEventMetadataBuilder metadataBuilder
+    ) {
         Objects.requireNonNull(job);
 
         UUID jobId = stateMachine.initJob();
-        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine);
+
+        // Job ID could be set previously, if this is a remotely initiated execution, see ComputeJobFailover.
+        if (metadataBuilder != null && metadataBuilder.jobId() == null) {
+            metadataBuilder.jobId(jobId);
+        }
+
+        ComputeEventMetadata eventMetadata = metadataBuilder != null ? metadataBuilder.build() : null;
+        logJobQueuedEvent(eventLog, eventMetadata);
+
+        QueueExecutionImpl<R> execution = new QueueExecutionImpl<>(jobId, job, priority, executor, stateMachine, eventLog, eventMetadata);
         execution.run(maxRetries);
         return execution;
     }

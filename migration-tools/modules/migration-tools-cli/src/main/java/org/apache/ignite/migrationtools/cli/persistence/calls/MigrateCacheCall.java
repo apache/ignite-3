@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.migrationtools.cli.persistence.commands.PersistenceBaseCmd;
+import org.apache.ignite.migrationtools.cli.persistence.params.IgniteClientAuthenticatorParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrationMode;
 import org.apache.ignite.migrationtools.cli.persistence.params.PersistenceParams;
@@ -46,6 +47,7 @@ import org.apache.ignite.migrationtools.persistence.utils.pubsub.RateLimiterProc
 import org.apache.ignite.migrationtools.sql.SqlDdlGenerator;
 import org.apache.ignite.migrationtools.tablemanagement.PersistentTableTypeRegistryImpl;
 import org.apache.ignite.migrationtools.tablemanagement.RegisterOnlyTableTypeRegistry;
+import org.apache.ignite3.client.BasicAuthenticator;
 import org.apache.ignite3.client.IgniteClient;
 import org.apache.ignite3.client.IgniteClientConnectionException;
 import org.apache.ignite3.internal.cli.core.call.Call;
@@ -56,6 +58,7 @@ import org.apache.ignite3.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite3.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite3.internal.cli.logger.CliLoggers;
 import org.apache.ignite3.internal.logger.IgniteLogger;
+import org.apache.ignite3.internal.util.ExceptionUtils;
 import org.apache.ignite3.table.DataStreamerItem;
 import org.apache.ignite3.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -172,6 +175,8 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
             addresses = Arrays.copyOfRange(addresses, 1, addresses.length);
         }
 
+        @Nullable BasicAuthenticator authenticator = i.clientAuthenticatorParams().authenticator();
+
         ProgressData resumeFrom;
         try {
             resumeFrom = loadOrInitProgress(i);
@@ -187,7 +192,10 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
         List<MigrationKernalContext> persistentCtx = Collections.emptyList();
         List<Map.Entry<Integer, AbstractSchemaColumnsProcessor>> perPartitionColumnProcessors = new ArrayList<>();
 
-        try (var client = IgniteClient.builder().addresses(addresses).build()) {
+        try (var client = IgniteClient.builder()
+                .addresses(addresses)
+                .authenticator(authenticator)
+                .build()) {
             @Nullable IgniteConfiguration cfg = PersistenceBaseCmd.createValidIgniteCfg(i.persistenceParams());
             if (cfg == null) {
                 return DefaultCallOutput.failure(new IgniteCliException("Unable to read ignite configuration"));
@@ -268,7 +276,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
             return DefaultCallOutput.success(new Ouput("Migration finished successfully", outputProgressFile));
         } catch (Exception e) {
             // Check if there's a better way to check for connection refused and other on connect errors.
-            if (e instanceof IgniteClientConnectionException && e.getMessage().contains("Client failed to connect")) {
+            if (e instanceof IgniteClientConnectionException) {
                 LOGGER.error("Could not connect to the cluster", e);
                 return DefaultCallOutput.failure(e);
             } else {
@@ -293,7 +301,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
                 LOGGER.error("Error while migration persistence folder", e);
                 return DefaultCallOutput.<Ouput>builder()
                         .status(CallOutputStatus.ERROR)
-                        .cause(new IgniteCliException("Error while migrating persistence folder", e))
+                        .cause(ExceptionUtils.unwrapCause(e))
                         .body(new Ouput("Migration finished unsuccessfully", outputProgressFile))
                         .build();
             }
@@ -394,17 +402,35 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
 
         private final MigrateCacheParams migrateCacheParams;
 
-        public Input(PersistenceParams persistenceParams, MigrateCacheParams migrateCacheParams) {
+        private final IgniteClientAuthenticatorParams clientAuthenticatorParams;
+
+        /**
+         * Constructor.
+         *
+         * @param persistenceParams Persistence params.
+         * @param migrateCacheParams Migrate Cache params.
+         * @param clientAuthenticatorParams Ignite Client authenticator params.
+         */
+        public Input(
+                PersistenceParams persistenceParams,
+                MigrateCacheParams migrateCacheParams,
+                IgniteClientAuthenticatorParams clientAuthenticatorParams
+        ) {
             this.persistenceParams = persistenceParams;
             this.migrateCacheParams = migrateCacheParams;
+            this.clientAuthenticatorParams = clientAuthenticatorParams;
         }
 
-        public PersistenceParams persistenceParams() {
+        PersistenceParams persistenceParams() {
             return persistenceParams;
         }
 
-        public MigrateCacheParams migrateCacheParams() {
+        MigrateCacheParams migrateCacheParams() {
             return migrateCacheParams;
+        }
+
+        IgniteClientAuthenticatorParams clientAuthenticatorParams() {
+            return clientAuthenticatorParams;
         }
     }
 

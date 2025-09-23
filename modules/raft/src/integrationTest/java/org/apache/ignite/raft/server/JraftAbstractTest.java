@@ -58,7 +58,7 @@ import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructio
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -119,7 +119,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     @BeforeEach
     void before() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, logger()));
 
         initialMembersConf = IntStream.range(0, NODES)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
@@ -233,7 +233,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
                 replicationGroupId -> groupName,
-                Map.of(groupName, workingDir.basePath()),
+                Map.of(groupName, workingDir.metaPath()),
                 Map.of(groupName, partitionsLogStorageFactory)
         );
 

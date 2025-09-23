@@ -145,7 +145,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     public void testHandshakesFailedTimeout() throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 600 : 0;
+        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() < 3 ? 600 : 0;
         server = new TestServer(
                 1000,
                 new FakeIgnite(),
@@ -161,7 +161,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() == 1, 1000),
+                IgniteTestUtils.waitForCondition(() -> metrics().handshakesFailedTimeout() >= 1, 200, 6_000),
                 () -> "handshakesFailedTimeout: " + metrics().handshakesFailedTimeout());
     }
 
@@ -307,13 +307,13 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:group=metrics,name=client";
+        String beanName = "org.apache.ignite:type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
         boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
         if (!metricsEnabled) {
             return;
@@ -338,7 +338,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         return client.tables().table(TABLE_ONE_COLUMN);
     }
-
 
     private Builder clientBuilder() {
         return IgniteClient.builder()

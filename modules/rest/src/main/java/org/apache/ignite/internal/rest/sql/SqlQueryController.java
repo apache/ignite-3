@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -34,8 +36,10 @@ import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryKillException;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -84,6 +88,16 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
         } catch (Exception e) {
             LOG.error("Sql query {} can't be killed.", queryId, e);
             return failedFuture(new SqlQueryKillException(queryId.toString()));
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> clearCache(Optional<Set<String>> tableNames) {
+        try {
+            return Wrappers.unwrap(igniteSql, QueryProcessor.class).invalidatePlannerCache(tableNames.orElse(Set.of()));
+        } catch (Exception e) {
+            LOG.error("Failed to invalidate SQL planner cache.", e);
+            return failedFuture(e);
         }
     }
 

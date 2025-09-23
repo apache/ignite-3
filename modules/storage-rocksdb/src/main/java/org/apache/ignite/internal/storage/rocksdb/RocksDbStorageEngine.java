@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -49,7 +49,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.rocksdb.RocksDB;
 
 /**
@@ -93,6 +93,8 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final FailureProcessor failureProcessor;
 
+    private final String nodeName;
+
     /**
      * Mapping from the storage profile name to the shared RocksDB instance.
      */
@@ -124,10 +126,11 @@ public class RocksDbStorageEngine implements StorageEngine {
         this.logSyncer = logSyncer;
         this.scheduledPool = scheduledPool;
         this.failureProcessor = failureProcessor;
+        this.nodeName = nodeName;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
-                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
         );
     }
 
@@ -179,11 +182,9 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     private void registerProfile(RocksDbProfileConfiguration profileConfig) {
-        initDataRegionSize(profileConfig);
-
         String profileName = profileConfig.name().value();
 
-        var profile = new RocksDbStorageProfile((RocksDbProfileView) profileConfig.value());
+        var profile = new RocksDbStorageProfile(profileConfig);
 
         profile.start();
 
@@ -194,33 +195,11 @@ public class RocksDbStorageEngine implements StorageEngine {
         assert previousStorage == null : "Storage already exists for profile: " + profileName;
     }
 
-    private static void initDataRegionSize(RocksDbProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
-
-        if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
-
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(defaultDataRegionSize);
-
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), dataRegionSize.key(), defaultDataRegionSize
-            );
-        }
-    }
-
     private SharedRocksDbInstance newRocksDbInstance(String profileName, RocksDbStorageProfile profile) {
         Path dbPath = storagePath.resolve("rocksdb-" + profileName);
 
         try {
-            return new SharedRocksDbInstanceCreator(failureProcessor).create(this, profile, dbPath);
+            return new SharedRocksDbInstanceCreator(failureProcessor, nodeName).create(this, profile, dbPath);
         } catch (Exception e) {
             throw new StorageException("Failed to create new RocksDB instance", e);
         }
@@ -265,9 +244,28 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         for (RocksDbStorage rocksDbStorage : storageByProfileName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return storageByProfileName.values().stream()
+                .flatMap(storage -> storage.rocksDbInstance.tableIdsOnDisk().stream())
+                .collect(toUnmodifiableSet());
+    }
+
+    /**
+     * Flushes all changes made to the underlying RocksDB instances to disk.
+     *
+     * @return Future that gets completed when flush is complete.
+     */
+    public CompletableFuture<Void> flush() {
+        CompletableFuture<?>[] futures = storageByProfileName.values().stream()
+                .map(storage -> storage.rocksDbInstance.flush())
+                .toArray(CompletableFuture[]::new);
+        return allOf(futures);
     }
 }

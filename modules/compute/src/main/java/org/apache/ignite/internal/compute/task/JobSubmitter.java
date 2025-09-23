@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.lang.CancellationToken;
 
 /**
@@ -32,7 +33,12 @@ public interface JobSubmitter<T, R> {
      * Submits compute jobs for an execution.
      *
      * @param computeJobRunners List of the compute job start parameters.
+     * @param metadataBuilder Compute event metadata builder.
      * @param cancellationToken Cancellation token.
      */
-    CompletableFuture<List<JobExecution<R>>> submit(List<MapReduceJob<T, R>> computeJobRunners, CancellationToken cancellationToken);
+    CompletableFuture<List<JobExecution<R>>> submit(
+            List<MapReduceJob<T, R>> computeJobRunners,
+            ComputeEventMetadataBuilder metadataBuilder,
+            CancellationToken cancellationToken
+    );
 }

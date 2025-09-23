@@ -70,7 +70,6 @@ public class IgniteClientAutoConfiguration {
             }
         }
 
-
         if (config.getBackgroundReconnectInterval() != null) {
             builder.backgroundReconnectInterval(config.getBackgroundReconnectInterval());
         }

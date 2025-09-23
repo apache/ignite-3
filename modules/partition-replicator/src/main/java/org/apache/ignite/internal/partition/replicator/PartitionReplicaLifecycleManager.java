@@ -122,6 +122,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
@@ -160,7 +161,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -812,7 +812,7 @@ public class PartitionReplicaLifecycleManager extends
         );
     }
 
-    private ClusterNode localNode() {
+    private InternalClusterNode localNode() {
         return topologyService.localMember();
     }
 
@@ -1211,6 +1211,22 @@ public class PartitionReplicaLifecycleManager extends
         );
     }
 
+    /**
+     * Stops all resources associated with a given partition and destroys its storage, like replicas and partition trackers.
+     * Calls {@link ReplicaManager#weakStopReplica} in order to change the replica state.
+     *
+     * @param zonePartitionId Partition ID.
+     * @param revision Revision.
+     * @return Future that will be completed after all resources have been closed and destroyed.
+     */
+    private CompletableFuture<Void> stopPartitionAndDestroyForRestart(ZonePartitionId zonePartitionId, long revision) {
+        return replicaMgr.weakStopReplica(
+                zonePartitionId,
+                WeakReplicaStopReason.RESTART,
+                () -> stopAndDestroyPartition(zonePartitionId, revision)
+        );
+    }
+
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision, boolean isRecovery) {
         if (pendingAssignmentsEntry.value() == null || pendingAssignmentsEntry.empty()) {
             return nullCompletedFuture();
@@ -1437,12 +1453,11 @@ public class PartitionReplicaLifecycleManager extends
                                         "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
                                         replicaGrpId
                                 );
-                            }
-                            if (hasCause(throwable, ComponentStoppingException.class)) {
+                            } else if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
+                            } else {
+                                LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
                             }
-
-                            LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
 
                             return LeaderWithTerm.NO_LEADER;
                         })
@@ -1722,6 +1737,44 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
+     * Restarts the zone's partition including the replica and raft node with storage cleanup.
+     *
+     * @param zonePartitionId Zone's partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @param assignmentsTimestamp Timestamp of the assignments.
+     * @return Operation future.
+     */
+    public CompletableFuture<?> restartPartitionWithCleanUp(ZonePartitionId zonePartitionId, long revision, long assignmentsTimestamp) {
+        return inBusyLockAsync(busyLock, () -> stopPartitionAndDestroyForRestart(zonePartitionId, revision).thenComposeAsync(unused -> {
+            Assignments stableAssignments = zoneStableAssignmentsGetLocally(metaStorageMgr, zonePartitionId, revision);
+
+            assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
+
+            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
+                Assignment localAssignment = localAssignment(stableAssignments);
+
+                if (localAssignment == null) {
+                    // (0) in case if node not in the assignments
+                    return nullCompletedFuture();
+                }
+
+                CatalogZoneDescriptor zoneDescriptor = zoneDescriptorAt(zonePartitionId.zoneId(), assignmentsTimestamp);
+
+                return createZonePartitionReplicationNode(
+                        zonePartitionId,
+                        localAssignment,
+                        stableAssignments,
+                        revision,
+                        zoneDescriptor.partitions(),
+                        isVolatileZone(zoneDescriptor),
+                        false,
+                        false
+                );
+            }));
+        }, ioExecutor));
+    }
+
+    /**
      * Restarts the zone's partition including the replica and raft node.
      *
      * @param zonePartitionId Zone's partition that needs to be restarted.
@@ -1800,7 +1853,7 @@ public class PartitionReplicaLifecycleManager extends
                         zoneResourcesManager.destroyZonePartitionResources(zonePartitionId);
 
                         try {
-                            replicaMgr.destroyReplicationProtocolStorages(zonePartitionId, false);
+                            replicaMgr.destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
                         } catch (NodeStoppingException e) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
                         }

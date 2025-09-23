@@ -31,4 +31,20 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
     @Value(hasDefault = true)
     @PublicName(legacyNames = "period")
     public long periodMillis = 30_000;
+
+    /** Whether to print metrics of one metric source in single log line. */
+    @Value(hasDefault = true)
+    public boolean oneLinePerMetricSource = true;
+
+    /**
+     * List of enabled metric sources. If not empty, metric sources that are not enumerated will not be printed.
+     * Wildcard '*' can be used in the end of each item. Some metrics are logged by default. To disable it, specify the empty list here
+     * explicitly. To print all metrics, include single string '*'.
+     */
+    @Value(hasDefault = true)
+    public String[] enabledMetrics = {
+            "metastorage",
+            "placement-driver",
+            "resource.vacuum"
+    };
 }

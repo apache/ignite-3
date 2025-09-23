@@ -58,6 +58,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -172,7 +173,8 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                replicationConfiguration
+                replicationConfiguration,
+                TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
         );
     }
 
@@ -386,7 +388,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
-
 
         UUID row1Id = UUID.randomUUID();
         UUID row2Id = UUID.randomUUID();
@@ -822,7 +823,6 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(committed1, rowId, partitionId, row1, true, null, null, null, null);
 
         storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
-
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 

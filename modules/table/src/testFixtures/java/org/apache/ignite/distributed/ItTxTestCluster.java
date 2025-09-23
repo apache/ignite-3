@@ -93,8 +93,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -149,6 +151,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.Stora
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -166,7 +169,8 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -187,7 +191,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -289,9 +292,9 @@ public class ItTxTestCluster {
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
         @Override
-        public @Nullable ClusterNode getById(UUID id) {
+        public @Nullable InternalClusterNode getById(UUID id) {
             for (ClusterService service : cluster) {
-                ClusterNode clusterNode = service.topologyService().localMember();
+                InternalClusterNode clusterNode = service.topologyService().localMember();
 
                 if (clusterNode.id().equals(id)) {
                     return clusterNode;
@@ -306,9 +309,9 @@ public class ItTxTestCluster {
         }
 
         @Override
-        public @Nullable ClusterNode getByConsistentId(String consistentId) {
+        public @Nullable InternalClusterNode getByConsistentId(String consistentId) {
             for (ClusterService service : cluster) {
-                ClusterNode clusterNode = service.topologyService().localMember();
+                InternalClusterNode clusterNode = service.topologyService().localMember();
 
                 if (clusterNode.name().equals(consistentId)) {
                     return clusterNode;
@@ -384,7 +387,7 @@ public class ItTxTestCluster {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        ClusterNode firstNode = first(cluster).topologyService().localMember();
+        InternalClusterNode firstNode = first(cluster).topologyService().localMember();
 
         placementDriver = new TestPlacementDriver(firstNode);
 
@@ -415,17 +418,17 @@ public class ItTxTestCluster {
         logStorageFactories = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+                IgniteThreadFactory.create("test", Loza.CLIENT_POOL_NAME, LOG));
 
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", LOG)
+                IgniteThreadFactory.create("test", "partition-operations", LOG)
         );
 
         for (int i = 0; i < nodes; i++) {
             ClusterService clusterService = cluster.get(i);
 
-            ClusterNode node = clusterService.topologyService().localMember();
+            InternalClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = createClock(node);
             ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock, executor);
@@ -508,7 +511,7 @@ public class ItTxTestCluster {
 
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
-                    clock,
+                    clockService,
                     partitionOperationsExecutor,
                     replicationConfiguration,
                     executor
@@ -544,7 +547,8 @@ public class ItTxTestCluster {
                     transactionInflights,
                     txMgr,
                     lowWatermark,
-                    new NoOpFailureManager()
+                    new NoOpFailureManager(),
+                    new TestMetricManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -576,7 +580,7 @@ public class ItTxTestCluster {
         assertNotNull(clientTxManager);
     }
 
-    protected HybridClock createClock(ClusterNode node) {
+    protected HybridClock createClock(InternalClusterNode node) {
         return new HybridClockImpl();
     }
 
@@ -589,7 +593,7 @@ public class ItTxTestCluster {
             ReplicaService replicaSvc,
             ClockService clockService,
             TransactionIdGenerator generator,
-            ClusterNode node,
+            InternalClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights,
@@ -614,7 +618,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TestMetricManager()
         );
     }
 
@@ -681,7 +686,8 @@ public class ItTxTestCluster {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled()
+                colocationEnabled(),
+                new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
         TableImpl table = new TableImpl(
@@ -754,7 +760,8 @@ public class ItTxTestCluster {
                         partId,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        replicationConfiguration
+                        replicationConfiguration,
+                        TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -952,7 +959,7 @@ public class ItTxTestCluster {
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
@@ -1083,7 +1090,7 @@ public class ItTxTestCluster {
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
@@ -1118,7 +1125,8 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 lowWatermark,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
     }
 
@@ -1155,7 +1163,7 @@ public class ItTxTestCluster {
             }
 
             @Override
-            public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+            public CompletableFuture<Set<InternalClusterNode>> validatedNodesOnLeader() {
                 return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
             }
         };
@@ -1295,7 +1303,7 @@ public class ItTxTestCluster {
 
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
-                clientClock,
+                clientClockService,
                 partitionOperationsExecutor,
                 replicationConfiguration,
                 executor
@@ -1328,7 +1336,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties()
+                new SystemPropertiesNodeProperties(),
+                new TestMetricManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
@@ -1339,7 +1348,8 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 clientTxManager,
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new TestMetricManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

@@ -31,8 +31,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -127,13 +127,13 @@ public class IgniteRpcTest extends AbstractRpcTest {
         boolean success = TestUtils.waitForTopology(service, expected, timeout);
 
         if (!success) {
-            Collection<ClusterNode> topology = service.topologyService().allMembers();
+            Collection<InternalClusterNode> topology = service.topologyService().allMembers();
 
             LOG.error("Topology on node '{}' didn't match expected topology size. Expected: {}, actual: {}.\nTopology nodes: {}",
                     service.nodeName(),
                     expected,
                     topology.size(),
-                    topology.stream().map(ClusterNode::name).collect(toList())
+                    topology.stream().map(InternalClusterNode::name).collect(toList())
             );
         }
 

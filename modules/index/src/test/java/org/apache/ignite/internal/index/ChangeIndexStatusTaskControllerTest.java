@@ -54,6 +54,7 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -258,7 +258,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
     }
 
-    private void setPrimaryReplica(ClusterNode clusterNode) {
+    private void setPrimaryReplica(InternalClusterNode clusterNode) {
         ReplicationGroupId groupId = IgniteSystemProperties.colocationEnabled()
                 ? new ZonePartitionId(zoneId(), 0)
                 : new TablePartitionId(tableId(), 0);

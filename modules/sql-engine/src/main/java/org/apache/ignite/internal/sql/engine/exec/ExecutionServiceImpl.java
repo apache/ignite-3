@@ -68,6 +68,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -132,7 +133,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -158,7 +158,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final MessageService messageService;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final SqlSchemaManager sqlSchemaManager;
 
@@ -353,14 +353,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
 
-        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan,
-                nodeExclusionFilter).thenApply(dataCursor -> new TxAwareAsyncCursor<>(
-                txWrapper,
-                dataCursor,
-                firstPageReady0,
-                queryManager::close,
-                operationContext::notifyError
-        ));
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan, nodeExclusionFilter)
+                .thenApply(dataCursor -> new TxAwareAsyncCursor<>(
+                        txWrapper,
+                        dataCursor,
+                        firstPageReady0,
+                        queryManager::close,
+                        operationContext::notifyError
+                ));
 
         return f.whenComplete((r, t) -> {
             if (t != null) {
@@ -370,13 +370,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static SqlOperationContext createOperationContext(
-            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime
+            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime, @Nullable String username
     ) {
         return SqlOperationContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .timeZoneId(timeZoneId)
                 .operationTime(operationTime)
+                .userName(username)
                 .build();
     }
 
@@ -461,7 +462,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
                 -1,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                operationContext.userName()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -580,7 +582,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    private void onMessage(ClusterNode node, QueryStartRequest msg) {
+    private void onMessage(InternalClusterNode node, QueryStartRequest msg) {
         assert node != null && msg != null;
 
         CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.catalogVersion());
@@ -599,7 +601,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    private void onMessage(ClusterNode node, QueryStartResponse msg) {
+    private void onMessage(InternalClusterNode node, QueryStartResponse msg) {
         assert node != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(new ExecutionId(msg.queryId(), msg.executionToken()));
@@ -609,7 +611,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    private void onMessage(ClusterNode node, ErrorMessage msg) {
+    private void onMessage(InternalClusterNode node, ErrorMessage msg) {
         assert node != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(new ExecutionId(msg.queryId(), msg.executionToken()));
@@ -632,7 +634,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    private void onMessage(ClusterNode node, QueryCloseMessage msg) {
+    private void onMessage(InternalClusterNode node, QueryCloseMessage msg) {
         assert node != null && msg != null;
 
         DistributedQueryManager dqm = queryManagerMap.get(new ExecutionId(msg.queryId(), msg.executionToken()));
@@ -669,7 +671,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
-    public void onDisappeared(ClusterNode member) {
+    public void onDisappeared(InternalClusterNode member) {
         queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.name()));
     }
 
@@ -682,7 +684,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .collect(Collectors.toList());
     }
 
-    private void submitFragment(ClusterNode initiatorNode, QueryStartRequest msg) {
+    private void submitFragment(InternalClusterNode initiatorNode, QueryStartRequest msg) {
         DistributedQueryManager queryManager = getOrCreateQueryManager(initiatorNode.name(), msg);
 
         queryManager.submitFragment(initiatorNode, msg.catalogVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
@@ -697,7 +699,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(new ExecutionId(msg.queryId(), msg.executionToken()), key -> {
             SqlOperationContext operationContext = createOperationContext(
-                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime()
+                    key.queryId(), ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime(), msg.username()
             );
 
             return new DistributedQueryManager(key, coordinatorNodeName, operationContext);
@@ -919,6 +921,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .timeZoneId(ctx.timeZoneId().getId())
                     .operationTime(ctx.operationTime())
                     .timestamp(clockService.now())
+                    .username(ctx.userName())
                     .build();
 
             return messageService.send(targetNodeName, request);
@@ -996,7 +999,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return sendingResult;
         }
 
-        private ExecutionContext<RowT> createContext(ClusterNode initiatorNode, FragmentDescription desc, TxAttributes txAttributes) {
+        private ExecutionContext<RowT> createContext(
+                InternalClusterNode initiatorNode,
+                FragmentDescription desc,
+                TxAttributes txAttributes
+        ) {
             return new ExecutionContext<>(
                     expressionFactory,
                     taskExecutor,
@@ -1010,12 +1017,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     txAttributes,
                     ctx.timeZoneId(),
                     -1,
-                    Clock.systemUTC()
+                    Clock.systemUTC(),
+                    ctx.userName()
             );
         }
 
         private void submitFragment(
-                ClusterNode initiatorNode,
+                InternalClusterNode initiatorNode,
                 int catalogVersion,
                 String fragmentString,
                 FragmentDescription desc,

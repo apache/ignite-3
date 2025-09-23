@@ -26,6 +26,8 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
@@ -220,5 +222,10 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
      */
     public ExecutorService getCommonExecutor() {
         return getNode().getOptions().getCommonExecutor();
+    }
+
+    /** Returns shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
+    public ByteBufferCollectorPool getAppendEntriesByteBufferCollectorPool() {
+        return getNode().getOptions().getAppendEntriesByteBufferCollectorPool();
     }
 }

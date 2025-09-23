@@ -22,7 +22,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.clusterNodeToMessage;
-import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -38,15 +37,17 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.configuration.AckConfiguration;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
-import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -72,12 +72,12 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
 
-    private final ChannelEventLoopsSource channelEventLoopsSource;
+    private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -100,8 +100,10 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
      */
     private final CompletableFuture<CompletionStage<NettySender>> masterHandshakeCompleteFuture = new CompletableFuture<>();
 
+    private final AckConfiguration ackConfiguration;
+
     /** Remote node. */
-    private ClusterNode remoteNode;
+    private InternalClusterNode remoteNode;
 
     /** Netty pipeline channel handler context. */
     private ChannelHandlerContext ctx;
@@ -118,30 +120,33 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     /**
      * Constructor.
      *
-     * @param localNode {@link ClusterNode} representing this node.
+     * @param localNode {@link InternalClusterNode} representing this node.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
+     * @param ackConfiguration Acknowledgement configuration.
      */
     public RecoveryInitiatorHandshakeManager(
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
-            ChannelEventLoopsSource channelEventLoopsSource,
+            HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            AckConfiguration ackConfiguration
     ) {
         this.localNode = localNode;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
-        this.channelEventLoopsSource = channelEventLoopsSource;
+        this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.productVersionSource = productVersionSource;
+        this.ackConfiguration = ackConfiguration;
 
         localHandshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -187,7 +192,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     private void sendProbeToAcceptor() {
         ProbeMessage probe = MESSAGE_FACTORY.probeMessage().build();
 
-        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of(), false))).whenComplete((res, ex) -> {
+        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of()))).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof IOException) {
                     // We don't care: the channel will be reopened.
@@ -265,7 +270,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
         this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
-        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> proceedAfterSavingIds(handshakeStartMessage));
+        handshakeEventLoopSwitcher.switchEventLoopIfNeeded(channel, channelKey).thenRun(() -> proceedAfterSavingIds(handshakeStartMessage));
     }
 
     private void proceedAfterSavingIds(HandshakeStartMessage handshakeStartMessage) {
@@ -472,7 +477,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY, ackConfiguration.value());
 
         HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .clientNode(clusterNodeToMessage(localNode))
@@ -480,7 +485,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 .connectionId(connectionId)
                 .build();
 
-        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList(), false));
+        ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList()));
 
         toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
@@ -515,7 +520,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
     }
 
     @TestOnly
-    void setRemoteNode(ClusterNode remoteNode) {
+    void setRemoteNode(InternalClusterNode remoteNode) {
         this.remoteNode = remoteNode;
     }
 }

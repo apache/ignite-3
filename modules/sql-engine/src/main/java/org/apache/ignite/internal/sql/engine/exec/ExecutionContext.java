@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -79,7 +79,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final Map<String, Object> params;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final String originatingNodeName;
     private final UUID originatingNodeId;
@@ -106,6 +106,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final ZoneId timeZoneId;
 
+    private final String currentUser;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -123,13 +125,14 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param timeZoneId Session time-zone ID.
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      * @param clock The clock to use to get the system time.
+     * @param username Authenticated user name or {@code null} for unknown user.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             String originatingNodeName,
             UUID originatingNodeId,
             FragmentDescription description,
@@ -138,7 +141,8 @@ public class ExecutionContext<RowT> implements DataContext {
             TxAttributes txAttributes,
             ZoneId timeZoneId,
             int inBufSize,
-            Clock clock
+            Clock clock,
+            @Nullable String username
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -152,6 +156,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+        this.currentUser = username;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
@@ -249,7 +254,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Get local node.
      */
-    public ClusterNode localNode() {
+    public InternalClusterNode localNode() {
         return localNode;
     }
 
@@ -297,6 +302,9 @@ public class ExecutionContext<RowT> implements DataContext {
 
         if (Variable.TIME_ZONE.camelName.equals(name)) {
             return TimeZone.getTimeZone(timeZoneId);
+        }
+        if (Variable.USER.camelName.equals(name)) {
+            return currentUser;
         }
 
         if (name.startsWith("?")) {

@@ -184,7 +184,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
-        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
+        when(topologyService.localMember())
+                .thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyAwareRaftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
@@ -325,7 +326,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         inOrder.verify(raftManager, timeout(1_000)).stopRaftNodes(zonePartitionId);
         inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zonePartitionId);
-        inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStorages(zonePartitionId, false);
+        inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStoragesDurably(zonePartitionId, false);
     }
 
     @Test

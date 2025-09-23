@@ -73,6 +73,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -120,7 +121,6 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -195,7 +195,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
-        MockMvPartitionStorage(ClusterNode node) {
+        MockMvPartitionStorage(InternalClusterNode node) {
             doAnswer(invocationOnMock -> {
                 lastAppliedIndex = invocationOnMock.getArgument(0);
 
@@ -270,6 +270,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(raftManager);
 
         var sharedRockDbStorage = new TxStateRocksDbSharedStorage(
+                clusterService.nodeName(),
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,

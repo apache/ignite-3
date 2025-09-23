@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
 
 import java.lang.reflect.Method;
@@ -41,7 +39,6 @@ import org.mockito.Mockito;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "true")
 @WithSystemProperty(key = IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, value = "true")
-@WithSystemProperty(key = IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, value = "true")
 public abstract class BaseIgniteAbstractTest {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());
@@ -51,11 +48,7 @@ public abstract class BaseIgniteAbstractTest {
 
     @BeforeAll
     static void setLoggingPolicy() {
-        S.setSensitiveDataLoggingPolicySupplier(() -> {
-            String loggingPolicy = getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash");
-
-            return SensitiveDataLoggingPolicy.valueOf(loggingPolicy.toUpperCase());
-        });
+        S.setSensitiveDataPolicy(SensitiveDataLoggingPolicy.HASH);
     }
 
     /**

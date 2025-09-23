@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.CompatibilityTestBase.baseVersions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.lang.reflect.Constructor;
@@ -66,7 +67,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     void beforeAll(String clientVer, TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         clientVersion = clientVer;
 
-        cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
+        cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
         cluster.startEmbedded(1, true);
 
         createDefaultTables(cluster.node(0));
@@ -237,7 +238,7 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     }
 
     private static List<String> clientVersions() {
-        return CompatibilityTestBase.baseVersions(Integer.MAX_VALUE);
+        return baseVersions();
     }
 
     private static class Delegate implements ClientCompatibilityTests {

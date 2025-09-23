@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
@@ -343,6 +344,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         electionListeners.add(listener);
     }
 
+    /** Registers a notification enqueued listener. */
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        storage.registerNotificationEnqueuedListener(listener);
+    }
+
     private CompletableFuture<?> recover(MetaStorageService service) {
         return inBusyLockAsync(busyLock, () -> {
             service.currentRevisions()
@@ -545,7 +551,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Peer localPeer,
             MetaStorageInfo metaStorageInfo
     ) {
-        MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
+        MetaStorageListener raftListener = new MetaStorageListener(
+                storage,
+                clock,
+                clusterTime,
+                this::onConfigurationCommitted,
+                metaStorageMetricSource::onIdempotentCacheSizeChange
+        );
 
         try {
             return raftMgr.startSystemRaftGroupNodeAndWaitNodeReady(

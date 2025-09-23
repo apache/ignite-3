@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -325,7 +326,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     clockService,
                     mock(FailureProcessor.class),
                     new SystemPropertiesNodeProperties(),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    Runnable::run,
+                    mock(MetricManager.class)
             );
 
             res.add(new Node(
@@ -408,7 +411,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         assertEquals(newLeader, msRaftClient.leader());
     }
-
 
     @Test
     public void testLeaseProlongAfterRedirect() throws Exception {

@@ -177,6 +177,14 @@ subprojects {
     tasks.register('printSubDependencies', DependencyReportTask)
 }
 
+tasks.register('checkstyle') {
+    description = 'Runs all checkstyle tasks'
+
+    rootProject.subprojects { Project subproject ->
+        dependsOn subproject.tasks.withType(Checkstyle)
+    }
+}
+
 idea.project.settings {
     compiler.javac {
         // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.

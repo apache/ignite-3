@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -278,8 +279,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         final String zoneName = "TEST_ZONE";
 
-        cluster.node(1).sql().execute(
-                null,
+        cluster.node(1).sql().executeScript(
                 "CREATE ZONE " + zoneName
                         + " (AUTO SCALE UP 0, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']"
         );
@@ -340,5 +340,20 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         assertThat(dataNodesFuture, willCompleteSuccessfully());
         return dataNodesFuture.join();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26262")
+    void repairWorksWhenCmgMajorityIsOnline() throws Exception {
+        startAndInitCluster(3, new int[]{0, 1, 2}, new int[]{1});
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        // After this, CMG majority will still be online.
+        cluster.stopNode(2);
+
+        initiateCmgRepairVia(1, 0, 1);
+
+        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(restartedIgniteImpl1);
     }
 }
