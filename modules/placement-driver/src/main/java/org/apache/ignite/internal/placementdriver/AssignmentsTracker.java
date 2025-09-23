@@ -243,8 +243,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                         .handle((v, ex) -> {
                             CompletableFuture<List<TokenizedAssignments>> result = null;
 
+                            ReplicationGroupId groupId = replicationGroupIds.get(e.getKey());
+
                             if (hasCause(ex, TimeoutException.class)) {
-                                ReplicationGroupId groupId = replicationGroupIds.get(e.getKey());
                                 Integer zoneId = extractZoneIdFromGroupId(
                                         groupId,
                                         nodeProperties.colocationEnabled(),
@@ -254,14 +255,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                                 result = currentDataNodesProvider.apply(zoneId)
                                         .thenApply(dataNodes -> {
                                             if (dataNodes.isEmpty()) {
-                                                throw new EmptyDataNodesException(zoneId);
+                                                throw new EmptyAssignmentsException(groupId, new EmptyDataNodesException(zoneId));
                                             } else {
                                                 sneakyThrow(ex);
                                                 return null;
                                             }
                                         });
                             } else {
-                                sneakyThrow(ex);
+                                throw new EmptyAssignmentsException(groupId, ex);
                             }
 
                             return result;

@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.EMPTY_ASSIGNMEN
 
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception thrown when there are no assignments available.
@@ -33,8 +34,9 @@ public class EmptyAssignmentsException extends IgniteException {
      * Constructor.
      *
      * @param groupId Replication group id.
+     * @param cause Optional cause.
      */
-    public EmptyAssignmentsException(ReplicationGroupId groupId) {
-        super(EMPTY_ASSIGNMENTS_ERR, format("Empty assignments for group [groupId={}].", groupId));
+    public EmptyAssignmentsException(ReplicationGroupId groupId, @Nullable Throwable cause) {
+        super(EMPTY_ASSIGNMENTS_ERR, format("Empty assignments for group [groupId={}].", groupId), cause);
     }
 }

@@ -22,6 +22,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
@@ -67,6 +68,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -112,6 +114,7 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -176,6 +179,10 @@ public class DistributionZoneManager extends
     private final Map<Integer, ZoneMetricSource> zoneMetricSources = new ConcurrentHashMap<>();
 
     private final String localNodeName;
+
+    @TestOnly
+    @Nullable
+    private Predicate<NodeWithAttributes> additionalNodeFilter = null;
 
     /**
      * Constructor.
@@ -433,8 +440,12 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
+        Set<NodeWithAttributes> filteredDataNodes = filterDataNodes(logicalTopology(causalityToken), zone).stream()
+                .filter(n -> additionalNodeFilter == null || additionalNodeFilter.test(n))
+                .collect(toSet());
+
         return dataNodesManager
-                .onZoneCreate(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone))
+                .onZoneCreate(zone.id(), timestamp, filteredDataNodes)
                 .thenRun(() -> {
                     try {
                         registerMetricSource(zone);
@@ -730,6 +741,11 @@ public class DistributionZoneManager extends
     @TestOnly
     public DataNodesManager dataNodesManager() {
         return dataNodesManager;
+    }
+
+    @TestOnly
+    public void setAdditionalNodeFilter(Predicate<NodeWithAttributes> filter) {
+        additionalNodeFilter = filter;
     }
 
     /**
