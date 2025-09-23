@@ -21,10 +21,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,46 +34,62 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 class ItCompatibilityTest extends CompatibilityTestBase {
-    @Override
-    protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.eventlog.sinks {"
-                + "  logSink {"
-                + "    channel: testChannel,"
-                + "    type: log"
-                + "  },"
-                + "  webhookSink {"
-                + "    channel: testChannel,"
-                + "    type: webhook,"
-                + "    endpoint: \"http://localhost\","
-                + "  }"
-                + "}");
-    }
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        sql(baseIgnite, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+        sql(baseIgnite, "CREATE TABLE TEST_ALL_TYPES("
+                + "ID INT PRIMARY KEY, "
+                + "VAL_INT INT, "
+                + "VAL_BIGINT BIGINT, "
+                + "VAL_FLOAT FLOAT, "
+                + "VAL_DOUBLE DOUBLE, "
+                + "VAL_DECIMAL DECIMAL(10,2), "
+                + "VAL_BOOL BOOLEAN, "
+                + "VAL_STR VARCHAR, "
+                + "VAL_DATE DATE, "
+                + "VAL_TIME TIME, "
+                + "VAL_TIMESTAMP TIMESTAMP)");
 
-        Transaction tx = baseIgnite.transactions().begin();
-        sql(baseIgnite, tx, "INSERT INTO TEST VALUES (1, 'str')");
-        tx.commit();
+        baseIgnite.transactions().runInTransaction(tx -> {
+            baseIgnite.sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
+                    "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56));
+        });
 
-        List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST");
-        assertThat(result, contains(contains(1, "str")));
+        List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST_ALL_TYPES");
+        assertThat(result, contains(contains(
+                1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
+                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+        )));
     }
 
     @Test
-    void testCompatibility() {
+    void testAllTypesAndTransactions() {
         // Read old data
-        List<List<Object>> result = sql("SELECT * FROM TEST");
-        assertThat(result, contains(contains(1, "str")));
+        List<List<Object>> result = sql("SELECT * FROM TEST_ALL_TYPES WHERE ID = 1");
+        assertThat(result, contains(contains(
+                1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
+                "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+        )));
 
-        // Insert new data
-        Transaction tx = node(0).transactions().begin();
-        sql(node(0), tx, "INSERT INTO TEST VALUES (2, 'str2')");
-        tx.commit();
+        // Insert new data using transaction
+        node(0).transactions().runInTransaction(tx -> {
+            node(0).sql().execute(tx, "INSERT INTO TEST_ALL_TYPES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
+                    "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0));
+        });
 
         // Verify all data
-        result = sql("SELECT * FROM TEST");
-        assertThat(result, containsInAnyOrder(contains(1, "str"), contains(2, "str2")));
+        result = sql("SELECT * FROM TEST_ALL_TYPES");
+        assertThat(result, containsInAnyOrder(
+                contains(
+                        1, 42, 1234567890123L, 3.14f, 2.71828d, new BigDecimal("1234.56"), true,
+                        "hello", LocalDate.of(2025, 7, 23), LocalTime.of(12, 34, 56), LocalDateTime.of(2025, 7, 23, 12, 34, 56)
+                ),
+                contains(
+                        2, -1, -9876543210L, 0.0f, -1.23d, new BigDecimal("0.00"), false,
+                        "world", LocalDate.of(2020, 1, 1), LocalTime.of(0, 0, 0), LocalDateTime.of(2020, 1, 1, 0, 0, 0)
+                )
+        ));
     }
 }
