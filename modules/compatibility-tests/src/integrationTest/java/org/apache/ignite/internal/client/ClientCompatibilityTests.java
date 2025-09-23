@@ -606,7 +606,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25715")
     default void testStreamerWithReceiver() {
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
@@ -614,7 +613,7 @@ public interface ClientCompatibilityTests {
 
         DataStreamerReceiverDescriptor<Tuple, String, Integer> desc = DataStreamerReceiverDescriptor
                 .<Tuple, String, Integer>builder("my-receiver")
-                .units(new DeploymentUnit("my-unit", Version.LATEST))
+                .units(JOBS_UNIT)
                 .build();
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
