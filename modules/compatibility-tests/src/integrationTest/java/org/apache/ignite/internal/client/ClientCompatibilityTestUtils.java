@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.client.ClientCompatibilityTests.JOBS_UNIT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,7 +27,6 @@ import io.netty.util.ResourceLeakDetector.Level;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -36,7 +36,6 @@ import org.apache.ignite.rest.client.model.DeployMode;
  * Utils for client compatibility tests.
  */
 class ClientCompatibilityTestUtils {
-    static final DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
 
     static void deployJobs() {
         File jobsJar = Path.of(

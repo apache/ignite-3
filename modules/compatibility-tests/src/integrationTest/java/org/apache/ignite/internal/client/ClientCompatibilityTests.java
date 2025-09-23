@@ -53,7 +53,6 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.CompatibilityTestCommon;
-import org.apache.ignite.internal.compute.Echo;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -82,6 +81,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public interface ClientCompatibilityTests {
+    DeploymentUnit JOBS_UNIT = new DeploymentUnit("compat-test-jobs", "1.0");
+
     IgniteClient client();
 
     AtomicInteger idGen();
@@ -533,8 +534,8 @@ public interface ClientCompatibilityTests {
     default void testComputeEchoJob(Object arg) {
         JobTarget target = JobTarget.anyNode(clusterNodes());
         JobDescriptor<Object, Object> desc = JobDescriptor
-                .builder(Echo.class)
-                .units(ClientCompatibilityTestUtils.JOBS_UNIT)
+                .builder("org.apache.ignite.internal.compute.Echo")
+                .units(JOBS_UNIT)
                 .build();
 
         Object jobRes = client().compute().execute(target, desc, arg);

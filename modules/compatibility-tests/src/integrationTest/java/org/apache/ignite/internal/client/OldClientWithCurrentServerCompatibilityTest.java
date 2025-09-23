@@ -45,6 +45,7 @@ import org.junit.jupiter.params.AfterParameterizedClassInvocation;
 import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
 import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -204,6 +205,13 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
     @Override
     public void testComputeMissingJob() {
         delegate.testComputeMissingJob();
+    }
+
+    @Override
+    @ParameterizedTest
+    @MethodSource("jobArgs")
+    public void testComputeEchoJob(Object arg) {
+        delegate.testComputeEchoJob(arg);
     }
 
     @Test
