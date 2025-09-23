@@ -568,8 +568,8 @@ public interface ClientCompatibilityTests {
         BroadcastJobTarget target = BroadcastJobTarget.nodes(clusterNodes());
         JobDescriptor<Object, Object> desc = echoJobDescriptor();
 
-        Object jobRes = client().compute().execute(target, desc, "test");
-        assertEquals("test", jobRes);
+        Collection<Object> jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes.iterator().next());
     }
 
     @Test
@@ -577,8 +577,8 @@ public interface ClientCompatibilityTests {
         BroadcastJobTarget target = BroadcastJobTarget.table(TABLE_NAME_TEST);
         JobDescriptor<Object, Object> desc = echoJobDescriptor();
 
-        Object jobRes = client().compute().execute(target, desc, "test");
-        assertEquals("test", jobRes);
+        Collection<Object> = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes.iterator().next());
     }
 
     @Test
