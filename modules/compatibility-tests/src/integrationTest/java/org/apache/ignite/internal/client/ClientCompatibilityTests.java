@@ -53,6 +53,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.CompatibilityTestCommon;
+import org.apache.ignite.internal.compute.Echo;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -523,6 +524,20 @@ public interface ClientCompatibilityTests {
 
         var ex = assertThrows(ComputeException.class, () ->  client().compute().execute(target, desc, null));
         assertThat(ex.getMessage(), containsString("Cannot load job class by name 'test'"));
+    }
+
+    @Test
+    default void testComputeEchoJob() {
+        var jarName = "ignite-integration-test-jobs-1.0-SNAPSHOT.jar";
+
+        JobTarget target = JobTarget.anyNode(clusterNodes());
+        JobDescriptor<Object, Object> desc = JobDescriptor.builder(Echo.class).build();
+
+        // TODO: Test different arg and result types.
+        String jobArg = "Hello";
+        Object jobRes = client().compute().execute(target, desc, jobArg);
+
+        assertEquals(jobArg, jobRes);
     }
 
     @Test
