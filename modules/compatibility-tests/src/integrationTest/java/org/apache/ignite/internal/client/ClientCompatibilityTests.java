@@ -546,12 +546,20 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testComputeExecute() {
-        // TODO
+        JobTarget target = JobTarget.anyNode(clusterNodes());
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
     }
 
     @Test
     default void testComputeExecuteColocated() {
-        // TODO
+        JobTarget target = JobTarget.colocated(TABLE_NAME_TEST, Tuple.create().set("id", 1));
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
     }
 
     @Test
